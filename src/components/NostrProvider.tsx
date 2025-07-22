@@ -33,7 +33,21 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        return new Map([[relayUrl.current, filters]]);
+        // Read from the selected relay and all preset relays
+        const readRelays = new Set<string>([relayUrl.current]);
+
+        // Add preset relays for reading
+        for (const { url } of (presetRelays ?? [])) {
+          readRelays.add(url);
+        }
+
+        // Create a map with all relays using the same filters
+        const relayMap = new Map<string, typeof filters>();
+        for (const url of readRelays) {
+          relayMap.set(url, filters);
+        }
+
+        return relayMap;
       },
       eventRouter(_event: NostrEvent) {
         // Publish to the selected relay

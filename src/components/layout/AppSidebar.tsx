@@ -1,9 +1,9 @@
-import { Plus, MessageCircle } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useCommunities } from "@/hooks/useCommunities";
+import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { CreateCommunityDialog } from "@/components/community/CreateCommunityDialog";
 import { useState } from "react";
 
@@ -13,7 +13,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
-  const { data: communities } = useCommunities();
+  const { data: communities } = useUserCommunities();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   return (
@@ -47,28 +47,47 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
             {communities?.map((community) => (
               <Tooltip key={community.id}>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant={selectedCommunity === community.id ? "secondary" : "ghost"}
-                    size="icon"
-                    className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
-                    onClick={() => onSelectCommunity(community.id)}
-                  >
-                    {community.image ? (
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={community.image} alt={community.name} />
-                        <AvatarFallback>
+                  <div className="relative">
+                    <Button
+                      variant={selectedCommunity === community.id ? "secondary" : "ghost"}
+                      size="icon"
+                      className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                      onClick={() => onSelectCommunity(community.id)}
+                    >
+                      {community.image ? (
+                        <Avatar className="w-12 h-12">
+                          <AvatarImage src={community.image} alt={community.name} />
+                          <AvatarFallback>
+                            {community.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
                           {community.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
-                        {community.name.slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </Button>
+
+                    {/* Membership status indicator */}
+                    {community.membershipStatus === 'owner' && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                        <Crown className="w-3 h-3 text-white" />
                       </div>
                     )}
-                  </Button>
+                    {community.membershipStatus === 'moderator' && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                        <Shield className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p>{community.name}</p>
+                  <div className="space-y-1">
+                    <p>{community.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
+                    </p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             ))}

@@ -1,14 +1,19 @@
-import { useState } from "react";
-import { Search, Users, Hash, Plus } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Search, Users, Hash, Plus, Clock, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCommunities } from "@/hooks/useCommunities";
+import { useUserMembership } from "@/hooks/useUserMembership";
+import { useJoinCommunity } from "@/hooks/useJoinCommunity";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
+import { useToast } from "@/hooks/useToast";
 import type { Community } from "@/hooks/useCommunities";
+import type { MembershipStatus } from "@/hooks/useUserMembership";
 
 interface CommunityDiscoveryProps {
   onCommunitySelect?: (communityId: string) => void;
@@ -16,15 +21,104 @@ interface CommunityDiscoveryProps {
 
 interface CommunityCardProps {
   community: Community;
+  membershipStatus: MembershipStatus;
   onSelect?: (communityId: string) => void;
 }
 
-function CommunityCard({ community, onSelect }: CommunityCardProps) {
+function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardProps) {
   const author = useAuthor(community.creator);
   const metadata = author.data?.metadata;
-  
+  const { user } = useCurrentUser();
+  const { mutate: joinCommunity, isPending: isJoining } = useJoinCommunity();
+  const { toast } = useToast();
+
   const creatorName = metadata?.name || genUserName(community.creator);
   const memberCount = community.moderators.length + 1; // Creator + moderators (simplified)
+
+  const handleJoinClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to join a community.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    joinCommunity(
+      { communityId: community.id, message: `I would like to join ${community.name}` },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Join Request Sent",
+            description: `Your request to join ${community.name} has been sent to the moderators.`,
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to Send Request",
+            description: error instanceof Error ? error.message : "An error occurred",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const getActionButton = () => {
+    switch (membershipStatus) {
+      case 'pending':
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 text-yellow-400"
+            disabled
+          >
+            <Clock className="w-4 h-4" />
+          </Button>
+        );
+      case 'approved':
+      case 'owner':
+      case 'moderator':
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 text-green-400"
+            disabled
+          >
+            <CheckCircle className="w-4 h-4" />
+          </Button>
+        );
+      case 'declined':
+        return (
+          <Badge variant="destructive" className="text-xs">
+            Declined
+          </Badge>
+        );
+      case 'banned':
+        return (
+          <Badge variant="destructive" className="text-xs">
+            Banned
+          </Badge>
+        );
+      default:
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            onClick={handleJoinClick}
+            disabled={isJoining}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        );
+    }
+  };
 
   return (
     <Card className="hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => onSelect?.(community.id)}>
@@ -43,7 +137,7 @@ function CommunityCard({ community, onSelect }: CommunityCardProps) {
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
-            
+
             <div className="flex-1 min-w-0">
               <CardTitle className="text-lg text-white truncate">
                 {community.name}
@@ -53,28 +147,18 @@ function CommunityCard({ community, onSelect }: CommunityCardProps) {
               </p>
             </div>
           </div>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect?.(community.id);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
+
+          {getActionButton()}
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         {community.description && (
           <p className="text-sm text-gray-300 mb-3 line-clamp-2">
             {community.description}
           </p>
         )}
-        
+
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4 text-sm text-gray-400">
             <div className="flex items-center space-x-1">
@@ -86,10 +170,17 @@ function CommunityCard({ community, onSelect }: CommunityCardProps) {
               <span>3 channels</span> {/* Simplified - could be dynamic */}
             </div>
           </div>
-          
-          <Badge variant="secondary" className="text-xs">
-            Public
-          </Badge>
+
+          <div className="flex items-center space-x-2">
+            {membershipStatus === 'pending' && (
+              <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400">
+                Pending
+              </Badge>
+            )}
+            <Badge variant="secondary" className="text-xs">
+              Public
+            </Badge>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -99,18 +190,60 @@ function CommunityCard({ community, onSelect }: CommunityCardProps) {
 export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProps) {
   const [query, setQuery] = useState("");
   const { data: communities, isLoading } = useCommunities();
+  const { data: userMemberships } = useUserMembership();
+  const { user } = useCurrentUser();
+
+  // Create a map of community membership statuses
+  const membershipMap = useMemo(() => {
+    const map = new Map<string, MembershipStatus>();
+
+    if (!userMemberships || !user?.pubkey) return map;
+
+    userMemberships.forEach(membership => {
+      map.set(membership.communityId, membership.status);
+    });
+
+    return map;
+  }, [userMemberships, user?.pubkey]);
 
   // Filter communities based on search query
-  const filteredCommunities = communities?.filter(community => {
-    if (!query.trim()) return true;
-    
-    const searchText = [
-      community.name,
-      community.description,
-    ].filter(Boolean).join(' ').toLowerCase();
-    
-    return searchText.includes(query.toLowerCase());
-  }) || [];
+  const filteredCommunities = useMemo(() => {
+    if (!communities) return [];
+
+    // Get membership status for a community
+    const getMembershipStatus = (community: Community): MembershipStatus => {
+      if (!user?.pubkey) return 'not-member';
+
+      // Check if user is the community creator (owner)
+      if (community.creator === user.pubkey) {
+        return 'owner';
+      }
+
+      // Check if user is a moderator
+      if (community.moderators.includes(user.pubkey)) {
+        return 'moderator';
+      }
+
+      // Check membership status from membership events
+      return membershipMap.get(community.id) || 'not-member';
+    };
+
+    return communities
+      .map(community => ({
+        community,
+        membershipStatus: getMembershipStatus(community),
+      }))
+      .filter(({ community }) => {
+        if (!query.trim()) return true;
+
+        const searchText = [
+          community.name,
+          community.description,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return searchText.includes(query.toLowerCase());
+      });
+  }, [communities, query, membershipMap, user?.pubkey]);
 
   return (
     <div className="space-y-6">
@@ -156,10 +289,11 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
         </div>
       ) : filteredCommunities.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCommunities.map((community) => (
+          {filteredCommunities.map(({ community, membershipStatus }) => (
             <CommunityCard
               key={community.id}
               community={community}
+              membershipStatus={membershipStatus}
               onSelect={onCommunitySelect}
             />
           ))}
