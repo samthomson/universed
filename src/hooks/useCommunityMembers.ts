@@ -52,7 +52,7 @@ export function useCommunityMembers(communityId: string | null) {
         // Get recent community activity to determine online status
         nostr.query([
           {
-            kinds: [1111, 1], // Community posts and comments
+            kinds: [9411, 1], // Channel messages and text notes
             '#a': [communityId],
             limit: 200,
             since: Math.floor(Date.now() / 1000) - (30 * 60), // Last 30 minutes for "online" status

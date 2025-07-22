@@ -28,18 +28,17 @@ describe('NoteContent', () => {
     expect(link).toHaveAttribute('target', '_blank');
   });
 
-  it('linkifies URLs in kind 1111 events (comments)', () => {
+  it('linkifies URLs in kind 9411 events (channel messages)', () => {
     const event: NostrEvent = {
-      id: 'test-comment-id',
+      id: 'test-message-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
-      kind: 1111,
+      kind: 9411,
       tags: [
-        ['a', '30040:pubkey:identifier'],
-        ['k', '30040'],
-        ['p', 'pubkey'],
+        ['t', 'general'],
+        ['a', '34550:pubkey:community'],
       ],
-      content: 'I think the log events should be different kind numbers instead of having a `log-type` tag. That way you can use normal Nostr filters to filter the log types. Also, the `note` type should just b a kind 1111: https://nostrbook.dev/kinds/1111',
+      content: 'Check out this new channel message format: https://nostrbook.dev/kinds/9411',
       sig: 'test-sig',
     };
 
@@ -49,9 +48,9 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    const link = screen.getByRole('link', { name: 'https://nostrbook.dev/kinds/1111' });
+    const link = screen.getByRole('link', { name: 'https://nostrbook.dev/kinds/9411' });
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', 'https://nostrbook.dev/kinds/1111');
+    expect(link).toHaveAttribute('href', 'https://nostrbook.dev/kinds/9411');
     expect(link).toHaveAttribute('target', '_blank');
   });
 
@@ -60,7 +59,7 @@ describe('NoteContent', () => {
       id: 'test-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
-      kind: 1111,
+      kind: 9411,
       tags: [],
       content: 'This is just plain text without any links.',
       sig: 'test-sig',
@@ -95,7 +94,7 @@ describe('NoteContent', () => {
 
     const nostrHashtag = screen.getByRole('link', { name: '#nostr' });
     const bitcoinHashtag = screen.getByRole('link', { name: '#bitcoin' });
-    
+
     expect(nostrHashtag).toBeInTheDocument();
     expect(bitcoinHashtag).toBeInTheDocument();
     expect(nostrHashtag).toHaveAttribute('href', '/t/nostr');
@@ -123,11 +122,11 @@ describe('NoteContent', () => {
     // The mention should be rendered with a deterministic name
     const mention = screen.getByRole('link');
     expect(mention).toBeInTheDocument();
-    
+
     // Should have muted styling for generated names (gray instead of blue)
     expect(mention).toHaveClass('text-gray-500');
     expect(mention).not.toHaveClass('text-blue-500');
-    
+
     // The text should start with @ and contain a generated name (not a truncated npub)
     const linkText = mention.textContent;
     expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub

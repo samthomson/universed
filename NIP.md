@@ -17,8 +17,49 @@ This extension adds membership management capabilities to enable communities to 
 ### Kind 34550: Community Definition
 Defines a community with metadata and moderator lists as specified in NIP-72.
 
-### Kind 4550: Post Approval  
+### Kind 4550: Post Approval
 Moderator approval events for posts as specified in NIP-72.
+
+## Channel Chat Events
+
+### Kind 9411: Channel Chat Message
+**Regular event** for chat messages within community channels.
+
+**Tags:**
+- `["t", channelId]` - Channel identifier (required)
+- `["a", communityId]` - Community reference (optional but recommended)
+- `["e", parentEventId]` - Reply to another message (optional)
+- `["p", mentionedPubkey]` - Mentioned users (optional, multiple allowed)
+
+**Example:**
+```json
+{
+  "kind": 9411,
+  "pubkey": "user_pubkey",
+  "created_at": 1234567890,
+  "tags": [
+    ["t", "general"],
+    ["a", "34550:community_creator_pubkey:bitcoin-discussion"]
+  ],
+  "content": "Hello everyone! Great to be here."
+}
+```
+
+**Reply Example:**
+```json
+{
+  "kind": 9411,
+  "pubkey": "replying_user_pubkey",
+  "created_at": 1234567891,
+  "tags": [
+    ["t", "general"],
+    ["a", "34550:community_creator_pubkey:bitcoin-discussion"],
+    ["e", "parent_message_id"],
+    ["p", "parent_message_author_pubkey"]
+  ],
+  "content": "Thanks for the welcome!"
+}
+```
 
 ## Membership Management Extensions
 
@@ -49,7 +90,7 @@ Moderator approval events for posts as specified in NIP-72.
 **Addressable event** that tracks users whose join requests have been declined.
 
 **Tags:**
-- `["d", communityId]` - Identifies which community this list belongs to  
+- `["d", communityId]` - Identifies which community this list belongs to
 - `["p", pubkey]` - One tag per declined user
 
 ### Kind 34553: Banned Members List
@@ -78,11 +119,41 @@ Moderator approval events for posts as specified in NIP-72.
 }
 ```
 
-### Kind 4553: Leave Request  
+### Kind 4553: Leave Request
 **Regular event** that represents a user's request to leave a community.
 
 **Tags:**
 - `["a", communityId]` - References the target community
+
+### Query Patterns
+
+**Get messages for a specific channel:**
+```json
+{
+  "kinds": [9411],
+  "#t": ["channel-name"],
+  "limit": 100
+}
+```
+
+**Get messages for a channel in a specific community:**
+```json
+{
+  "kinds": [9411],
+  "#t": ["channel-name"],
+  "#a": ["34550:creator_pubkey:community_identifier"],
+  "limit": 100
+}
+```
+
+**Get replies to a specific message:**
+```json
+{
+  "kinds": [9411],
+  "#e": ["parent_message_id"],
+  "limit": 50
+}
+```
 
 ## Implementation Notes
 

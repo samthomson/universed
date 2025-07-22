@@ -155,7 +155,7 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b">
+      <div className="p-4 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Clock className="w-4 h-4 text-muted-foreground" />
@@ -172,49 +172,51 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
       </div>
 
       {/* Requests List */}
-      <ScrollArea className="flex-1 p-4">
-        {isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <Skeleton className="w-10 h-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-24" />
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-4 w-full" />
-                      <div className="flex space-x-2">
-                        <Skeleton className="h-8 w-20" />
-                        <Skeleton className="h-8 w-20" />
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          {isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                        <Skeleton className="h-4 w-full" />
+                        <div className="flex space-x-2">
+                          <Skeleton className="h-8 w-20" />
+                          <Skeleton className="h-8 w-20" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : joinRequests && joinRequests.length > 0 ? (
-          <div>
-            {joinRequests.map((request) => (
-              <JoinRequestItem
-                key={request.event.id}
-                request={request}
-                onApprove={handleApprove}
-                onDecline={handleDecline}
-                isProcessing={processingUser === request.requesterPubkey || isAddingMember}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-muted-foreground py-8">
-            <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No Pending Requests</h3>
-            <p className="text-sm">
-              All join requests have been processed or there are no new requests.
-            </p>
-          </div>
-        )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : joinRequests && joinRequests.length > 0 ? (
+            <div>
+              {joinRequests.map((request) => (
+                <JoinRequestItem
+                  key={request.event.id}
+                  request={request}
+                  onApprove={handleApprove}
+                  onDecline={handleDecline}
+                  isProcessing={processingUser === request.requesterPubkey || isAddingMember}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8">
+              <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">No Pending Requests</h3>
+              <p className="text-sm">
+                All join requests have been processed or there are no new requests.
+              </p>
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   );

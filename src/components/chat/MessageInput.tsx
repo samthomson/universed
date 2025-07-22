@@ -17,7 +17,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
@@ -31,35 +31,30 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     try {
       // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
-      
+
       if (!kind || !pubkey || !identifier) {
         throw new Error('Invalid community ID');
       }
 
       const tags = [
-        // NIP-72 community tags
-        ["A", `${kind}:${pubkey}:${identifier}`],
-        ["a", `${kind}:${pubkey}:${identifier}`],
-        ["P", pubkey],
-        ["p", pubkey],
-        ["K", kind],
-        ["k", kind],
-        // Channel tag for filtering
+        // Channel identifier (required)
         ["t", channelId],
+        // Community reference (optional but recommended)
+        ["a", `${kind}:${pubkey}:${identifier}`],
       ];
 
       await createEvent({
-        kind: 1111, // NIP-72 community post
+        kind: 9411, // Channel chat message
         content: message.trim(),
         tags,
       });
 
       // Clear the input
       setMessage("");
-      
+
       // Refresh messages
-      queryClient.invalidateQueries({ 
-        queryKey: ['messages', communityId, channelId] 
+      queryClient.invalidateQueries({
+        queryKey: ['messages', communityId, channelId]
       });
 
     } catch (error) {
@@ -126,7 +121,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           >
             <Gift className="w-5 h-5" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"
@@ -147,7 +142,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           )}
         </div>
       </div>
-      
+
       {/* Helper Text */}
       <div className="mt-1 text-xs text-gray-500">
         Press Enter to send, Shift+Enter for new line

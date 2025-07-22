@@ -3,15 +3,15 @@ import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function validateMessageEvent(event: NostrEvent): boolean {
-  // Accept both kind 1111 (NIP-72 community posts) and kind 1 (legacy)
-  if (![1, 1111].includes(event.kind)) return false;
-  
-  // For kind 1111, we expect community tags
-  if (event.kind === 1111) {
-    const hasATag = event.tags.some(([name]) => name === 'A' || name === 'a');
-    if (!hasATag) return false;
+  // Accept kind 9411 (channel chat messages) and kind 1 (legacy)
+  if (![1, 9411].includes(event.kind)) return false;
+
+  // For kind 9411, we expect channel tags
+  if (event.kind === 9411) {
+    const hasChannelTag = event.tags.some(([name]) => name === 't');
+    if (!hasChannelTag) return false;
   }
-  
+
   return true;
 }
 
@@ -22,26 +22,26 @@ export function useMessages(communityId: string, channelId: string) {
     queryKey: ['messages', communityId, channelId],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      
+
       // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
-      
+
       if (!kind || !pubkey || !identifier) {
         return [];
       }
 
-      // Query for community messages using NIP-72 format
+      // Query for channel messages
       const events = await nostr.query([
         {
-          kinds: [1111, 1], // Include both new and legacy formats
-          '#a': [`${kind}:${pubkey}:${identifier}`],
-          '#t': [channelId], // Use channel as a tag filter
+          kinds: [9411, 1], // Include both new channel messages and legacy formats
+          '#t': [channelId], // Channel identifier
+          '#a': [`${kind}:${pubkey}:${identifier}`], // Optional community reference
           limit: 100,
         }
       ], { signal });
 
       const validEvents = events.filter(validateMessageEvent);
-      
+
       // Sort by created_at (oldest first)
       return validEvents.sort((a, b) => a.created_at - b.created_at);
     },

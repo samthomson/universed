@@ -16,7 +16,7 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
   const [reply, setReply] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
@@ -34,29 +34,27 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
         ["p", rootMessage.pubkey], // Root author
       ];
 
-      // If this is a community message, preserve community context
-      if (rootMessage.kind === 1111) {
-        const aTag = rootMessage.tags.find(([name]) => name === 'a' || name === 'A');
-        const pTag = rootMessage.tags.find(([name, , , role]) => name === 'p' && !role); // Community creator
-        const kTag = rootMessage.tags.find(([name]) => name === 'k' || name === 'K');
-        
-        if (aTag) tags.push(["a", aTag[1]]);
-        if (pTag) tags.push(["p", pTag[1]]);
-        if (kTag) tags.push(["k", kTag[1]]);
+      // If this is a channel message, preserve channel context
+      if (rootMessage.kind === 9411) {
+        const channelTag = rootMessage.tags.find(([name]) => name === 't');
+        const communityTag = rootMessage.tags.find(([name]) => name === 'a');
+
+        if (channelTag) tags.push(["t", channelTag[1]]);
+        if (communityTag) tags.push(["a", communityTag[1]]);
       }
 
       await createEvent({
-        kind: rootMessage.kind === 1111 ? 1111 : 1, // Match the root message kind
+        kind: rootMessage.kind === 9411 ? 9411 : 1, // Match the root message kind
         content: reply.trim(),
         tags,
       });
 
       // Clear the input
       setReply("");
-      
+
       // Refresh thread replies
-      queryClient.invalidateQueries({ 
-        queryKey: ['thread-replies', rootMessage.id] 
+      queryClient.invalidateQueries({
+        queryKey: ['thread-replies', rootMessage.id]
       });
 
     } catch (error) {
@@ -125,7 +123,7 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
           </Button>
         )}
       </div>
-      
+
       {/* Helper Text */}
       <div className="mt-1 text-xs text-gray-500">
         Press Enter to send, Shift+Enter for new line

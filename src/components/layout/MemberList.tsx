@@ -161,7 +161,7 @@ export function MemberList({ communityId }: MemberListProps) {
     return (
       <div className="flex flex-col h-full">
         <Tabs defaultValue="members" className="flex flex-col h-full">
-          <div className="p-4 border-b border-gray-600">
+          <div className="p-4 border-b border-gray-600 flex-shrink-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="members" className="text-xs">
                 <Users className="w-3 h-3 mr-1" />
@@ -184,46 +184,27 @@ export function MemberList({ communityId }: MemberListProps) {
             </TabsList>
           </div>
 
-          <TabsContent value="members" className="flex-1 mt-0">
-            <ScrollArea className="h-full p-2">
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex items-center space-x-2 px-2 py-1">
-                      <Skeleton className="w-8 h-8 rounded-full" />
-                      <Skeleton className="flex-1 h-4" />
-                    </div>
-                  ))}
-                </div>
-              ) : members && members.length > 0 ? (
-                <div className="space-y-0.5">
-                  {/* Online Members */}
-                  <div className="mb-2">
-                    <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                      Online — {members.filter(m => m.isOnline).length}
-                    </div>
-                    {members
-                      .filter(member => member.isOnline)
-                      .map((member) => (
-                        <MemberItem
-                          key={member.pubkey}
-                          pubkey={member.pubkey}
-                          role={member.role}
-                          isOnline={member.isOnline}
-                          communityId={communityId}
-                          canManage={canManageMembers}
-                        />
-                      ))}
+          <TabsContent value="members" className="flex-1 mt-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-2">
+                {isLoading ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div key={i} className="flex items-center space-x-2 px-2 py-1">
+                        <Skeleton className="w-8 h-8 rounded-full" />
+                        <Skeleton className="flex-1 h-4" />
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Offline Members */}
-                  {members.some(m => !m.isOnline) && (
-                    <div>
+                ) : members && members.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {/* Online Members */}
+                    <div className="mb-2">
                       <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                        Offline — {members.filter(m => !m.isOnline).length}
+                        Online — {members.filter(m => m.isOnline).length}
                       </div>
                       {members
-                        .filter(member => !member.isOnline)
+                        .filter(member => member.isOnline)
                         .map((member) => (
                           <MemberItem
                             key={member.pubkey}
@@ -235,18 +216,39 @@ export function MemberList({ communityId }: MemberListProps) {
                           />
                         ))}
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center text-gray-400 py-8">
-                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No members found</p>
-                </div>
-              )}
+
+                    {/* Offline Members */}
+                    {members.some(m => !m.isOnline) && (
+                      <div>
+                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
+                          Offline — {members.filter(m => !m.isOnline).length}
+                        </div>
+                        {members
+                          .filter(member => !member.isOnline)
+                          .map((member) => (
+                            <MemberItem
+                              key={member.pubkey}
+                              pubkey={member.pubkey}
+                              role={member.role}
+                              isOnline={member.isOnline}
+                              communityId={communityId}
+                              canManage={canManageMembers}
+                            />
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-400 py-8">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No members found</p>
+                  </div>
+                )}
+              </div>
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="requests" className="flex-1 mt-0">
+          <TabsContent value="requests" className="flex-1 mt-0 overflow-hidden">
             <JoinRequestsPanel communityId={communityId} />
           </TabsContent>
         </Tabs>
@@ -258,7 +260,7 @@ export function MemberList({ communityId }: MemberListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-600">
+      <div className="p-4 border-b border-gray-600 flex-shrink-0">
         <div className="flex items-center space-x-2">
           <Users className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-semibold text-gray-300">
@@ -268,45 +270,26 @@ export function MemberList({ communityId }: MemberListProps) {
       </div>
 
       {/* Member List */}
-      <ScrollArea className="flex-1 p-2">
-        {isLoading ? (
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-2 px-2 py-1">
-                <Skeleton className="w-8 h-8 rounded-full" />
-                <Skeleton className="flex-1 h-4" />
-              </div>
-            ))}
-          </div>
-        ) : members && members.length > 0 ? (
-          <div className="space-y-0.5">
-            {/* Online Members */}
-            <div className="mb-2">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                Online — {members.filter(m => m.isOnline).length}
-              </div>
-              {members
-                .filter(member => member.isOnline)
-                .map((member) => (
-                  <MemberItem
-                    key={member.pubkey}
-                    pubkey={member.pubkey}
-                    role={member.role}
-                    isOnline={member.isOnline}
-                    communityId={communityId}
-                    canManage={canManageMembers}
-                  />
-                ))}
+      <ScrollArea className="flex-1">
+        <div className="p-2">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center space-x-2 px-2 py-1">
+                  <Skeleton className="w-8 h-8 rounded-full" />
+                  <Skeleton className="flex-1 h-4" />
+                </div>
+              ))}
             </div>
-
-            {/* Offline Members */}
-            {members.some(m => !m.isOnline) && (
-              <div>
+          ) : members && members.length > 0 ? (
+            <div className="space-y-0.5">
+              {/* Online Members */}
+              <div className="mb-2">
                 <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                  Offline — {members.filter(m => !m.isOnline).length}
+                  Online — {members.filter(m => m.isOnline).length}
                 </div>
                 {members
-                  .filter(member => !member.isOnline)
+                  .filter(member => member.isOnline)
                   .map((member) => (
                     <MemberItem
                       key={member.pubkey}
@@ -318,14 +301,35 @@ export function MemberList({ communityId }: MemberListProps) {
                     />
                   ))}
               </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center text-gray-400 py-8">
-            <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No members found</p>
-          </div>
-        )}
+
+              {/* Offline Members */}
+              {members.some(m => !m.isOnline) && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
+                    Offline — {members.filter(m => !m.isOnline).length}
+                  </div>
+                  {members
+                    .filter(member => !member.isOnline)
+                    .map((member) => (
+                      <MemberItem
+                        key={member.pubkey}
+                        pubkey={member.pubkey}
+                        role={member.role}
+                        isOnline={member.isOnline}
+                        communityId={communityId}
+                        canManage={canManageMembers}
+                      />
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No members found</p>
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   );
