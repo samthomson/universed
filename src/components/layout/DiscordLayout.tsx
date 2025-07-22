@@ -13,7 +13,7 @@ export function DiscordLayout() {
   return (
     <div className="flex h-screen bg-gray-800 text-gray-100">
       {/* Main Sidebar - Communities and DMs */}
-      <div className="w-16 bg-gray-900 flex flex-col">
+      <div className="w-16 bg-gray-900 flex flex-col h-full">
         <AppSidebar
           selectedCommunity={selectedCommunity}
           onSelectCommunity={setSelectedCommunity}
