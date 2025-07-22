@@ -1,0 +1,95 @@
+import { useQuery } from '@tanstack/react-query';
+import { useNostr } from '@nostrify/react';
+import { useCurrentUser } from './useCurrentUser';
+import type { NostrEvent } from '@nostrify/nostrify';
+
+export interface DMConversation {
+  id: string; // The other person's pubkey
+  pubkey: string;
+  lastMessage?: NostrEvent;
+  lastMessageTime: number;
+  unreadCount: number;
+}
+
+function validateDMEvent(event: NostrEvent): boolean {
+  // Accept both NIP-04 (kind 4) and NIP-44 (kind 1059) encrypted DMs
+  if (![4, 1059].includes(event.kind)) return false;
+  
+  // Must have a 'p' tag for the recipient
+  const hasP = event.tags.some(([name]) => name === 'p');
+  if (!hasP) return false;
+  
+  return true;
+}
+
+export function useDirectMessages() {
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+
+  return useQuery({
+    queryKey: ['direct-messages', user?.pubkey],
+    queryFn: async (c) => {
+      if (!user) return [];
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      
+      // Query for DMs sent to us and by us
+      const [receivedDMs, sentDMs] = await Promise.all([
+        // DMs sent to us
+        nostr.query([
+          {
+            kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
+            '#p': [user.pubkey],
+            limit: 200,
+          }
+        ], { signal }),
+        // DMs sent by us
+        nostr.query([
+          {
+            kinds: [4, 1059],
+            authors: [user.pubkey],
+            limit: 200,
+          }
+        ], { signal }),
+      ]);
+
+      const allDMs = [...receivedDMs, ...sentDMs].filter(validateDMEvent);
+      
+      // Group by conversation (other person's pubkey)
+      const conversationMap = new Map<string, DMConversation>();
+      
+      allDMs.forEach(dm => {
+        // Determine the other person's pubkey
+        let otherPubkey: string;
+        if (dm.pubkey === user.pubkey) {
+          // We sent this DM, find the recipient
+          const pTag = dm.tags.find(([name]) => name === 'p');
+          otherPubkey = pTag?.[1] || '';
+        } else {
+          // We received this DM
+          otherPubkey = dm.pubkey;
+        }
+
+        if (!otherPubkey) return;
+
+        const existing = conversationMap.get(otherPubkey);
+        if (!existing || dm.created_at > existing.lastMessageTime) {
+          conversationMap.set(otherPubkey, {
+            id: otherPubkey,
+            pubkey: otherPubkey,
+            lastMessage: dm,
+            lastMessageTime: dm.created_at,
+            unreadCount: 0, // TODO: Implement read status tracking
+          });
+        }
+      });
+
+      // Convert to array and sort by last message time
+      return Array.from(conversationMap.values())
+        .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchInterval: 1000 * 30, // Refetch every 30 seconds
+  });
+}

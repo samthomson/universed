@@ -1,25 +1,52 @@
 import { useSeoMeta } from '@unhead/react';
-
-// FIXME: Update this page (the content is just a fallback if you fail to update the page)
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { LoginArea } from "@/components/auth/LoginArea";
+import { DiscordLayout } from "@/components/layout/DiscordLayout";
 
 const Index = () => {
+  const { user } = useCurrentUser();
+
   useSeoMeta({
-    title: 'Welcome to Your Blank App',
-    description: 'A modern Nostr client application built with React, TailwindCSS, and Nostrify.',
+    title: 'NostrCord - Discord on Nostr',
+    description: 'A Discord-like chat platform built on the decentralized Nostr protocol.',
   });
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-          Welcome to Your Blank App
-        </h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400">
-          Start building your amazing project here!
-        </p>
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="max-w-2xl mx-auto text-center space-y-8 p-8">
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+              Welcome to NostrCord
+            </h1>
+            <p className="text-xl text-gray-600 dark:text-gray-400">
+              A Discord-like chat platform built on the decentralized Nostr protocol
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <LoginArea className="max-w-60" />
+          </div>
+
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            <p>
+              Vibed with{" "}
+              <a
+                href="https://soapbox.pub/mkstack"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                MKStack
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return <DiscordLayout />;
 };
 
 export default Index;
