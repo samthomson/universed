@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreHorizontal, Reply, Smile, Pin, PinOff } from "lucide-react";
+import { MoreHorizontal, Reply, Smile, Pin, PinOff, Shield } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,13 @@ import { MessageThread } from "./MessageThread";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
+import { ModerationActionsMenu } from "@/components/moderation/ModerationActionsMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
+import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { usePinMessage, useUnpinMessage, useIsPinned, getMessageChannelId } from "@/hooks/usePinnedMessages";
 import { useIsBlocked, useIsMuted } from "@/hooks/useBlockedUsers";
 import { genUserName } from "@/lib/genUserName";
@@ -42,6 +44,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
   const { data: replies } = useThreadReplies(message.id);
   const isBlocked = useIsBlocked(message.pubkey);
   const isMuted = useIsMuted(message.pubkey);
+  const { canModerate } = useCanModerate(communityId || '');
   // Extract channel ID from the message if not provided
   const messageChannelId = channelId || getMessageChannelId(message);
   const isPinned = useIsPinned(communityId || '', messageChannelId || '', message.id);
@@ -95,6 +98,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
     <MessageContextMenu
       message={message}
       onReply={() => setShowThread(true)}
+      communityId={communityId}
     >
       <div
         className={`group relative px-4 py-1 hover:bg-gray-800/50 transition-colors ${
@@ -172,6 +176,18 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
             {/* Reactions */}
             <MessageReactions message={message} />
 
+            {/* Moderation Actions */}
+            {canModerate && user?.pubkey !== message.pubkey && (
+              <div className="mt-2">
+                <ModerationActionsMenu
+                  message={message}
+                  communityId={communityId || ''}
+                  channelId={messageChannelId || undefined}
+                  variant="inline"
+                />
+              </div>
+            )}
+
             {/* Thread Reply Count */}
             {replyCount > 0 && (
               <Button
@@ -220,13 +236,30 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
                   {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 hover:bg-gray-600"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
+              {canModerate && user?.pubkey !== message.pubkey ? (
+                <ModerationActionsMenu
+                  message={message}
+                  communityId={communityId || ''}
+                  channelId={messageChannelId || undefined}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-8 h-8 hover:bg-gray-600"
+                    >
+                      <Shield className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 hover:bg-gray-600"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           )}
         </div>

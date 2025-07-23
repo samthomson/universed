@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/useToast';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { DeletionConfirmDialog } from '@/components/moderation/DeletionConfirmDialog';
 import {
   useChannelFolders,
   useCreateChannelFolder,
@@ -50,6 +51,7 @@ export function FolderManagementDialog({
     position: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [folderToDelete, setFolderToDelete] = useState<ChannelFolder | null>(null);
 
   const { toast } = useToast();
   const { canModerate } = useCanModerate(communityId);
@@ -140,23 +142,22 @@ export function FolderManagementDialog({
     }
   };
 
-  const handleDelete = async (folder: ChannelFolder) => {
-    if (!confirm(`Are you sure you want to delete the "${folder.name}" folder? Channels in this folder will be moved to the root level.`)) {
-      return;
-    }
+  const handleDelete = async (_reason?: string) => {
+    if (!folderToDelete) return;
 
     setIsSubmitting(true);
 
     try {
       await deleteFolder({
-        folderEventId: folder.event.id,
+        folderEventId: folderToDelete.event.id,
       });
 
       toast({
         title: "Folder deleted",
-        description: `"${folder.name}" has been deleted.`,
+        description: `"${folderToDelete.name}" has been deleted.`,
       });
 
+      setFolderToDelete(null);
       refetch();
     } catch (error) {
       console.error('Failed to delete folder:', error);
@@ -287,7 +288,7 @@ export function FolderManagementDialog({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(folder)}
+                          onClick={() => setFolderToDelete(folder)}
                           disabled={isSubmitting}
                           className="text-destructive hover:text-destructive"
                         >
@@ -308,6 +309,20 @@ export function FolderManagementDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Folder Deletion Confirmation */}
+      <DeletionConfirmDialog
+        open={!!folderToDelete}
+        onOpenChange={(open) => !open && setFolderToDelete(null)}
+        title="Delete Folder"
+        description={`Are you sure you want to delete the "${folderToDelete?.name}" folder?`}
+        itemName={folderToDelete?.name || ''}
+        itemType="folder"
+        warningMessage="Channels in this folder will be moved to the root level."
+        requireConfirmation={true}
+        onConfirm={handleDelete}
+        isDeleting={isSubmitting}
+      />
     </Dialog>
   );
 }

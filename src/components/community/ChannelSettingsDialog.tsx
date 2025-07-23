@@ -24,6 +24,7 @@ import { useUpdateChannel, useDeleteChannel } from '@/hooks/useChannels';
 import { useChannelFolders } from '@/hooks/useChannelFolders';
 import { useChannelPermissions, useUpdateChannelPermissions } from '@/hooks/useChannelPermissions';
 import { useAuthor } from '@/hooks/useAuthor';
+import { DeletionConfirmDialog } from '@/components/moderation/DeletionConfirmDialog';
 import type { Channel } from '@/hooks/useChannels';
 
 interface ChannelSettingsDialogProps {
@@ -55,6 +56,7 @@ export function ChannelSettingsDialog({
   const [deniedWriters, setDeniedWriters] = useState<string[]>([]);
   const [newUserPubkey, setNewUserPubkey] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { toast } = useToast();
   const { canModerate } = useCanModerate(communityId);
@@ -157,20 +159,7 @@ export function ChannelSettingsDialog({
     }
   };
 
-  const handleDeleteChannel = async () => {
-    if (channel.name === 'general') {
-      toast({
-        title: "Cannot delete general channel",
-        description: "The general channel cannot be deleted.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!confirm(`Are you sure you want to delete #${channel.name}? This action cannot be undone.`)) {
-      return;
-    }
-
+  const handleDeleteChannel = async (_reason?: string) => {
     setIsSubmitting(true);
 
     try {
@@ -501,10 +490,10 @@ export function ChannelSettingsDialog({
                   ) : (
                     <Button
                       variant="destructive"
-                      onClick={handleDeleteChannel}
+                      onClick={() => setShowDeleteDialog(true)}
                       disabled={isSubmitting}
                     >
-                      {isSubmitting ? 'Deleting...' : 'Delete Channel'}
+                      Delete Channel
                     </Button>
                   )}
                 </div>
@@ -513,6 +502,20 @@ export function ChannelSettingsDialog({
           </ScrollArea>
         </Tabs>
       </DialogContent>
+
+      {/* Channel Deletion Confirmation */}
+      <DeletionConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Channel"
+        description={`Are you sure you want to delete #${channel.name}?`}
+        itemName={channel.name}
+        itemType="channel"
+        warningMessage="All messages in this channel will be permanently lost."
+        requireConfirmation={true}
+        onConfirm={handleDeleteChannel}
+        isDeleting={isSubmitting}
+      />
     </Dialog>
   );
 }
