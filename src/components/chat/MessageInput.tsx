@@ -2,6 +2,8 @@ import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Send, Plus, Smile, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { replaceShortcodes } from "@/lib/emoji";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
@@ -43,9 +45,12 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
         ["a", `${kind}:${pubkey}:${identifier}`],
       ];
 
+      // Process shortcodes before sending
+      const processedContent = replaceShortcodes(message.trim());
+
       await createEvent({
         kind: 9411,
-        content: message.trim(),
+        content: processedContent,
         tags,
       });
 
@@ -93,6 +98,24 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = message.slice(0, start) + emoji + message.slice(end);
+      setMessage(newMessage);
+
+      // Set cursor position after the emoji
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        textarea.focus();
+      }, 0);
+
+      adjustTextareaHeight();
+    }
+  };
+
   useEffect(() => {
     return () => {
       stopTyping();
@@ -132,13 +155,20 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             <Gift className="w-5 h-5" />
           </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
-          >
-            <Smile className="w-5 h-5" />
-          </Button>
+          <EmojiPickerComponent
+            onEmojiSelect={handleEmojiSelect}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
+            }
+            side="top"
+            align="end"
+          />
 
           {message.trim() && (
             <Button

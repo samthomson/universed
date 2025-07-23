@@ -2,9 +2,12 @@ import { useState } from "react";
 import { MoreHorizontal, Reply, Smile } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { MessageReactions } from "@/components/chat/MessageReactions";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDMDecrypt } from "@/hooks/useDMDecrypt";
+import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNow } from "date-fns";
 import type { NostrEvent } from "@nostrify/nostrify";
@@ -21,11 +24,20 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const { data: decryptedContent, isLoading: isDecrypting } = useDMDecrypt(message);
+  const { addReaction } = useEmojiReactions();
 
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
   const isOwnMessage = user?.pubkey === message.pubkey;
+
+  const handleEmojiSelect = (emoji: string) => {
+    if (!user) return;
+    addReaction({
+      targetEvent: message,
+      emoji,
+    });
+  };
 
   return (
     <div
@@ -92,18 +104,30 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
               </span>
             )}
           </div>
+
+          {/* Reactions */}
+          <div className={`mt-1 ${isOwnMessage ? 'text-right' : ''}`}>
+            <MessageReactions message={message} />
+          </div>
         </div>
 
         {/* Message Actions */}
         {isHovered && !isOwnMessage && (
           <div className="absolute -top-2 right-4 bg-gray-700 border border-gray-600 rounded-md shadow-lg flex">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6 hover:bg-gray-600"
-            >
-              <Smile className="w-3 h-3" />
-            </Button>
+            <EmojiPickerComponent
+              onEmojiSelect={handleEmojiSelect}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-6 h-6 hover:bg-gray-600"
+                >
+                  <Smile className="w-3 h-3" />
+                </Button>
+              }
+              side="top"
+              align="end"
+            />
             <Button
               variant="ghost"
               size="icon"

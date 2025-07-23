@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, Filter, User, FileText, Shield, Ban, VolumeX, Trash2, CheckCircle, Pin } from 'lucide-react';
+import { Clock, Filter, Shield, Ban, VolumeX, Trash2, CheckCircle, Pin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,11 +49,11 @@ function LogEntry({ action }: LogEntryProps) {
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return 'Permanent';
-    
+
     const days = Math.floor(seconds / (24 * 60 * 60));
     const hours = Math.floor((seconds % (24 * 60 * 60)) / (60 * 60));
     const minutes = Math.floor((seconds % (60 * 60)) / 60);
-    
+
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
@@ -72,7 +72,7 @@ function LogEntry({ action }: LogEntryProps) {
                 {genUserName(action.moderatorPubkey).slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 {getActionIcon(action.action)}
@@ -99,17 +99,17 @@ function LogEntry({ action }: LogEntryProps) {
                   </>
                 )}
               </div>
-              
+
               {action.reason && (
                 <div className="text-sm text-muted-foreground mb-2">
                   Reason: {action.reason}
                 </div>
               )}
-              
+
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 {new Date(action.createdAt * 1000).toLocaleString()}
-                
+
                 {action.duration && (
                   <>
                     <span>•</span>
@@ -124,7 +124,7 @@ function LogEntry({ action }: LogEntryProps) {
               </div>
             </div>
           </div>
-          
+
           <Badge className={getActionColor(action.action)}>
             {action.action}
           </Badge>
@@ -155,16 +155,16 @@ function LogSkeleton() {
 export function ModerationLogs({ communityId }: ModerationLogsProps) {
   const [filterAction, setFilterAction] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
-  
+
   const { data: logs, isLoading } = useModerationLogs(communityId);
 
-  const filteredLogs = logs?.filter(log => 
+  const filteredLogs = logs?.filter(log =>
     filterAction === 'all' || log.action === filterAction
   ) || [];
 
   const sortedLogs = [...filteredLogs].sort((a, b) => {
-    return sortBy === 'newest' 
-      ? b.createdAt - a.createdAt 
+    return sortBy === 'newest'
+      ? b.createdAt - a.createdAt
       : a.createdAt - b.createdAt;
   });
 
@@ -201,7 +201,7 @@ export function ModerationLogs({ communityId }: ModerationLogsProps) {
               {filteredLogs.length} actions
             </Badge>
           </CardTitle>
-          
+
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
@@ -253,7 +253,7 @@ export function ModerationLogs({ communityId }: ModerationLogsProps) {
             <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">No moderation actions</h3>
             <p className="text-muted-foreground">
-              {filterAction === 'all' 
+              {filterAction === 'all'
                 ? 'No moderation actions have been taken in this community.'
                 : `No ${filterAction} actions found.`
               }

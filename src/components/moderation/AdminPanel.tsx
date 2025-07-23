@@ -58,7 +58,7 @@ function ModeratorManagement({ communityId }: ModeratorManagementProps) {
         title: 'Moderator added',
         description: 'User has been promoted to moderator',
       });
-    } catch (_error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to add moderator',
@@ -74,7 +74,7 @@ function ModeratorManagement({ communityId }: ModeratorManagementProps) {
         title: 'Moderator removed',
         description: 'User has been demoted from moderator',
       });
-    } catch (_error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to remove moderator',
@@ -231,7 +231,7 @@ function CommunityData({ communityId }: CommunityDataProps) {
         title: 'Export completed',
         description: 'Community data has been exported successfully',
       });
-    } catch (_error) {
+    } catch {
       toast({
         title: 'Export failed',
         description: 'Failed to export community data',
@@ -271,16 +271,16 @@ function CommunityData({ communityId }: CommunityDataProps) {
               description: 'The community has been permanently deleted',
             });
           },
-          onError: (error) => {
+          onError: (_error) => {
             toast({
               title: 'Deletion failed',
-              description: error.message,
+              description: 'Failed to delete community',
               variant: 'destructive',
             });
           },
         }
       );
-    } catch (_error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to delete community',

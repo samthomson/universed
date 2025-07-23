@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCanModerate, useCommunityModerators } from '@/hooks/useCommunityRoles';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -32,13 +32,13 @@ interface ModeratorPermissions {
 
 interface ModeratorCardProps {
   pubkey: string;
-  communityId: string;
+  _communityId: string;
   permissions: ModeratorPermissions;
   onPermissionChange: (pubkey: string, permissions: ModeratorPermissions) => void;
   canEdit: boolean;
 }
 
-function ModeratorCard({ pubkey, communityId, permissions, onPermissionChange, canEdit }: ModeratorCardProps) {
+function ModeratorCard({ pubkey, _communityId, permissions, onPermissionChange, canEdit }: ModeratorCardProps) {
   const author = useAuthor(pubkey);
   const displayName = author.data?.metadata?.name || genUserName(pubkey);
   const avatar = author.data?.metadata?.picture;
@@ -209,16 +209,16 @@ export function ModerationPermissions({ communityId }: ModerationPermissionsProp
               description: 'Moderator permissions have been updated successfully.',
             });
           },
-          onError: (error) => {
+          onError: (_error) => {
             toast({
               title: 'Error saving permissions',
-              description: error.message,
+              description: 'Failed to save moderator permissions',
               variant: 'destructive',
             });
           },
         }
       );
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save moderator permissions',
@@ -302,7 +302,7 @@ export function ModerationPermissions({ communityId }: ModerationPermissionsProp
             <ModeratorCard
               key={pubkey}
               pubkey={pubkey}
-              communityId={communityId}
+              _communityId={communityId}
               permissions={permissions[pubkey] || getDefaultPermissions()}
               onPermissionChange={handlePermissionChange}
               canEdit={true}

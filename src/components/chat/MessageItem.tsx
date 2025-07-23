@@ -3,6 +3,7 @@ import { MoreHorizontal, Reply, Smile, Pin, PinOff } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { NoteContent } from "@/components/NoteContent";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThread } from "./MessageThread";
@@ -10,7 +11,7 @@ import { MessageContextMenu } from "./MessageContextMenu";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useAddReaction } from "@/hooks/useAddReaction";
+import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
 import { usePinMessage, useUnpinMessage, useIsPinned } from "@/hooks/usePinnedMessages";
@@ -30,7 +31,7 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
   const [showThread, setShowThread] = useState(false);
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
-  const { mutate: addReaction } = useAddReaction();
+  const { addReaction } = useEmojiReactions();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const { user } = useCurrentUser();
@@ -51,7 +52,7 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
   // Show muted messages with reduced opacity
   const messageOpacity = isMuted ? 'opacity-50' : '';
 
-  const handleQuickReaction = (emoji: string) => {
+  const handleEmojiSelect = (emoji: string) => {
     if (!user) return;
     addReaction({
       targetEvent: message,
@@ -165,14 +166,20 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
           {/* Message Actions */}
           {isHovered && (
             <div className="absolute -top-2 right-4 bg-gray-700 border border-gray-600 rounded-md shadow-lg flex">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8 hover:bg-gray-600"
-                onClick={() => handleQuickReaction("👍")}
-              >
-                <Smile className="w-4 h-4" />
-              </Button>
+              <EmojiPickerComponent
+                onEmojiSelect={handleEmojiSelect}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 hover:bg-gray-600"
+                  >
+                    <Smile className="w-4 h-4" />
+                  </Button>
+                }
+                side="top"
+                align="end"
+              />
               <Button
                 variant="ghost"
                 size="icon"

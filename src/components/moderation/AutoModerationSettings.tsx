@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
@@ -54,7 +52,7 @@ interface AutoModerationConfig {
 }
 
 export function AutoModerationSettings({ communityId }: AutoModerationSettingsProps) {
-  const { canModerate, role } = useCanModerate(communityId);
+  const { canModerate } = useCanModerate(communityId);
   const { mutate: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { toast } = useToast();
@@ -130,16 +128,16 @@ export function AutoModerationSettings({ communityId }: AutoModerationSettingsPr
               description: 'Auto-moderation settings have been updated successfully.',
             });
           },
-          onError: (error) => {
+          onError: (_error) => {
             toast({
               title: 'Error saving settings',
-              description: error.message,
+              description: 'Failed to save auto-moderation settings',
               variant: 'destructive',
             });
           },
         }
       );
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save auto-moderation settings',
@@ -173,7 +171,7 @@ export function AutoModerationSettings({ communityId }: AutoModerationSettingsPr
     }));
   };
 
-  const addAllowedDomain = () => {
+  const _addAllowedDomain = () => {
     if (newDomain.trim() && !config.linkValidation.allowedDomains.includes(newDomain.trim())) {
       setConfig(prev => ({
         ...prev,
@@ -186,7 +184,7 @@ export function AutoModerationSettings({ communityId }: AutoModerationSettingsPr
     }
   };
 
-  const removeAllowedDomain = (domain: string) => {
+  const _removeAllowedDomain = (domain: string) => {
     setConfig(prev => ({
       ...prev,
       linkValidation: {

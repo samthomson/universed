@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Clock, CheckCircle, XCircle, AlertTriangle, User, FileText } from 'lucide-react';
+import { Clock, CheckCircle, AlertTriangle, User, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useModerationActions } from '@/hooks/useModerationActions';
+
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
@@ -44,19 +44,19 @@ interface ReviewAction {
 
 interface WorkflowItemProps {
   item: ModerationItem;
-  communityId: string;
+  _communityId: string;
   onStatusChange: (itemId: string, newStatus: ModerationItem['status'], reason: string) => void;
 }
 
-function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) {
+function WorkflowItem({ item, _communityId, onStatusChange }: WorkflowItemProps) {
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
   const [reviewAction, setReviewAction] = useState<'resolve' | 'escalate' | 'dismiss'>('resolve');
   const [reviewReason, setReviewReason] = useState('');
-  
+
   const author = useAuthor(item.targetPubkey || '');
   const reporter = useAuthor(item.reporterPubkey || '');
   const assignedModerator = useAuthor(item.assignedTo || '');
-  
+
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
@@ -168,7 +168,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
               <span>{author.data?.metadata?.name || genUserName(item.targetPubkey)}</span>
             </div>
           )}
-          
+
           {item.reporterPubkey && (
             <div className="flex items-center gap-2">
               <Avatar className="h-6 w-6">
@@ -233,7 +233,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
                 Start Review
               </Button>
             )}
-            
+
             {canTakeAction && item.status !== 'resolved' && item.status !== 'dismissed' && (
               <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
                 <DialogTrigger asChild>
@@ -248,7 +248,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
                       Choose an action and provide a reason for your decision.
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label>Action</Label>
@@ -263,7 +263,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>Reason</Label>
                       <Textarea
@@ -274,7 +274,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
                       />
                     </div>
                   </div>
-                  
+
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsReviewDialogOpen(false)}>
                       Cancel
@@ -287,7 +287,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
               </Dialog>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>
@@ -303,7 +303,7 @@ function WorkflowItem({ item, communityId, onStatusChange }: WorkflowItemProps) 
 export function ModerationWorkflow({ communityId, items }: ModerationWorkflowProps) {
   const [filterStatus, setFilterStatus] = useState<ModerationItem['status'] | 'all'>('all');
   const [filterPriority, setFilterPriority] = useState<ModerationItem['priority'] | 'all'>('all');
-  
+
   const { toast } = useToast();
 
   const filteredItems = items.filter(item => {
@@ -320,8 +320,8 @@ export function ModerationWorkflow({ communityId, items }: ModerationWorkflowPro
     return b.createdAt - a.createdAt;
   });
 
-  const handleStatusChange = (itemId: string, newStatus: ModerationItem['status'], reason: string) => {
-    // In a real implementation, this would update the item status via API
+  const handleStatusChange = (itemId: string, newStatus: ModerationItem['status'], _reason: string) => {
+    // TODO: Implement API call to update item status
     toast({
       title: 'Status updated',
       description: `Item has been marked as ${newStatus.replace('_', ' ')}.`,
@@ -403,7 +403,7 @@ export function ModerationWorkflow({ communityId, items }: ModerationWorkflowPro
             <WorkflowItem
               key={item.id}
               item={item}
-              communityId={communityId}
+              _communityId={communityId}
               onStatusChange={handleStatusChange}
             />
           ))}

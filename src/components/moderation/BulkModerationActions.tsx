@@ -235,7 +235,7 @@ export function BulkModerationActions({
       });
 
       onSelectionChange([]);
-    } catch (_error) {
+    } catch {
       toast({
         title: 'Bulk action failed',
         description: 'Some actions may have failed. Please check the logs.',

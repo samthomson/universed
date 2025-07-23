@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { useReactions } from "@/hooks/useReactions";
-import { useAddReaction } from "@/hooks/useAddReaction";
+import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -11,15 +10,10 @@ interface MessageReactionsProps {
   message: NostrEvent;
 }
 
-const COMMON_EMOJIS = [
-  "👍", "👎", "❤️", "😂", "😮", "😢", "😡", "🎉", "🔥", "💯"
-];
-
 export function MessageReactions({ message }: MessageReactionsProps) {
   const { data: reactions } = useReactions(message.id);
-  const { mutate: addReaction } = useAddReaction();
+  const { addReaction } = useEmojiReactions();
   const { user } = useCurrentUser();
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   if (!reactions || reactions.length === 0) {
     return null;
@@ -35,14 +29,23 @@ export function MessageReactions({ message }: MessageReactionsProps) {
     return acc;
   }, {} as Record<string, NostrEvent[]>);
 
-  const handleReaction = (emoji: string) => {
+  const handleEmojiSelect = (emoji: string) => {
     if (!user) return;
 
     addReaction({
       targetEvent: message,
       emoji,
     });
-    setShowEmojiPicker(false);
+  };
+
+  const handleReactionClick = (emoji: string) => {
+    if (!user) return;
+
+    // Toggle reaction - if user has already reacted with this emoji, it will be handled by the backend
+    addReaction({
+      targetEvent: message,
+      emoji,
+    });
   };
 
   const hasUserReacted = (emoji: string) => {
@@ -55,19 +58,22 @@ export function MessageReactions({ message }: MessageReactionsProps) {
       {Object.entries(groupedReactions).map(([emoji, reactionList]) => (
         <Button
           key={emoji}
-          variant={hasUserReacted(emoji) ? "secondary" : "ghost"}
+          variant="ghost"
           size="sm"
-          className="h-6 px-2 text-xs hover:bg-gray-600"
-          onClick={() => handleReaction(emoji)}
+          className={`h-6 px-2 text-xs hover:bg-gray-600 ${
+            hasUserReacted(emoji) ? 'bg-gray-800/80 text-gray-100' : ''
+          }`}
+          onClick={() => handleReactionClick(emoji)}
         >
           <span className="mr-1">{emoji}</span>
           <span>{reactionList.length}</span>
         </Button>
       ))}
 
-      {/* Add Reaction Button */}
-      <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
-        <PopoverTrigger asChild>
+      {/* Add Reaction Button with Full Emoji Picker */}
+      <EmojiPickerComponent
+        onEmojiSelect={handleEmojiSelect}
+        trigger={
           <Button
             variant="ghost"
             size="sm"
@@ -75,23 +81,10 @@ export function MessageReactions({ message }: MessageReactionsProps) {
           >
             <Plus className="w-3 h-3" />
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-64 p-2" side="top">
-          <div className="grid grid-cols-5 gap-1">
-            {COMMON_EMOJIS.map((emoji) => (
-              <Button
-                key={emoji}
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0 hover:bg-gray-600"
-                onClick={() => handleReaction(emoji)}
-              >
-                {emoji}
-              </Button>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+        }
+        side="top"
+        align="start"
+      />
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { useState, useRef, KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { replaceShortcodes } from "@/lib/emoji";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
@@ -43,9 +45,12 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
         if (communityTag) tags.push(["a", communityTag[1]]);
       }
 
+      // Process shortcodes before sending
+      const processedContent = replaceShortcodes(reply.trim());
+
       await createEvent({
         kind: rootMessage.kind === 9411 ? 9411 : 1, // Match the root message kind
-        content: reply.trim(),
+        content: processedContent,
         tags,
       });
 
@@ -84,6 +89,24 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
     }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newReply = reply.slice(0, start) + emoji + reply.slice(end);
+      setReply(newReply);
+
+      // Set cursor position after the emoji
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+        textarea.focus();
+      }, 0);
+
+      adjustTextareaHeight();
+    }
+  };
+
   if (!user) {
     return (
       <div className="text-center text-gray-400 py-4">
@@ -111,17 +134,34 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
           />
         </div>
 
-        {/* Send Button */}
-        {reply.trim() && (
-          <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            size="icon"
-            className="w-8 h-8 bg-indigo-600 hover:bg-indigo-700 text-white flex-shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        )}
+        {/* Emoji Picker and Send Button */}
+        <div className="flex items-center space-x-1 flex-shrink-0">
+          <EmojiPickerComponent
+            onEmojiSelect={handleEmojiSelect}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
+            }
+            side="top"
+            align="end"
+          />
+
+          {reply.trim() && (
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              size="icon"
+              className="w-8 h-8 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Helper Text */}

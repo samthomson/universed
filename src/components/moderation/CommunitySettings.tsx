@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Save, Users, Shield, Eye, MessageSquare, Hash, Bot } from 'lucide-react';
+import { Settings, Save, Shield, Eye, MessageSquare, Hash, Bot } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,16 +112,16 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
               description: 'Community settings have been updated successfully.',
             });
           },
-          onError: (error) => {
+          onError: (_error) => {
             toast({
               title: 'Error saving settings',
-              description: error.message,
+              description: 'Failed to save community settings',
               variant: 'destructive',
             });
           },
         }
       );
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to save community settings',

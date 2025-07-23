@@ -4,14 +4,18 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useComments } from '@/hooks/useComments';
+import { useEmojiReactions } from '@/hooks/useEmojiReactions';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { CommentForm } from './CommentForm';
 import { NoteContent } from '@/components/NoteContent';
+import { MessageReactions } from '@/components/chat/MessageReactions';
+import { EmojiPickerComponent } from '@/components/ui/emoji-picker';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MessageSquare, ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { MessageSquare, ChevronDown, ChevronRight, MoreHorizontal, Smile } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 
@@ -26,10 +30,12 @@ interface CommentProps {
 export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
-  
+
   const author = useAuthor(comment.pubkey);
   const { data: commentsData } = useComments(root, limit);
-  
+  const { addReaction } = useEmojiReactions();
+  const { user } = useCurrentUser();
+
   const metadata = author.data?.metadata;
   const displayName = metadata?.name ?? genUserName(comment.pubkey)
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
@@ -37,6 +43,14 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
   // Get direct replies to this comment
   const replies = commentsData?.getDirectReplies(comment.id) || [];
   const hasReplies = replies.length > 0;
+
+  const handleEmojiSelect = (emoji: string) => {
+    if (!user) return;
+    addReaction({
+      targetEvent: comment,
+      emoji,
+    });
+  };
 
   return (
     <div className={`space-y-3 ${depth > 0 ? 'ml-6 border-l-2 border-muted pl-4' : ''}`}>
@@ -55,7 +69,7 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
                   </Avatar>
                 </Link>
                 <div>
-                  <Link 
+                  <Link
                     to={`/${nip19.npubEncode(comment.pubkey)}`}
                     className="font-medium text-sm hover:text-primary transition-colors"
                   >
@@ -71,6 +85,9 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
               <NoteContent event={comment} className="text-sm" />
             </div>
 
+            {/* Reactions */}
+            <MessageReactions message={comment} />
+
             {/* Comment Actions */}
             <div className="flex items-center justify-between pt-2">
               <div className="flex items-center space-x-2">
@@ -83,7 +100,23 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
                   <MessageSquare className="h-3 w-3 mr-1" />
                   Reply
                 </Button>
-                
+
+                <EmojiPickerComponent
+                  onEmojiSelect={handleEmojiSelect}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                    >
+                      <Smile className="h-3 w-3 mr-1" />
+                      React
+                    </Button>
+                  }
+                  side="top"
+                  align="start"
+                />
+
                 {hasReplies && (
                   <Collapsible open={showReplies} onOpenChange={setShowReplies}>
                     <CollapsibleTrigger asChild>

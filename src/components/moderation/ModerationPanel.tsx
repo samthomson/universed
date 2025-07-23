@@ -54,7 +54,7 @@ export function ModerationPanel({ communityId, open, onOpenChange }: ModerationP
   }
 
   const pendingReports = reports?.length || 0;
-  const recentActions = moderationStats?.totalActions || 0;
+  const _recentActions = moderationStats?.totalActions || 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
