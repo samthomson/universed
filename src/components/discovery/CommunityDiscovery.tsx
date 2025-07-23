@@ -110,7 +110,7 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className="w-8 h-8 text-gray-300 hover:text-white hover:bg-gray-600"
             onClick={handleJoinClick}
             disabled={isJoining}
           >
@@ -121,19 +121,19 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
   };
 
   return (
-    <Card className="hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => onSelect?.(community.id)}>
+    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer" onClick={() => onSelect?.(community.id)}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             {community.image ? (
               <Avatar className="w-12 h-12">
                 <AvatarImage src={community.image} alt={community.name} />
-                <AvatarFallback>
+                <AvatarFallback className="bg-gray-600 text-white">
                   {community.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="w-12 h-12 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-semibold">
+              <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
@@ -142,7 +142,7 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
               <CardTitle className="text-lg text-white truncate">
                 {community.name}
               </CardTitle>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-gray-300">
                 by {creatorName}
               </p>
             </div>
@@ -268,10 +268,10 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="animate-pulse bg-gray-800/60 border-gray-700">
               <CardHeader>
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-600 rounded-lg" />
+                  <div className="w-12 h-12 bg-gray-600 rounded-2xl" />
                   <div className="flex-1 space-y-2">
                     <div className="h-5 bg-gray-600 rounded w-3/4" />
                     <div className="h-4 bg-gray-600 rounded w-1/2" />
@@ -299,11 +299,11 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="p-8 text-center text-gray-400">
-            <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No communities found</h3>
-            <p className="text-sm">
+        <Card className="bg-gray-800/60 border-gray-700">
+          <CardContent className="p-8 text-center">
+            <Users className="w-16 h-16 mx-auto mb-4 text-gray-500" />
+            <h3 className="text-lg font-semibold mb-2 text-white">No communities found</h3>
+            <p className="text-sm text-gray-400">
               {query.trim() ? "Try a different search term" : "No communities available yet"}
             </p>
           </CardContent>

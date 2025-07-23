@@ -30,18 +30,18 @@ interface CreateChannelDialogProps {
   trigger?: React.ReactNode; // Custom trigger element
 }
 
-export function CreateChannelDialog({ 
-  communityId, 
-  folderId: initialFolderId, 
+export function CreateChannelDialog({
+  communityId,
+  folderId: initialFolderId,
   defaultType = 'text',
   onChannelCreated,
-  trigger 
+  trigger
 }: CreateChannelDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'text' | 'voice'>(defaultType);
-  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || '');
+  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || 'none');
   const [position, setPosition] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -123,7 +123,7 @@ export function CreateChannelDialog({
         ['alt', `Channel: ${channelName}`],
       ];
 
-      if (selectedFolderId) {
+      if (selectedFolderId && selectedFolderId !== 'none') {
         tags.push(['folder', selectedFolderId]);
       }
 
@@ -133,7 +133,7 @@ export function CreateChannelDialog({
           name: channelName,
           description: description.trim() || undefined,
           type,
-          folderId: selectedFolderId || undefined,
+          folderId: selectedFolderId !== 'none' ? selectedFolderId : undefined,
           position,
         }),
         tags,
@@ -148,7 +148,7 @@ export function CreateChannelDialog({
       setName('');
       setDescription('');
       setType(defaultType);
-      setSelectedFolderId(initialFolderId || '');
+      setSelectedFolderId(initialFolderId || 'none');
       setPosition(0);
       setOpen(false);
 
@@ -246,7 +246,7 @@ export function CreateChannelDialog({
 
           <div className="space-y-2">
             <Label htmlFor="folder">Folder (Optional)</Label>
-            <Select value={selectedFolderId || "none"} onValueChange={(value) => setSelectedFolderId(value === "none" ? "" : value)}>
+            <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
               <SelectTrigger>
                 <SelectValue placeholder="No folder (root level)" />
               </SelectTrigger>

@@ -46,7 +46,7 @@ export function ChannelSettingsDialog({
   const [name, setName] = useState(channel.name);
   const [description, setDescription] = useState(channel.description || '');
   const [type, setType] = useState<'text' | 'voice'>(channel.type);
-  const [folderId, setFolderId] = useState(channel.folderId || '');
+  const [folderId, setFolderId] = useState(channel.folderId || 'none');
   const [position, setPosition] = useState(channel.position);
   const [readPermissions, setReadPermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('everyone');
   const [writePermissions, setWritePermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('members');
@@ -110,7 +110,7 @@ export function ChannelSettingsDialog({
         name: channelName,
         description: description.trim(),
         type,
-        folderId: folderId || undefined,
+        folderId: folderId !== 'none' ? folderId : undefined,
         position,
       });
 
@@ -304,7 +304,7 @@ export function ChannelSettingsDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="folder">Folder</Label>
-                <Select value={folderId || "none"} onValueChange={(value) => setFolderId(value === "none" ? "" : value)}>
+                <Select value={folderId} onValueChange={setFolderId}>
                   <SelectTrigger>
                     <SelectValue placeholder="No folder (root level)" />
                   </SelectTrigger>

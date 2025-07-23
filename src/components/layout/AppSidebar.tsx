@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
-import { CreateCommunityDialog } from "@/components/community/CreateCommunityDialog";
+import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { useState } from "react";
 
 interface AppSidebarProps {
@@ -14,7 +14,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
   const { data: communities } = useUserCommunities();
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showSelectionDialog, setShowSelectionDialog] = useState(false);
 
   return (
     <TooltipProvider>
@@ -106,7 +106,7 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                 variant="ghost"
                 size="icon"
                 className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-green-500 text-green-500"
-                onClick={() => setShowCreateDialog(true)}
+                onClick={() => setShowSelectionDialog(true)}
               >
                 <Plus className="w-6 h-6" />
               </Button>
@@ -117,9 +117,10 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
           </Tooltip>
         </div>
 
-        <CreateCommunityDialog
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
+        <CommunitySelectionDialog
+          open={showSelectionDialog}
+          onOpenChange={setShowSelectionDialog}
+          onCommunitySelect={onSelectCommunity}
         />
       </div>
     </TooltipProvider>
