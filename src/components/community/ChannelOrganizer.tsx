@@ -1,31 +1,31 @@
 import { useState } from 'react';
-import { 
-  Hash, 
-  Volume2, 
-  Settings, 
-  ChevronRight, 
-  Folder, 
-  FolderPlus, 
-  MoreHorizontal, 
-  Plus, 
-  Lock, 
+import {
+  Hash,
+  Volume2,
+  Settings,
+  ChevronRight,
+  Folder,
+  FolderPlus,
+  MoreHorizontal,
+  Plus,
+  Lock,
   Megaphone,
   Eye,
   UserPlus,
   Copy,
-  Trash2 
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuSeparator, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { 
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -166,35 +166,7 @@ export function ChannelOrganizer({
         </CategorySection>
       )}
 
-      {/* Default "general" channel if no channels exist */}
-      {(!channels || channels.length === 0) && (
-        <CategorySection
-          title="TEXT CHANNELS"
-          isOpen={true}
-          onToggle={() => {}}
-          canModerate={canModerate}
-          communityId={communityId}
-          onChannelCreated={onChannelCreated}
-          defaultChannelType="text"
-        >
-          <ChannelItem
-            channel={{
-              id: 'general',
-              name: 'general',
-              type: 'text',
-              communityId: communityId,
-              description: 'General discussion',
-              createdAt: new Date(),
-              position: 0
-            } as Channel}
-            isSelected={selectedChannel === 'general'}
-            onSelect={() => onSelectChannel('general')}
-            onSettings={() => {}}
-            onCopyLink={() => {}}
-            canModerate={false}
-          />
-        </CategorySection>
-      )}
+
 
       {/* Folder Management Dialog */}
       <FolderManagementDialog
@@ -235,7 +207,7 @@ function FolderSection({
   onChannelCreated: () => void;
 }) {
   const allChannels = [...textChannels, ...voiceChannels];
-  
+
   return (
     <div className="space-y-1">
       <ContextMenu>
@@ -243,8 +215,8 @@ function FolderSection({
           <Collapsible open={isOpen} onOpenChange={onToggle}>
             <div className="flex items-center group">
               <CollapsibleTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300 hover:bg-gray-600/30 rounded-sm transition-all duration-150"
                 >
                   <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
@@ -259,7 +231,7 @@ function FolderSection({
                   )}
                 </Button>
               </CollapsibleTrigger>
-              
+
               {canModerate && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -300,7 +272,7 @@ function FolderSection({
                 </DropdownMenu>
               )}
             </div>
-            
+
             <CollapsibleContent className="space-y-0.5 ml-2 border-l border-gray-600/40 pl-2">
               {allChannels.map((channel) => (
                 <ChannelItem
@@ -317,7 +289,7 @@ function FolderSection({
             </CollapsibleContent>
           </Collapsible>
         </ContextMenuTrigger>
-        
+
         {canModerate && (
           <ContextMenuContent>
             <ContextMenuLabel>Folder Options</ContextMenuLabel>
@@ -366,8 +338,8 @@ function CategorySection({
     <Collapsible open={isOpen} onOpenChange={onToggle}>
       <div className="flex items-center justify-between group">
         <CollapsibleTrigger asChild>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300 hover:bg-gray-600/30 rounded-sm transition-all duration-150"
           >
             <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
@@ -420,16 +392,16 @@ function ChannelItem({
     if (channel.type === 'voice') {
       return <Volume2 className="w-4 h-4 mr-2 text-gray-400" />;
     }
-    
+
     // Special icons for certain channel names
     if (channel.name.toLowerCase().includes('announcement') || channel.name.toLowerCase().includes('news')) {
-      return <Megaphone className="w-4 h-4 mr-2 text-gray-400" />;  
+      return <Megaphone className="w-4 h-4 mr-2 text-gray-400" />;
     }
-    
+
     if (channel.name.toLowerCase().includes('rule') || channel.name.toLowerCase().includes('info')) {
       return <Lock className="w-4 h-4 mr-2 text-gray-400" />;
     }
-    
+
     return <Hash className="w-4 h-4 mr-2 text-gray-500" />;
   };
 
@@ -446,8 +418,8 @@ function ChannelItem({
               size="sm"
               className={`
                 flex-1 justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative
-                ${isSelected 
-                  ? 'bg-gray-600/60 text-white shadow-sm' 
+                ${isSelected
+                  ? 'bg-gray-600/60 text-white shadow-sm'
                   : 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
                 }
                 ${inFolder ? 'ml-1' : ''}
@@ -456,7 +428,7 @@ function ChannelItem({
             >
               {getChannelIcon()}
               <span className="text-sm font-medium truncate">{channel.name}</span>
-              
+
               {/* Discord-like channel indicators */}
               <div className="ml-auto flex items-center space-x-1">
                 {isPrivate && <Lock className="w-3 h-3 text-gray-500" />}
@@ -470,13 +442,13 @@ function ChannelItem({
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                 )}
               </div>
-              
+
               {/* Selected indicator */}
               {isSelected && (
                 <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white rounded-r-full"></div>
               )}
             </Button>
-            
+
             {canModerate && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -518,7 +490,7 @@ function ChannelItem({
             )}
           </div>
         </ContextMenuTrigger>
-        
+
         <ContextMenuContent>
           <ContextMenuLabel>{`#${channel.name}`}</ContextMenuLabel>
           <ContextMenuSeparator />

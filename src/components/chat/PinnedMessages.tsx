@@ -10,11 +10,12 @@ import type { NostrEvent } from "@nostrify/nostrify";
 
 interface PinnedMessagesProps {
   communityId: string;
+  channelId: string;
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function PinnedMessages({ communityId, onNavigateToDMs }: PinnedMessagesProps) {
-  const { data: pinnedMessages, isLoading } = usePinnedMessageEvents(communityId);
+export function PinnedMessages({ communityId, channelId, onNavigateToDMs }: PinnedMessagesProps) {
+  const { data: pinnedMessages, isLoading } = usePinnedMessageEvents(communityId, channelId);
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Don't render anything if there are no pinned messages
@@ -69,6 +70,7 @@ export function PinnedMessages({ communityId, onNavigateToDMs }: PinnedMessagesP
                 key={message.id}
                 message={message}
                 communityId={communityId}
+                channelId={channelId}
                 onNavigateToDMs={onNavigateToDMs}
               />
             ))}
@@ -100,10 +102,12 @@ function PinnedMessagePreview({ message }: { message: NostrEvent }) {
 function PinnedMessageItem({
   message,
   communityId: _communityId,
+  channelId: _channelId,
   onNavigateToDMs: _onNavigateToDMs
 }: {
   message: NostrEvent;
   communityId: string;
+  channelId: string;
   onNavigateToDMs?: (targetPubkey: string) => void;
 }) {
   const author = useAuthor(message.pubkey);

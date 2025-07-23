@@ -61,7 +61,7 @@ function parseChannelEvent(event: NostrEvent, communityId: string): Channel {
   }
 
   return {
-    id: d.split(':')[1] || name, // Extract channel name from d tag
+    id: d || `${communityId}:${name}`, // Use full d tag as ID, or create unique ID
     name: content.name || name,
     description: content.description || description,
     type: content.type || channelType,

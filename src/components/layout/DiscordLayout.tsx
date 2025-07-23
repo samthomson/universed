@@ -24,7 +24,7 @@ export function DiscordLayout() {
 
   // Auto-select general channel when community is selected
   useEffect(() => {
-    if (selectedCommunity && channels) {
+    if (selectedCommunity && channels && channels.length > 0) {
       // Look for a channel named "general" first
       const generalChannel = channels.find(channel =>
         channel.name.toLowerCase() === 'general' && channel.type === 'text'
@@ -37,9 +37,6 @@ export function DiscordLayout() {
         const firstTextChannel = channels.find(channel => channel.type === 'text');
         if (firstTextChannel) {
           setSelectedChannel(firstTextChannel.id);
-        } else {
-          // Fallback to "general" as default
-          setSelectedChannel('general');
         }
       }
     } else if (!selectedCommunity) {

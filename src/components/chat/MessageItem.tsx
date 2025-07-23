@@ -15,7 +15,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
-import { usePinMessage, useUnpinMessage, useIsPinned } from "@/hooks/usePinnedMessages";
+import { usePinMessage, useUnpinMessage, useIsPinned, getMessageChannelId } from "@/hooks/usePinnedMessages";
 import { useIsBlocked, useIsMuted } from "@/hooks/useBlockedUsers";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNow } from "date-fns";
@@ -25,10 +25,11 @@ interface MessageItemProps {
   message: NostrEvent;
   showAvatar: boolean;
   communityId?: string;
+  channelId?: string;
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, communityId, onNavigateToDMs }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
@@ -41,7 +42,9 @@ export function MessageItem({ message, showAvatar, communityId, onNavigateToDMs 
   const { data: replies } = useThreadReplies(message.id);
   const isBlocked = useIsBlocked(message.pubkey);
   const isMuted = useIsMuted(message.pubkey);
-  const isPinned = useIsPinned(communityId || '', message.id);
+  // Extract channel ID from the message if not provided
+  const messageChannelId = channelId || getMessageChannelId(message);
+  const isPinned = useIsPinned(communityId || '', messageChannelId || '', message.id);
 
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
@@ -64,12 +67,12 @@ export function MessageItem({ message, showAvatar, communityId, onNavigateToDMs 
   };
 
   const handleTogglePin = () => {
-    if (!communityId) return;
+    if (!communityId || !messageChannelId) return;
 
     if (isPinned) {
-      unpinMessage({ communityId, messageId: message.id });
+      unpinMessage({ communityId, channelId: messageChannelId, messageId: message.id });
     } else {
-      pinMessage({ communityId, messageId: message.id });
+      pinMessage({ communityId, channelId: messageChannelId, messageId: message.id });
     }
   };
 
@@ -207,7 +210,7 @@ export function MessageItem({ message, showAvatar, communityId, onNavigateToDMs 
               >
                 <Reply className="w-4 h-4" />
               </Button>
-              {communityId && (
+              {communityId && messageChannelId && (
                 <Button
                   variant="ghost"
                   size="icon"

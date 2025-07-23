@@ -14,7 +14,7 @@ interface MessageListProps {
 
 export function MessageList({ communityId, channelId, onNavigateToDMs }: MessageListProps) {
   const { data: messages, isLoading } = useMessages(communityId, channelId);
-  const { data: pinnedMessageIds } = usePinnedMessages(communityId);
+  const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +37,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
       <div className="flex-1 flex flex-col min-h-0">
         <PinnedMessages
           communityId={communityId}
+          channelId={channelId}
           onNavigateToDMs={onNavigateToDMs}
         />
         <ScrollArea className="flex-1 px-4">
@@ -65,6 +66,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
       <div className="flex-1 flex flex-col min-h-0">
         <PinnedMessages
           communityId={communityId}
+          channelId={channelId}
           onNavigateToDMs={onNavigateToDMs}
         />
         <ScrollArea className="flex-1 px-4">
@@ -86,6 +88,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
     <div className="flex-1 flex flex-col min-h-0">
       <PinnedMessages
         communityId={communityId}
+        channelId={channelId}
         onNavigateToDMs={onNavigateToDMs}
       />
       <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
@@ -102,6 +105,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
                 message={message}
                 showAvatar={showAvatar}
                 communityId={communityId}
+                channelId={channelId}
                 onNavigateToDMs={onNavigateToDMs}
               />
             );
