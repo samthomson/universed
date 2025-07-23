@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Crown, Shield, Users, ExternalLink } from "lucide-react";
+import { Crown, Shield, Users, ExternalLink, Settings } from "lucide-react";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { CommunityDiscovery } from "@/components/discovery/CommunityDiscovery";
@@ -123,13 +124,13 @@ export function Communities() {
                               {community.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
-                          
+
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-lg truncate">
                               {community.name}
                             </CardTitle>
                             <div className="flex items-center space-x-2">
-                              <Badge 
+                              <Badge
                                 variant={
                                   community.membershipStatus === 'owner' ? 'default' :
                                   community.membershipStatus === 'moderator' ? 'secondary' :
@@ -146,29 +147,38 @@ export function Communities() {
                         </div>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent className="pt-0 space-y-4">
                       {community.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {community.description}
                         </p>
                       )}
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                           <Users className="w-4 h-4" />
                           <span>{community.moderators.length + 1} members</span>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Button variant="outline" size="sm">
                             <ExternalLink className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          
+
+                          {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/communities/${encodeURIComponent(community.id)}/manage`}>
+                                <Settings className="w-4 h-4 mr-1" />
+                                Manage
+                              </Link>
+                            </Button>
+                          )}
+
                           {community.membershipStatus !== 'owner' && (
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="sm"
                               onClick={() => handleLeaveCommunity(community.id, community.name)}
                             >
