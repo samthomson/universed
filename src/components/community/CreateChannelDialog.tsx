@@ -14,11 +14,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { useCommunities } from '@/hooks/useCommunities';
 import { useUserMembership } from '@/hooks/useUserMembership';
+import { useChannelFolders } from '@/hooks/useChannelFolders';
 
 interface CreateChannelDialogProps {
   communityId: string;
@@ -30,6 +32,8 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'text' | 'voice'>('text');
+  const [folderId, setFolderId] = useState('');
+  const [position, setPosition] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useCurrentUser();
@@ -37,6 +41,7 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
   const { toast } = useToast();
   const { data: communities } = useCommunities();
   const { data: memberships } = useUserMembership();
+  const { data: folders } = useChannelFolders(communityId);
 
   // Check if user has permission to create channels
   const community = communities?.find(c => c.id === communityId);
@@ -98,21 +103,31 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
     setIsSubmitting(true);
 
     try {
+      const tags = [
+        ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
+        ['a', communityId], // Reference to community
+        ['name', channelName],
+        ['description', description.trim()],
+        ['channel_type', type],
+        ['position', position.toString()],
+        ['t', 'channel'], // Tag for filtering
+        ['alt', `Channel: ${channelName}`],
+      ];
+
+      if (folderId) {
+        tags.push(['folder', folderId]);
+      }
+
       await createEvent({
         kind: 32807, // Custom kind for channel definition
         content: JSON.stringify({
           name: channelName,
           description: description.trim() || undefined,
           type,
+          folderId: folderId || undefined,
+          position,
         }),
-        tags: [
-          ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
-          ['a', communityId], // Reference to community
-          ['name', channelName],
-          ['description', description.trim()],
-          ['channel_type', type],
-          ['t', 'channel'], // Tag for filtering
-        ],
+        tags,
       });
 
       toast({
@@ -124,6 +139,8 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
       setName('');
       setDescription('');
       setType('text');
+      setFolderId('');
+      setPosition(0);
       setOpen(false);
 
       // Notify parent component
@@ -214,6 +231,38 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
               maxLength={500}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="folder">Folder (Optional)</Label>
+            <Select value={folderId || "none"} onValueChange={(value) => setFolderId(value === "none" ? "" : value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="No folder (root level)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No folder (root level)</SelectItem>
+                {folders?.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="position">Position</Label>
+            <Input
+              id="position"
+              type="number"
+              value={position}
+              onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
+              min={0}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">
+              Lower numbers appear first in the channel list.
+            </p>
           </div>
 
           <DialogFooter>

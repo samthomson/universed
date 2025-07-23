@@ -1,12 +1,9 @@
-import { Crown, Shield, Users, MoreVertical, UserMinus, Clock } from "lucide-react";
+import { Crown, Shield, Users, MoreVertical, UserMinus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCommunityMembers } from "@/hooks/useCommunityMembers";
-import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { useManageMembers } from "@/hooks/useManageMembers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCommunities } from "@/hooks/useCommunities";
@@ -14,7 +11,6 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/useToast";
-import { JoinRequestsPanel } from "@/components/community/JoinRequestsPanel";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 
 interface MemberListProps {
@@ -135,7 +131,6 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
 
 export function MemberList({ communityId }: MemberListProps) {
   const { data: members, isLoading } = useCommunityMembers(communityId);
-  const { data: joinRequests } = useJoinRequests(communityId);
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
 
@@ -157,107 +152,7 @@ export function MemberList({ communityId }: MemberListProps) {
     );
   }
 
-  // If user can manage members and there are join requests, show tabs
-  if (canManageMembers) {
-    return (
-      <div className="flex flex-col h-full">
-        <Tabs defaultValue="members" className="flex flex-col h-full">
-          <div className="p-4 border-b border-gray-600 flex-shrink-0">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="members" className="text-xs">
-                <Users className="w-3 h-3 mr-1" />
-                Members
-                {members && (
-                  <Badge variant="secondary" className="ml-1 text-xs">
-                    {members.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="requests" className="text-xs">
-                <Clock className="w-3 h-3 mr-1" />
-                Requests
-                {joinRequests && joinRequests.length > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-xs">
-                    {joinRequests.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="members" className="flex-1 mt-0 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="p-2">
-                {isLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <div key={i} className="flex items-center space-x-2 px-2 py-1">
-                        <Skeleton className="w-8 h-8 rounded-full" />
-                        <Skeleton className="flex-1 h-4" />
-                      </div>
-                    ))}
-                  </div>
-                ) : members && members.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {/* Online Members */}
-                    <div className="mb-2">
-                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                        Online — {members.filter(m => m.isOnline).length}
-                      </div>
-                      {members
-                        .filter(member => member.isOnline)
-                        .map((member) => (
-                          <MemberItem
-                            key={member.pubkey}
-                            pubkey={member.pubkey}
-                            role={member.role}
-                            isOnline={member.isOnline}
-                            communityId={communityId}
-                            canManage={canManageMembers}
-                          />
-                        ))}
-                    </div>
-
-                    {/* Offline Members */}
-                    {members.some(m => !m.isOnline) && (
-                      <div>
-                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
-                          Offline — {members.filter(m => !m.isOnline).length}
-                        </div>
-                        {members
-                          .filter(member => !member.isOnline)
-                          .map((member) => (
-                            <MemberItem
-                              key={member.pubkey}
-                              pubkey={member.pubkey}
-                              role={member.role}
-                              isOnline={member.isOnline}
-                              communityId={communityId}
-                              canManage={canManageMembers}
-                            />
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center text-gray-400 py-8">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No members found</p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="requests" className="flex-1 mt-0 overflow-hidden">
-            <JoinRequestsPanel communityId={communityId} />
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
-
-  // Regular member view (no management capabilities)
+  // Show members list (same for all users, regardless of management capabilities)
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
