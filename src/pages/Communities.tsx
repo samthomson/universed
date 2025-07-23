@@ -109,35 +109,35 @@ export function Communities() {
             ) : userCommunities && userCommunities.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {userCommunities.map((community) => (
-                  <Card key={community.id} className="hover:bg-muted/50 transition-colors">
-                    <CardHeader className="pb-2 sm:pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
+                  <Card key={community.id} className="hover:bg-muted/50 transition-colors overflow-hidden">
+                    <CardHeader className="pb-2 sm:pb-3 overflow-hidden">
+                      <div className="flex items-start justify-between min-w-0">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
                           {community.image ? (
-                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 shrink-0">
                               <AvatarImage src={community.image} alt={community.name} />
                               <AvatarFallback>
                                 {community.name.slice(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm sm:text-base">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm sm:text-base shrink-0">
                               {community.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
 
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <CardTitle className="text-base sm:text-lg truncate">
                               {community.name}
                             </CardTitle>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 min-w-0">
                               <Badge
                                 variant={
                                   community.membershipStatus === 'owner' ? 'default' :
                                   community.membershipStatus === 'moderator' ? 'secondary' :
                                   'outline'
                                 }
-                                className="text-xs"
+                                className="text-xs shrink-0"
                               >
                                 {community.membershipStatus === 'owner' && <Crown className="w-3 h-3 mr-1" />}
                                 {community.membershipStatus === 'moderator' && <Shield className="w-3 h-3 mr-1" />}
@@ -149,34 +149,34 @@ export function Communities() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0 space-y-3 sm:space-y-4">
+                    <CardContent className="pt-0 space-y-3 sm:space-y-4 overflow-hidden">
                       {community.description && (
                         <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                           {community.description}
                         </p>
                       )}
 
-                      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-muted-foreground">
+                      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 min-w-0">
+                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-muted-foreground shrink-0">
                           <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                           <span>{community.moderators.length + 1} members</span>
                         </div>
 
-                        <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto">
-                          <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap">
+                        <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto min-w-0">
+                          <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap shrink-0">
                             <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             View
                           </Button>
 
                           <CommunityShareDialog community={community}>
-                            <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap">
+                            <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap shrink-0">
                               <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                               Share
                             </Button>
                           </CommunityShareDialog>
 
                           {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
-                            <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm whitespace-nowrap">
+                            <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm whitespace-nowrap shrink-0">
                               <Link to={`/communities/${encodeURIComponent(community.id)}/manage`}>
                                 <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                 Manage
@@ -189,7 +189,7 @@ export function Communities() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleLeaveCommunity(community.id, community.name)}
-                              className="text-xs sm:text-sm whitespace-nowrap"
+                              className="text-xs sm:text-sm whitespace-nowrap shrink-0"
                             >
                               Leave
                             </Button>

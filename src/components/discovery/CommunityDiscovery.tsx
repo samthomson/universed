@@ -121,57 +121,59 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
   };
 
   return (
-    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer" onClick={() => onSelect?.(community.id)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
+    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={() => onSelect?.(community.id)}>
+      <CardHeader className="pb-3 overflow-hidden">
+        <div className="flex items-start justify-between min-w-0">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
             {community.image ? (
-              <Avatar className="w-12 h-12">
+              <Avatar className="w-12 h-12 shrink-0">
                 <AvatarImage src={community.image} alt={community.name} />
                 <AvatarFallback className="bg-gray-600 text-white">
                   {community.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
+              <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold shrink-0">
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
 
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <CardTitle className="text-lg text-white truncate">
                 {community.name}
               </CardTitle>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-gray-300 truncate">
                 by {creatorName}
               </p>
             </div>
           </div>
 
-          {getActionButton()}
+          <div className="shrink-0">
+            {getActionButton()}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 overflow-hidden">
         {community.description && (
           <p className="text-sm text-gray-300 mb-3 line-clamp-2">
             {community.description}
           </p>
         )}
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 text-sm text-gray-400">
-            <div className="flex items-center space-x-1">
+        <div className="flex items-center justify-between min-w-0">
+          <div className="flex items-center space-x-4 text-sm text-gray-400 min-w-0">
+            <div className="flex items-center space-x-1 shrink-0">
               <Users className="w-4 h-4" />
               <span>{memberCount} members</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 shrink-0">
               <Hash className="w-4 h-4" />
               <span>3 channels</span> {/* Simplified - could be dynamic */}
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             {membershipStatus === 'pending' && (
               <Badge variant="outline" className="text-xs text-yellow-400 border-yellow-400">
                 Pending
