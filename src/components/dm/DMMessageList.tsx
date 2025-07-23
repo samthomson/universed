@@ -6,9 +6,10 @@ import { useDMMessages } from "@/hooks/useDMMessages";
 
 interface DMMessageListProps {
   conversationId: string;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function DMMessageList({ conversationId }: DMMessageListProps) {
+export function DMMessageList({ conversationId, onNavigateToDMs }: DMMessageListProps) {
   const { data: messages, isLoading } = useDMMessages(conversationId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -63,7 +64,7 @@ export function DMMessageList({ conversationId }: DMMessageListProps) {
       <div className="space-y-4 py-4">
         {messages.map((message, index) => {
           const previousMessage = index > 0 ? messages[index - 1] : null;
-          const showAvatar = !previousMessage || 
+          const showAvatar = !previousMessage ||
             previousMessage.pubkey !== message.pubkey ||
             (message.created_at - previousMessage.created_at) > 300; // 5 minutes
 
@@ -73,6 +74,7 @@ export function DMMessageList({ conversationId }: DMMessageListProps) {
               message={message}
               conversationId={conversationId}
               showAvatar={showAvatar}
+              onNavigateToDMs={onNavigateToDMs}
             />
           );
         })}

@@ -8,9 +8,10 @@ import { genUserName } from "@/lib/genUserName";
 
 interface DMChatAreaProps {
   conversationId: string; // The other person's pubkey
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function DMChatArea({ conversationId }: DMChatAreaProps) {
+export function DMChatArea({ conversationId, onNavigateToDMs }: DMChatAreaProps) {
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
 
@@ -52,7 +53,7 @@ export function DMChatArea({ conversationId }: DMChatAreaProps) {
 
       {/* Messages */}
       <div className="flex-1 flex flex-col">
-        <DMMessageList conversationId={conversationId} />
+        <DMMessageList conversationId={conversationId} onNavigateToDMs={onNavigateToDMs} />
 
         {/* Message Input */}
         <div className="p-4 border-t border-gray-600">

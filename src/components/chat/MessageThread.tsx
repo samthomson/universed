@@ -11,9 +11,10 @@ interface MessageThreadProps {
   rootMessage: NostrEvent;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function MessageThread({ rootMessage, open, onOpenChange }: MessageThreadProps) {
+export function MessageThread({ rootMessage, open, onOpenChange, onNavigateToDMs }: MessageThreadProps) {
   const { data: replies, isLoading } = useThreadReplies(rootMessage.id);
   const replyCount = replies?.length || 0;
 
@@ -43,7 +44,7 @@ export function MessageThread({ rootMessage, open, onOpenChange }: MessageThread
         <div className="flex flex-col h-full">
           {/* Root Message */}
           <div className="border-b border-gray-600 pb-4 mb-4">
-            <MessageItem message={rootMessage} showAvatar={true} />
+            <MessageItem message={rootMessage} showAvatar={true} onNavigateToDMs={onNavigateToDMs} />
           </div>
 
           {/* Replies */}
@@ -75,6 +76,7 @@ export function MessageThread({ rootMessage, open, onOpenChange }: MessageThread
                       key={reply.id}
                       message={reply}
                       showAvatar={showAvatar}
+                      onNavigateToDMs={onNavigateToDMs}
                     />
                   );
                 })}

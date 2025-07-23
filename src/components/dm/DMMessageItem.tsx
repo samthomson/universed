@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
+import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDMDecrypt } from "@/hooks/useDMDecrypt";
@@ -16,10 +17,12 @@ interface DMMessageItemProps {
   message: NostrEvent;
   conversationId?: string;
   showAvatar: boolean;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
+export function DMMessageItem({ message, showAvatar, onNavigateToDMs }: DMMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
   const { user } = useCurrentUser();
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
@@ -39,6 +42,19 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
     });
   };
 
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (user?.pubkey !== message.pubkey) {
+      setShowProfileDialog(true);
+    }
+  };
+
+  const handleStartDM = (pubkey: string) => {
+    onNavigateToDMs?.(pubkey);
+    setShowProfileDialog(false);
+  };
+
   return (
     <div
       className={`group relative px-4 py-1 hover:bg-gray-800/50 transition-colors ${
@@ -51,7 +67,10 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
         {/* Avatar */}
         <div className="w-8 flex-shrink-0">
           {showAvatar ? (
-            <Avatar className="w-8 h-8">
+            <Avatar
+              className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={handleProfileClick}
+            >
               <AvatarImage src={profileImage} alt={displayName} />
               <AvatarFallback className="bg-indigo-600 text-white text-xs">
                 {displayName.slice(0, 2).toUpperCase()}
@@ -75,7 +94,10 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
         <div className={`flex-1 min-w-0 ${isOwnMessage ? 'text-right' : ''}`}>
           {showAvatar && (
             <div className={`flex items-baseline space-x-2 mb-1 ${isOwnMessage ? 'justify-end' : ''}`}>
-              <span className="font-medium text-white hover:underline cursor-pointer text-sm">
+              <span
+                className="font-medium text-white hover:underline cursor-pointer text-sm"
+                onClick={isOwnMessage ? undefined : handleProfileClick}
+              >
                 {isOwnMessage ? 'You' : displayName}
               </span>
               <span className="text-xs text-gray-500">
@@ -144,6 +166,14 @@ export function DMMessageItem({ message, showAvatar }: DMMessageItemProps) {
             </Button>
           </div>
         )}
+
+        {/* User Profile Dialog */}
+        <UserProfileDialog
+          pubkey={message.pubkey}
+          open={showProfileDialog}
+          onOpenChange={setShowProfileDialog}
+          onStartDM={handleStartDM}
+        />
       </div>
     </div>
   );

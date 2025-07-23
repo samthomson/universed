@@ -10,6 +10,7 @@ import { MessageThread } from "./MessageThread";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
+import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -24,11 +25,13 @@ interface MessageItemProps {
   message: NostrEvent;
   showAvatar: boolean;
   communityId?: string;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, communityId }: MessageItemProps) {
+export function MessageItem({ message, showAvatar, communityId, onNavigateToDMs }: MessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showThread, setShowThread] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const { addReaction } = useEmojiReactions();
@@ -72,6 +75,19 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
 
   const replyCount = replies?.length || 0;
 
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (user?.pubkey !== message.pubkey) {
+      setShowProfileDialog(true);
+    }
+  };
+
+  const handleStartDM = (pubkey: string) => {
+    onNavigateToDMs?.(pubkey);
+    setShowProfileDialog(false);
+  };
+
   return (
     <MessageContextMenu
       message={message}
@@ -97,8 +113,8 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
           <div className="w-10 flex-shrink-0">
             {showAvatar ? (
               <UserContextMenu pubkey={message.pubkey} displayName={displayName}>
-                <div className="relative cursor-pointer">
-                  <Avatar className="w-10 h-10">
+                <div className="relative cursor-pointer" onClick={handleProfileClick}>
+                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
                     <AvatarImage src={profileImage} alt={displayName} />
                     <AvatarFallback className="bg-indigo-600 text-white text-sm">
                       {displayName.slice(0, 2).toUpperCase()}
@@ -128,7 +144,10 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
             {showAvatar && (
               <div className="flex items-baseline space-x-2 mb-1">
                 <UserContextMenu pubkey={message.pubkey} displayName={displayName}>
-                  <span className="font-semibold text-white hover:underline cursor-pointer">
+                  <span
+                    className="font-semibold text-white hover:underline cursor-pointer"
+                    onClick={handleProfileClick}
+                  >
                     {displayName}
                   </span>
                 </UserContextMenu>
@@ -214,6 +233,15 @@ export function MessageItem({ message, showAvatar, communityId }: MessageItemPro
           rootMessage={message}
           open={showThread}
           onOpenChange={setShowThread}
+          onNavigateToDMs={onNavigateToDMs}
+        />
+
+        {/* User Profile Dialog */}
+        <UserProfileDialog
+          pubkey={message.pubkey}
+          open={showProfileDialog}
+          onOpenChange={setShowProfileDialog}
+          onStartDM={handleStartDM}
         />
       </div>
     </MessageContextMenu>

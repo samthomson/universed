@@ -10,8 +10,17 @@ export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
   const [showMemberList, setShowMemberList] = useState(true);
+  const [dmTargetPubkey, setDmTargetPubkey] = useState<string | null>(null);
 
   const { data: channels } = useChannels(selectedCommunity);
+
+  const handleNavigateToDMs = (targetPubkey?: string) => {
+    setSelectedCommunity(null);
+    setSelectedChannel(null);
+    if (targetPubkey) {
+      setDmTargetPubkey(targetPubkey);
+    }
+  };
 
   // Auto-select general channel when community is selected
   useEffect(() => {
@@ -57,6 +66,7 @@ export function DiscordLayout() {
               communityId={selectedCommunity}
               selectedChannel={selectedChannel}
               onSelectChannel={setSelectedChannel}
+              onNavigateToDMs={handleNavigateToDMs}
             />
             <UserPanel />
           </div>
@@ -67,6 +77,7 @@ export function DiscordLayout() {
               communityId={selectedCommunity}
               channelId={selectedChannel}
               onToggleMemberList={() => setShowMemberList(!showMemberList)}
+              onNavigateToDMs={handleNavigateToDMs}
             />
           </div>
 
@@ -76,6 +87,7 @@ export function DiscordLayout() {
               <MemberList
                 communityId={selectedCommunity}
                 channelId={selectedChannel}
+                onNavigateToDMs={handleNavigateToDMs}
               />
             </div>
           )}
@@ -88,6 +100,9 @@ export function DiscordLayout() {
               communityId={selectedCommunity}
               selectedChannel={selectedChannel}
               onSelectChannel={setSelectedChannel}
+              dmTargetPubkey={dmTargetPubkey}
+              onDmTargetHandled={() => setDmTargetPubkey(null)}
+              onNavigateToDMs={handleNavigateToDMs}
             />
           </div>
 

@@ -12,9 +12,10 @@ interface ChatAreaProps {
   communityId: string | null;
   channelId: string | null;
   onToggleMemberList: () => void;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function ChatArea({ communityId, channelId, onToggleMemberList }: ChatAreaProps) {
+export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs }: ChatAreaProps) {
   const navigate = useNavigate();
   const { data: communities } = useCommunities();
   const { data: channels } = useChannels(communityId);
@@ -111,6 +112,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList }: ChatAre
             <MessageList
               communityId={communityId}
               channelId={channelId}
+              onNavigateToDMs={onNavigateToDMs}
             />
 
             {/* Typing Indicator */}

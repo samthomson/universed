@@ -1,17 +1,21 @@
-import { useState } from "react";
-import { Search, Plus, MessageCircle, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
-import { FriendsPanel } from "@/components/social/FriendsPanel";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 
-export function DirectMessages() {
+interface DirectMessagesProps {
+  targetPubkey?: string | null;
+  onTargetHandled?: () => void;
+  onNavigateToDMs?: (targetPubkey: string) => void;
+}
+
+export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs }: DirectMessagesProps = {}) {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -19,9 +23,16 @@ export function DirectMessages() {
   const { user } = useCurrentUser();
   const { data: conversations } = useDirectMessages();
 
-  const handleStartDM = (pubkey: string) => {
-    setSelectedConversation(pubkey);
-  };
+  // Auto-select conversation when targetPubkey is provided
+  useEffect(() => {
+    if (targetPubkey) {
+      // Always set the selected conversation to the target pubkey
+      // This works for both existing conversations and new ones
+      setSelectedConversation(targetPubkey);
+      // Mark the target as handled
+      onTargetHandled?.();
+    }
+  }, [targetPubkey, onTargetHandled]);
 
   if (!user) {
     return (
@@ -40,7 +51,7 @@ export function DirectMessages() {
         {/* Header */}
         <div className="p-4 border-b border-gray-600">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-white">Messages & Friends</h2>
+            <h2 className="font-semibold text-white">Messages</h2>
             <Button
               variant="ghost"
               size="icon"
@@ -63,40 +74,17 @@ export function DirectMessages() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="messages" className="flex-1 flex flex-col">
-          <div className="px-4 pt-2">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="messages" className="text-xs">
-                <MessageCircle className="w-3 h-3 mr-1" />
-                Messages
-              </TabsTrigger>
-              <TabsTrigger value="friends" className="text-xs">
-                <Users className="w-3 h-3 mr-1" />
-                Friends
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="messages" className="flex-1 mt-2 overflow-hidden">
-            <ScrollArea className="h-full">
-              <DMConversationList
-                conversations={conversations || []}
-                selectedConversation={selectedConversation}
-                onSelectConversation={setSelectedConversation}
-                searchQuery={searchQuery}
-              />
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="friends" className="flex-1 mt-2 overflow-hidden">
-            <ScrollArea className="h-full">
-              <div className="px-2">
-                <FriendsPanel onStartDM={handleStartDM} />
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+        {/* Conversation List */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <DMConversationList
+              conversations={conversations || []}
+              selectedConversation={selectedConversation}
+              onSelectConversation={setSelectedConversation}
+              searchQuery={searchQuery}
+            />
+          </ScrollArea>
+        </div>
       </div>
 
       {/* Chat Area */}
@@ -104,6 +92,7 @@ export function DirectMessages() {
         {selectedConversation ? (
           <DMChatArea
             conversationId={selectedConversation}
+            onNavigateToDMs={onNavigateToDMs}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

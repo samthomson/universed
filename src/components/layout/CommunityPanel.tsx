@@ -18,9 +18,12 @@ interface CommunityPanelProps {
   communityId: string | null;
   selectedChannel: string | null;
   onSelectChannel: (channelId: string | null) => void;
+  dmTargetPubkey?: string | null;
+  onDmTargetHandled?: () => void;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { data: channels, refetch: refetchChannels } = useChannels(communityId);
   const { data: folders } = useChannelFolders(communityId);
@@ -40,7 +43,13 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
 
   if (!communityId) {
     // Direct Messages view - return the full DirectMessages component
-    return <DirectMessages />;
+    return (
+      <DirectMessages
+        targetPubkey={dmTargetPubkey}
+        onTargetHandled={onDmTargetHandled}
+        onNavigateToDMs={onNavigateToDMs}
+      />
+    );
   }
 
   if (!community) {

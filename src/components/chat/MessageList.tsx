@@ -7,9 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface MessageListProps {
   communityId: string;
   channelId: string;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function MessageList({ communityId, channelId }: MessageListProps) {
+export function MessageList({ communityId, channelId, onNavigateToDMs }: MessageListProps) {
   const { data: messages, isLoading } = useMessages(communityId, channelId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -64,7 +65,7 @@ export function MessageList({ communityId, channelId }: MessageListProps) {
       <div className="space-y-4 py-4">
         {messages.map((message, index) => {
           const previousMessage = index > 0 ? messages[index - 1] : null;
-          const showAvatar = !previousMessage || 
+          const showAvatar = !previousMessage ||
             previousMessage.pubkey !== message.pubkey ||
             (message.created_at - previousMessage.created_at) > 300; // 5 minutes
 
@@ -73,6 +74,8 @@ export function MessageList({ communityId, channelId }: MessageListProps) {
               key={message.id}
               message={message}
               showAvatar={showAvatar}
+              communityId={communityId}
+              onNavigateToDMs={onNavigateToDMs}
             />
           );
         })}
