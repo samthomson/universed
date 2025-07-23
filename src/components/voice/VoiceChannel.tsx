@@ -1,8 +1,9 @@
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Settings } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { VoiceControls } from './VoiceControls';
 import { useVoiceChannel } from '@/hooks/useVoiceChannel';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -207,13 +208,7 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="w-10 h-10"
-                >
-                  <Settings className="w-4 h-4" />
-                </Button>
+                <VoiceControls className="w-10 h-10" />
               </TooltipTrigger>
               <TooltipContent>
                 <p>Voice Settings</p>
