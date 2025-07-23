@@ -235,6 +235,68 @@
     }
   }
 
+  /* Mobile container utilities */
+  .mobile-container {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Mobile flex utilities */
+  .mobile-flex-container {
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .mobile-flex-item {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Mobile text utilities */
+  .mobile-text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* Mobile layout utilities */
+  .mobile-full-width {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Mobile communities list - force containment */
+  .mobile-communities-container {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .mobile-communities-container * {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mobile-communities-item {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .mobile-communities-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
   /* Animated stars background */
   .stars {
     width: 1px;

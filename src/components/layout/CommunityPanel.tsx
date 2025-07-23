@@ -48,24 +48,26 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
     // On mobile, show communities list instead of Direct Messages
     if (isMobile) {
       return (
-        <div className="h-full flex flex-col bg-gray-800">
-          <div className="p-4 border-b border-gray-700">
-            <h2 className="text-lg font-semibold text-white">Your Communities</h2>
+        <div className="h-full w-full flex flex-col bg-gray-800 mobile-communities-container">
+          <div className="p-4 border-b border-gray-700 shrink-0 mobile-communities-item">
+            <h2 className="text-lg font-semibold text-white mobile-communities-text">
+              Your Communities
+            </h2>
             <p className="text-sm text-gray-400">
               {userCommunities?.length || 0} communities
             </p>
           </div>
 
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-3">
+          <ScrollArea className="flex-1 mobile-communities-container">
+            <div className="p-4 space-y-3 mobile-communities-container">
               {isLoadingUserCommunities ? (
                 // Loading skeleton
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 animate-pulse">
-                    <div className="w-12 h-12 bg-gray-600 rounded-lg" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-gray-600 rounded w-3/4" />
-                      <div className="h-3 bg-gray-600 rounded w-1/2" />
+                  <div key={i} className="w-full max-w-full flex items-center p-3 rounded-lg bg-gray-700/50 animate-pulse mobile-communities-item">
+                    <div className="w-12 h-12 shrink-0 mr-3 bg-gray-600 rounded-lg" />
+                    <div className="flex-1 min-w-0 space-y-2 mobile-communities-item">
+                      <div className="h-4 bg-gray-600 rounded" style={{ width: '75%' }} />
+                      <div className="h-3 bg-gray-600 rounded" style={{ width: '50%' }} />
                     </div>
                   </div>
                 ))
@@ -74,42 +76,48 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                   <button
                     key={community.id}
                     onClick={() => onSelectCommunity?.(community.id)}
-                    className="w-full flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button"
+                    className="w-full max-w-full flex items-center p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button mobile-communities-item"
                   >
                     {community.image ? (
-                      <Avatar className="w-12 h-12">
+                      <Avatar className="w-12 h-12 shrink-0 mr-3">
                         <AvatarImage src={community.image} alt={community.name} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
                           {community.name.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold">
+                      <div className="w-12 h-12 shrink-0 mr-3 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold">
                         {community.name.slice(0, 2).toUpperCase()}
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-medium text-white truncate">{community.name}</h3>
-                        {community.membershipStatus === 'owner' && (
-                          <Crown className="w-4 h-4 text-yellow-400" />
-                        )}
-                        {community.membershipStatus === 'moderator' && (
-                          <Shield className="w-4 h-4 text-blue-400" />
+                    <div className="flex-1 min-w-0 mobile-communities-item">
+                      <div className="flex items-center min-w-0 mb-1">
+                        <h3 className="font-medium text-white flex-1 min-w-0 mobile-communities-text">
+                          {community.name}
+                        </h3>
+                        {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
+                          <div className="ml-2 shrink-0">
+                            {community.membershipStatus === 'owner' && (
+                              <Crown className="w-4 h-4 text-yellow-400" />
+                            )}
+                            {community.membershipStatus === 'moderator' && (
+                              <Shield className="w-4 h-4 text-blue-400" />
+                            )}
+                          </div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-400 truncate">
+                      <p className="text-sm text-gray-400 mobile-communities-text">
                         {community.description || `${community.moderators.length + 1} members`}
                       </p>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="text-center py-8">
+                <div className="text-center py-8 px-4">
                   <Users className="w-12 h-12 mx-auto text-gray-500 mb-3" />
                   <h3 className="text-lg font-medium text-white mb-2">No Communities</h3>
-                  <p className="text-sm text-gray-400 mb-4">
+                  <p className="text-sm text-gray-400 mb-4 break-words">
                     You haven't joined any communities yet.
                   </p>
                 </div>
@@ -119,14 +127,18 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
               <div className="pt-4 border-t border-gray-700">
                 <button
                   onClick={() => onNavigateToDMs?.('')}
-                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button"
+                  className="w-full max-w-full flex items-center p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button mobile-communities-item"
                 >
-                  <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 shrink-0 mr-3 bg-green-600 rounded-lg flex items-center justify-center">
                     <MessageCircle className="w-6 h-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="font-medium text-white">Direct Messages</h3>
-                    <p className="text-sm text-gray-400">Private conversations</p>
+                  <div className="flex-1 min-w-0 mobile-communities-item">
+                    <h3 className="font-medium text-white mobile-communities-text">
+                      Direct Messages
+                    </h3>
+                    <p className="text-sm text-gray-400 mobile-communities-text">
+                      Private conversations
+                    </p>
                   </div>
                 </button>
               </div>
