@@ -1,4 +1,4 @@
-import { Settings, MoreHorizontal, FolderPlus } from "lucide-react";
+import { Settings, MoreHorizontal, FolderPlus, Users, Crown, Shield, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -11,7 +11,10 @@ import { FolderManagementDialog } from "@/components/community/FolderManagementD
 import { ChannelOrganizer } from "@/components/community/ChannelOrganizer";
 import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
+import { useUserCommunities } from "@/hooks/useUserCommunities";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -19,15 +22,18 @@ interface CommunityPanelProps {
   selectedSpace?: string | null;
   onSelectChannel: (channelId: string | null) => void;
   onSelectSpace?: (spaceId: string | null) => void;
+  onSelectCommunity?: (communityId: string | null) => void;
   dmTargetPubkey?: string | null;
   onDmTargetHandled?: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
+  const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
+  const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<Channel | null>(null);
@@ -39,7 +45,98 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
   const community = communities?.find(c => c.id === communityId);
 
   if (!communityId) {
-    // Direct Messages view - return the full DirectMessages component
+    // On mobile, show communities list instead of Direct Messages
+    if (isMobile) {
+      return (
+        <div className="h-full flex flex-col bg-gray-800">
+          <div className="p-4 border-b border-gray-700">
+            <h2 className="text-lg font-semibold text-white">Your Communities</h2>
+            <p className="text-sm text-gray-400">
+              {userCommunities?.length || 0} communities
+            </p>
+          </div>
+
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-3">
+              {isLoadingUserCommunities ? (
+                // Loading skeleton
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 animate-pulse">
+                    <div className="w-12 h-12 bg-gray-600 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-600 rounded w-3/4" />
+                      <div className="h-3 bg-gray-600 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))
+              ) : userCommunities && userCommunities.length > 0 ? (
+                userCommunities.map((community) => (
+                  <button
+                    key={community.id}
+                    onClick={() => onSelectCommunity?.(community.id)}
+                    className="w-full flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button"
+                  >
+                    {community.image ? (
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage src={community.image} alt={community.name} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {community.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold">
+                        {community.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-white truncate">{community.name}</h3>
+                        {community.membershipStatus === 'owner' && (
+                          <Crown className="w-4 h-4 text-yellow-400" />
+                        )}
+                        {community.membershipStatus === 'moderator' && (
+                          <Shield className="w-4 h-4 text-blue-400" />
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-400 truncate">
+                        {community.description || `${community.moderators.length + 1} members`}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 mx-auto text-gray-500 mb-3" />
+                  <h3 className="text-lg font-medium text-white mb-2">No Communities</h3>
+                  <p className="text-sm text-gray-400 mb-4">
+                    You haven't joined any communities yet.
+                  </p>
+                </div>
+              )}
+
+              {/* Direct Messages Section */}
+              <div className="pt-4 border-t border-gray-700">
+                <button
+                  onClick={() => onNavigateToDMs?.('')}
+                  className="w-full flex items-center space-x-3 p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button"
+                >
+                  <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                    <MessageCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-white">Direct Messages</h3>
+                    <p className="text-sm text-gray-400">Private conversations</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
+      );
+    }
+
+    // Desktop: Direct Messages view - return the full DirectMessages component
     return (
       <DirectMessages
         targetPubkey={dmTargetPubkey}

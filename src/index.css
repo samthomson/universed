@@ -31,6 +31,210 @@
     background-color: rgb(107 114 128);
   }
 
+  /* Mobile-first responsive utilities */
+  .mobile-safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-header-height {
+    height: calc(3.5rem + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-content-height {
+    height: calc(100vh - 3.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+
+  /* Discord-like hover animations */
+  .discord-hover {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .discord-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Mobile touch feedback */
+  .mobile-touch {
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+    touch-action: manipulation;
+  }
+
+  .mobile-touch:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease-in-out;
+  }
+
+  /* Improved scrollbars for mobile */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .mobile-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Discord-like message animations */
+  .message-enter {
+    animation: messageSlideIn 0.3s ease-out;
+  }
+
+  @keyframes messageSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Mobile keyboard handling */
+  .mobile-input-container {
+    padding-bottom: env(keyboard-inset-height, 0px);
+  }
+
+  /* Safe area utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Mobile-optimized text sizes */
+  .mobile-text-base {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+
+  /* Discord-like mobile animations */
+  .mobile-slide-in {
+    animation: mobileSlideIn 0.3s ease-out;
+  }
+
+  @keyframes mobileSlideIn {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .mobile-slide-out {
+    animation: mobileSlideOut 0.3s ease-in;
+  }
+
+  @keyframes mobileSlideOut {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  /* Mobile-friendly scrollbars */
+  .mobile-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+  }
+
+  .mobile-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .mobile-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .mobile-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);
+    border-radius: 2px;
+  }
+
+  /* Mobile viewport fixes */
+  .mobile-viewport {
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+  }
+
+  /* Prevent text selection on mobile UI elements */
+  .mobile-no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Mobile-optimized button sizes */
+  .mobile-button {
+    min-height: 44px; /* iOS recommended minimum touch target */
+    min-width: 44px;
+  }
+
+  /* Mobile-friendly spacing */
+  .mobile-spacing {
+    padding: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .mobile-spacing {
+      padding: 0.75rem;
+    }
+  }
+
+  /* Mobile-optimized card layouts */
+  .mobile-card {
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+
+  /* Mobile navigation transitions */
+  .mobile-nav-transition {
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  }
+
+  /* Mobile-friendly form inputs */
+  .mobile-input {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+  }
+
+  /* Mobile-optimized grid layouts */
+  .mobile-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .mobile-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
   /* Animated stars background */
   .stars {
     width: 1px;

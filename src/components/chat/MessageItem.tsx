@@ -21,6 +21,7 @@ import { usePinMessage, useUnpinMessage, useIsPinned, getMessageChannelId } from
 import { useIsBlocked, useIsMuted } from "@/hooks/useBlockedUsers";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNow } from "date-fns";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface MessageItemProps {
@@ -32,6 +33,7 @@ interface MessageItemProps {
 }
 
 export function MessageItem({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
+  const isMobile = useIsMobile();
   const [isHovered, setIsHovered] = useState(false);
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
@@ -101,11 +103,12 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
       communityId={communityId}
     >
       <div
-        className={`group relative px-4 py-1 hover:bg-gray-800/50 transition-colors ${
-          showAvatar ? 'mt-4' : ''
-        } ${messageOpacity}`}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/50 transition-colors ${
+          showAvatar ? (isMobile ? 'mt-3' : 'mt-4') : ''
+        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''}`}
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
+        onClick={() => isMobile && setIsHovered(!isHovered)}
       >
         {/* Pinned indicator */}
         {isPinned && (
@@ -115,15 +118,15 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
           </div>
         )}
 
-        <div className="flex space-x-3">
+        <div className={`flex ${isMobile ? 'space-x-2' : 'space-x-3'}`}>
           {/* Avatar */}
-          <div className="w-10 flex-shrink-0">
+          <div className={`${isMobile ? 'w-8' : 'w-10'} flex-shrink-0`}>
             {showAvatar ? (
               <UserContextMenu pubkey={message.pubkey} displayName={displayName}>
                 <div className="relative cursor-pointer" onClick={handleProfileClick}>
-                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
+                  <Avatar className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} hover:opacity-80 transition-opacity`}>
                     <AvatarImage src={profileImage} alt={displayName} />
-                    <AvatarFallback className="bg-indigo-600 text-white text-sm">
+                    <AvatarFallback className={`bg-indigo-600 text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
                       {displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -133,8 +136,8 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
                 </div>
               </UserContextMenu>
             ) : (
-              <div className="w-10 h-5 flex items-center justify-center">
-                {isHovered && (
+              <div className={`${isMobile ? 'w-8' : 'w-10'} h-5 flex items-center justify-center`}>
+                {isHovered && !isMobile && (
                   <span className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
                     {timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
@@ -170,7 +173,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
             )}
 
             <div className="text-gray-100 break-words">
-              <NoteContent event={message} className="text-sm leading-relaxed" />
+              <NoteContent event={message} className={`${isMobile ? 'text-base' : 'text-sm'} leading-relaxed`} />
             </div>
 
             {/* Reactions */}
@@ -203,16 +206,16 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
 
           {/* Message Actions */}
           {isHovered && (
-            <div className="absolute -top-2 right-4 bg-gray-700 border border-gray-600 rounded-md shadow-lg flex">
+            <div className={`absolute ${isMobile ? '-top-1 right-2' : '-top-2 right-4'} bg-gray-700 border border-gray-600 rounded-md shadow-lg flex`}>
               <EmojiPickerComponent
                 onEmojiSelect={handleEmojiSelect}
                 trigger={
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-8 h-8 hover:bg-gray-600"
+                    className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 mobile-touch`}
                   >
-                    <Smile className="w-4 h-4" />
+                    <Smile className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
                   </Button>
                 }
                 side="top"
@@ -221,12 +224,12 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 hover:bg-gray-600"
+                className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 mobile-touch`}
                 onClick={() => setShowThread(true)}
               >
-                <Reply className="w-4 h-4" />
+                <Reply className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
               </Button>
-              {communityId && messageChannelId && (
+              {!isMobile && communityId && messageChannelId && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -236,7 +239,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
                   {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
                 </Button>
               )}
-              {canModerate && user?.pubkey !== message.pubkey ? (
+              {!isMobile && canModerate && user?.pubkey !== message.pubkey ? (
                 <ModerationActionsMenu
                   message={message}
                   communityId={communityId || ''}

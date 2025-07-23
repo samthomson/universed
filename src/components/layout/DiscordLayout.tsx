@@ -9,6 +9,10 @@ import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Menu, Users } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -17,6 +21,12 @@ export function DiscordLayout() {
   const [showMemberList, setShowMemberList] = useState(true);
   const [dmTargetPubkey, setDmTargetPubkey] = useState<string | null>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+
+  // Mobile-specific state
+  const isMobile = useIsMobile();
+  const [mobileView, setMobileView] = useState<'communities' | 'channels' | 'chat' | 'members'>('communities');
+  const [showCommunitySidebar, setShowCommunitySidebar] = useState(false);
+  const [showChannelSidebar, setShowChannelSidebar] = useState(false);
 
   const { data: channels } = useChannels(selectedCommunity);
   const { communityId: urlCommunityId, isJoinRequest, clearNavigation } = useUrlNavigation();
@@ -28,6 +38,10 @@ export function DiscordLayout() {
     setSelectedSpace(null);
     if (targetPubkey) {
       setDmTargetPubkey(targetPubkey);
+    }
+    // On mobile, navigate to chat view when opening DMs
+    if (isMobile) {
+      setMobileView('chat');
     }
   };
 
@@ -68,12 +82,22 @@ export function DiscordLayout() {
           setSelectedChannel(firstTextChannel.id);
         }
       }
+
+      // On mobile, show channels view when community is selected
+      if (isMobile) {
+        setMobileView('channels');
+      }
     } else if (!selectedCommunity) {
       // Clear channel and space selection when no community is selected
       setSelectedChannel(null);
       setSelectedSpace(null);
+
+      // On mobile, stay on communities view (don't switch to DMs)
+      if (isMobile) {
+        setMobileView('communities');
+      }
     }
-  }, [selectedCommunity, selectedSpace, channels]);
+  }, [selectedCommunity, selectedSpace, channels, isMobile]);
 
   const handleJoinSuccess = (communityId: string) => {
     // After successful join, select the community
@@ -86,6 +110,206 @@ export function DiscordLayout() {
     clearNavigation();
   };
 
+  // Mobile navigation handlers
+  const handleChannelSelect = (channelId: string) => {
+    setSelectedChannel(channelId);
+    setSelectedSpace(null);
+    if (isMobile) {
+      setMobileView('chat');
+      setShowChannelSidebar(false);
+    }
+  };
+
+  const handleSpaceSelect = (spaceId: string) => {
+    setSelectedSpace(spaceId);
+    setSelectedChannel(null);
+    if (isMobile) {
+      setMobileView('chat');
+      setShowChannelSidebar(false);
+    }
+  };
+
+  const handleCommunitySelect = (communityId: string | null) => {
+    setSelectedCommunity(communityId);
+    setShowCommunitySidebar(false);
+  };
+
+  const handleBackNavigation = () => {
+    if (isMobile) {
+      if (mobileView === 'chat') {
+        setMobileView(selectedCommunity ? 'channels' : 'communities');
+      } else if (mobileView === 'channels') {
+        setMobileView('communities');
+      } else if (mobileView === 'members') {
+        setMobileView('chat');
+      }
+    }
+  };
+
+  if (isMobile) {
+    return (
+      <>
+        <div className="flex flex-col h-screen bg-gray-800 text-gray-100">
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between p-3 bg-gray-900 border-b border-gray-700 mobile-safe-area">
+            {/* Back Button */}
+            {(mobileView === 'chat' || mobileView === 'channels' || mobileView === 'members') && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBackNavigation}
+                className="text-gray-300 hover:text-white mobile-button mobile-touch"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+
+            {/* Title */}
+            <div className="flex-1 text-center">
+              {mobileView === 'communities' && (
+                <h1 className="text-lg font-semibold">Communities</h1>
+              )}
+              {mobileView === 'channels' && selectedCommunity && (
+                <h1 className="text-lg font-semibold">Channels</h1>
+              )}
+              {mobileView === 'chat' && selectedChannel && (
+                <h1 className="text-lg font-semibold">#{selectedChannel}</h1>
+              )}
+              {mobileView === 'chat' && !selectedChannel && !selectedCommunity && (
+                <h1 className="text-lg font-semibold">Direct Messages</h1>
+              )}
+              {mobileView === 'members' && (
+                <h1 className="text-lg font-semibold">Members</h1>
+              )}
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center space-x-2">
+              {mobileView === 'communities' && (
+                <Sheet open={showCommunitySidebar} onOpenChange={setShowCommunitySidebar}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-gray-300 hover:text-white mobile-button mobile-touch">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-20 p-0 bg-gray-900">
+                    <AppSidebar
+                      selectedCommunity={selectedCommunity}
+                      onSelectCommunity={handleCommunitySelect}
+                    />
+                  </SheetContent>
+                </Sheet>
+              )}
+
+              {mobileView === 'channels' && (
+                <Sheet open={showChannelSidebar} onOpenChange={setShowChannelSidebar}>
+                  <SheetTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-gray-300 hover:text-white mobile-button mobile-touch">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-80 p-0 bg-gray-700">
+                    <div className="flex flex-col h-full">
+                      <CommunityPanel
+                        communityId={selectedCommunity}
+                        selectedChannel={selectedChannel}
+                        selectedSpace={selectedSpace}
+                        onSelectChannel={handleChannelSelect}
+                        onSelectSpace={handleSpaceSelect}
+                        onSelectCommunity={handleCommunitySelect}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                      <UserPanel />
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              )}
+
+              {mobileView === 'chat' && selectedChannel && !selectedSpace && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setMobileView('members')}
+                  className="text-gray-300 hover:text-white mobile-button mobile-touch"
+                >
+                  <Users className="h-5 w-5" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Content */}
+          <div className="flex-1 overflow-hidden mobile-viewport">
+            {mobileView === 'communities' && (
+              <div className="h-full overflow-auto mobile-scroll">
+                <CommunityPanel
+                  communityId={selectedCommunity}
+                  selectedChannel={selectedChannel}
+                  selectedSpace={selectedSpace}
+                  onSelectChannel={handleChannelSelect}
+                  onSelectSpace={handleSpaceSelect}
+                  onSelectCommunity={handleCommunitySelect}
+                  onNavigateToDMs={handleNavigateToDMs}
+                />
+              </div>
+            )}
+
+            {mobileView === 'channels' && selectedCommunity && (
+              <div className="h-full mobile-scroll">
+                <CommunityPanel
+                  communityId={selectedCommunity}
+                  selectedChannel={selectedChannel}
+                  selectedSpace={selectedSpace}
+                  onSelectChannel={handleChannelSelect}
+                  onSelectSpace={handleSpaceSelect}
+                  onSelectCommunity={handleCommunitySelect}
+                  onNavigateToDMs={handleNavigateToDMs}
+                />
+              </div>
+            )}
+
+            {mobileView === 'chat' && (
+              <div className="h-full mobile-scroll">
+                {selectedSpace && selectedCommunity ? (
+                  <SpacesArea
+                    communityId={selectedCommunity}
+                    selectedSpace={selectedSpace}
+                  />
+                ) : (
+                  <ChatArea
+                    communityId={selectedCommunity}
+                    channelId={selectedChannel}
+                    onToggleMemberList={() => setMobileView('members')}
+                    onNavigateToDMs={handleNavigateToDMs}
+                  />
+                )}
+              </div>
+            )}
+
+            {mobileView === 'members' && selectedCommunity && selectedChannel && (
+              <div className="h-full mobile-scroll">
+                <MemberList
+                  communityId={selectedCommunity}
+                  channelId={selectedChannel}
+                  onNavigateToDMs={handleNavigateToDMs}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Join Request Dialog */}
+        <JoinRequestDialog
+          communityId={urlCommunityId}
+          open={showJoinDialog}
+          onOpenChange={handleJoinDialogClose}
+          onJoinSuccess={handleJoinSuccess}
+        />
+      </>
+    );
+  }
+
+  // Desktop Layout (unchanged)
   return (
     <>
       <div className="flex h-screen bg-gray-800 text-gray-100">
@@ -113,6 +337,7 @@ export function DiscordLayout() {
                   setSelectedSpace(spaceId);
                   setSelectedChannel(null); // Clear channel when selecting space
                 }}
+                onSelectCommunity={setSelectedCommunity}
                 onNavigateToDMs={handleNavigateToDMs}
               />
               <UserPanel />
@@ -154,6 +379,7 @@ export function DiscordLayout() {
                 communityId={selectedCommunity}
                 selectedChannel={selectedChannel}
                 onSelectChannel={setSelectedChannel}
+                onSelectCommunity={setSelectedCommunity}
                 dmTargetPubkey={dmTargetPubkey}
                 onDmTargetHandled={() => setDmTargetPubkey(null)}
                 onNavigateToDMs={handleNavigateToDMs}

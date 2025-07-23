@@ -7,6 +7,7 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useChannels } from "@/hooks/useChannels";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -17,6 +18,7 @@ interface ChatAreaProps {
 
 export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs }: ChatAreaProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const { data: communities } = useCommunities();
   const { data: channels } = useChannels(communityId);
 
@@ -56,44 +58,46 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
-        <div className="flex items-center space-x-2">
-          {isVoiceChannel ? (
-            <Volume2 className="w-5 h-5 text-green-500" />
-          ) : (
-            <Hash className="w-5 h-5 text-gray-400" />
-          )}
-          <span className="font-semibold text-white">{channelName}</span>
-          {channel?.description && (
-            <>
-              <div className="w-px h-4 bg-gray-600" />
-              <span className="text-sm text-gray-400">{channel.description}</span>
-            </>
-          )}
+      {/* Header - Hidden on mobile since it's handled by DiscordLayout */}
+      {!isMobile && (
+        <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
+          <div className="flex items-center space-x-2">
+            {isVoiceChannel ? (
+              <Volume2 className="w-5 h-5 text-green-500" />
+            ) : (
+              <Hash className="w-5 h-5 text-gray-400" />
+            )}
+            <span className="font-semibold text-white">{channelName}</span>
+            {channel?.description && (
+              <>
+                <div className="w-px h-4 bg-gray-600" />
+                <span className="text-sm text-gray-400 hidden lg:inline">{channel.description}</span>
+              </>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-6 h-6"
+              onClick={() => navigate('/search')}
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-6 h-6"
+              onClick={onToggleMemberList}
+            >
+              <Users className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="w-6 h-6">
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6"
-            onClick={() => navigate('/search')}
-          >
-            <Search className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6"
-            onClick={onToggleMemberList}
-          >
-            <Users className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="w-6 h-6">
-            <HelpCircle className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 flex flex-col min-h-0">
@@ -122,7 +126,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
               <TypingIndicator channelId={channelId} />
 
               {/* Message Input */}
-              <div className="p-4">
+              <div className={`p-4 ${isMobile ? 'mobile-input-container pb-safe' : ''}`}>
                 <MessageInput
                   communityId={communityId}
                   channelId={channelId}

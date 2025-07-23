@@ -5,6 +5,7 @@ import { PinnedMessages } from "./PinnedMessages";
 import { useMessages } from "@/hooks/useMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface MessageListProps {
   communityId: string;
@@ -13,6 +14,7 @@ interface MessageListProps {
 }
 
 export function MessageList({ communityId, channelId, onNavigateToDMs }: MessageListProps) {
+  const isMobile = useIsMobile();
   const { data: messages, isLoading } = useMessages(communityId, channelId);
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -91,8 +93,8 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
         channelId={channelId}
         onNavigateToDMs={onNavigateToDMs}
       />
-      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef}>
-        <div className="space-y-4 py-4">
+      <ScrollArea className={`flex-1 ${isMobile ? 'px-3' : 'px-4'} ${isMobile ? 'mobile-scroll' : ''}`} ref={scrollAreaRef}>
+        <div className={`${isMobile ? 'space-y-3' : 'space-y-4'} py-4`}>
           {regularMessages.map((message, index) => {
             const previousMessage = index > 0 ? regularMessages[index - 1] : null;
             const showAvatar = !previousMessage ||
@@ -100,14 +102,15 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
               (message.created_at - previousMessage.created_at) > 300; // 5 minutes
 
             return (
-              <MessageItem
-                key={message.id}
-                message={message}
-                showAvatar={showAvatar}
-                communityId={communityId}
-                channelId={channelId}
-                onNavigateToDMs={onNavigateToDMs}
-              />
+              <div key={message.id} className={isMobile ? 'message-enter' : ''}>
+                <MessageItem
+                  message={message}
+                  showAvatar={showAvatar}
+                  communityId={communityId}
+                  channelId={channelId}
+                  onNavigateToDMs={onNavigateToDMs}
+                />
+              </div>
             );
           })}
           <div ref={bottomRef} />

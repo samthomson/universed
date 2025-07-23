@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useTypingManager } from "@/hooks/useTypingIndicator";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface MessageInputProps {
   communityId: string;
@@ -33,6 +34,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
@@ -170,10 +172,10 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   }, [channelId, stopTyping]);
 
   return (
-    <div className="bg-gray-600 rounded-lg p-3">
+    <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'}`}>
       {/* Attached Files Preview */}
       {attachedFiles.length > 0 && (
-        <div className="mb-3 space-y-2">
+        <div className={`${isMobile ? 'mb-2' : 'mb-3'} space-y-2`}>
           <div className="text-xs text-gray-400">Attachments ({attachedFiles.length})</div>
           <div className="flex flex-wrap gap-2">
             {attachedFiles.map((file, index) => (
@@ -185,21 +187,21 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
                 name={file.name}
                 showRemove
                 onRemove={() => removeAttachedFile(index)}
-                className="max-w-32"
+                className={isMobile ? "max-w-24" : "max-w-32"}
               />
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex items-end space-x-3">
+      <div className={`flex items-end ${isMobile ? 'space-x-2' : 'space-x-3'}`}>
         <Button
           variant="ghost"
           size="icon"
-          className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 flex-shrink-0"
+          className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 flex-shrink-0 mobile-touch`}
           onClick={() => setShowUploadDialog(true)}
         >
-          <Plus className="w-5 h-5" />
+          <Plus className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
         </Button>
 
         <div className="flex-1 relative">
@@ -210,19 +212,21 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             onKeyDown={handleKeyDown}
             onBlur={stopTyping}
             placeholder={placeholder || "Type a message..."}
-            className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
+            className={`${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'} max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors ${isMobile ? 'text-base' : ''}`}
             disabled={isSubmitting}
           />
         </div>
 
-        <div className="flex items-center space-x-1 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
-          >
-            <Gift className="w-5 h-5" />
-          </Button>
+        <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-1'} flex-shrink-0`}>
+          {!isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
+            >
+              <Gift className="w-5 h-5" />
+            </Button>
+          )}
 
           <EmojiPickerComponent
             onEmojiSelect={handleEmojiSelect}
@@ -230,9 +234,9 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
+                className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 mobile-touch`}
               >
-                <Smile className="w-5 h-5" />
+                <Smile className={isMobile ? "w-6 h-6" : "w-5 h-5"} />
               </Button>
             }
             side="top"
@@ -244,9 +248,9 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
               onClick={handleSubmit}
               disabled={isSubmitting}
               size="icon"
-              className="w-8 h-8 bg-indigo-600 hover:bg-indigo-700 text-white"
+              className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} bg-indigo-600 hover:bg-indigo-700 text-white mobile-touch`}
             >
-              <Send className="w-4 h-4" />
+              <Send className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
             </Button>
           )}
         </div>

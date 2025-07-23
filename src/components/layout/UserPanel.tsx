@@ -9,9 +9,11 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 
 export function UserPanel() {
+  const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
@@ -29,14 +31,14 @@ export function UserPanel() {
 
   return (
     <>
-      <div className="h-16 bg-gray-800 border-t border-gray-600 flex items-center justify-between px-2">
+      <div className={`${isMobile ? 'h-14' : 'h-16'} bg-gray-800 border-t border-gray-600 flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
         {/* User Info */}
         <div
-          className="flex items-center space-x-2 flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors"
+          className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch`}
           onClick={() => setShowStatusDialog(true)}
         >
           <div className="relative">
-            <Avatar className="w-8 h-8">
+            <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
               <AvatarImage src={profileImage} alt={displayName} />
               <AvatarFallback className="bg-indigo-600 text-white text-xs">
                 {displayName.slice(0, 2).toUpperCase()}
@@ -48,49 +50,53 @@ export function UserPanel() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-white truncate">
+            <div className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-white truncate`}>
               {displayName}
             </div>
-            <div className="text-xs text-gray-400 truncate">
+            <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-400 truncate`}>
               {userStatus?.customMessage || userStatus?.status || 'Click to set status'}
             </div>
           </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center space-x-1">
+        <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
           {/* Notification Center */}
           <NotificationCenter />
 
-          {/* Voice Controls */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`w-8 h-8 ${isMuted ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-            onClick={() => setIsMuted(!isMuted)}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </Button>
+          {/* Voice Controls - Hide some on mobile to save space */}
+          {!isMobile && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`w-8 h-8 ${isMuted ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
+                onClick={() => setIsMuted(!isMuted)}
+                title={isMuted ? "Unmute" : "Mute"}
+              >
+                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`w-8 h-8 ${isDeafened ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
+                onClick={() => setIsDeafened(!isDeafened)}
+                title={isDeafened ? "Undeafen" : "Deafen"}
+              >
+                {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
+              </Button>
+            </>
+          )}
 
           <Button
             variant="ghost"
             size="icon"
-            className={`w-8 h-8 ${isDeafened ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-            onClick={() => setIsDeafened(!isDeafened)}
-            title={isDeafened ? "Undeafen" : "Deafen"}
-          >
-            {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 mobile-touch`}
             title="User Settings"
             onClick={() => setShowSettingsDialog(true)}
           >
-            <Settings className="w-4 h-4" />
+            <Settings className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
           </Button>
         </div>
       </div>

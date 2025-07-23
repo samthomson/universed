@@ -84,7 +84,7 @@ export function EmojiDemo() {
           {/* Reaction Demo */}
           <div className="space-y-3">
             <h3 className="text-lg font-semibold">Emoji Reactions</h3>
-            <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <p className="mb-3">Sample message content here...</p>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(reactions).map(([emoji, count]) => (

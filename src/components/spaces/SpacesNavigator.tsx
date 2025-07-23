@@ -151,7 +151,7 @@ function SpaceItem({
 
         {/* Selected indicator */}
         {isSelected && (
-          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white rounded-r-full"></div>
+          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>
         )}
       </Button>
     </div>

@@ -44,13 +44,13 @@ export function Communities() {
 
   if (!user) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
         <Card className="max-w-md mx-auto">
           <CardHeader>
-            <CardTitle>Login Required</CardTitle>
+            <CardTitle className="text-lg sm:text-xl">Login Required</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               You need to be logged in to view and manage your communities.
             </p>
             <LoginArea className="w-full" />
@@ -61,73 +61,73 @@ export function Communities() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:py-8">
+      <div className="space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Communities</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Communities</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your community memberships and discover new communities
           </p>
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="my-communities">My Communities</TabsTrigger>
-            <TabsTrigger value="discover">Discover</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 h-10 sm:h-auto">
+            <TabsTrigger value="my-communities" className="text-sm sm:text-base">My Communities</TabsTrigger>
+            <TabsTrigger value="discover" className="text-sm sm:text-base">Discover</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="my-communities" className="space-y-6">
+          <TabsContent value="my-communities" className="space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Your Communities</h2>
-              <Badge variant="outline">
+              <h2 className="text-lg sm:text-xl font-semibold">Your Communities</h2>
+              <Badge variant="outline" className="text-xs sm:text-sm">
                 {userCommunities?.length || 0} communities
               </Badge>
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {Array.from({ length: 3 }).map((_, i) => (
                   <Card key={i} className="animate-pulse">
-                    <CardHeader>
+                    <CardHeader className="pb-2 sm:pb-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-muted rounded-lg" />
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-muted rounded-lg" />
                         <div className="flex-1 space-y-2">
-                          <div className="h-5 bg-muted rounded w-3/4" />
-                          <div className="h-4 bg-muted rounded w-1/2" />
+                          <div className="h-4 sm:h-5 bg-muted rounded w-3/4" />
+                          <div className="h-3 sm:h-4 bg-muted rounded w-1/2" />
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                       <div className="space-y-2">
-                        <div className="h-4 bg-muted rounded w-full" />
-                        <div className="h-4 bg-muted rounded w-2/3" />
+                        <div className="h-3 sm:h-4 bg-muted rounded w-full" />
+                        <div className="h-3 sm:h-4 bg-muted rounded w-2/3" />
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
             ) : userCommunities && userCommunities.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {userCommunities.map((community) => (
                   <Card key={community.id} className="hover:bg-muted/50 transition-colors">
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-2 sm:pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3">
                           {community.image ? (
-                            <Avatar className="w-12 h-12">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
                               <AvatarImage src={community.image} alt={community.name} />
                               <AvatarFallback>
                                 {community.name.slice(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           ) : (
-                            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm sm:text-base">
                               {community.name.slice(0, 2).toUpperCase()}
                             </div>
                           )}
 
                           <div className="flex-1 min-w-0">
-                            <CardTitle className="text-lg truncate">
+                            <CardTitle className="text-base sm:text-lg truncate">
                               {community.name}
                             </CardTitle>
                             <div className="flex items-center space-x-2">
@@ -149,36 +149,36 @@ export function Communities() {
                       </div>
                     </CardHeader>
 
-                    <CardContent className="pt-0 space-y-4">
+                    <CardContent className="pt-0 space-y-3 sm:space-y-4">
                       {community.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                           {community.description}
                         </p>
                       )}
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                          <Users className="w-4 h-4" />
+                      <div className="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-muted-foreground">
+                          <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                           <span>{community.moderators.length + 1} members</span>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="w-4 h-4 mr-1" />
+                        <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto">
+                          <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap">
+                            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             View
                           </Button>
 
                           <CommunityShareDialog community={community}>
-                            <Button variant="outline" size="sm">
-                              <Share2 className="w-4 h-4 mr-1" />
+                            <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap">
+                              <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                               Share
                             </Button>
                           </CommunityShareDialog>
 
                           {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
-                            <Button variant="outline" size="sm" asChild>
+                            <Button variant="outline" size="sm" asChild className="text-xs sm:text-sm whitespace-nowrap">
                               <Link to={`/communities/${encodeURIComponent(community.id)}/manage`}>
-                                <Settings className="w-4 h-4 mr-1" />
+                                <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                 Manage
                               </Link>
                             </Button>
@@ -189,6 +189,7 @@ export function Communities() {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleLeaveCommunity(community.id, community.name)}
+                              className="text-xs sm:text-sm whitespace-nowrap"
                             >
                               Leave
                             </Button>
@@ -201,16 +202,16 @@ export function Communities() {
               </div>
             ) : (
               <Card>
-                <CardContent className="py-12 px-8 text-center">
+                <CardContent className="py-8 sm:py-12 px-4 sm:px-8 text-center">
                   <div className="max-w-sm mx-auto space-y-4">
-                    <Users className="w-16 h-16 mx-auto text-muted-foreground opacity-50" />
+                    <Users className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-muted-foreground opacity-50" />
                     <div>
-                      <h3 className="text-lg font-semibold mb-2">No Communities Yet</h3>
-                      <p className="text-muted-foreground text-sm">
+                      <h3 className="text-base sm:text-lg font-semibold mb-2">No Communities Yet</h3>
+                      <p className="text-muted-foreground text-xs sm:text-sm">
                         You haven't joined any communities yet. Discover and join communities that interest you!
                       </p>
                     </div>
-                    <Button onClick={() => setSelectedTab("discover")}>
+                    <Button onClick={() => setSelectedTab("discover")} className="text-sm sm:text-base">
                       Discover Communities
                     </Button>
                   </div>

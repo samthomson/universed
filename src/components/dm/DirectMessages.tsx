@@ -8,6 +8,7 @@ import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -20,6 +21,7 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
   const [showNewDM, setShowNewDM] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { data: conversations } = useDirectMessages();
 
@@ -44,6 +46,77 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
     );
   }
 
+  if (isMobile) {
+    // Mobile: Show either conversation list or chat, not both
+    return (
+      <div className="flex flex-col h-full">
+        {selectedConversation ? (
+          <DMChatArea
+            conversationId={selectedConversation}
+            onNavigateToDMs={onNavigateToDMs}
+            onBack={() => setSelectedConversation(null)}
+          />
+        ) : (
+          <>
+            {/* Header */}
+            <div className="p-4 border-b border-gray-600 bg-gray-700">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-white">Messages</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 hover:bg-gray-800/60 mobile-touch"
+                  onClick={() => setShowNewDM(true)}
+                >
+                  <Plus className="w-5 h-5" />
+                </Button>
+              </div>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search conversations"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors text-base"
+                />
+              </div>
+            </div>
+
+            {/* Conversation List */}
+            <div className="flex-1 overflow-hidden bg-gray-700">
+              <ScrollArea className="h-full mobile-scroll">
+                <DMConversationList
+                  conversations={conversations || []}
+                  selectedConversation={selectedConversation}
+                  onSelectConversation={setSelectedConversation}
+                  searchQuery={searchQuery}
+                />
+              </ScrollArea>
+            </div>
+
+            {/* Empty State */}
+            {(!conversations || conversations.length === 0) && (
+              <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
+                <div className="text-center text-gray-400">
+                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+                  <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
+                  <Button onClick={() => setShowNewDM(true)} className="mobile-touch">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Start New Conversation
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Desktop layout
   return (
     <div className="flex h-full">
       {/* Sidebar */}
