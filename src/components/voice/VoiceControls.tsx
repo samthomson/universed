@@ -37,9 +37,9 @@ export function VoiceControls({ className }: VoiceControlsProps) {
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant="secondary"
+          variant="ghost"
           size="icon"
-          className={className}
+          className={`text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 ${className}`}
         >
           <Settings className="w-4 h-4" />
         </Button>

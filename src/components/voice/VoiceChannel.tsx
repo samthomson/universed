@@ -30,7 +30,7 @@ function VoiceMember({ pubkey, muted, deafened, speaking }: {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          <div className="flex items-center space-x-2 p-2 rounded-lg hover:bg-muted/50">
             <div className="relative">
               <Avatar className={cn(
                 "w-8 h-8 transition-all",
@@ -111,7 +111,7 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
   };
 
   return (
-    <div className={cn("bg-gray-100 dark:bg-gray-800 rounded-lg p-4 space-y-4", className)}>
+    <div className={cn("rounded-lg p-4 space-y-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
@@ -129,11 +129,15 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
 
         {/* Join/Leave Button */}
         <Button
-          variant={isConnected || isUserInChannel ? "destructive" : "default"}
+          variant={isConnected || isUserInChannel ? "destructive" : "ghost"}
           size="sm"
           onClick={handleJoinLeave}
           disabled={isJoining || isLeaving || connectionStatus === 'connecting'}
-          className="min-w-[90px]"
+          className={`min-w-[90px] ${
+            isConnected || isUserInChannel
+              ? ''
+              : 'bg-green-600 hover:bg-green-700 text-white'
+          }`}
         >
           {isJoining || connectionStatus === 'connecting' ? (
             "Joining..."
@@ -173,15 +177,19 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
 
       {/* Voice Controls (only show if connected) */}
       {(isConnected || isUserInChannel) && (
-        <div className="flex items-center justify-center space-x-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-center space-x-2 pt-3 mt-1 border-t border-gray-600/50">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={isMuted ? "destructive" : "secondary"}
+                  variant="ghost"
                   size="icon"
                   onClick={() => toggleMute()}
-                  className="w-10 h-10"
+                  className={`w-10 h-10 ${
+                    isMuted
+                      ? 'text-red-400 bg-red-400/20 hover:bg-red-400/30'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                  }`}
                 >
                   {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 </Button>
@@ -196,10 +204,14 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={isDeafened ? "destructive" : "secondary"}
+                  variant="ghost"
                   size="icon"
                   onClick={() => toggleDeafen()}
-                  className="w-10 h-10"
+                  className={`w-10 h-10 ${
+                    isDeafened
+                      ? 'text-red-400 bg-red-400/20 hover:bg-red-400/30'
+                      : 'text-gray-400 hover:text-gray-300 hover:bg-gray-700/50'
+                  }`}
                 >
                   {isDeafened ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </Button>
