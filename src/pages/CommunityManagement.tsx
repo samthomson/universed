@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
-import { Shield, Crown, Settings, BarChart3, Users, AlertTriangle } from 'lucide-react';
+import { Shield, Crown, Settings, BarChart3, Users, AlertTriangle, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import { UserManagement } from '@/components/moderation/UserManagement';
 import { ModerationAnalytics } from '@/components/moderation/ModerationAnalytics';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CommunityShareDialog } from '@/components/community/CommunityShareDialog';
 
 export function CommunityManagement() {
   const { communityId } = useParams<{ communityId: string }>();
@@ -137,6 +138,12 @@ export function CommunityManagement() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <CommunityShareDialog community={community}>
+                  <Button variant="outline">
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </Button>
+                </CommunityShareDialog>
                 <Button variant="outline" onClick={() => window.history.back()}>
                   Back to Community
                 </Button>

@@ -6,6 +6,7 @@ import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import { Communities } from "./pages/Communities";
 import { CommunityManagement } from "./pages/CommunityManagement";
+import { JoinCommunity } from "./pages/JoinCommunity";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
@@ -19,6 +20,7 @@ export function AppRouter() {
         <Route path="/search" element={<Search />} />
         <Route path="/communities" element={<Communities />} />
         <Route path="/communities/:communityId/manage" element={<CommunityManagement />} />
+        <Route path="/join/:naddr" element={<JoinCommunity />} />
         <Route path="/profile/:npub" element={<Profile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nevent1, nprofile1 */}

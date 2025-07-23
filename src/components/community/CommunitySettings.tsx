@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle } from "lucide-react";
+import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import { useModerationLogs, useModerationStats } from "@/hooks/useModerationLogs
 import { useReports } from "@/hooks/useReporting";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
+import { CommunityShareDialog } from "./CommunityShareDialog";
 
 interface CommunitySettingsProps {
   communityId: string;
@@ -86,10 +87,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center gap-1">
               <Settings className="w-4 h-4" />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="sharing" className="flex items-center gap-1">
+              <Share2 className="w-4 h-4" />
+              Sharing
             </TabsTrigger>
             <TabsTrigger value="moderation" className="flex items-center gap-1">
               <Shield className="w-4 h-4" />
@@ -173,6 +178,32 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="sharing" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Share Your Community</CardTitle>
+                  <CardDescription>
+                    Generate shareable links to invite new members to your community
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-center py-8">
+                    <Share2 className="h-16 w-16 mx-auto text-muted-foreground opacity-50 mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Invite New Members</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Share your community with others using shareable links
+                    </p>
+                    <CommunityShareDialog community={community}>
+                      <Button size="lg">
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Generate Share Links
+                      </Button>
+                    </CommunityShareDialog>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

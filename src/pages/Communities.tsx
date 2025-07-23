@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Crown, Shield, Users, ExternalLink, Settings } from "lucide-react";
+import { Crown, Shield, Users, ExternalLink, Settings, Share2 } from "lucide-react";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { CommunityDiscovery } from "@/components/discovery/CommunityDiscovery";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { LoginArea } from "@/components/auth/LoginArea";
+import { CommunityShareDialog } from "@/components/community/CommunityShareDialog";
 
 export function Communities() {
   const { data: userCommunities, isLoading } = useUserCommunities();
@@ -166,6 +167,13 @@ export function Communities() {
                             <ExternalLink className="w-4 h-4 mr-1" />
                             View
                           </Button>
+
+                          <CommunityShareDialog community={community}>
+                            <Button variant="outline" size="sm">
+                              <Share2 className="w-4 h-4 mr-1" />
+                              Share
+                            </Button>
+                          </CommunityShareDialog>
 
                           {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
                             <Button variant="outline" size="sm" asChild>
