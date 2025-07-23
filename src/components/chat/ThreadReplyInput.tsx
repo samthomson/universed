@@ -106,7 +106,7 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
             }}
             onKeyDown={handleKeyDown}
             placeholder="Reply to thread..."
-            className="min-h-[40px] max-h-[120px] resize-none bg-transparent border-0 focus-visible:ring-0 text-gray-100 placeholder:text-gray-400 p-0"
+            className="min-h-[40px] max-h-[120px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
             disabled={isSubmitting}
           />
         </div>

@@ -94,7 +94,7 @@ export function UserSearch({ onUserSelect, placeholder = "Search users..." }: Us
           placeholder={placeholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400"
+          className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
         />
       </div>
 

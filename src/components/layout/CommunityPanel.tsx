@@ -236,9 +236,11 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
               <CollapsibleContent className="space-y-0.5">
                 <div className="ml-4 py-1">
                   <Button
-                    variant={selectedChannel === 'general' ? "secondary" : "ghost"}
+                    variant="ghost"
                     size="sm"
-                    className="w-full justify-start text-gray-300 hover:text-gray-100 h-8"
+                    className={`w-full justify-start text-gray-300 hover:text-gray-100 hover:bg-gray-800/60 h-8 ${
+                      selectedChannel === 'general' ? 'bg-gray-900/80 text-gray-100' : ''
+                    }`}
                     onClick={() => onSelectChannel('general')}
                   >
                     <Hash className="w-4 h-4 mr-2" />
@@ -305,9 +307,11 @@ function ChannelButton({
       <DropdownMenu>
         <div className="flex items-center">
           <Button
-            variant={isSelected ? "secondary" : "ghost"}
+            variant="ghost"
             size="sm"
-            className="flex-1 justify-start text-gray-300 hover:text-gray-100 h-8"
+            className={`flex-1 justify-start text-gray-300 hover:text-gray-100 hover:bg-gray-800/60 h-8 ${
+              isSelected ? 'bg-gray-900/80 text-gray-100' : ''
+            }`}
             onClick={onSelect}
           >
             {channel.type === 'text' ? (

@@ -77,7 +77,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const handleInputChange = (value: string) => {
     setMessage(value);
     adjustTextareaHeight();
-    
+
     if (value.trim() && !isSubmitting) {
       startTyping();
     } else {
@@ -105,7 +105,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
         <Button
           variant="ghost"
           size="icon"
-          className="w-8 h-8 text-gray-400 hover:text-gray-300 flex-shrink-0"
+          className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 flex-shrink-0"
         >
           <Plus className="w-5 h-5" />
         </Button>
@@ -118,7 +118,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             onKeyDown={handleKeyDown}
             onBlur={stopTyping}
             placeholder={placeholder || "Type a message..."}
-            className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 text-gray-100 placeholder:text-gray-400 p-0"
+            className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
             disabled={isSubmitting}
           />
         </div>
@@ -127,7 +127,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
           >
             <Gift className="w-5 h-5" />
           </Button>
@@ -135,7 +135,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
           >
             <Smile className="w-5 h-5" />
           </Button>

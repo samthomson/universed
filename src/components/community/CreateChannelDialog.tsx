@@ -168,7 +168,7 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start text-gray-400 hover:text-gray-300 h-8"
+          className="w-full justify-start text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 h-8"
         >
           <Plus className="w-4 h-4 mr-2" />
           Create Channel

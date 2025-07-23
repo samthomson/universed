@@ -44,7 +44,7 @@ export function DirectMessages() {
             <Button
               variant="ghost"
               size="icon"
-              className="w-6 h-6"
+              className="w-6 h-6 hover:bg-gray-800/60"
               onClick={() => setShowNewDM(true)}
             >
               <Plus className="w-4 h-4" />
@@ -58,7 +58,7 @@ export function DirectMessages() {
               placeholder="Search conversations"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400"
+              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
             />
           </div>
         </div>

@@ -24,9 +24,11 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={selectedCommunity === null ? "secondary" : "ghost"}
+                variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200 ${
+                  selectedCommunity === null ? 'bg-gray-900/80' : ''
+                }`}
                 onClick={() => onSelectCommunity(null)}
               >
                 <MessageCircle className="w-6 h-6" />
@@ -49,9 +51,11 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                 <TooltipTrigger asChild>
                   <div className="relative">
                     <Button
-                      variant={selectedCommunity === community.id ? "secondary" : "ghost"}
+                      variant="ghost"
                       size="icon"
-                      className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                      className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200 ${
+                        selectedCommunity === community.id ? 'bg-gray-900/80' : ''
+                      }`}
                       onClick={() => onSelectCommunity(community.id)}
                     >
                       {community.image ? (

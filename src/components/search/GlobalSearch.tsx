@@ -27,7 +27,7 @@ interface MessageResultProps {
 function MessageResult({ message, onSelect }: MessageResultProps) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
-  
+
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
@@ -47,7 +47,7 @@ function MessageResult({ message, onSelect }: MessageResultProps) {
               {displayName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2 mb-1">
               <span className="font-medium text-white">{displayName}</span>
@@ -61,7 +61,7 @@ function MessageResult({ message, onSelect }: MessageResultProps) {
                 {formatDistanceToNow(timestamp, { addSuffix: true })}
               </span>
             </div>
-            
+
             <p className="text-sm text-gray-300 line-clamp-3">
               {message.content}
             </p>
@@ -91,7 +91,7 @@ export function GlobalSearch({ onUserSelect, onCommunitySelect, onMessageSelect 
           placeholder="Search everything..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400"
+          className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
         />
       </div>
 

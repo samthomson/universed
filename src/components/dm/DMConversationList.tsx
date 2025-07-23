@@ -22,17 +22,19 @@ interface ConversationItemProps {
 function ConversationItem({ conversation, isSelected, onSelect }: ConversationItemProps) {
   const author = useAuthor(conversation.pubkey);
   const metadata = author.data?.metadata;
-  
+
   const displayName = metadata?.name || genUserName(conversation.pubkey);
   const profileImage = metadata?.picture;
-  const lastMessageTime = conversation.lastMessage 
+  const lastMessageTime = conversation.lastMessage
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
   return (
     <Button
-      variant={isSelected ? "secondary" : "ghost"}
-      className="w-full justify-start p-3 h-auto text-left hover:bg-gray-600"
+      variant="ghost"
+      className={`w-full justify-start p-3 h-auto text-left hover:bg-gray-800/60 ${
+        isSelected ? 'bg-gray-900/80' : ''
+      }`}
       onClick={onSelect}
     >
       <div className="flex items-center space-x-3 w-full">
@@ -46,7 +48,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
           {/* Online indicator - mock for now */}
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-gray-700 rounded-full" />
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="font-medium text-white truncate">
@@ -63,7 +65,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
               </span>
             </div>
           </div>
-          
+
           <div className="text-sm text-gray-400 truncate mt-0.5">
             {conversation.lastMessage ? (
               <span>Last message...</span> // TODO: Decrypt and show preview
@@ -77,16 +79,16 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
   );
 }
 
-export function DMConversationList({ 
-  conversations, 
-  selectedConversation, 
+export function DMConversationList({
+  conversations,
+  selectedConversation,
   onSelectConversation,
-  searchQuery 
+  searchQuery
 }: DMConversationListProps) {
   // Filter conversations based on search query
   const filteredConversations = conversations.filter(conversation => {
     if (!searchQuery) return true;
-    
+
     // TODO: Search by display name when we have author data
     return conversation.pubkey.toLowerCase().includes(searchQuery.toLowerCase());
   });

@@ -14,7 +14,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const { user } = useCurrentUser();
   const { mutateAsync: sendDM } = useSendDM();
   const { toast } = useToast();
@@ -32,7 +32,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
 
       // Clear the input
       setMessage("");
-      
+
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -80,7 +80,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="w-8 h-8 text-gray-400 hover:text-gray-300 flex-shrink-0"
+          className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 flex-shrink-0"
         >
           <Plus className="w-5 h-5" />
         </Button>
@@ -96,7 +96,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
             }}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
-            className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 text-gray-100 placeholder:text-gray-400 p-0"
+            className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
             disabled={isSubmitting}
           />
         </div>
@@ -106,15 +106,15 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
           >
             <Gift className="w-5 h-5" />
           </Button>
-          
+
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-400 hover:text-gray-300"
+            className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
           >
             <Smile className="w-5 h-5" />
           </Button>
@@ -131,7 +131,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
           )}
         </div>
       </div>
-      
+
       {/* Helper Text */}
       <div className="mt-1 text-xs text-gray-500">
         Press Enter to send, Shift+Enter for new line
