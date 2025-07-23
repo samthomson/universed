@@ -12,6 +12,13 @@ function validateMessageEvent(event: NostrEvent): boolean {
     if (!hasChannelTag) return false;
   }
 
+  // Exclude replies from the main chat feed
+  // Replies are events that have 'e' tags referencing other events
+  const eTags = event.tags.filter(([name]) => name === 'e');
+  if (eTags.length > 0) {
+    return false; // This is a reply, don't show in main chat
+  }
+
   return true;
 }
 
