@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 const PINNED_POSTS_KIND = 34554;
 
@@ -89,4 +90,32 @@ export function useUnpinMessage() {
 export function useIsPinned(communityId: string, messageId: string) {
   const { data: pinnedMessages } = usePinnedMessages(communityId);
   return pinnedMessages?.includes(messageId) || false;
+}
+
+export function usePinnedMessageEvents(communityId: string) {
+  const { nostr } = useNostr();
+  const { data: pinnedMessageIds } = usePinnedMessages(communityId);
+
+  return useQuery({
+    queryKey: ['pinned-message-events', communityId, pinnedMessageIds],
+    queryFn: async (c) => {
+      if (!pinnedMessageIds || pinnedMessageIds.length === 0) {
+        return [];
+      }
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const events = await nostr.query([{
+        ids: pinnedMessageIds,
+      }], { signal });
+
+      // Sort by the order they appear in the pinned list (most recently pinned first)
+      const sortedEvents = pinnedMessageIds
+        .map(id => events.find(event => event.id === id))
+        .filter((event): event is NostrEvent => event !== undefined);
+
+      return sortedEvents;
+    },
+    enabled: !!communityId && !!pinnedMessageIds && pinnedMessageIds.length > 0,
+    staleTime: 60000,
+  });
 }
