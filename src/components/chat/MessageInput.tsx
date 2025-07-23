@@ -1,10 +1,11 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Send, Plus, Smile, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
+import { useTypingManager } from "@/hooks/useTypingIndicator";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface MessageInputProps {
@@ -22,14 +23,15 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { startTyping, stopTyping } = useTypingManager(channelId);
 
   const handleSubmit = async () => {
     if (!user || !message.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
+    stopTyping();
 
     try {
-      // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
 
       if (!kind || !pubkey || !identifier) {
@@ -37,22 +39,18 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
       }
 
       const tags = [
-        // Channel identifier (required)
         ["t", channelId],
-        // Community reference (optional but recommended)
         ["a", `${kind}:${pubkey}:${identifier}`],
       ];
 
       await createEvent({
-        kind: 9411, // Channel chat message
+        kind: 9411,
         content: message.trim(),
         tags,
       });
 
-      // Clear the input
       setMessage("");
 
-      // Refresh messages
       queryClient.invalidateQueries({
         queryKey: ['messages', communityId, channelId]
       });
@@ -76,6 +74,17 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     }
   };
 
+  const handleInputChange = (value: string) => {
+    setMessage(value);
+    adjustTextareaHeight();
+    
+    if (value.trim() && !isSubmitting) {
+      startTyping();
+    } else {
+      stopTyping();
+    }
+  };
+
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -84,10 +93,15 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     }
   };
 
+  useEffect(() => {
+    return () => {
+      stopTyping();
+    };
+  }, [channelId, stopTyping]);
+
   return (
     <div className="bg-gray-600 rounded-lg p-3">
       <div className="flex items-end space-x-3">
-        {/* Attachment Button */}
         <Button
           variant="ghost"
           size="icon"
@@ -96,23 +110,19 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           <Plus className="w-5 h-5" />
         </Button>
 
-        {/* Message Input */}
         <div className="flex-1 relative">
           <Textarea
             ref={textareaRef}
             value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              adjustTextareaHeight();
-            }}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
+            onBlur={stopTyping}
             placeholder={placeholder || "Type a message..."}
             className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 text-gray-100 placeholder:text-gray-400 p-0"
             disabled={isSubmitting}
           />
         </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center space-x-1 flex-shrink-0">
           <Button
             variant="ghost"
@@ -143,7 +153,6 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
         </div>
       </div>
 
-      {/* Helper Text */}
       <div className="mt-1 text-xs text-gray-500">
         Press Enter to send, Shift+Enter for new line
       </div>

@@ -1,8 +1,10 @@
-import { Hash, Users, Search, HelpCircle } from "lucide-react";
+import { Hash, Users, Search, HelpCircle, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
+import { TypingIndicator } from "@/components/chat/TypingIndicator";
+import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useChannels } from "@/hooks/useChannels";
 
@@ -57,7 +59,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList }: ChatAre
       <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
         <div className="flex items-center space-x-2">
           {isVoiceChannel ? (
-            <div className="w-5 h-5 text-green-500">🔊</div>
+            <Volume2 className="w-5 h-5 text-green-500" />
           ) : (
             <Hash className="w-5 h-5 text-gray-400" />
           )}
@@ -92,21 +94,38 @@ export function ChatArea({ communityId, channelId, onToggleMemberList }: ChatAre
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Content */}
       <div className="flex-1 flex flex-col">
-        <MessageList
-          communityId={communityId}
-          channelId={channelId}
-        />
+        {isVoiceChannel ? (
+          /* Voice Channel Interface */
+          <div className="flex-1 p-4">
+            <VoiceChannel
+              channelId={channelId}
+              channelName={channelName}
+              className="max-w-md mx-auto mt-8"
+            />
+          </div>
+        ) : (
+          /* Text Channel Interface */
+          <>
+            <MessageList
+              communityId={communityId}
+              channelId={channelId}
+            />
 
-        {/* Message Input */}
-        <div className="p-4">
-          <MessageInput
-            communityId={communityId}
-            channelId={channelId}
-            placeholder={`Message #${channelName}`}
-          />
-        </div>
+            {/* Typing Indicator */}
+            <TypingIndicator channelId={channelId} />
+
+            {/* Message Input */}
+            <div className="p-4">
+              <MessageInput
+                communityId={communityId}
+                channelId={channelId}
+                placeholder={`Message #${channelName}`}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

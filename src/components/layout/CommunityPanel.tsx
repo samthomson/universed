@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { useCommunities } from "@/hooks/useCommunities";
+import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { useChannels } from "@/hooks/useChannels";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
   const { data: channels } = useChannels(communityId);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
 
   const community = communities?.find(c => c.id === communityId);
 
@@ -50,7 +52,12 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
       {/* Community Header */}
       <div className="p-4 border-b border-gray-600 flex items-center justify-between">
         <h2 className="font-semibold text-white truncate">{community.name}</h2>
-        <Button variant="ghost" size="icon" className="w-6 h-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="w-6 h-6"
+          onClick={() => setShowSettings(true)}
+        >
           <Settings className="w-4 h-4" />
         </Button>
       </div>
@@ -69,9 +76,9 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
               {textChannels.length === 0 ? (
                 <div className="ml-4 py-1">
                   <Button
-                    variant="ghost"
+                    variant={selectedChannel === 'general' ? "secondary" : "ghost"}
                     size="sm"
-                    className="w-full justify-start text-gray-400 hover:text-gray-300 h-8"
+                    className="w-full justify-start text-gray-300 hover:text-gray-100 h-8"
                     onClick={() => onSelectChannel('general')}
                   >
                     <Hash className="w-4 h-4 mr-2" />
@@ -142,6 +149,13 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
           </Collapsible>
         </div>
       </ScrollArea>
+
+      {/* Community Settings Dialog */}
+      <CommunitySettings
+        communityId={communityId}
+        open={showSettings}
+        onOpenChange={setShowSettings}
+      />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { genUserName } from "@/lib/genUserName";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/useToast";
 import { JoinRequestsPanel } from "@/components/community/JoinRequestsPanel";
+import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 
 interface MemberListProps {
   communityId: string | null;
@@ -29,7 +30,7 @@ interface MemberItemProps {
   canManage?: boolean;
 }
 
-function MemberItem({ pubkey, role = 'member', isOnline = false, communityId, canManage = false }: MemberItemProps) {
+function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, communityId, canManage = false }: MemberItemProps) {
   const author = useAuthor(pubkey);
   const metadata = author.data?.metadata;
   const { removeMember, isRemovingMember } = useManageMembers();
@@ -90,9 +91,9 @@ function MemberItem({ pubkey, role = 'member', isOnline = false, communityId, ca
             {displayName.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        {isOnline && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-gray-700 rounded-full" />
-        )}
+        <div className="absolute -bottom-0.5 -right-0.5">
+          <UserStatusIndicator pubkey={pubkey} />
+        </div>
       </div>
 
       <div className="flex-1 min-w-0">
