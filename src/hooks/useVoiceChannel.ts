@@ -27,6 +27,10 @@ interface PeerConnection {
   connection: RTCPeerConnection;
   remoteAudio: HTMLAudioElement;
   isConnected: boolean;
+  lastIceState: RTCIceConnectionState;
+  reconnectAttempts: number;
+  lastConnectedTime: number;
+  queuedCandidates?: RTCIceCandidate[];
 }
 
 interface SignalingMessage {
@@ -65,14 +69,37 @@ export function useVoiceChannel(channelId?: string) {
   const heartbeatRef = useRef<number | null>(null);
   const reconnectTimeoutsRef = useRef<Map<string, number>>(new Map());
   const lastSeenMembersRef = useRef<Set<string>>(new Set());
+  const performFullReconnectionRef = useRef<((remotePubkey: string) => Promise<void>) | null>(null);
 
-  // WebRTC configuration with public STUN servers
+  // Enhanced WebRTC configuration with multiple STUN/TURN servers for better connectivity
   const rtcConfig = useMemo<RTCConfiguration>(() => ({
     iceServers: [
+      // Google STUN servers
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
       { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      // Additional public STUN servers for redundancy
+      { urls: 'stun:stun.cloudflare.com:3478' },
+      { urls: 'stun:stun.nextcloud.com:443' },
+      // Public TURN servers (these may have usage limits)
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject'
+      },
     ],
+    // Enhanced ICE configuration for better connectivity
+    iceCandidatePoolSize: 10, // Pre-gather more ICE candidates
+    iceTransportPolicy: 'all', // Use both STUN and TURN
+    bundlePolicy: 'max-bundle', // Bundle all media on single transport
+    rtcpMuxPolicy: 'require', // Multiplex RTP and RTCP
   }), []);
 
   // Voice activity detection
@@ -121,28 +148,46 @@ export function useVoiceChannel(channelId?: string) {
     setIsSpeaking(false);
   }, []);
 
-  // WebRTC signaling through Nostr
-  const sendSignalingMessage = useCallback(async (message: Omit<SignalingMessage, 'from' | 'channelId'>) => {
+  // WebRTC signaling through Nostr with retry logic
+  const sendSignalingMessage = useCallback(async (message: Omit<SignalingMessage, 'from' | 'channelId'>, retries = 3) => {
     if (!user?.pubkey || !channelId) return;
 
-    try {
-      await publishEvent({
-        kind: VOICE_SIGNALING_KIND,
-        content: JSON.stringify({
-          ...message,
-          from: user.pubkey,
-          channelId,
-        }),
-        tags: [
-          ['d', `${channelId}:${message.to}:${Date.now()}`],
-          ['p', message.to], // Target recipient
-          ['channel', channelId],
-          ['signal_type', message.type],
-        ],
-      });
-    } catch (error) {
-      console.error('Failed to send signaling message:', error);
+    const signalData = {
+      ...message,
+      from: user.pubkey,
+      channelId,
+    };
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        await publishEvent({
+          kind: VOICE_SIGNALING_KIND,
+          content: JSON.stringify(signalData),
+          tags: [
+            ['d', `${channelId}:${message.to}:${Date.now()}`],
+            ['p', message.to], // Target recipient
+            ['channel', channelId],
+            ['signal_type', message.type],
+            ['attempt', attempt.toString()],
+          ],
+        });
+
+        // Success - log and return
+        if (attempt > 0) {
+          console.log(`Signaling message sent to ${message.to} on attempt ${attempt + 1}`);
+        }
+        return;
+      } catch (error) {
+        console.error(`Failed to send signaling message to ${message.to} (attempt ${attempt + 1}):`, error);
+
+        if (attempt < retries - 1) {
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      }
     }
+
+    console.error(`Failed to send signaling message to ${message.to} after ${retries} attempts`);
   }, [user?.pubkey, channelId, publishEvent]);
 
   // Heartbeat mechanism to maintain presence
@@ -176,8 +221,11 @@ export function useVoiceChannel(channelId?: string) {
       return;
     }
 
-    // Send heartbeat every 30 seconds
-    heartbeatRef.current = window.setInterval(sendHeartbeat, 30000);
+    // Send heartbeat every 20 seconds for better presence detection
+    heartbeatRef.current = window.setInterval(sendHeartbeat, 20000);
+
+    // Send initial heartbeat immediately
+    sendHeartbeat();
 
     return () => {
       if (heartbeatRef.current) {
@@ -186,6 +234,48 @@ export function useVoiceChannel(channelId?: string) {
       }
     };
   }, [isConnected, sendHeartbeat]);
+
+  // Connection health monitoring
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const monitorConnections = () => {
+      const now = Date.now();
+      const staleConnectionThreshold = 60000; // 1 minute
+
+      peerConnectionsRef.current.forEach((peerConn, pubkey) => {
+        const { connection, lastConnectedTime, isConnected: peerConnected } = peerConn;
+
+        // Check for stale connections
+        if (peerConnected && lastConnectedTime > 0 && (now - lastConnectedTime) > staleConnectionThreshold) {
+          console.log(`Connection to ${pubkey} appears stale, checking health`);
+
+          // Check actual connection state
+          if (connection.connectionState === 'disconnected' || connection.connectionState === 'failed') {
+            console.log(`Triggering recovery for stale connection to ${pubkey}`);
+            if (performFullReconnectionRef.current) {
+              performFullReconnectionRef.current(pubkey);
+            }
+          }
+        }
+
+        // Monitor ICE gathering state
+        if (connection.iceGatheringState === 'complete' && connection.iceConnectionState === 'checking') {
+          // ICE is stuck in checking state, might need restart
+          const checkingTime = now - (peerConn.lastConnectedTime || now);
+          if (checkingTime > 15000) { // 15 seconds in checking state
+            console.log(`ICE checking timeout for ${pubkey}, restarting ICE`);
+            connection.restartIce();
+          }
+        }
+      });
+    };
+
+    // Monitor every 30 seconds
+    const monitorInterval = setInterval(monitorConnections, 30000);
+
+    return () => clearInterval(monitorInterval);
+  }, [isConnected]);
 
   // Create peer connection for a specific user with improved reliability
   const createPeerConnection = useCallback(async (remotePubkey: string): Promise<PeerConnection> => {
@@ -201,6 +291,9 @@ export function useVoiceChannel(channelId?: string) {
       connection: pc,
       remoteAudio,
       isConnected: false,
+      lastIceState: 'new',
+      reconnectAttempts: 0,
+      lastConnectedTime: 0,
     };
 
     // Add local stream to peer connection
@@ -218,9 +311,10 @@ export function useVoiceChannel(channelId?: string) {
       peerConnection.isConnected = true;
     };
 
-    // Handle ICE candidates with retry logic
+    // Handle ICE candidates with retry logic and queuing
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`Sending ICE candidate to ${remotePubkey}:`, event.candidate.candidate);
         sendSignalingMessage({
           type: 'ice-candidate',
           data: event.candidate,
@@ -228,6 +322,8 @@ export function useVoiceChannel(channelId?: string) {
         }).catch(error => {
           console.error(`Failed to send ICE candidate to ${remotePubkey}:`, error);
         });
+      } else {
+        console.log(`ICE gathering complete for ${remotePubkey}`);
       }
     };
 
@@ -237,6 +333,9 @@ export function useVoiceChannel(channelId?: string) {
 
       if (pc.connectionState === 'connected') {
         peerConnection.isConnected = true;
+        peerConnection.lastConnectedTime = Date.now();
+        peerConnection.reconnectAttempts = 0;
+
         // Update actual connection count
         setActualConnectionCount(() => {
           const connectedCount = Array.from(peerConnectionsRef.current.values())
@@ -250,7 +349,14 @@ export function useVoiceChannel(channelId?: string) {
           clearTimeout(timeoutId);
           reconnectTimeoutsRef.current.delete(remotePubkey);
         }
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+
+        console.log(`Peer connection established with ${remotePubkey}`);
+      } else if (pc.connectionState === 'disconnected') {
+        console.log(`Peer connection disconnected with ${remotePubkey}, monitoring for recovery`);
+        // Don't immediately mark as disconnected - wait for ICE to attempt recovery
+        // The ICE connection state handler will manage reconnection logic
+      } else if (pc.connectionState === 'failed') {
+        console.log(`Peer connection failed with ${remotePubkey}`);
         peerConnection.isConnected = false;
         remoteAudio.srcObject = null;
 
@@ -261,60 +367,151 @@ export function useVoiceChannel(channelId?: string) {
           return connectedCount;
         });
 
-        // Only attempt reconnection if we're still supposed to be connected
-        if (isConnected) {
-          const timeoutId = reconnectTimeoutsRef.current.get(remotePubkey);
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
+        // Let ICE connection state handler manage reconnection
+      } else if (pc.connectionState === 'closed') {
+        console.log(`Peer connection closed with ${remotePubkey}`);
+        peerConnection.isConnected = false;
+        remoteAudio.srcObject = null;
 
-          const newTimeoutId = window.setTimeout(async () => {
-            console.log(`Attempting to reconnect to ${remotePubkey}`);
-            // Inline reconnection logic to avoid circular dependency
-            if (!isConnected || !user?.pubkey) return;
-
-            try {
-              // Remove old connection
-              const oldConnection = peerConnectionsRef.current.get(remotePubkey);
-              if (oldConnection) {
-                oldConnection.connection.close();
-                oldConnection.remoteAudio.srcObject = null;
-                oldConnection.remoteAudio.pause();
-                peerConnectionsRef.current.delete(remotePubkey);
-              }
-
-              // Create new connection
-              const newConnection = await createPeerConnection(remotePubkey);
-              peerConnectionsRef.current.set(remotePubkey, newConnection);
-
-              // Initiate new offer
-              const offer = await newConnection.connection.createOffer();
-              await newConnection.connection.setLocalDescription(offer);
-
-              await sendSignalingMessage({
-                type: 'offer',
-                data: offer,
-                to: remotePubkey,
-              });
-
-              console.log(`Reconnection initiated to ${remotePubkey}`);
-            } catch (error) {
-              console.error(`Failed to reconnect to ${remotePubkey}:`, error);
-            }
-          }, 5000); // Retry after 5 seconds
-
-          reconnectTimeoutsRef.current.set(remotePubkey, newTimeoutId);
-        }
+        // Update actual connection count
+        setActualConnectionCount(() => {
+          const connectedCount = Array.from(peerConnectionsRef.current.values())
+            .filter(conn => conn.isConnected).length;
+          return connectedCount;
+        });
       }
     };
 
-    // Handle ICE connection state changes
+    // Handle ICE connection state changes with detailed monitoring
     pc.oniceconnectionstatechange = () => {
-      console.log(`ICE connection state with ${remotePubkey}: ${pc.iceConnectionState}`);
+      const iceState = pc.iceConnectionState;
+      console.log(`ICE connection state with ${remotePubkey}: ${peerConnection.lastIceState} → ${iceState}`);
+
+      peerConnection.lastIceState = iceState;
+
+      switch (iceState) {
+        case 'connected':
+        case 'completed':
+          peerConnection.lastConnectedTime = Date.now();
+          peerConnection.reconnectAttempts = 0;
+          console.log(`ICE connection established with ${remotePubkey}`);
+          break;
+
+        case 'disconnected':
+          console.log(`ICE connection lost with ${remotePubkey}, attempting ICE restart`);
+          // Try ICE restart first before full reconnection
+          if (peerConnection.reconnectAttempts < 2) {
+            setTimeout(() => {
+              if (pc.connectionState !== 'closed' && isConnected) {
+                console.log(`Attempting ICE restart with ${remotePubkey}`);
+                pc.restartIce();
+                peerConnection.reconnectAttempts++;
+              }
+            }, 2000);
+          }
+          break;
+
+        case 'failed':
+          console.log(`ICE connection failed with ${remotePubkey}`);
+          peerConnection.isConnected = false;
+          remoteAudio.srcObject = null;
+
+          // Update connection count
+          setActualConnectionCount(() => {
+            const connectedCount = Array.from(peerConnectionsRef.current.values())
+              .filter(conn => conn.isConnected).length;
+            return connectedCount;
+          });
+
+          // Schedule full reconnection if ICE restart attempts failed
+          if (isConnected && peerConnection.reconnectAttempts >= 2) {
+            const timeoutId = reconnectTimeoutsRef.current.get(remotePubkey);
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+
+            const delay = Math.min(10000, 3000 * Math.pow(2, peerConnection.reconnectAttempts - 2)); // Exponential backoff
+            const newTimeoutId = window.setTimeout(async () => {
+              console.log(`Full reconnection attempt to ${remotePubkey} (attempt ${peerConnection.reconnectAttempts})`);
+              if (performFullReconnectionRef.current) {
+                await performFullReconnectionRef.current(remotePubkey);
+              }
+            }, delay);
+
+            reconnectTimeoutsRef.current.set(remotePubkey, newTimeoutId);
+          }
+          break;
+
+        case 'closed':
+          console.log(`ICE connection closed with ${remotePubkey}`);
+          peerConnection.isConnected = false;
+          break;
+      }
     };
 
     return peerConnection;
   }, [sendSignalingMessage, rtcConfig, channelId, isConnected, user?.pubkey]);
+
+  // Full reconnection function for failed connections
+  const performFullReconnection = useCallback(async (remotePubkey: string) => {
+    if (!isConnected || !user?.pubkey) return;
+
+    try {
+      console.log(`Performing full reconnection to ${remotePubkey}`);
+
+      // Remove old connection
+      const oldConnection = peerConnectionsRef.current.get(remotePubkey);
+      if (oldConnection) {
+        oldConnection.connection.close();
+        oldConnection.remoteAudio.srcObject = null;
+        oldConnection.remoteAudio.pause();
+        peerConnectionsRef.current.delete(remotePubkey);
+      }
+
+      // Clear any pending timeout
+      const timeoutId = reconnectTimeoutsRef.current.get(remotePubkey);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        reconnectTimeoutsRef.current.delete(remotePubkey);
+      }
+
+      // Wait a moment before creating new connection
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Create new connection
+      const newConnection = await createPeerConnection(remotePubkey);
+      peerConnectionsRef.current.set(remotePubkey, newConnection);
+
+      // Initiate new offer with ICE restart
+      const offer = await newConnection.connection.createOffer({ iceRestart: true });
+      await newConnection.connection.setLocalDescription(offer);
+
+      await sendSignalingMessage({
+        type: 'offer',
+        data: offer,
+        to: remotePubkey,
+      });
+
+      console.log(`Full reconnection initiated to ${remotePubkey}`);
+    } catch (error) {
+      console.error(`Failed to perform full reconnection to ${remotePubkey}:`, error);
+
+      // Schedule another attempt with longer delay
+      const connection = peerConnectionsRef.current.get(remotePubkey);
+      if (connection && connection.reconnectAttempts < 5) {
+        const delay = Math.min(30000, 5000 * Math.pow(2, connection.reconnectAttempts));
+        const timeoutId = window.setTimeout(() => {
+          if (performFullReconnectionRef.current) {
+            performFullReconnectionRef.current(remotePubkey);
+          }
+        }, delay);
+        reconnectTimeoutsRef.current.set(remotePubkey, timeoutId);
+      }
+    }
+  }, [isConnected, createPeerConnection, sendSignalingMessage]);
+
+  // Assign the function to the ref for forward reference
+  performFullReconnectionRef.current = performFullReconnection;
 
 
 
@@ -369,6 +566,20 @@ export function useVoiceChannel(channelId?: string) {
                 console.log(`Processing offer from ${remotePubkey}`);
                 if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
                   await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
+
+                  // Process any queued ICE candidates
+                  if (peerConnection.queuedCandidates) {
+                    console.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
+                    for (const candidate of peerConnection.queuedCandidates) {
+                      try {
+                        await pc.addIceCandidate(candidate);
+                      } catch (error) {
+                        console.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
+                      }
+                    }
+                    peerConnection.queuedCandidates = [];
+                  }
+
                   const answer = await pc.createAnswer();
                   await pc.setLocalDescription(answer);
                   await sendSignalingMessage({
@@ -385,17 +596,43 @@ export function useVoiceChannel(channelId?: string) {
                 console.log(`Processing answer from ${remotePubkey}`);
                 if (pc.signalingState === 'have-local-offer') {
                   await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
+
+                  // Process any queued ICE candidates
+                  if (peerConnection.queuedCandidates) {
+                    console.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
+                    for (const candidate of peerConnection.queuedCandidates) {
+                      try {
+                        await pc.addIceCandidate(candidate);
+                      } catch (error) {
+                        console.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
+                      }
+                    }
+                    peerConnection.queuedCandidates = [];
+                  }
+
                   console.log(`Set remote description from ${remotePubkey}`);
                 }
                 break;
               }
 
               case 'ice-candidate': {
-                if (pc.remoteDescription) {
-                  await pc.addIceCandidate(new RTCIceCandidate(message.data as RTCIceCandidate));
+                const candidate = new RTCIceCandidate(message.data as RTCIceCandidate);
+                console.log(`Received ICE candidate from ${remotePubkey}:`, candidate.candidate);
+
+                if (pc.remoteDescription && pc.signalingState !== 'closed') {
+                  try {
+                    await pc.addIceCandidate(candidate);
+                    console.log(`Added ICE candidate from ${remotePubkey}`);
+                  } catch (error) {
+                    console.error(`Failed to add ICE candidate from ${remotePubkey}:`, error);
+                  }
                 } else {
-                  // Queue ICE candidate for later if remote description isn't set yet
-                  console.log(`Queueing ICE candidate from ${remotePubkey}`);
+                  console.log(`Queueing ICE candidate from ${remotePubkey} (no remote description yet)`);
+                  // Store candidate for later - we'll add it after remote description is set
+                  if (!peerConnection.queuedCandidates) {
+                    peerConnection.queuedCandidates = [];
+                  }
+                  peerConnection.queuedCandidates.push(candidate);
                 }
                 break;
               }
@@ -519,9 +756,9 @@ export function useVoiceChannel(channelId?: string) {
         }
       });
 
-      // Remove members who haven't been seen in the last 2 minutes (likely disconnected)
+      // Remove members who haven't been seen in the last 3 minutes (likely disconnected)
       const now = Date.now();
-      const staleThreshold = 2 * 60 * 1000; // 2 minutes
+      const staleThreshold = 3 * 60 * 1000; // 3 minutes (increased for stability)
 
       for (const [pubkey, lastSeen] of memberLastSeen.entries()) {
         if (now - lastSeen > staleThreshold) {
