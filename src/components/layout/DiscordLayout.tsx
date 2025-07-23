@@ -4,6 +4,7 @@ import { CommunityPanel } from "./CommunityPanel";
 import { ChatArea } from "./ChatArea";
 import { MemberList } from "./MemberList";
 import { UserPanel } from "./UserPanel";
+import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
@@ -12,6 +13,7 @@ import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+  const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
   const [showMemberList, setShowMemberList] = useState(true);
   const [dmTargetPubkey, setDmTargetPubkey] = useState<string | null>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
@@ -23,6 +25,7 @@ export function DiscordLayout() {
   const handleNavigateToDMs = (targetPubkey?: string) => {
     setSelectedCommunity(null);
     setSelectedChannel(null);
+    setSelectedSpace(null);
     if (targetPubkey) {
       setDmTargetPubkey(targetPubkey);
     }
@@ -48,9 +51,9 @@ export function DiscordLayout() {
     }
   }, [urlCommunityId, isJoinRequest, membershipStatus, clearNavigation]);
 
-  // Auto-select general channel when community is selected
+  // Auto-select general channel when community is selected (and no space is selected)
   useEffect(() => {
-    if (selectedCommunity && channels && channels.length > 0) {
+    if (selectedCommunity && !selectedSpace && channels && channels.length > 0) {
       // Look for a channel named "general" first
       const generalChannel = channels.find(channel =>
         channel.name.toLowerCase() === 'general' && channel.type === 'text'
@@ -66,10 +69,11 @@ export function DiscordLayout() {
         }
       }
     } else if (!selectedCommunity) {
-      // Clear channel selection when no community is selected
+      // Clear channel and space selection when no community is selected
       setSelectedChannel(null);
+      setSelectedSpace(null);
     }
-  }, [selectedCommunity, channels]);
+  }, [selectedCommunity, selectedSpace, channels]);
 
   const handleJoinSuccess = (communityId: string) => {
     // After successful join, select the community
@@ -100,24 +104,39 @@ export function DiscordLayout() {
               <CommunityPanel
                 communityId={selectedCommunity}
                 selectedChannel={selectedChannel}
-                onSelectChannel={setSelectedChannel}
+                selectedSpace={selectedSpace}
+                onSelectChannel={(channelId) => {
+                  setSelectedChannel(channelId);
+                  setSelectedSpace(null); // Clear space when selecting channel
+                }}
+                onSelectSpace={(spaceId) => {
+                  setSelectedSpace(spaceId);
+                  setSelectedChannel(null); // Clear channel when selecting space
+                }}
                 onNavigateToDMs={handleNavigateToDMs}
               />
               <UserPanel />
             </div>
 
-            {/* Main Chat Area */}
+            {/* Main Content Area */}
             <div className="flex-1 flex flex-col">
-              <ChatArea
-                communityId={selectedCommunity}
-                channelId={selectedChannel}
-                onToggleMemberList={() => setShowMemberList(!showMemberList)}
-                onNavigateToDMs={handleNavigateToDMs}
-              />
+              {selectedSpace ? (
+                <SpacesArea
+                  communityId={selectedCommunity}
+                  selectedSpace={selectedSpace}
+                />
+              ) : (
+                <ChatArea
+                  communityId={selectedCommunity}
+                  channelId={selectedChannel}
+                  onToggleMemberList={() => setShowMemberList(!showMemberList)}
+                  onNavigateToDMs={handleNavigateToDMs}
+                />
+              )}
             </div>
 
-            {/* Member List */}
-            {showMemberList && (
+            {/* Member List - only show for channels, not spaces */}
+            {showMemberList && selectedChannel && !selectedSpace && (
               <div className="w-60 bg-gray-700">
                 <MemberList
                   communityId={selectedCommunity}

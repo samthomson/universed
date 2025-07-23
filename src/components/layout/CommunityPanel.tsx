@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectMessages } from "@/components/dm/DirectMessages";
+import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
 import { useCommunities } from "@/hooks/useCommunities";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
@@ -15,13 +16,15 @@ import { useState } from "react";
 interface CommunityPanelProps {
   communityId: string | null;
   selectedChannel: string | null;
+  selectedSpace?: string | null;
   onSelectChannel: (channelId: string | null) => void;
+  onSelectSpace?: (spaceId: string | null) => void;
   dmTargetPubkey?: string | null;
   onDmTargetHandled?: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
@@ -101,7 +104,15 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2">
+        <div className="p-2 space-y-4">
+          {/* Spaces Navigator */}
+          <SpacesNavigator
+            communityId={communityId}
+            selectedSpace={selectedSpace || null}
+            onSelectSpace={onSelectSpace || (() => {})}
+          />
+
+          {/* Channel Organizer */}
           <ChannelOrganizer
             communityId={communityId}
             selectedChannel={selectedChannel}
