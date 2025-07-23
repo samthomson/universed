@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
+import { MediaAttachment } from '@/components/chat/MediaAttachment';
 import { cn } from '@/lib/utils';
 
 interface NoteContentProps {
@@ -16,9 +17,43 @@ export function NoteContent({
   event, 
   className, 
 }: NoteContentProps) {  
+  // Extract media attachments from imeta tags
+  const mediaAttachments = useMemo(() => {
+    return event.tags
+      .filter(tag => tag[0] === 'imeta')
+      .map(tag => {
+        // Parse imeta tag format: ["imeta", "url <url>", "m <mime-type>", "x <hash>", ...]
+        const params: Record<string, string> = {};
+        for (let i = 1; i < tag.length; i++) {
+          const param = tag[i];
+          const spaceIndex = param.indexOf(' ');
+          if (spaceIndex > 0) {
+            const key = param.substring(0, spaceIndex);
+            const value = param.substring(spaceIndex + 1);
+            params[key] = value;
+          }
+        }
+        return {
+          url: params.url,
+          mimeType: params.m,
+          size: params.size ? parseInt(params.size) : undefined,
+          name: params.alt || params.url?.split('/').pop() || 'Attachment',
+        };
+      })
+      .filter(attachment => attachment.url); // Only include valid attachments
+  }, [event.tags]);
+
   // Process the content to render mentions, links, etc.
   const content = useMemo(() => {
-    const text = event.content;
+    let text = event.content;
+    
+    // Remove media URLs from content if they're already in imeta tags
+    const mediaUrls = mediaAttachments.map(a => a.url);
+    mediaUrls.forEach(url => {
+      if (url) {
+        text = text.replace(new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '').trim();
+      }
+    });
     
     // Regex to find URLs, Nostr references, and hashtags
     const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
@@ -105,11 +140,31 @@ export function NoteContent({
     }
     
     return parts;
-  }, [event]);
+  }, [event.content, mediaAttachments]);
 
   return (
-    <div className={cn("whitespace-pre-wrap break-words", className)}>
-      {content.length > 0 ? content : event.content}
+    <div className={cn("space-y-3", className)}>
+      {/* Text content */}
+      {(content.length > 0 || event.content) && (
+        <div className="whitespace-pre-wrap break-words">
+          {content.length > 0 ? content : event.content}
+        </div>
+      )}
+      
+      {/* Media attachments */}
+      {mediaAttachments.length > 0 && (
+        <div className="space-y-2">
+          {mediaAttachments.map((attachment, index) => (
+            <MediaAttachment
+              key={index}
+              url={attachment.url}
+              mimeType={attachment.mimeType}
+              size={attachment.size}
+              name={attachment.name}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

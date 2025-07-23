@@ -3,6 +3,8 @@ import { Send, Plus, Smile, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { FileUploadDialog } from "@/components/chat/FileUploadDialog";
+import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { replaceShortcodes } from "@/lib/emoji";
 import { useSendDM } from "@/hooks/useSendDM";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -12,9 +14,19 @@ interface DMMessageInputProps {
   conversationId: string; // The other person's pubkey
 }
 
+interface AttachedFile {
+  url: string;
+  mimeType: string;
+  size: number;
+  name: string;
+  tags: string[][];
+}
+
 export function DMMessageInput({ conversationId }: DMMessageInputProps) {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { user } = useCurrentUser();
@@ -22,21 +34,26 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
   const { toast } = useToast();
 
   const handleSubmit = async () => {
-    if (!user || !message.trim() || isSubmitting) return;
+    if (!user || (!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
 
     setIsSubmitting(true);
 
     try {
       // Process shortcodes before sending
-      const processedContent = replaceShortcodes(message.trim());
+      let processedContent = message.trim();
+      if (processedContent) {
+        processedContent = replaceShortcodes(processedContent);
+      }
 
       await sendDM({
         recipientPubkey: conversationId,
         content: processedContent,
+        attachments: attachedFiles,
       });
 
       // Clear the input
       setMessage("");
+      setAttachedFiles([]);
 
       // Reset textarea height
       if (textareaRef.current) {
@@ -88,6 +105,14 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
     }
   };
 
+  const handleFilesUploaded = (files: AttachedFile[]) => {
+    setAttachedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeAttachedFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   if (!user) {
     return (
       <div className="text-center text-gray-400 py-4">
@@ -98,12 +123,34 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
 
   return (
     <div className="bg-gray-600 rounded-lg p-3">
+      {/* Attached Files Preview */}
+      {attachedFiles.length > 0 && (
+        <div className="mb-3 space-y-2">
+          <div className="text-xs text-gray-400">Attachments ({attachedFiles.length})</div>
+          <div className="flex flex-wrap gap-2">
+            {attachedFiles.map((file, index) => (
+              <MediaAttachment
+                key={index}
+                url={file.url}
+                mimeType={file.mimeType}
+                size={file.size}
+                name={file.name}
+                showRemove
+                onRemove={() => removeAttachedFile(index)}
+                className="max-w-32"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-end space-x-3">
         {/* Attachment Button */}
         <Button
           variant="ghost"
           size="icon"
           className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 flex-shrink-0"
+          onClick={() => setShowUploadDialog(true)}
         >
           <Plus className="w-5 h-5" />
         </Button>
@@ -149,7 +196,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
             align="end"
           />
 
-          {message.trim() && (
+          {(message.trim() || attachedFiles.length > 0) && (
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting}
@@ -166,6 +213,13 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
       <div className="mt-1 text-xs text-gray-500">
         Press Enter to send, Shift+Enter for new line
       </div>
+
+      {/* File Upload Dialog */}
+      <FileUploadDialog
+        open={showUploadDialog}
+        onOpenChange={setShowUploadDialog}
+        onFilesUploaded={handleFilesUploaded}
+      />
     </div>
   );
 }

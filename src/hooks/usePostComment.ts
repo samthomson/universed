@@ -6,6 +6,13 @@ interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
   reply?: NostrEvent | URL; // Optional reply to another comment
   content: string;
+  attachments?: Array<{
+    url: string;
+    mimeType: string;
+    size: number;
+    name: string;
+    tags: string[][];
+  }>;
 }
 
 /** Post a NIP-22 (kind 1111) comment on an event. */
@@ -14,7 +21,7 @@ export function usePostComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ root, reply, content }: PostCommentParams) => {
+    mutationFn: async ({ root, reply, content, attachments = [] }: PostCommentParams) => {
       const tags: string[][] = [];
 
       // d-tag identifiers
@@ -74,9 +81,33 @@ export function usePostComment() {
         }
       }
 
+      // Add imeta tags for attached files
+      attachments.forEach(file => {
+        const imetaTag = ["imeta"];
+        imetaTag.push(`url ${file.url}`);
+        if (file.mimeType) imetaTag.push(`m ${file.mimeType}`);
+        if (file.size) imetaTag.push(`size ${file.size}`);
+        if (file.name) imetaTag.push(`alt ${file.name}`);
+
+        // Add any additional tags from the upload response
+        file.tags.forEach(tag => {
+          if (tag[0] === 'x') imetaTag.push(`x ${tag[1]}`); // hash
+          if (tag[0] === 'ox') imetaTag.push(`ox ${tag[1]}`); // original hash
+        });
+
+        tags.push(imetaTag);
+      });
+
+      // Prepare content with file URLs if there are attachments
+      let messageContent = content;
+      if (attachments.length > 0) {
+        const fileUrls = attachments.map(file => file.url).join('\n');
+        messageContent = content ? `${content}\n\n${fileUrls}` : fileUrls;
+      }
+
       const event = await publishEvent({
         kind: 1111,
-        content,
+        content: messageContent,
         tags,
       });
 
