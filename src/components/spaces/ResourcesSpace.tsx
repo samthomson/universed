@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
 import {
   BookOpen,
   Plus,
@@ -8,11 +6,13 @@ import {
   Grid3X3,
   List,
   FileText,
-  Link as LinkIcon,
   Folder,
-  Download,
   Calendar,
-  Globe
+  Globe,
+  Users,
+  Shield,
+  Crown,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,167 +21,87 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { CreateResourceFolderDialog } from './CreateResourceFolderDialog';
+import { AddResourceToFolderDialog } from './AddResourceToFolderDialog';
+import { useResourceFolders, useFolderResources } from '@/hooks/useResourceFolders';
+
+import { useUserRole } from '@/hooks/useCommunityRoles';
+import type { ResourceFolder, FolderResource } from '@/hooks/useResourceFolders';
 
 interface ResourcesSpaceProps {
   communityId: string;
 }
 
-interface ResourceCollection {
-  id: string;
-  name: string;
-  description: string;
-  image?: string;
-  resources: Resource[];
-  creator: string;
-  createdAt: number;
-  tags: string[];
-  event: NostrEvent;
-}
-
-interface Resource {
-  type: 'url' | 'note' | 'article' | 'file';
-  url?: string;
-  eventId?: string;
-  title?: string;
-  description?: string;
-  tags: string[];
-}
-
-// Validate NIP-51 bookmark set events
-function validateResourceEvent(event: NostrEvent): boolean {
-  if (event.kind !== 30003) return false; // NIP-51 bookmark sets
-
-  const d = event.tags.find(([name]) => name === 'd')?.[1];
-  if (!d) return false;
-
-  return true;
-}
-
-function parseResourceEvent(event: NostrEvent): ResourceCollection | null {
-  try {
-    const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
-    const title = event.tags.find(([name]) => name === 'title')?.[1] || d;
-    const description = event.tags.find(([name]) => name === 'description')?.[1] || '';
-    const image = event.tags.find(([name]) => name === 'image')?.[1];
-
-    // Extract resources from tags
-    const resources: Resource[] = [];
-
-    // URL resources
-    event.tags.filter(([name]) => name === 'r').forEach(([, url]) => {
-      resources.push({
-        type: 'url',
-        url,
-        title: new URL(url).hostname,
-        tags: [],
-      });
-    });
-
-    // Note resources (kind 1)
-    event.tags.filter(([name]) => name === 'e').forEach(([, eventId]) => {
-      resources.push({
-        type: 'note',
-        eventId,
-        title: 'Nostr Note',
-        tags: [],
-      });
-    });
-
-    // Article resources (kind 30023)
-    event.tags.filter(([name]) => name === 'a').forEach(([, addr]) => {
-      if (addr.startsWith('30023:')) {
-        resources.push({
-          type: 'article',
-          eventId: addr,
-          title: 'Long-form Article',
-          tags: [],
-        });
-      }
-    });
-
-    // Extract hashtags
-    const tags = event.tags
-      .filter(([name]) => name === 't')
-      .map(([, tag]) => tag);
-
-    return {
-      id: d,
-      name: title,
-      description,
-      image,
-      resources,
-      creator: event.pubkey,
-      createdAt: event.created_at,
-      tags,
-      event,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
-  const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { role } = useUserRole(communityId, user?.pubkey);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
+  const [selectedFolder, setSelectedFolder] = useState<ResourceFolder | null>(null);
 
-  // Query resource collections (NIP-51 bookmark sets)
-  const { data: collections, isLoading } = useQuery({
-    queryKey: ['resource-collections', communityId, searchQuery, selectedTag, sortBy],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+  // Query resource folders
+  const { data: folders, isLoading: isLoadingFolders } = useResourceFolders(communityId);
 
-      // Query for NIP-51 bookmark set events
-      const events = await nostr.query([
-        {
-          kinds: [30003], // NIP-51 bookmark sets
-          '#t': selectedTag === 'all' ? undefined : [selectedTag],
-          limit: 100,
-        }
-      ], { signal });
+  // Query resources for selected folder
+  const { data: folderResources, isLoading: isLoadingResources } = useFolderResources(
+    communityId,
+    selectedFolder?.id || ''
+  );
 
-      const validEvents = events.filter(validateResourceEvent);
-      const collections = validEvents
-        .map(parseResourceEvent)
-        .filter((collection): collection is ResourceCollection => collection !== null);
+  // Filter and sort folders
+  const filteredFolders = folders?.filter(folder => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return folder.name.toLowerCase().includes(query) ||
+             folder.description?.toLowerCase().includes(query) ||
+             folder.tags.some(tag => tag.toLowerCase().includes(query));
+    }
+    if (selectedTag !== 'all') {
+      return folder.tags.includes(selectedTag);
+    }
+    return true;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'resources':
+        return b.resourceCount - a.resourceCount;
+      case 'oldest':
+        return a.createdAt - b.createdAt;
+      case 'newest':
+      default:
+        return b.createdAt - a.createdAt;
+    }
+  }) || [];
 
-      // Filter by search query
-      let filteredCollections = collections;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredCollections = collections.filter(collection =>
-          collection.name.toLowerCase().includes(query) ||
-          collection.description.toLowerCase().includes(query) ||
-          collection.tags.some(tag => tag.toLowerCase().includes(query))
-        );
-      }
+  // Get unique tags from folders
+  const tags = Array.from(new Set(folders?.flatMap(folder => folder.tags) || []));
 
-      // Sort collections
-      filteredCollections.sort((a, b) => {
-        switch (sortBy) {
-          case 'name':
-            return a.name.localeCompare(b.name);
-          case 'resources':
-            return b.resources.length - a.resources.length;
-          case 'oldest':
-            return a.createdAt - b.createdAt;
-          case 'newest':
-          default:
-            return b.createdAt - a.createdAt;
-        }
-      });
+  // Calculate permissions for all folders
+  const folderPermissions = filteredFolders.reduce((acc, folder) => {
+    if (!user) {
+      acc[folder.id] = false;
+      return acc;
+    }
 
-      return filteredCollections;
-    },
-    staleTime: 1000 * 60 * 2, // 2 minutes
-  });
-
-  // Get unique tags from collections
-  const tags = Array.from(new Set(collections?.flatMap(collection => collection.tags) || []));
+    // Check permission based on folder settings
+    switch (folder.addPermission) {
+      case 'admins':
+        acc[folder.id] = role === 'owner';
+        break;
+      case 'moderators':
+        acc[folder.id] = role === 'owner' || role === 'moderator';
+        break;
+      case 'members':
+        acc[folder.id] = true;
+        break;
+      default:
+        acc[folder.id] = false;
+    }
+    return acc;
+  }, {} as Record<string, boolean>);
 
   const getResourceIcon = (type: string) => {
     switch (type) {
@@ -191,14 +111,151 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
         return <FileText className="w-4 h-4" />;
       case 'article':
         return <BookOpen className="w-4 h-4" />;
-      case 'file':
-        return <Download className="w-4 h-4" />;
       default:
-        return <LinkIcon className="w-4 h-4" />;
+        return <Globe className="w-4 h-4" />;
     }
   };
 
-  if (isLoading) {
+  const getPermissionIcon = (permission: string) => {
+    switch (permission) {
+      case 'admins':
+        return <Crown className="w-3 h-3" />;
+      case 'moderators':
+        return <Shield className="w-3 h-3" />;
+      case 'members':
+        return <Users className="w-3 h-3" />;
+      default:
+        return <Users className="w-3 h-3" />;
+    }
+  };
+
+  const getPermissionLabel = (permission: string) => {
+    switch (permission) {
+      case 'admins':
+        return 'Admins Only';
+      case 'moderators':
+        return 'Admins + Mods';
+      case 'members':
+        return 'Any Member';
+      default:
+        return 'Any Member';
+    }
+  };
+
+  // Calculate permission for selected folder
+  const canAddToSelectedFolder = selectedFolder && user ? (() => {
+    switch (selectedFolder.addPermission) {
+      case 'admins':
+        return role === 'owner';
+      case 'moderators':
+        return role === 'owner' || role === 'moderator';
+      case 'members':
+        return true;
+      default:
+        return false;
+    }
+  })() : false;
+
+  // Show folder view if a folder is selected
+  if (selectedFolder) {
+    return (
+      <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+        {/* Folder Header */}
+        <div className="border-b border-gray-700 p-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedFolder(null)}
+                className="text-gray-400 hover:text-gray-200"
+              >
+                ← Back to Folders
+              </Button>
+              <div className="flex items-center space-x-2">
+                <Folder className="w-5 h-5 text-green-400" />
+                <div>
+                  <h1 className="text-xl font-semibold text-white">{selectedFolder.name}</h1>
+                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                    <span>{selectedFolder.resourceCount} resources</span>
+                    <span>•</span>
+                    <div className="flex items-center space-x-1">
+                      {getPermissionIcon(selectedFolder.addPermission)}
+                      <span>{getPermissionLabel(selectedFolder.addPermission)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {canAddToSelectedFolder && (
+              <AddResourceToFolderDialog
+                communityId={communityId}
+                folderId={selectedFolder.id}
+                folderName={selectedFolder.name}
+              />
+            )}
+          </div>
+          {selectedFolder.description && (
+            <p className="text-gray-400 mt-2">{selectedFolder.description}</p>
+          )}
+        </div>
+
+        {/* Folder Resources */}
+        <div className="flex-1 overflow-y-auto spaces-scroll">
+          <div className="p-4">
+            {isLoadingResources ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="bg-gray-750 border-gray-600">
+                    <CardContent className="p-4">
+                      <div className="flex items-center space-x-3">
+                        <Skeleton className="w-8 h-8 bg-gray-600" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4 bg-gray-600" />
+                          <Skeleton className="h-3 w-1/2 bg-gray-600" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : folderResources && folderResources.length > 0 ? (
+              <div className="space-y-3">
+                {folderResources.map((resource) => (
+                  <FolderResourceCard key={resource.id} resource={resource} getResourceIcon={getResourceIcon} />
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed border-gray-600 bg-gray-750">
+                <CardContent className="py-12 px-8 text-center">
+                  <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2 text-gray-200">No resources yet</h3>
+                  <p className="text-gray-400 mb-4">
+                    This folder is empty. Be the first to add a resource!
+                  </p>
+                  {canAddToSelectedFolder && (
+                    <AddResourceToFolderDialog
+                      communityId={communityId}
+                      folderId={selectedFolder.id}
+                      folderName={selectedFolder.name}
+                      trigger={
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add First Resource
+                        </Button>
+                      }
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoadingFolders) {
     return (
       <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
         <div className="border-b border-gray-700 p-4 flex-shrink-0">
@@ -243,17 +300,14 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
           <div className="flex items-center space-x-3">
             <BookOpen className="w-6 h-6 text-green-400" />
             <div>
-              <h1 className="text-xl font-semibold text-white">Resources</h1>
+              <h1 className="text-xl font-semibold text-white">Resource Folders</h1>
               <p className="text-sm text-gray-400">
-                Organized collection of useful links and files
+                Organized folders of community resources
               </p>
             </div>
           </div>
-          {user && (
-            <Button className="bg-green-600 hover:bg-green-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Collection
-            </Button>
+          {user && (role === 'owner' || role === 'moderator') && (
+            <CreateResourceFolderDialog communityId={communityId} />
           )}
         </div>
       </div>
@@ -267,7 +321,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search resources..."
+              placeholder="Search folders..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-green-500"
@@ -318,22 +372,27 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
         </div>
 
         {/* Results */}
-        {collections && collections.length === 0 ? (
+        {filteredFolders.length === 0 ? (
           <Card className="border-dashed border-gray-600 bg-gray-750">
             <CardContent className="py-12 px-8 text-center">
-              <BookOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-200">No resource collections found</h3>
+              <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-gray-200">No resource folders found</h3>
               <p className="text-gray-400 mb-4">
                 {searchQuery || selectedTag !== 'all'
                   ? 'Try adjusting your search or filters'
-                  : 'Create the first resource collection for this community!'
+                  : 'Create the first resource folder for this community!'
                 }
               </p>
-              {user && (
-                <Button className="bg-green-600 hover:bg-green-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create First Collection
-                </Button>
+              {user && (role === 'owner' || role === 'moderator') && (
+                <CreateResourceFolderDialog
+                  communityId={communityId}
+                  trigger={
+                    <Button className="bg-green-600 hover:bg-green-700 text-white">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create First Folder
+                    </Button>
+                  }
+                />
               )}
             </CardContent>
           </Card>
@@ -343,12 +402,16 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
               : 'space-y-3'
           } style={{ willChange: 'scroll-position' }}>
-            {collections?.map((collection) => (
-              <ResourceCollectionCard
-                key={collection.id}
-                collection={collection}
+            {filteredFolders.map((folder) => (
+              <ResourceFolderCard
+                key={folder.id}
+                folder={folder}
                 viewMode={viewMode}
-                getResourceIcon={getResourceIcon}
+                onFolderClick={setSelectedFolder}
+                communityId={communityId}
+                getPermissionIcon={getPermissionIcon}
+                getPermissionLabel={getPermissionLabel}
+                canAddToFolder={folderPermissions[folder.id] || false}
               />
             ))}
           </div>
@@ -359,27 +422,38 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
   );
 }
 
-function ResourceCollectionCard({
-  collection,
+function ResourceFolderCard({
+  folder,
   viewMode,
-  getResourceIcon
+  onFolderClick,
+  communityId,
+  getPermissionIcon,
+  getPermissionLabel,
+  canAddToFolder
 }: {
-  collection: ResourceCollection;
+  folder: ResourceFolder;
   viewMode: 'grid' | 'list';
-  getResourceIcon: (type: string) => React.ReactNode;
+  onFolderClick: (folder: ResourceFolder) => void;
+  communityId: string;
+  getPermissionIcon: (permission: string) => React.ReactNode;
+  getPermissionLabel: (permission: string) => string;
+  canAddToFolder: boolean;
 }) {
-  const timeAgo = new Date(collection.createdAt * 1000).toLocaleDateString();
+  const timeAgo = new Date(folder.createdAt * 1000).toLocaleDateString();
 
   if (viewMode === 'list') {
     return (
-      <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
+      <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors">
         <CardContent className="p-4">
           <div className="flex space-x-4">
-            <div className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center">
-              {collection.image ? (
+            <div
+              className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-500 transition-colors"
+              onClick={() => onFolderClick(folder)}
+            >
+              {folder.image ? (
                 <img
-                  src={collection.image}
-                  alt={collection.name}
+                  src={folder.image}
+                  alt={folder.name}
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
@@ -388,10 +462,18 @@ function ResourceCollectionCard({
             </div>
             <div className="flex-1 space-y-2">
               <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-100">{collection.name}</h3>
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2">
+                    <h3
+                      className="font-semibold text-lg text-gray-100 cursor-pointer hover:text-green-400 transition-colors"
+                      onClick={() => onFolderClick(folder)}
+                    >
+                      {folder.name}
+                    </h3>
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  </div>
                   <p className="text-gray-400 text-sm line-clamp-2">
-                    {collection.description}
+                    {folder.description}
                   </p>
                 </div>
                 <div className="text-right text-sm text-gray-400">
@@ -404,26 +486,30 @@ function ResourceCollectionCard({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Badge variant="secondary" className="bg-gray-600 text-gray-200">
-                    {collection.resources.length} resources
+                    {folder.resourceCount} resources
                   </Badge>
-                  {collection.tags.slice(0, 2).map(tag => (
+                  <div className="flex items-center space-x-1 text-xs text-gray-400">
+                    {getPermissionIcon(folder.addPermission)}
+                    <span>{getPermissionLabel(folder.addPermission)}</span>
+                  </div>
+                  {folder.tags.slice(0, 2).map(tag => (
                     <Badge key={tag} variant="outline" className="text-xs border-gray-500 text-gray-300">
                       #{tag}
                     </Badge>
                   ))}
-                  {collection.tags.length > 2 && (
+                  {folder.tags.length > 2 && (
                     <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
-                      +{collection.tags.length - 2}
+                      +{folder.tags.length - 2}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center space-x-1">
-                  {collection.resources.slice(0, 3).map((resource, i) => (
-                    <div key={i} className="text-gray-400">
-                      {getResourceIcon(resource.type)}
-                    </div>
-                  ))}
-                </div>
+                {canAddToFolder && (
+                  <AddResourceToFolderDialog
+                    communityId={communityId}
+                    folderId={folder.id}
+                    folderName={folder.name}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -433,14 +519,17 @@ function ResourceCollectionCard({
   }
 
   return (
-    <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
+    <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors">
       <CardHeader>
         <div className="flex items-start space-x-3">
-          <div className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
-            {collection.image ? (
+          <div
+            className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-500 transition-colors"
+            onClick={() => onFolderClick(folder)}
+          >
+            {folder.image ? (
               <img
-                src={collection.image}
-                alt={collection.name}
+                src={folder.image}
+                alt={folder.name}
                 className="w-full h-full object-cover rounded-lg"
               />
             ) : (
@@ -448,9 +537,17 @@ function ResourceCollectionCard({
             )}
           </div>
           <div className="flex-1">
-            <CardTitle className="text-lg line-clamp-1 text-gray-100">{collection.name}</CardTitle>
+            <div className="flex items-center space-x-2">
+              <CardTitle
+                className="text-lg line-clamp-1 text-gray-100 cursor-pointer hover:text-green-400 transition-colors"
+                onClick={() => onFolderClick(folder)}
+              >
+                {folder.name}
+              </CardTitle>
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </div>
             <p className="text-gray-400 text-sm line-clamp-2 mt-1">
-              {collection.description}
+              {folder.description}
             </p>
           </div>
         </div>
@@ -458,7 +555,7 @@ function ResourceCollectionCard({
       <CardContent className="pt-0 space-y-4">
         <div className="flex items-center justify-between">
           <Badge variant="secondary" className="bg-gray-600 text-gray-200">
-            {collection.resources.length} resources
+            {folder.resourceCount} resources
           </Badge>
           <div className="flex items-center space-x-1 text-sm text-gray-400">
             <Calendar className="w-3 h-3" />
@@ -466,35 +563,95 @@ function ResourceCollectionCard({
           </div>
         </div>
 
-        {/* Resource type indicators */}
-        <div className="flex items-center space-x-2">
-          {collection.resources.slice(0, 4).map((resource, i) => (
-            <div key={i} className="flex items-center space-x-1 text-xs text-gray-400">
-              {getResourceIcon(resource.type)}
-            </div>
-          ))}
-          {collection.resources.length > 4 && (
-            <span className="text-xs text-gray-400">
-              +{collection.resources.length - 4} more
-            </span>
-          )}
+        {/* Permission indicator */}
+        <div className="flex items-center space-x-1 text-xs text-gray-400">
+          {getPermissionIcon(folder.addPermission)}
+          <span>{getPermissionLabel(folder.addPermission)}</span>
         </div>
 
         {/* Tags */}
-        {collection.tags.length > 0 && (
+        {folder.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {collection.tags.slice(0, 3).map(tag => (
+            {folder.tags.slice(0, 3).map(tag => (
               <Badge key={tag} variant="outline" className="text-xs border-gray-500 text-gray-300">
                 #{tag}
               </Badge>
             ))}
-            {collection.tags.length > 3 && (
+            {folder.tags.length > 3 && (
               <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
-                +{collection.tags.length - 3}
+                +{folder.tags.length - 3}
               </Badge>
             )}
           </div>
         )}
+
+        {/* Add Resource Button */}
+        {canAddToFolder && (
+          <div className="pt-2 border-t border-gray-600">
+            <AddResourceToFolderDialog
+              communityId={communityId}
+              folderId={folder.id}
+              folderName={folder.name}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FolderResourceCard({
+  resource,
+  getResourceIcon
+}: {
+  resource: FolderResource;
+  getResourceIcon: (type: string) => React.ReactNode;
+}) {
+  const timeAgo = new Date(resource.createdAt * 1000).toLocaleDateString();
+
+  const handleResourceClick = () => {
+    if (resource.type === 'url' && resource.url) {
+      window.open(resource.url, '_blank', 'noopener,noreferrer');
+    }
+    // For note and article types, we could implement navigation to the Nostr content
+  };
+
+  return (
+    <Card
+      className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer"
+      onClick={handleResourceClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start space-x-3">
+          <div className="text-gray-400 mt-1">
+            {getResourceIcon(resource.type)}
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium text-gray-200 hover:text-green-400 transition-colors">
+              {resource.title}
+            </h4>
+            {resource.description && (
+              <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                {resource.description}
+              </p>
+            )}
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                <span className="capitalize">{resource.type}</span>
+                {resource.type === 'url' && resource.url && (
+                  <>
+                    <span>•</span>
+                    <span>{new URL(resource.url).hostname}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex items-center space-x-1 text-xs text-gray-500">
+                <Calendar className="w-3 h-3" />
+                <span>{timeAgo}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

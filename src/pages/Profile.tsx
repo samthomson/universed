@@ -33,8 +33,8 @@ const Profile = () => {
   }
 
   useSeoMeta({
-    title: pubkey ? `Profile - NostrCord` : 'Profile Not Found - NostrCord',
-    description: 'View user profile on NostrCord.',
+    title: pubkey ? `Profile - Universes` : 'Profile Not Found - Universes',
+    description: 'View user profile on Universes.',
   });
 
   if (!user) {
@@ -46,7 +46,7 @@ const Profile = () => {
               View Profile
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-400">
-              Log in to view user profiles on NostrCord
+              Log in to view user profiles on Universes
             </p>
           </div>
 

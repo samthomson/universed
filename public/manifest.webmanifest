@@ -1,7 +1,7 @@
 {
-  "name": "NostrCord",
-  "short_name": "NostrCord",
-  "description": "A Discord-like chat platform built on the decentralized Nostr protocol",
+  "name": "Universes",
+  "short_name": "Universes",
+  "description": "Explore infinite universes of communities, conversations, and connections on the decentralized Nostr protocol",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1f2937",

@@ -10,7 +10,7 @@ const ThreadDemo = () => {
   const navigate = useNavigate();
 
   useSeoMeta({
-    title: 'Thread Demo - NostrCord',
+    title: 'Thread Demo - Universes',
     description: 'Demonstration of Discord-like threaded comments with in-chat previews.',
   });
 
@@ -22,15 +22,15 @@ const ThreadDemo = () => {
       <div className="max-w-4xl mx-auto py-8 px-4">
         {/* Header */}
         <div className="mb-6">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate('/')}
             className="mb-4 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Chat
           </Button>
-          
+
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
             Discord-Style Threading Demo
           </h1>
@@ -67,14 +67,14 @@ const ThreadDemo = () => {
           <CardContent>
             <div className="prose dark:prose-invert max-w-none">
               <p className="text-gray-700 dark:text-gray-300 mb-4">
-                We're excited to introduce our new <strong>Discord-style thread preview system</strong>! 
+                We're excited to introduce our new <strong>Discord-style thread preview system</strong>!
                 This enhancement brings a more familiar and intuitive way to engage with threaded conversations.
               </p>
-              
+
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 🎉 What's New:
               </h3>
-              
+
               <ul className="space-y-2 text-gray-700 dark:text-gray-300">
                 <li><strong>In-chat Thread Previews:</strong> See thread activity without leaving the main conversation</li>
                 <li><strong>Avatar Stack Display:</strong> Quickly identify who's participating in each thread</li>
@@ -84,7 +84,7 @@ const ThreadDemo = () => {
               </ul>
 
               <p className="text-gray-700 dark:text-gray-300 mt-4">
-                Try it out by commenting below and see how replies create beautiful, 
+                Try it out by commenting below and see how replies create beautiful,
                 Discord-style thread previews that make conversations more organized and engaging!
               </p>
             </div>
@@ -93,7 +93,7 @@ const ThreadDemo = () => {
 
         {/* Comments Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-          <CommentsSection 
+          <CommentsSection
             root={demoPostUrl}
             title="💬 Discussion & Feedback"
             emptyStateMessage="Start the conversation!"

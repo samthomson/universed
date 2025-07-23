@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { CreateMarketplaceItemDialog } from './CreateMarketplaceItemDialog';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface MarketplaceSpaceProps {
@@ -42,8 +43,14 @@ interface MarketplaceItem {
 }
 
 // Validate NIP-15 marketplace events
-function validateMarketplaceEvent(event: NostrEvent): boolean {
+function validateMarketplaceEvent(event: NostrEvent, expectedCommunityId: string): boolean {
   if (![30017, 30018].includes(event.kind)) return false;
+
+  // Check if the event belongs to the expected community
+  const communityTag = event.tags.find(([name]) => name === 'a')?.[1];
+  if (!communityTag || communityTag !== expectedCommunityId) {
+    return false;
+  }
 
   try {
     const content = JSON.parse(event.content);
@@ -97,16 +104,24 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      // Query for NIP-15 product events
+      // Parse community ID to get the components for filtering
+      const [kind, pubkey, identifier] = communityId.split(':');
+
+      if (!kind || !pubkey || !identifier) {
+        return [];
+      }
+
+      // Query for NIP-15 product events that belong to this community
       const events = await nostr.query([
         {
           kinds: [30018], // NIP-15 product events
+          '#a': [`${kind}:${pubkey}:${identifier}`], // Filter by community
           '#t': selectedCategory === 'all' ? undefined : [selectedCategory],
           limit: 100,
         }
       ], { signal });
 
-      const validEvents = events.filter(validateMarketplaceEvent);
+      const validEvents = events.filter(event => validateMarketplaceEvent(event, `${kind}:${pubkey}:${identifier}`));
       const items = validEvents
         .map(parseMarketplaceEvent)
         .filter((item): item is MarketplaceItem => item !== null);
@@ -207,15 +222,12 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
             <div>
               <h1 className="text-xl font-semibold text-white">Marketplace</h1>
               <p className="text-sm text-gray-400">
-                Buy and sell goods with Bitcoin, Lightning, and Cashu
+                Community marketplace for Bitcoin, Lightning, and Cashu
               </p>
             </div>
           </div>
           {user && (
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-              <Plus className="w-4 h-4 mr-2" />
-              List Item
-            </Button>
+            <CreateMarketplaceItemDialog communityId={communityId} />
           )}
         </div>
       </div>
@@ -288,14 +300,19 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
               <p className="text-gray-400 mb-4">
                 {searchQuery || selectedCategory !== 'all'
                   ? 'Try adjusting your search or filters'
-                  : 'Be the first to list an item in this marketplace!'
+                  : 'Be the first to list an item in this community marketplace!'
                 }
               </p>
               {user && (
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  List Your First Item
-                </Button>
+                <CreateMarketplaceItemDialog
+                  communityId={communityId}
+                  trigger={
+                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Plus className="w-4 h-4 mr-2" />
+                      List First Community Item
+                    </Button>
+                  }
+                />
               )}
             </CardContent>
           </Card>

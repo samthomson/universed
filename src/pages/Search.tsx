@@ -7,8 +7,8 @@ const Search = () => {
   const { user } = useCurrentUser();
 
   useSeoMeta({
-    title: 'Search - NostrCord',
-    description: 'Search across messages, users, and communities on NostrCord.',
+    title: 'Search - Universes',
+    description: 'Search across messages, users, and communities on Universes.',
   });
 
   if (!user) {
@@ -17,7 +17,7 @@ const Search = () => {
         <div className="max-w-2xl mx-auto text-center space-y-8 p-8">
           <div className="space-y-4">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-              Search NostrCord
+              Search Universes
             </h1>
             <p className="text-xl text-gray-600 dark:text-gray-400">
               Log in to search across messages, users, and communities
@@ -35,7 +35,7 @@ const Search = () => {
   return (
     <div className="min-h-screen bg-gray-800 text-gray-100">
       <div className="container mx-auto px-4 py-8">
-        <GlobalSearch 
+        <GlobalSearch
           onUserSelect={(pubkey) => {
             // TODO: Navigate to user profile or start DM
             console.log('Selected user:', pubkey);
