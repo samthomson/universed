@@ -1,10 +1,11 @@
-import { Hash, Volume2, Settings, ChevronDown, Plus } from "lucide-react";
+import { Hash, Volume2, Settings, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { useCommunities } from "@/hooks/useCommunities";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
+import { CreateChannelDialog } from "@/components/community/CreateChannelDialog";
 import { useChannels } from "@/hooks/useChannels";
 import { useState } from "react";
 
@@ -16,10 +17,14 @@ interface CommunityPanelProps {
 
 export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
-  const { data: channels } = useChannels(communityId);
+  const { data: channels, refetch: refetchChannels } = useChannels(communityId);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+
+  const handleChannelCreated = () => {
+    refetchChannels();
+  };
 
   const community = communities?.find(c => c.id === communityId);
 
@@ -101,14 +106,10 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
                 ))
               )}
               <div className="ml-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-gray-400 hover:text-gray-300 h-8"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Channel
-                </Button>
+                <CreateChannelDialog
+                  communityId={communityId}
+                  onChannelCreated={handleChannelCreated}
+                />
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -136,14 +137,10 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel }
                 </div>
               ))}
               <div className="ml-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-start text-gray-400 hover:text-gray-300 h-8"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Channel
-                </Button>
+                <CreateChannelDialog
+                  communityId={communityId}
+                  onChannelCreated={handleChannelCreated}
+                />
               </div>
             </CollapsibleContent>
           </Collapsible>
