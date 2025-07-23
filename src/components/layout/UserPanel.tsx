@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
+import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -15,10 +16,11 @@ export function UserPanel() {
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
-  
+
   const [isMuted, setIsMuted] = useState(false);
   const [isDeafened, setIsDeafened] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   if (!user) return null;
 
@@ -29,7 +31,7 @@ export function UserPanel() {
     <>
       <div className="h-16 bg-gray-800 border-t border-gray-600 flex items-center justify-between px-2">
         {/* User Info */}
-        <div 
+        <div
           className="flex items-center space-x-2 flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors"
           onClick={() => setShowStatusDialog(true)}
         >
@@ -44,7 +46,7 @@ export function UserPanel() {
               <UserStatusIndicator pubkey={user.pubkey} />
             </div>
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-white truncate">
               {displayName}
@@ -59,7 +61,7 @@ export function UserPanel() {
         <div className="flex items-center space-x-1">
           {/* Notification Center */}
           <NotificationCenter />
-          
+
           {/* Voice Controls */}
           <Button
             variant="ghost"
@@ -86,16 +88,23 @@ export function UserPanel() {
             size="icon"
             className="w-8 h-8 text-gray-400 hover:text-gray-300"
             title="User Settings"
+            onClick={() => setShowSettingsDialog(true)}
           >
             <Settings className="w-4 h-4" />
           </Button>
         </div>
       </div>
-      
+
       {/* Status Dialog */}
-      <UserStatusDialog 
-        open={showStatusDialog} 
-        onOpenChange={setShowStatusDialog} 
+      <UserStatusDialog
+        open={showStatusDialog}
+        onOpenChange={setShowStatusDialog}
+      />
+
+      {/* Settings Dialog */}
+      <UserSettingsDialog
+        open={showSettingsDialog}
+        onOpenChange={setShowSettingsDialog}
       />
     </>
   );
