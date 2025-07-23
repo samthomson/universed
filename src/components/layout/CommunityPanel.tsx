@@ -63,11 +63,11 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
               {isLoadingUserCommunities ? (
                 // Loading skeleton
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="w-full flex items-center p-3 rounded-lg bg-gray-700/50 animate-pulse overflow-hidden">
-                    <div className="w-12 h-12 shrink-0 mr-3 bg-gray-600 rounded-lg" />
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="h-4 bg-gray-600 rounded w-3/4" />
-                      <div className="h-3 bg-gray-600 rounded w-1/2" />
+                  <div key={i} className="w-full flex flex-col items-center p-3 rounded-lg bg-gray-700/50 animate-pulse overflow-hidden">
+                    <div className="w-12 h-12 bg-gray-600 rounded-lg mb-3" />
+                    <div className="w-full text-center space-y-2">
+                      <div className="h-4 bg-gray-600 rounded w-3/4 mx-auto" />
+                      <div className="h-3 bg-gray-600 rounded w-1/2 mx-auto" />
                     </div>
                   </div>
                 ))
@@ -76,24 +76,28 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                   <button
                     key={community.id}
                     onClick={() => onSelectCommunity?.(community.id)}
-                    className="w-full flex items-center p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button overflow-hidden"
+                    className="w-full flex flex-col p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button overflow-hidden"
                   >
-                    {community.image ? (
-                      <Avatar className="w-12 h-12 shrink-0 mr-3">
-                        <AvatarImage src={community.image} alt={community.name} />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
+                    {/* Icon/Avatar at the top */}
+                    <div className="w-full flex justify-center mb-3">
+                      {community.image ? (
+                        <Avatar className="w-12 h-12 shrink-0">
+                          <AvatarImage src={community.image} alt={community.name} />
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {community.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div className="w-12 h-12 shrink-0 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm">
                           {community.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div className="w-12 h-12 shrink-0 mr-3 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm">
-                        {community.name.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
 
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center min-w-0 mb-1">
-                        <h3 className="font-medium text-white truncate flex-1 min-w-0 text-sm">
+                    {/* Content below the icon */}
+                    <div className="w-full text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <h3 className="font-medium text-white text-sm">
                           {community.name}
                         </h3>
                         {(community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') && (
