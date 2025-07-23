@@ -1,16 +1,14 @@
-import { Hash, Volume2, Settings, ChevronDown, Folder, FolderPlus, MoreHorizontal } from "lucide-react";
+import { Settings, MoreHorizontal, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { useCommunities } from "@/hooks/useCommunities";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
-import { CreateChannelDialog } from "@/components/community/CreateChannelDialog";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { FolderManagementDialog } from "@/components/community/FolderManagementDialog";
+import { ChannelOrganizer } from "@/components/community/ChannelOrganizer";
 import { useChannels, type Channel } from "@/hooks/useChannels";
-import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useState } from "react";
 
@@ -25,15 +23,11 @@ interface CommunityPanelProps {
 
 export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
-  const { data: channels, refetch: refetchChannels } = useChannels(communityId);
-  const { data: folders } = useChannelFolders(communityId);
+  const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
-  const [textChannelsOpen, setTextChannelsOpen] = useState(true);
-  const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<Channel | null>(null);
-  const [folderStates, setFolderStates] = useState<Record<string, boolean>>({});
 
   const handleChannelCreated = () => {
     refetchChannels();
@@ -68,32 +62,6 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
     );
   }
 
-  // Group channels by folder and type
-  const channelsWithoutFolder = channels?.filter(c => !c.folderId) || [];
-  const textChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'text');
-  const voiceChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'voice');
-
-  const channelsByFolder = folders?.reduce((acc, folder) => {
-    const folderChannels = channels?.filter(c => c.folderId === folder.id) || [];
-    acc[folder.id] = {
-      folder,
-      textChannels: folderChannels.filter(c => c.type === 'text'),
-      voiceChannels: folderChannels.filter(c => c.type === 'voice'),
-    };
-    return acc;
-  }, {} as Record<string, { folder: ChannelFolder; textChannels: Channel[]; voiceChannels: Channel[] }>) || {};
-
-  const toggleFolder = (folderId: string) => {
-    setFolderStates(prev => ({
-      ...prev,
-      [folderId]: !prev[folderId]
-    }));
-  };
-
-  const isFolderOpen = (folderId: string) => {
-    return folderStates[folderId] !== false; // Default to open
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* Community Header */}
@@ -103,7 +71,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
           {canModerate && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-6 h-6">
+                <Button variant="ghost" size="icon" className="w-6 h-6 hover:bg-gray-600/40 transition-colors">
                   <MoreHorizontal className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -123,7 +91,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
             <Button
               variant="ghost"
               size="icon"
-              className="w-6 h-6"
+              className="w-6 h-6 hover:bg-gray-600/40 transition-colors"
               onClick={() => setShowSettings(true)}
             >
               <Settings className="w-4 h-4" />
@@ -133,138 +101,15 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-2">
-          {/* Folders */}
-          {Object.entries(channelsByFolder).map(([folderId, { folder, textChannels, voiceChannels }]) => (
-            <div key={folderId} className="space-y-1">
-              <Collapsible open={isFolderOpen(folderId)} onOpenChange={() => toggleFolder(folderId)}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300">
-                    <ChevronDown className={`w-3 h-3 mr-1 transition-transform ${isFolderOpen(folderId) ? '' : '-rotate-90'}`} />
-                    <Folder className="w-3 h-3 mr-1" />
-                    {folder.name.toUpperCase()}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="ml-4 space-y-0.5">
-                  {/* Text channels in folder */}
-                  {textChannels.map((channel) => (
-                    <ChannelButton
-                      key={channel.id}
-                      channel={channel}
-                      isSelected={selectedChannel === channel.id}
-                      onSelect={() => onSelectChannel(channel.id)}
-                      onSettings={() => setSelectedChannelForSettings(channel)}
-                      canModerate={canModerate}
-                    />
-                  ))}
-                  {/* Voice channels in folder */}
-                  {voiceChannels.map((channel) => (
-                    <ChannelButton
-                      key={channel.id}
-                      channel={channel}
-                      isSelected={selectedChannel === channel.id}
-                      onSelect={() => onSelectChannel(channel.id)}
-                      onSettings={() => setSelectedChannelForSettings(channel)}
-                      canModerate={canModerate}
-                    />
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          ))}
-
-          {/* Text Channels (Root Level) */}
-          {textChannelsWithoutFolder.length > 0 && (
-            <Collapsible open={textChannelsOpen} onOpenChange={setTextChannelsOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300">
-                  <ChevronDown className={`w-3 h-3 mr-1 transition-transform ${textChannelsOpen ? '' : '-rotate-90'}`} />
-                  TEXT CHANNELS
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-0.5">
-                {textChannelsWithoutFolder.map((channel) => (
-                  <ChannelButton
-                    key={channel.id}
-                    channel={channel}
-                    isSelected={selectedChannel === channel.id}
-                    onSelect={() => onSelectChannel(channel.id)}
-                    onSettings={() => setSelectedChannelForSettings(channel)}
-                    canModerate={canModerate}
-                  />
-                ))}
-                <div className="ml-4">
-                  <CreateChannelDialog
-                    communityId={communityId}
-                    onChannelCreated={handleChannelCreated}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Voice Channels (Root Level) */}
-          {voiceChannelsWithoutFolder.length > 0 && (
-            <Collapsible open={voiceChannelsOpen} onOpenChange={setVoiceChannelsOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300">
-                  <ChevronDown className={`w-3 h-3 mr-1 transition-transform ${voiceChannelsOpen ? '' : '-rotate-90'}`} />
-                  VOICE CHANNELS
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-0.5">
-                {voiceChannelsWithoutFolder.map((channel) => (
-                  <ChannelButton
-                    key={channel.id}
-                    channel={channel}
-                    isSelected={selectedChannel === channel.id}
-                    onSelect={() => onSelectChannel(channel.id)}
-                    onSettings={() => setSelectedChannelForSettings(channel)}
-                    canModerate={canModerate}
-                  />
-                ))}
-                <div className="ml-4">
-                  <CreateChannelDialog
-                    communityId={communityId}
-                    onChannelCreated={handleChannelCreated}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Show default general channel if no channels exist */}
-          {(!channels || channels.length === 0) && (
-            <Collapsible open={textChannelsOpen} onOpenChange={setTextChannelsOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300">
-                  <ChevronDown className={`w-3 h-3 mr-1 transition-transform ${textChannelsOpen ? '' : '-rotate-90'}`} />
-                  TEXT CHANNELS
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-0.5">
-                <div className="ml-4 py-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`w-full justify-start text-gray-300 hover:text-gray-100 hover:bg-gray-800/60 h-8 ${
-                      selectedChannel === 'general' ? 'bg-gray-900/80 text-gray-100' : ''
-                    }`}
-                    onClick={() => onSelectChannel('general')}
-                  >
-                    <Hash className="w-4 h-4 mr-2" />
-                    general
-                  </Button>
-                </div>
-                <div className="ml-4">
-                  <CreateChannelDialog
-                    communityId={communityId}
-                    onChannelCreated={handleChannelCreated}
-                  />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
+        <div className="p-2">
+          <ChannelOrganizer
+            communityId={communityId}
+            selectedChannel={selectedChannel}
+            onSelectChannel={(channelId) => onSelectChannel(channelId)}
+            onChannelSettings={setSelectedChannelForSettings}
+            canModerate={canModerate}
+            onChannelCreated={handleChannelCreated}
+          />
         </div>
       </ScrollArea>
 
@@ -293,64 +138,6 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
           }}
         />
       )}
-    </div>
-  );
-}
-
-// Channel Button Component with context menu
-function ChannelButton({
-  channel,
-  isSelected,
-  onSelect,
-  onSettings,
-  canModerate
-}: {
-  channel: Channel;
-  isSelected: boolean;
-  onSelect: () => void;
-  onSettings: () => void;
-  canModerate: boolean;
-}) {
-  return (
-    <div className="ml-4 group">
-      <DropdownMenu>
-        <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex-1 justify-start text-gray-300 hover:text-gray-100 hover:bg-gray-800/60 h-8 ${
-              isSelected ? 'bg-gray-900/80 text-gray-100' : ''
-            }`}
-            onClick={onSelect}
-          >
-            {channel.type === 'text' ? (
-              <Hash className="w-4 h-4 mr-2" />
-            ) : (
-              <Volume2 className="w-4 h-4 mr-2" />
-            )}
-            {channel.name}
-          </Button>
-          {canModerate && (
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Settings className="w-3 h-3" />
-              </Button>
-            </DropdownMenuTrigger>
-          )}
-        </div>
-        {canModerate && (
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onSettings}>
-              <Settings className="w-4 h-4 mr-2" />
-              Channel Settings
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        )}
-      </DropdownMenu>
     </div>
   );
 }

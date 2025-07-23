@@ -24,15 +24,24 @@ import { useChannelFolders } from '@/hooks/useChannelFolders';
 
 interface CreateChannelDialogProps {
   communityId: string;
+  folderId?: string; // Optional folder ID to create channel in
+  defaultType?: 'text' | 'voice'; // Default channel type
   onChannelCreated?: () => void;
+  trigger?: React.ReactNode; // Custom trigger element
 }
 
-export function CreateChannelDialog({ communityId, onChannelCreated }: CreateChannelDialogProps) {
+export function CreateChannelDialog({ 
+  communityId, 
+  folderId: initialFolderId, 
+  defaultType = 'text',
+  onChannelCreated,
+  trigger 
+}: CreateChannelDialogProps) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'text' | 'voice'>('text');
-  const [folderId, setFolderId] = useState('');
+  const [type, setType] = useState<'text' | 'voice'>(defaultType);
+  const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || '');
   const [position, setPosition] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -114,8 +123,8 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
         ['alt', `Channel: ${channelName}`],
       ];
 
-      if (folderId) {
-        tags.push(['folder', folderId]);
+      if (selectedFolderId) {
+        tags.push(['folder', selectedFolderId]);
       }
 
       await createEvent({
@@ -124,7 +133,7 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
           name: channelName,
           description: description.trim() || undefined,
           type,
-          folderId: folderId || undefined,
+          folderId: selectedFolderId || undefined,
           position,
         }),
         tags,
@@ -138,8 +147,8 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
       // Reset form
       setName('');
       setDescription('');
-      setType('text');
-      setFolderId('');
+      setType(defaultType);
+      setSelectedFolderId(initialFolderId || '');
       setPosition(0);
       setOpen(false);
 
@@ -165,14 +174,16 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 h-8"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Channel
-        </Button>
+        {trigger || (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-gray-400 hover:text-gray-300 hover:bg-gray-800/60 h-8"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Channel
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -235,7 +246,7 @@ export function CreateChannelDialog({ communityId, onChannelCreated }: CreateCha
 
           <div className="space-y-2">
             <Label htmlFor="folder">Folder (Optional)</Label>
-            <Select value={folderId || "none"} onValueChange={(value) => setFolderId(value === "none" ? "" : value)}>
+            <Select value={selectedFolderId || "none"} onValueChange={(value) => setSelectedFolderId(value === "none" ? "" : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="No folder (root level)" />
               </SelectTrigger>
