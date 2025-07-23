@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { MoreHorizontal, Reply, Smile, Pin, PinOff, Shield } from "lucide-react";
+import { MoreHorizontal, Reply, Smile, Pin, PinOff, Shield, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { NoteContent } from "@/components/NoteContent";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThread } from "./MessageThread";
@@ -19,6 +20,10 @@ import { useThreadReplies } from "@/hooks/useThreadReplies";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { usePinMessage, useUnpinMessage, useIsPinned, getMessageChannelId } from "@/hooks/usePinnedMessages";
 import { useIsBlocked, useIsMuted } from "@/hooks/useBlockedUsers";
+import { useDeleteMessage } from "@/hooks/useMessageActions";
+import { useModerationActions } from "@/hooks/useModerationActions";
+import { DeletionConfirmDialog } from "@/components/moderation/DeletionConfirmDialog";
+import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNow } from "date-fns";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -37,12 +42,18 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
   const [isHovered, setIsHovered] = useState(false);
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showBanDialog, setShowBanDialog] = useState(false);
+  const [showMuteDialog, setShowMuteDialog] = useState(false);
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const { addReaction } = useEmojiReactions();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const { user } = useCurrentUser();
+  const { mutate: deleteMessage, isPending: isDeleting } = useDeleteMessage(communityId);
+  const { banUser, muteUser } = useModerationActions();
+  const { toast } = useToast();
   const { data: replies } = useThreadReplies(message.id);
   const isBlocked = useIsBlocked(message.pubkey);
   const isMuted = useIsMuted(message.pubkey);
@@ -79,6 +90,80 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
     } else {
       pinMessage({ communityId, channelId: messageChannelId, messageId: message.id });
     }
+  };
+
+  const handleDeleteMessage = (reason?: string) => {
+    deleteMessage(
+      { messageEvent: message, reason },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Message deleted",
+            description: "Message deleted by moderator",
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to delete message:', error);
+          toast({
+            title: "Failed to delete message",
+            description: "There was an error deleting the message. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
+    );
+  };
+
+  const handleBanUser = (reason?: string) => {
+    banUser(
+      {
+        communityId: communityId || '',
+        userPubkey: message.pubkey,
+        reason
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "User banned",
+            description: "User has been banned from the community",
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to ban user:', error);
+          toast({
+            title: "Failed to ban user",
+            description: "There was an error banning the user. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
+    );
+  };
+
+  const handleMuteUser = (reason?: string) => {
+    muteUser(
+      {
+        communityId: communityId || '',
+        userPubkey: message.pubkey,
+        reason
+      },
+      {
+        onSuccess: () => {
+          toast({
+            title: "User muted",
+            description: "User has been muted in the community",
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to mute user:', error);
+          toast({
+            title: "Failed to mute user",
+            description: "There was an error muting the user. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
+    );
   };
 
   const replyCount = replies?.length || 0;
@@ -179,18 +264,6 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
             {/* Reactions */}
             <MessageReactions message={message} />
 
-            {/* Moderation Actions */}
-            {canModerate && user?.pubkey !== message.pubkey && (
-              <div className="mt-2">
-                <ModerationActionsMenu
-                  message={message}
-                  communityId={communityId || ''}
-                  channelId={messageChannelId || undefined}
-                  variant="inline"
-                />
-              </div>
-            )}
-
             {/* Thread Reply Count */}
             {replyCount > 0 && (
               <Button
@@ -254,6 +327,63 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
                     </Button>
                   }
                 />
+              ) : isMobile ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-9 h-9 hover:bg-gray-600"
+                    >
+                      <MoreHorizontal className="w-5 h-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => setShowThread(true)}>
+                      <Reply className="mr-2 h-4 w-4" />
+                      Reply
+                    </DropdownMenuItem>
+
+                    {communityId && messageChannelId && (
+                      <DropdownMenuItem onClick={handleTogglePin}>
+                        {isPinned ? (
+                          <>
+                            <PinOff className="mr-2 h-4 w-4" />
+                            Unpin Message
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="mr-2 h-4 w-4" />
+                            Pin Message
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+
+                    {canModerate && user?.pubkey !== message.pubkey && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Message
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem onClick={() => setShowMuteDialog(true)}>
+                          <VolumeX className="mr-2 h-4 w-4" />
+                          Mute User
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={() => setShowBanDialog(true)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Ban className="mr-2 h-4 w-4" />
+                          Ban User
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <Button
                   variant="ghost"
@@ -281,6 +411,46 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
           open={showProfileDialog}
           onOpenChange={setShowProfileDialog}
           onStartDM={handleStartDM}
+        />
+
+        {/* Moderation Dialogs */}
+        <DeletionConfirmDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          title="Delete Message (Moderator)"
+          description="You are about to delete another user's message as a moderator."
+          itemName="this message"
+          itemType="message"
+          requireReason={true}
+          onConfirm={handleDeleteMessage}
+          isDeleting={isDeleting}
+        />
+
+        <DeletionConfirmDialog
+          open={showBanDialog}
+          onOpenChange={setShowBanDialog}
+          title="Ban User"
+          description="You are about to ban this user from the community."
+          itemName="this user"
+          itemType="message"
+          warningMessage="The user will be removed from the community and unable to rejoin."
+          requireReason={true}
+          requireConfirmation={true}
+          onConfirm={handleBanUser}
+          destructiveAction={true}
+        />
+
+        <DeletionConfirmDialog
+          open={showMuteDialog}
+          onOpenChange={setShowMuteDialog}
+          title="Mute User"
+          description="You are about to mute this user in the community."
+          itemName="this user"
+          itemType="message"
+          warningMessage="The user will not be able to send messages in this community."
+          requireReason={true}
+          onConfirm={handleMuteUser}
+          destructiveAction={false}
         />
       </div>
     </MessageContextMenu>
