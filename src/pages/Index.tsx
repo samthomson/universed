@@ -4,7 +4,7 @@ import { LoginArea } from "@/components/auth/LoginArea";
 import { DiscordLayout } from "@/components/layout/DiscordLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Users, MessageCircle, Shield, Zap, Globe } from "lucide-react";
+import { Sparkles, Users, MessageCircle, Globe } from "lucide-react";
 
 const Index = () => {
   const { user } = useCurrentUser();
@@ -49,25 +49,25 @@ const Index = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 max-w-3xl mx-auto px-2 sm:px-4">
               <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
                 <CardContent className="p-3 sm:p-4 md:p-6 text-center space-y-2 sm:space-y-3">
-                  <Users className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-blue-400 mx-auto" />
-                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Communities</h3>
-                  <p className="text-xs text-slate-400">Join vibrant communities across infinite universes</p>
+                  <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-blue-400 mx-auto" />
+                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Chat</h3>
+                  <p className="text-xs text-slate-400">Real-time conversations across communities</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
                 <CardContent className="p-3 sm:p-4 md:p-6 text-center space-y-2 sm:space-y-3">
-                  <Shield className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-green-400 mx-auto" />
-                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Decentralized</h3>
-                  <p className="text-xs text-slate-400">Own your data, control your experience</p>
+                  <Users className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-green-400 mx-auto" />
+                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Marketplace</h3>
+                  <p className="text-xs text-slate-400">Buy and sell with Bitcoin and Lightning</p>
                 </CardContent>
               </Card>
 
               <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm sm:col-span-2 md:col-span-1">
                 <CardContent className="p-3 sm:p-4 md:p-6 text-center space-y-2 sm:space-y-3">
-                  <Zap className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-yellow-400 mx-auto" />
-                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Lightning Fast</h3>
-                  <p className="text-xs text-slate-400">Real-time conversations across the network</p>
+                  <Globe className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-yellow-400 mx-auto" />
+                  <h3 className="font-semibold text-slate-200 text-xs sm:text-sm md:text-base">Resources</h3>
+                  <p className="text-xs text-slate-400">Discover and share valuable content</p>
                 </CardContent>
               </Card>
             </div>
