@@ -168,142 +168,151 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
+      <div className="flex-1 bg-gray-800 text-gray-100">
+        <div className="border-b border-gray-700 p-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-8 w-48 bg-gray-700" />
+            <Skeleton className="h-10 w-32 bg-gray-700" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-48 w-full" />
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-6 w-1/3" />
-              </CardContent>
-            </Card>
-          ))}
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} className="bg-gray-750 border-gray-600">
+                <CardHeader className="p-0">
+                  <Skeleton className="aspect-square w-full bg-gray-600" />
+                </CardHeader>
+                <CardContent className="p-3 space-y-2">
+                  <Skeleton className="h-4 w-3/4 bg-gray-600" />
+                  <Skeleton className="h-3 w-1/2 bg-gray-600" />
+                  <Skeleton className="h-5 w-1/3 bg-gray-600" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="flex-1 bg-gray-800 text-gray-100">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <ShoppingBag className="w-8 h-8 text-blue-500" />
-          <div>
-            <h1 className="text-2xl font-bold">Marketplace</h1>
-            <p className="text-muted-foreground">
-              Buy and sell goods with Bitcoin, Lightning, and Cashu
-            </p>
+      <div className="border-b border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <ShoppingBag className="w-6 h-6 text-blue-400" />
+            <div>
+              <h1 className="text-xl font-semibold text-white">Marketplace</h1>
+              <p className="text-sm text-gray-400">
+                Buy and sell goods with Bitcoin, Lightning, and Cashu
+              </p>
+            </div>
+          </div>
+          {user && (
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              List Item
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input
+              placeholder="Search marketplace..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500"
+            />
+          </div>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-700 border-gray-600">
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-700 border-gray-600">
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="price-low">Price: Low to High</SelectItem>
+              <SelectItem value="price-high">Price: High to Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex border border-gray-600 rounded-md">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className={`rounded-r-none ${viewMode === 'grid' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'}`}
+            >
+              <Grid3X3 className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className={`rounded-l-none ${viewMode === 'list' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'}`}
+            >
+              <List className="w-4 h-4" />
+            </Button>
           </div>
         </div>
-        {user && (
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            List Item
-          </Button>
+
+        {/* Results */}
+        {items && items.length === 0 ? (
+          <Card className="border-dashed border-gray-600 bg-gray-750">
+            <CardContent className="py-12 px-8 text-center">
+              <ShoppingBag className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2 text-gray-200">No items found</h3>
+              <p className="text-gray-400 mb-4">
+                {searchQuery || selectedCategory !== 'all'
+                  ? 'Try adjusting your search or filters'
+                  : 'Be the first to list an item in this marketplace!'
+                }
+              </p>
+              {user && (
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  List Your First Item
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className={
+            viewMode === 'grid'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
+              : 'space-y-3'
+          }>
+            {items?.map((item) => (
+              <MarketplaceItemCard
+                key={item.id}
+                item={item}
+                viewMode={viewMode}
+                formatPrice={formatPrice}
+                getCurrencyIcon={getCurrencyIcon}
+              />
+            ))}
+          </div>
         )}
       </div>
-
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            placeholder="Search marketplace..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(category => (
-              <SelectItem key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-            <SelectItem value="price-low">Price: Low to High</SelectItem>
-            <SelectItem value="price-high">Price: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex border rounded-md">
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('grid')}
-            className="rounded-r-none"
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('list')}
-            className="rounded-l-none"
-          >
-            <List className="w-4 h-4" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Results */}
-      {items && items.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="py-12 px-8 text-center">
-            <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No items found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchQuery || selectedCategory !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Be the first to list an item in this marketplace!'
-              }
-            </p>
-            {user && (
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                List Your First Item
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className={
-          viewMode === 'grid'
-            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-            : 'space-y-4'
-        }>
-          {items?.map((item) => (
-            <MarketplaceItemCard
-              key={item.id}
-              item={item}
-              viewMode={viewMode}
-              formatPrice={formatPrice}
-              getCurrencyIcon={getCurrencyIcon}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -323,10 +332,10 @@ function MarketplaceItemCard({
 
   if (viewMode === 'list') {
     return (
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
         <CardContent className="p-4">
           <div className="flex space-x-4">
-            <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center">
+            <div className="w-20 h-20 bg-gray-600 rounded-lg flex items-center justify-center">
               {item.images.length > 0 ? (
                 <img
                   src={item.images[0]}
@@ -334,30 +343,30 @@ function MarketplaceItemCard({
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <ShoppingBag className="w-8 h-8 text-muted-foreground" />
+                <ShoppingBag className="w-6 h-6 text-gray-400" />
               )}
             </div>
             <div className="flex-1 space-y-2">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-lg">{item.name}</h3>
-                  <p className="text-muted-foreground text-sm line-clamp-2">
+                  <h3 className="font-semibold text-gray-100">{item.name}</h3>
+                  <p className="text-gray-400 text-sm line-clamp-2">
                     {item.description}
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="flex items-center space-x-1 text-lg font-bold">
+                  <div className="flex items-center space-x-1 text-lg font-bold text-green-400">
                     {getCurrencyIcon(item.currency)}
                     <span>{formatPrice(item.price, item.currency)}</span>
                   </div>
-                  <Badge variant="secondary" className="mt-1">
+                  <Badge variant="secondary" className="mt-1 bg-gray-600 text-gray-200">
                     {item.condition}
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center justify-between text-sm text-gray-400">
                 <div className="flex items-center space-x-4">
-                  <Badge variant="outline">{item.category}</Badge>
+                  <Badge variant="outline" className="border-gray-500 text-gray-300">{item.category}</Badge>
                   {item.location && (
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-3 h-3" />
@@ -378,9 +387,9 @@ function MarketplaceItemCard({
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer">
+    <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
       <CardHeader className="p-0">
-        <div className="aspect-square bg-muted rounded-t-lg flex items-center justify-center">
+        <div className="aspect-square bg-gray-600 rounded-t-lg flex items-center justify-center">
           {item.images.length > 0 ? (
             <img
               src={item.images[0]}
@@ -388,36 +397,36 @@ function MarketplaceItemCard({
               className="w-full h-full object-cover rounded-t-lg"
             />
           ) : (
-            <ShoppingBag className="w-12 h-12 text-muted-foreground" />
+            <ShoppingBag className="w-12 h-12 text-gray-400" />
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3 space-y-3">
         <div>
-          <h3 className="font-semibold line-clamp-1">{item.name}</h3>
-          <p className="text-muted-foreground text-sm line-clamp-2">
+          <h3 className="font-semibold line-clamp-1 text-gray-100">{item.name}</h3>
+          <p className="text-gray-400 text-sm line-clamp-2">
             {item.description}
           </p>
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-1 font-bold">
+          <div className="flex items-center space-x-1 font-bold text-green-400">
             {getCurrencyIcon(item.currency)}
             <span>{formatPrice(item.price, item.currency)}</span>
           </div>
-          <Badge variant="secondary">{item.condition}</Badge>
+          <Badge variant="secondary" className="bg-gray-600 text-gray-200">{item.condition}</Badge>
         </div>
 
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <Badge variant="outline">{item.category}</Badge>
-          <div className="flex items-center space-x-1">
+        <div className="flex items-center justify-between text-sm">
+          <Badge variant="outline" className="border-gray-500 text-gray-300">{item.category}</Badge>
+          <div className="flex items-center space-x-1 text-gray-400">
             <Clock className="w-3 h-3" />
             <span>{timeAgo}</span>
           </div>
         </div>
 
         {item.location && (
-          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+          <div className="flex items-center space-x-1 text-sm text-gray-400">
             <MapPin className="w-3 h-3" />
             <span>{item.location}</span>
           </div>

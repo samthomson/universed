@@ -129,9 +129,9 @@ export function SpaceManagementDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-800 border-gray-600">
         <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2">
+          <DialogTitle className="flex items-center space-x-2 text-gray-100">
             <Settings className="w-5 h-5" />
             <span>Manage Spaces</span>
           </DialogTitle>
@@ -139,9 +139,9 @@ export function SpaceManagementDialog({
 
         <div className="space-y-6">
           {/* Create New Space */}
-          <Card>
+          <Card className="bg-gray-750 border-gray-600">
             <CardHeader>
-              <CardTitle className="text-lg">Create New Space</CardTitle>
+              <CardTitle className="text-lg text-gray-100">Create New Space</CardTitle>
             </CardHeader>
             <CardContent>
               {isCreating ? (
@@ -154,7 +154,7 @@ export function SpaceManagementDialog({
                   }}
                 />
               ) : (
-                <Button onClick={() => setIsCreating(true)} className="w-full">
+                <Button onClick={() => setIsCreating(true)} className="w-full bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Custom Space
                 </Button>
@@ -163,9 +163,9 @@ export function SpaceManagementDialog({
           </Card>
 
           {/* Existing Spaces */}
-          <Card>
+          <Card className="bg-gray-750 border-gray-600">
             <CardHeader>
-              <CardTitle className="text-lg">Existing Spaces</CardTitle>
+              <CardTitle className="text-lg text-gray-100">Existing Spaces</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {spaces?.map((space) => (
@@ -181,18 +181,18 @@ export function SpaceManagementDialog({
                       }}
                     />
                   ) : (
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-gray-600 rounded-lg bg-gray-700">
                       <div className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
-                          <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab" />
+                          <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
                           {(() => {
                             const IconComponent = getIconComponent(space.icon);
-                            return <IconComponent className="w-5 h-5" />;
+                            return <IconComponent className="w-5 h-5 text-gray-300" />;
                           })()}
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <h3 className="font-medium">{space.name}</h3>
+                            <h3 className="font-medium text-gray-100">{space.name}</h3>
                             <Badge variant={space.type === 'custom' ? 'default' : 'secondary'}>
                               {space.type}
                             </Badge>
@@ -201,7 +201,7 @@ export function SpaceManagementDialog({
                             )}
                           </div>
                           {space.description && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-gray-400">
                               {space.description}
                             </p>
                           )}
