@@ -20,7 +20,7 @@ export function SpacesArea({ communityId, selectedSpace }: SpacesAreaProps) {
 
   if (!space) {
     return (
-      <div className="flex-1 bg-gray-800 flex items-center justify-center">
+      <div className="flex-1 bg-gray-800 flex items-center justify-center h-full">
         <Card className="border-dashed border-gray-600 bg-gray-750 max-w-md">
           <CardContent className="py-12 px-8 text-center">
             <Box className="w-12 h-12 text-gray-500 mx-auto mb-4" />
@@ -45,7 +45,7 @@ export function SpacesArea({ communityId, selectedSpace }: SpacesAreaProps) {
     case 'custom':
     default:
       return (
-        <div className="flex-1 bg-gray-800 flex items-center justify-center">
+        <div className="flex-1 bg-gray-800 flex items-center justify-center h-full">
           <Card className="border-dashed border-gray-600 bg-gray-750 max-w-md">
             <CardContent className="py-12 px-8 text-center">
               <Box className="w-12 h-12 text-gray-500 mx-auto mb-4" />

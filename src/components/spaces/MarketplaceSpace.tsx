@@ -168,27 +168,29 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
 
   if (isLoading) {
     return (
-      <div className="flex-1 bg-gray-800 text-gray-100">
-        <div className="border-b border-gray-700 p-4">
+      <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+        <div className="border-b border-gray-700 p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <Skeleton className="h-8 w-48 bg-gray-700" />
             <Skeleton className="h-10 w-32 bg-gray-700" />
           </div>
         </div>
-        <div className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i} className="bg-gray-750 border-gray-600">
-                <CardHeader className="p-0">
-                  <Skeleton className="aspect-square w-full bg-gray-600" />
-                </CardHeader>
-                <CardContent className="p-3 space-y-2">
-                  <Skeleton className="h-4 w-3/4 bg-gray-600" />
-                  <Skeleton className="h-3 w-1/2 bg-gray-600" />
-                  <Skeleton className="h-5 w-1/3 bg-gray-600" />
-                </CardContent>
-              </Card>
-            ))}
+        <div className="flex-1 overflow-y-auto spaces-scroll">
+          <div className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Card key={i} className="bg-gray-750 border-gray-600">
+                  <CardHeader className="p-0">
+                    <Skeleton className="aspect-square w-full bg-gray-600" />
+                  </CardHeader>
+                  <CardContent className="p-3 space-y-2">
+                    <Skeleton className="h-4 w-3/4 bg-gray-600" />
+                    <Skeleton className="h-3 w-1/2 bg-gray-600" />
+                    <Skeleton className="h-5 w-1/3 bg-gray-600" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -196,9 +198,9 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
   }
 
   return (
-    <div className="flex-1 bg-gray-800 text-gray-100">
+    <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-gray-700 p-4">
+      <div className="border-b border-gray-700 p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <ShoppingBag className="w-6 h-6 text-blue-400" />
@@ -218,7 +220,9 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto spaces-scroll">
+        <div className="p-4 space-y-4">
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -300,7 +304,7 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
             viewMode === 'grid'
               ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'
               : 'space-y-3'
-          }>
+          } style={{ willChange: 'scroll-position' }}>
             {items?.map((item) => (
               <MarketplaceItemCard
                 key={item.id}
@@ -312,6 +316,7 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
             ))}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
