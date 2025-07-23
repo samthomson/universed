@@ -87,6 +87,7 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
   const {
     voiceState,
     isConnected,
+    connectionStatus,
     isMuted,
     isDeafened,
     joinVoiceChannel,
@@ -95,6 +96,7 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
     toggleDeafen,
     isJoining,
     isLeaving,
+    actualConnectionCount,
   } = useVoiceChannel(channelId);
 
   const memberCount = voiceState?.members.length || 0;
@@ -118,6 +120,9 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
             <h3 className="font-medium">{channelName}</h3>
             <p className="text-xs text-muted-foreground">
               {memberCount} {memberCount === 1 ? 'member' : 'members'}
+              {connectionStatus === 'connecting' && ' • Connecting...'}
+              {isConnected && ` • Connected (${actualConnectionCount || 0} peers)`}
+              {!isConnected && connectionStatus === 'connected' && ' • Reconnecting...'}
             </p>
           </div>
         </div>
@@ -127,10 +132,10 @@ export function VoiceChannel({ channelId, channelName, className }: VoiceChannel
           variant={isConnected || isUserInChannel ? "destructive" : "default"}
           size="sm"
           onClick={handleJoinLeave}
-          disabled={isJoining || isLeaving}
-          className="min-w-[80px]"
+          disabled={isJoining || isLeaving || connectionStatus === 'connecting'}
+          className="min-w-[90px]"
         >
-          {isJoining ? (
+          {isJoining || connectionStatus === 'connecting' ? (
             "Joining..."
           ) : isLeaving ? (
             "Leaving..."
