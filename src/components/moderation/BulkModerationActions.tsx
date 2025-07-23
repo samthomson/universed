@@ -189,38 +189,58 @@ export function BulkModerationActions({
         switch (action) {
           case 'delete':
             if (item.type === 'post') {
-              return deletePost({
-                communityId,
-                postId: item.id,
-                reason,
+              return new Promise<void>((resolve, reject) => {
+                deletePost.mutate({
+                  communityId,
+                  postId: item.id,
+                  reason,
+                }, {
+                  onSuccess: () => resolve(),
+                  onError: (error) => reject(error),
+                });
               });
             }
             break;
           case 'ban':
             if (item.type === 'user') {
-              return banUser({
-                communityId,
-                userPubkey: (item.data as { pubkey: string }).pubkey,
-                reason,
-                duration,
+              return new Promise<void>((resolve, reject) => {
+                banUser.mutate({
+                  communityId,
+                  userPubkey: (item.data as { pubkey: string }).pubkey,
+                  reason,
+                  duration,
+                }, {
+                  onSuccess: () => resolve(),
+                  onError: (error) => reject(error),
+                });
               });
             }
             break;
           case 'mute':
             if (item.type === 'user') {
-              return muteUser({
-                communityId,
-                userPubkey: (item.data as { pubkey: string }).pubkey,
-                reason,
-                duration,
+              return new Promise<void>((resolve, reject) => {
+                muteUser.mutate({
+                  communityId,
+                  userPubkey: (item.data as { pubkey: string }).pubkey,
+                  reason,
+                  duration,
+                }, {
+                  onSuccess: () => resolve(),
+                  onError: (error) => reject(error),
+                });
               });
             }
             break;
           case 'approve':
             if (item.type === 'post') {
-              return approvePost({
-                communityId,
-                post: item.data as NostrEvent,
+              return new Promise<void>((resolve, reject) => {
+                approvePost.mutate({
+                  communityId,
+                  post: item.data as NostrEvent,
+                }, {
+                  onSuccess: () => resolve(),
+                  onError: (error) => reject(error),
+                });
               });
             }
             break;

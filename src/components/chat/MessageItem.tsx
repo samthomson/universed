@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { MoreHorizontal, Reply, Smile, Pin, PinOff, Shield, Trash2, VolumeX, Ban } from "lucide-react";
+import { MoreHorizontal, Reply, Smile, Pin, PinOff, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
 import { NoteContent } from "@/components/NoteContent";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThread } from "./MessageThread";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
-import { ModerationActionsMenu } from "@/components/moderation/ModerationActionsMenu";
+
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useEmojiReactions } from "@/hooks/useEmojiReactions";
@@ -40,6 +41,7 @@ interface MessageItemProps {
 export function MessageItem({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const isMobile = useIsMobile();
   const [isHovered, setIsHovered] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -52,7 +54,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
   const { mutate: unpinMessage } = useUnpinMessage();
   const { user } = useCurrentUser();
   const { mutate: deleteMessage, isPending: isDeleting } = useDeleteMessage(communityId);
-  const { banUser, muteUser } = useModerationActions();
+  const moderationActions = useModerationActions();
   const { toast } = useToast();
   const { data: replies } = useThreadReplies(message.id);
   const isBlocked = useIsBlocked(message.pubkey);
@@ -115,7 +117,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
   };
 
   const handleBanUser = (reason?: string) => {
-    banUser(
+    moderationActions.banUser.mutate(
       {
         communityId: communityId || '',
         userPubkey: message.pubkey,
@@ -141,7 +143,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
   };
 
   const handleMuteUser = (reason?: string) => {
-    muteUser(
+    moderationActions.muteUser.mutate(
       {
         communityId: communityId || '',
         userPubkey: message.pubkey,
@@ -188,11 +190,11 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
       communityId={communityId}
     >
       <div
-        className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/50 transition-colors ${
+        className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/30 transition-all duration-200 ${
           showAvatar ? (isMobile ? 'mt-3' : 'mt-4') : ''
-        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''}`}
+        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''} ${isHovered && !isMobile ? 'bg-gray-800/20' : ''}`}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
-        onMouseLeave={() => !isMobile && setIsHovered(false)}
+        onMouseLeave={() => !isMobile && !isDropdownOpen && setIsHovered(false)}
         onClick={() => isMobile && setIsHovered(!isHovered)}
       >
         {/* Pinned indicator */}
@@ -223,7 +225,7 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
             ) : (
               <div className={`${isMobile ? 'w-8' : 'w-10'} h-5 flex items-center justify-center`}>
                 {isHovered && !isMobile && (
-                  <span className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
@@ -277,122 +279,101 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
             )}
           </div>
 
-          {/* Message Actions */}
+          {/* Message Actions - Same for both Desktop and Mobile */}
           {isHovered && (
-            <div className={`absolute ${isMobile ? '-top-1 right-2' : '-top-2 right-4'} bg-gray-700 border border-gray-600 rounded-md shadow-lg flex`}>
-              <EmojiPickerComponent
-                onEmojiSelect={handleEmojiSelect}
-                trigger={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 mobile-touch`}
-                  >
-                    <Smile className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                  </Button>
-                }
-                side="top"
-                align="end"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 mobile-touch`}
-                onClick={() => setShowThread(true)}
-              >
-                <Reply className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-              </Button>
-              {!isMobile && communityId && messageChannelId && (
+            <div className={`absolute ${isMobile ? '-top-1 right-2' : '-top-2 right-4'} bg-gray-700 border border-gray-600 rounded-md shadow-lg flex items-center divide-x divide-gray-600`}>
+              {/* Quick Actions Group */}
+              <div className="flex items-center">
+                {/* Quick Reply Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-8 h-8 hover:bg-gray-600"
-                  onClick={handleTogglePin}
+                  className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-l-md rounded-r-none`}
+                  onClick={() => setShowThread(true)}
+                  title="Reply"
                 >
-                  {isPinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                  <Reply className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
                 </Button>
-              )}
-              {!isMobile && canModerate && user?.pubkey !== message.pubkey ? (
-                <ModerationActionsMenu
-                  message={message}
-                  communityId={communityId || ''}
-                  channelId={messageChannelId || undefined}
+
+                {/* Quick React Button */}
+                <EmojiPickerComponent
+                  onEmojiSelect={handleEmojiSelect}
                   trigger={
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-8 h-8 hover:bg-gray-600"
+                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-none`}
+                      title="Add reaction"
                     >
-                      <Shield className="w-4 h-4" />
+                      <Smile className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
                     </Button>
                   }
+                  side="top"
+                  align="end"
                 />
-              ) : isMobile ? (
-                <DropdownMenu>
+              </div>
+
+              {/* More Actions Group */}
+              <div className="flex items-center">
+                <DropdownMenu onOpenChange={(open) => {
+                  setIsDropdownOpen(open);
+                  // Reset hover state when dropdown closes on desktop
+                  if (!open && !isMobile) {
+                    setIsHovered(false);
+                  }
+                }}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-9 h-9 hover:bg-gray-600"
+                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-r-md rounded-l-none`}
+                      title="More actions"
                     >
-                      <MoreHorizontal className="w-5 h-5" />
+                      <MoreHorizontal className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => setShowThread(true)}>
-                      <Reply className="mr-2 h-4 w-4" />
-                      Reply
+                <DropdownMenuContent align="end" className="w-48">
+                  {communityId && messageChannelId && (
+                    <DropdownMenuItem onClick={handleTogglePin}>
+                      {isPinned ? (
+                        <>
+                          <PinOff className="mr-2 h-4 w-4" />
+                          Unpin Message
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="mr-2 h-4 w-4" />
+                          Pin Message
+                        </>
+                      )}
                     </DropdownMenuItem>
+                  )}
 
-                    {communityId && messageChannelId && (
-                      <DropdownMenuItem onClick={handleTogglePin}>
-                        {isPinned ? (
-                          <>
-                            <PinOff className="mr-2 h-4 w-4" />
-                            Unpin Message
-                          </>
-                        ) : (
-                          <>
-                            <Pin className="mr-2 h-4 w-4" />
-                            Pin Message
-                          </>
-                        )}
+                  {canModerate && user?.pubkey !== message.pubkey && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Message
                       </DropdownMenuItem>
-                    )}
 
-                    {canModerate && user?.pubkey !== message.pubkey && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Message
-                        </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setShowMuteDialog(true)}>
+                        <VolumeX className="mr-2 h-4 w-4" />
+                        Mute User
+                      </DropdownMenuItem>
 
-                        <DropdownMenuItem onClick={() => setShowMuteDialog(true)}>
-                          <VolumeX className="mr-2 h-4 w-4" />
-                          Mute User
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem
-                          onClick={() => setShowBanDialog(true)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Ban className="mr-2 h-4 w-4" />
-                          Ban User
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
+                      <DropdownMenuItem
+                        onClick={() => setShowBanDialog(true)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Ban className="mr-2 h-4 w-4" />
+                        Ban User
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
                 </DropdownMenu>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-8 h-8 hover:bg-gray-600"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              )}
+              </div>
             </div>
           )}
         </div>

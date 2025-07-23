@@ -49,7 +49,7 @@ function UserCard({ pubkey, communityId, role = 'member', onRoleChange }: UserCa
   };
 
   const handleBanUser = () => {
-    banUser({
+    banUser.mutate({
       communityId,
       userPubkey: pubkey,
       reason: 'Banned by moderator',
@@ -57,7 +57,7 @@ function UserCard({ pubkey, communityId, role = 'member', onRoleChange }: UserCa
   };
 
   const handleMuteUser = () => {
-    muteUser({
+    muteUser.mutate({
       communityId,
       userPubkey: pubkey,
       reason: 'Muted by moderator',

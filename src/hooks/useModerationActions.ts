@@ -320,12 +320,12 @@ export function useModerationActions() {
   });
 
   return {
-    banUser: banUser.mutate,
-    muteUser: muteUser.mutate,
-    deletePost: deletePost.mutate,
-    approvePost: approvePost.mutate,
-    pinPost: pinPost.mutate,
-    unpinPost: unpinPost.mutate,
+    banUser,
+    muteUser,
+    deletePost,
+    approvePost,
+    pinPost,
+    unpinPost,
     isBanningUser: banUser.isPending,
     isMutingUser: muteUser.isPending,
     isDeletingPost: deletePost.isPending,

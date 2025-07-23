@@ -39,7 +39,7 @@ export function ModerationActionsMenu({
   const { toast } = useToast();
   const { canModerate } = useCanModerate(communityId);
   const { mutate: deleteMessage, isPending: isDeleting } = useDeleteMessage(communityId);
-  const { banUser, muteUser } = useModerationActions();
+  const moderationActions = useModerationActions();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const isPinned = useIsPinned(communityId, channelId || '', message.id);
@@ -71,7 +71,7 @@ export function ModerationActionsMenu({
   };
 
   const handleBanUser = (reason?: string) => {
-    banUser(
+    moderationActions.banUser.mutate(
       {
         communityId,
         userPubkey: message.pubkey,
@@ -97,7 +97,7 @@ export function ModerationActionsMenu({
   };
 
   const handleMuteUser = (reason?: string) => {
-    muteUser(
+    moderationActions.muteUser.mutate(
       {
         communityId,
         userPubkey: message.pubkey,

@@ -52,13 +52,13 @@ function QueueItem({ report, communityId }: QueueItemProps) {
         created_at: Date.now() / 1000,
         sig: '',
       };
-      approvePost({ communityId, post: mockPost });
+      approvePost.mutate({ communityId, post: mockPost });
     }
   };
 
   const handleDelete = () => {
     if (report.targetEventId) {
-      deletePost({
+      deletePost.mutate({
         communityId,
         postId: report.targetEventId,
         reason: reason || 'Violated community guidelines',
@@ -67,7 +67,7 @@ function QueueItem({ report, communityId }: QueueItemProps) {
   };
 
   const handleBan = () => {
-    banUser({
+    banUser.mutate({
       communityId,
       userPubkey: report.targetPubkey,
       reason: reason || 'Violated community guidelines',
@@ -75,7 +75,7 @@ function QueueItem({ report, communityId }: QueueItemProps) {
   };
 
   const handleMute = () => {
-    muteUser({
+    muteUser.mutate({
       communityId,
       userPubkey: report.targetPubkey,
       reason: reason || 'Violated community guidelines',
