@@ -20,8 +20,8 @@ export function MessageThread({ rootMessage, open, onOpenChange, onNavigateToDMs
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[480px] sm:w-[540px] bg-gray-800 border-gray-600">
-        <SheetHeader className="border-b border-gray-600 pb-4">
+      <SheetContent side="right" className="w-[480px] sm:w-[540px] bg-gray-800 border-gray-600 flex flex-col h-full">
+        <SheetHeader className="border-b border-gray-600 pb-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <SheetTitle className="text-white flex items-center space-x-2">
               <MessageSquare className="w-5 h-5" />
@@ -41,59 +41,57 @@ export function MessageThread({ rootMessage, open, onOpenChange, onNavigateToDMs
           </div>
         </SheetHeader>
 
-        <div className="flex flex-col h-full">
-          {/* Root Message */}
-          <div className="border-b border-gray-600 pb-4 mb-4">
-            <MessageItem message={rootMessage} showAvatar={true} onNavigateToDMs={onNavigateToDMs} />
-          </div>
+        {/* Root Message */}
+        <div className="border-b border-gray-600 pb-4 mb-4 flex-shrink-0">
+          <MessageItem message={rootMessage} showAvatar={true} onNavigateToDMs={onNavigateToDMs} />
+        </div>
 
-          {/* Replies */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            {isLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="flex space-x-3">
-                      <div className="w-8 h-8 bg-gray-600 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-600 rounded w-1/4" />
-                        <div className="h-4 bg-gray-600 rounded w-3/4" />
-                      </div>
+        {/* Replies - This takes up remaining space */}
+        <ScrollArea className="flex-1 -mx-6 px-6 min-h-0">
+          {isLoading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="flex space-x-3">
+                    <div className="w-8 h-8 bg-gray-600 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-gray-600 rounded w-1/4" />
+                      <div className="h-4 bg-gray-600 rounded w-3/4" />
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : replies && replies.length > 0 ? (
-              <div className="space-y-4">
-                {replies.map((reply, index) => {
-                  const previousReply = index > 0 ? replies[index - 1] : null;
-                  const showAvatar = !previousReply ||
-                    previousReply.pubkey !== reply.pubkey ||
-                    (reply.created_at - previousReply.created_at) > 300; // 5 minutes
+                </div>
+              ))}
+            </div>
+          ) : replies && replies.length > 0 ? (
+            <div className="space-y-4 pb-4">
+              {replies.map((reply, index) => {
+                const previousReply = index > 0 ? replies[index - 1] : null;
+                const showAvatar = !previousReply ||
+                  previousReply.pubkey !== reply.pubkey ||
+                  (reply.created_at - previousReply.created_at) > 300; // 5 minutes
 
-                  return (
-                    <MessageItem
-                      key={reply.id}
-                      message={reply}
-                      showAvatar={showAvatar}
-                      onNavigateToDMs={onNavigateToDMs}
-                    />
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 py-8">
-                <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No replies yet</p>
-                <p className="text-xs">Be the first to reply!</p>
-              </div>
-            )}
-          </ScrollArea>
+                return (
+                  <MessageItem
+                    key={reply.id}
+                    message={reply}
+                    showAvatar={showAvatar}
+                    onNavigateToDMs={onNavigateToDMs}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-8">
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No replies yet</p>
+              <p className="text-xs">Be the first to reply!</p>
+            </div>
+          )}
+        </ScrollArea>
 
-          {/* Reply Input */}
-          <div className="border-t border-gray-600 pt-4 mt-4">
-            <ThreadReplyInput rootMessage={rootMessage} />
-          </div>
+        {/* Reply Input - Fixed at bottom */}
+        <div className="border-t border-gray-600 pt-4 flex-shrink-0">
+          <ThreadReplyInput rootMessage={rootMessage} />
         </div>
       </SheetContent>
     </Sheet>
