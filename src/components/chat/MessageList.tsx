@@ -34,7 +34,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         <PinnedMessages
           communityId={communityId}
           onNavigateToDMs={onNavigateToDMs}
@@ -62,7 +62,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
 
   if (!messages || messages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         <PinnedMessages
           communityId={communityId}
           onNavigateToDMs={onNavigateToDMs}
@@ -83,7 +83,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
   }
 
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       <PinnedMessages
         communityId={communityId}
         onNavigateToDMs={onNavigateToDMs}

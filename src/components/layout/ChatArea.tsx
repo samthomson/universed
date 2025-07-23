@@ -96,7 +96,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {isVoiceChannel ? (
           /* Voice Channel Interface */
           <div className="flex-1 p-4">
@@ -109,22 +109,26 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
         ) : (
           /* Text Channel Interface */
           <>
+            {/* Messages take up remaining space */}
             <MessageList
               communityId={communityId}
               channelId={channelId}
               onNavigateToDMs={onNavigateToDMs}
             />
 
-            {/* Typing Indicator */}
-            <TypingIndicator channelId={channelId} />
+            {/* Fixed bottom section */}
+            <div className="flex-shrink-0">
+              {/* Typing Indicator */}
+              <TypingIndicator channelId={channelId} />
 
-            {/* Message Input */}
-            <div className="p-4">
-              <MessageInput
-                communityId={communityId}
-                channelId={channelId}
-                placeholder={`Message #${channelName}`}
-              />
+              {/* Message Input */}
+              <div className="p-4">
+                <MessageInput
+                  communityId={communityId}
+                  channelId={channelId}
+                  placeholder={`Message #${channelName}`}
+                />
+              </div>
             </div>
           </>
         )}

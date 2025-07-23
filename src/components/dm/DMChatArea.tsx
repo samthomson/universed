@@ -52,11 +52,11 @@ export function DMChatArea({ conversationId, onNavigateToDMs }: DMChatAreaProps)
       </div>
 
       {/* Messages */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         <DMMessageList conversationId={conversationId} onNavigateToDMs={onNavigateToDMs} />
 
-        {/* Message Input */}
-        <div className="p-4 border-t border-gray-600">
+        {/* Message Input - Fixed at bottom */}
+        <div className="p-4 border-t border-gray-600 flex-shrink-0">
           <DMMessageInput conversationId={conversationId} />
         </div>
       </div>
