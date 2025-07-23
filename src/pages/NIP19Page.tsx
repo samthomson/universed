@@ -1,6 +1,5 @@
 import { nip19 } from 'nostr-tools';
 import { useParams } from 'react-router-dom';
-import { CommunityView } from '@/components/community/CommunityView';
 import NotFound from './NotFound';
 
 export function NIP19Page() {
@@ -36,8 +35,9 @@ export function NIP19Page() {
     case 'naddr':
       // Check if this is a community (kind 34550)
       if (data.kind === 34550) {
-        const communityId = `${data.kind}:${data.pubkey}:${data.identifier}`;
-        return <CommunityView communityId={communityId} naddr={identifier} />;
+        // Community naddr links are now handled by the main Index page
+        // This should not be reached due to routing changes
+        return <NotFound />;
       }
       // AI agent should implement other addressable event views here
       return <div>Addressable event placeholder</div>;

@@ -135,7 +135,7 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
                 Join Link
               </Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Direct link for people to request to join your community
+                Direct link for people to request to join your community in the main app
               </p>
             </div>
             <div className="flex gap-2">
@@ -156,7 +156,7 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
                 Community Link
               </Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Direct link to view the community (for existing members)
+                Direct link to open the community in the main app (for existing members)
               </p>
             </div>
             <div className="flex gap-2">
@@ -213,8 +213,8 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
             <CardContent className="pt-4">
               <h4 className="font-medium mb-2">Sharing Tips</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Use the <strong>Join Link</strong> to invite new members</li>
-                <li>• Share the <strong>Community Link</strong> with existing Nostr users</li>
+                <li>• Use the <strong>Join Link</strong> to invite new members - opens join dialog in the app</li>
+                <li>• Share the <strong>Community Link</strong> with existing members - opens directly in the app</li>
                 <li>• The <strong>naddr</strong> works in any Nostr client that supports communities</li>
               </ul>
             </CardContent>
