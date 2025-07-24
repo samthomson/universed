@@ -113,7 +113,7 @@ export function ChannelOrganizer({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 overflow-hidden">
       {/* Folders */}
       {Object.entries(channelsByFolder).map(([folderId, { folder, textChannels, voiceChannels }]) => (
         <FolderSection
@@ -298,11 +298,11 @@ function FolderSection({
   const allChannels = [...textChannels, ...voiceChannels];
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 overflow-hidden">
       <ContextMenu>
         <ContextMenuTrigger>
           <Collapsible open={isOpen} onOpenChange={onToggle}>
-            <div className="flex items-center group">
+            <div className="flex items-center group overflow-hidden">
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
@@ -362,7 +362,7 @@ function FolderSection({
               )}
             </div>
 
-            <CollapsibleContent className="space-y-0.5 ml-2 border-l border-gray-600/40 pl-2">
+            <CollapsibleContent className="space-y-0.5 ml-1 border-l border-gray-600/40 pl-1 overflow-hidden">
               {allChannels.map((channel) => (
                 <ChannelItemWithPermissionCheck
                   key={channel.id}
@@ -562,29 +562,30 @@ function ChannelItem({
     <div className={`group ${inFolder ? 'ml-0' : 'ml-4'}`}>
       <ContextMenu>
         <ContextMenuTrigger>
-          <div className="flex items-center">
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
               className={`
-                flex-1 justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative
+                flex-1 flex items-center justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative overflow-hidden
                 ${isSelected
                   ? 'bg-gray-600/60 text-white shadow-sm'
                   : hasAccess
                     ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
                     : 'text-gray-500 hover:text-gray-400 hover:bg-gray-600/30 opacity-75'
                 }
-                ${inFolder ? 'ml-1' : ''}
               `}
               onClick={onSelect}
             >
-              {getChannelIcon()}
-              <span className={`text-sm font-medium truncate ${!hasAccess ? 'italic' : ''}`}>
-                {channel.name}
-              </span>
+              <div className="flex items-center min-w-0 flex-1 gap-2">
+                {getChannelIcon()}
+                <span className={`text-sm font-medium truncate ${!hasAccess ? 'italic' : ''}`}>
+                  {channel.name}
+                </span>
+              </div>
 
               {/* Discord-like channel indicators */}
-              <div className="ml-auto flex items-center space-x-1">
+              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                 {getPrivacyIcon()}
                 {channel.type === 'voice' && (
                   <div className="flex items-center text-xs text-gray-500">
@@ -609,7 +610,7 @@ function ChannelItem({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-6 h-6 p-0 opacity-100 hover:bg-gray-600/40 rounded-sm"
+                    className="w-6 h-6 p-0 opacity-100 hover:bg-gray-600/40 rounded-sm flex-shrink-0"
                   >
                     <MoreHorizontal className="w-3 h-3" />
                   </Button>
