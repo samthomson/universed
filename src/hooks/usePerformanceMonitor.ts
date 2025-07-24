@@ -47,21 +47,23 @@ export function usePerformanceMonitor() {
   // Track query completion
   const trackQueryEnd = useCallback((queryKey: string, wasFromCache: boolean = false) => {
     const startTime = queryStartTimes.current.get(queryKey);
-    if (!startTime) return;
+    if (!startTime && !wasFromCache) return; // Only require start time for non-cached queries
 
     const endTime = performance.now();
-    const duration = endTime - startTime;
+    const duration = startTime ? endTime - startTime : 0;
 
     const entry: LoadTimeEntry = {
       queryKey,
-      startTime,
+      startTime: startTime || endTime,
       endTime,
       duration,
       wasFromCache,
     };
 
     loadTimesRef.current.push(entry);
-    queryStartTimes.current.delete(queryKey);
+    if (startTime) {
+      queryStartTimes.current.delete(queryKey);
+    }
 
     // Update metrics
     const metrics = metricsRef.current;
@@ -69,14 +71,19 @@ export function usePerformanceMonitor() {
 
     if (wasFromCache) {
       metrics.cacheHits++;
+      console.log(`🎯 Cache HIT for ${queryKey.substring(0, 50)}...`);
     } else {
       metrics.cacheMisses++;
+      console.log(`🌐 Cache MISS for ${queryKey.substring(0, 50)}... (${duration.toFixed(0)}ms)`);
     }
 
-    // Update average load time
+    // Update average load time (only count non-cached queries for realistic timing)
     const recentEntries = loadTimesRef.current.slice(-100); // Keep last 100 entries
-    const totalDuration = recentEntries.reduce((sum, entry) => sum + entry.duration, 0);
-    metrics.averageLoadTime = totalDuration / recentEntries.length;
+    const nonCachedEntries = recentEntries.filter(entry => !entry.wasFromCache);
+    if (nonCachedEntries.length > 0) {
+      const totalDuration = nonCachedEntries.reduce((sum, entry) => sum + entry.duration, 0);
+      metrics.averageLoadTime = totalDuration / nonCachedEntries.length;
+    }
 
     // Keep only recent entries to prevent memory bloat
     if (loadTimesRef.current.length > 200) {
@@ -177,21 +184,30 @@ export function usePerformanceMonitor() {
       if (!event?.query?.queryKey) return;
 
       const queryKey = JSON.stringify(event.query.queryKey);
+      const query = event.query;
 
       switch (event.type) {
         case 'observerAdded':
-          // Query started
-          trackQueryStart(queryKey);
+          // Query observer added - check if data already exists
+          if (query.state.data !== undefined && query.state.status === 'success') {
+            // This is an immediate cache hit
+            trackQueryStart(queryKey);
+            trackQueryEnd(queryKey, true);
+          } else if (query.state.status === 'pending') {
+            // Query is fetching - track start
+            trackQueryStart(queryKey);
+          }
           break;
 
         case 'updated':
-          // Query completed
+          // Query state updated
           if (event.query.state.status === 'success') {
-            // Check if data was served from cache by comparing timestamps
-            const now = Date.now();
-            const dataAge = event.query.state.dataUpdatedAt ? now - event.query.state.dataUpdatedAt : 0;
-            const wasFromCache = dataAge > 1000; // Consider cached if data is older than 1 second
-            trackQueryEnd(queryKey, wasFromCache);
+            // Query completed successfully
+            const queryStartTime = queryStartTimes.current.get(queryKey);
+            if (queryStartTime) {
+              // We tracked the start, so this is a network fetch
+              trackQueryEnd(queryKey, false);
+            }
           }
           break;
       }

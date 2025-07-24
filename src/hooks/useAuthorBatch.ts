@@ -1,9 +1,12 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryDeduplication } from './useQueryDeduplication';
 
 export function useAuthorBatch(pubkeys: (string | undefined)[]) {
   const { nostr } = useNostr();
+  const queryClient = useQueryClient();
+  const { getDeduplicatedQuery, getCachedData, setCachedData } = useQueryDeduplication();
 
   // Filter out undefined pubkeys and deduplicate
   const validPubkeys = [...new Set(pubkeys.filter(Boolean))] as string[];
@@ -15,36 +18,75 @@ export function useAuthorBatch(pubkeys: (string | undefined)[]) {
         return {};
       }
 
-      // Batch query for all authors at once
-      const events = await nostr.query(
-        [{ kinds: [0], authors: validPubkeys, limit: validPubkeys.length }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) },
-      );
-
-      // Build result map
+      // Check cache for individual authors first
       const result: Record<string, { event?: NostrEvent; metadata?: NostrMetadata }> = {};
+      const uncachedPubkeys: string[] = [];
 
-      // Initialize all pubkeys with empty objects
       validPubkeys.forEach(pubkey => {
-        result[pubkey] = {};
+        const cached = getCachedData<{ event?: NostrEvent; metadata?: NostrMetadata }>(['author', pubkey]);
+        if (cached) {
+          result[pubkey] = cached;
+        } else {
+          result[pubkey] = {};
+          uncachedPubkeys.push(pubkey);
+        }
       });
 
-      // Process found events
+      // If all authors are cached, return immediately
+      if (uncachedPubkeys.length === 0) {
+        return result;
+      }
+
+      // Use deduplication for the query
+      const filters = [{ kinds: [0], authors: uncachedPubkeys, limit: uncachedPubkeys.length }];
+      const events = await getDeduplicatedQuery(
+        `authors-batch-${uncachedPubkeys.sort().join(',')}`,
+        filters,
+        () => nostr.query(filters, { signal: AbortSignal.any([signal, AbortSignal.timeout(2000)]) })
+      );
+
+      // Process found events and cache individually
       events.forEach(event => {
         try {
           const metadata = n.json().pipe(n.metadata()).parse(event.content);
-          result[event.pubkey] = { metadata, event };
+          const authorData = { metadata, event };
+          result[event.pubkey] = authorData;
+
+          // Cache individual author for future use
+          setCachedData(['author', event.pubkey], authorData, 15 * 60 * 1000); // 15 minutes
         } catch {
-          result[event.pubkey] = { event };
+          const authorData = { event };
+          result[event.pubkey] = authorData;
+          setCachedData(['author', event.pubkey], authorData, 15 * 60 * 1000);
         }
       });
 
       return result;
     },
     enabled: validPubkeys.length > 0,
-    staleTime: 10 * 60 * 1000, // 10 minutes - Profile data changes infrequently
-    gcTime: 60 * 60 * 1000, // 1 hour - Keep profile data cached longer
-    retry: 2, // Fewer retries for batch queries
+    staleTime: 15 * 60 * 1000, // 15 minutes - Profile data changes infrequently
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours - Keep profile data cached longer
+    retry: 1, // Fewer retries for batch queries
+    // Use cached data immediately while fetching
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+
+      // Try to build from individual cached authors
+      const cachedResult: Record<string, { event?: NostrEvent; metadata?: NostrMetadata }> = {};
+      let hasAnyCache = false;
+
+      validPubkeys.forEach(pubkey => {
+        const cached = queryClient.getQueryData<{ event?: NostrEvent; metadata?: NostrMetadata }>(['author', pubkey]);
+        if (cached) {
+          cachedResult[pubkey] = cached;
+          hasAnyCache = true;
+        } else {
+          cachedResult[pubkey] = {};
+        }
+      });
+
+      return hasAnyCache ? cachedResult : undefined;
+    },
   });
 }
 

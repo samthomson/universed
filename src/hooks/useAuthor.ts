@@ -1,7 +1,6 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
-
 export function useAuthor(pubkey: string | undefined) {
   const { nostr } = useNostr();
 
@@ -12,6 +11,7 @@ export function useAuthor(pubkey: string | undefined) {
         return {};
       }
 
+      // Simple direct query - let React Query handle caching
       const [event] = await nostr.query(
         [{ kinds: [0], authors: [pubkey!], limit: 1 }],
         { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
@@ -29,8 +29,10 @@ export function useAuthor(pubkey: string | undefined) {
       }
     },
     enabled: !!pubkey,
-    staleTime: 15 * 60 * 1000, // 15 minutes - Profile data changes infrequently
-    gcTime: 60 * 60 * 1000, // 1 hour - Keep profile data cached longer
-    retry: 2, // Reduced retries for individual author queries
+    staleTime: 10 * 60 * 1000, // 10 minutes - Profile data changes infrequently
+    gcTime: 60 * 60 * 1000, // 1 hour - Keep profile data cached
+    retry: 2, // Standard retries
+    // Keep previous data while fetching
+    placeholderData: (previousData) => previousData,
   });
 }

@@ -1,5 +1,6 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { useQueryDeduplication } from './useQueryDeduplication';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 interface EventBatchOptions {
@@ -19,6 +20,7 @@ export function useEventBatch(
   enabled: boolean = true
 ) {
   const { nostr } = useNostr();
+  const { getDeduplicatedQuery, getCachedData, setCachedData } = useQueryDeduplication();
 
   return useQuery<NostrEvent[]>({
     queryKey: ['events-batch', ...queryKey, options],
@@ -48,18 +50,46 @@ export function useEventBatch(
         filter.until = options.until;
       }
 
-      const events = await nostr.query(
-        [filter],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) }
+      // Check cache first
+      const cacheKey = ['events-batch', ...queryKey, JSON.stringify(filter)];
+      const cached = getCachedData<NostrEvent[]>(cacheKey);
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+
+      // Use deduplication for the query
+      const filters = [filter];
+      const events = await getDeduplicatedQuery(
+        `events-batch-${queryKey.join('-')}-${JSON.stringify(filter)}`,
+        filters,
+        () => nostr.query(filters, { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) })
       );
 
       // Sort by created_at (newest first by default)
-      return events.sort((a, b) => b.created_at - a.created_at);
+      const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+
+      // Cache the results
+      setCachedData(cacheKey, sortedEvents, options.staleTime || 2 * 60 * 1000);
+
+      return sortedEvents;
     },
     enabled,
     staleTime: options.staleTime || 2 * 60 * 1000, // 2 minutes default
+    gcTime: 10 * 60 * 1000, // 10 minutes - Keep in memory longer
     refetchInterval: options.refetchInterval,
-    retry: 2,
+    retry: 1, // Reduced retries
+    // Use cached data immediately
+    placeholderData: (previousData) => {
+      if (previousData) return previousData;
+
+      // Try to get from cache
+      const filter: NostrFilter = { kinds: options.kinds };
+      if (options.authors?.length) filter.authors = options.authors;
+      // ... build filter same as above
+
+      const cacheKey = ['events-batch', ...queryKey, JSON.stringify(filter)];
+      return getCachedData<NostrEvent[]>(cacheKey);
+    },
   });
 }
 

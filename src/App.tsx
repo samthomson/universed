@@ -14,6 +14,11 @@ import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import { useAppContext } from '@/hooks/useAppContext';
+import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
+import { useEnableBackgroundLoading } from '@/hooks/useBackgroundLoader';
+import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
+import { QueryOptimizer } from '@/components/QueryOptimizer';
+
 
 import AppRouter from './AppRouter';
 
@@ -27,15 +32,25 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes - Increased for better caching
-      gcTime: 30 * 60 * 1000, // 30 minutes - Reduced from Infinity for memory management
+      refetchOnMount: true, // Allow refetch on mount but rely on staleTime
+      refetchOnReconnect: 'always',
+      staleTime: 5 * 60 * 1000, // 5 minutes - Balanced for real-time feel
+      gcTime: 30 * 60 * 1000, // 30 minutes - Keep data in memory
       retry: (failureCount, error) => {
-        // Exponential backoff with smart retry logic
-        if (failureCount >= 3) return false;
+        if (failureCount >= 2) return false;
         if (error instanceof Error && error.message.includes('timeout')) return false;
+        if (error instanceof Error && error.message.includes('AbortError')) return false;
         return true;
       },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 5000),
+      refetchInterval: false,
+      // This is key for cache hits - keep previous data while fetching
+      placeholderData: (previousData) => previousData,
+      structuralSharing: true,
+    },
+    mutations: {
+      retry: 1,
+      retryDelay: 1000,
     },
   },
 });
@@ -43,7 +58,7 @@ const queryClient = new QueryClient({
 const defaultConfig: AppConfig = {
   theme: "dark",
   relayUrl: "wss://relay.chorus.community",
-  showPerformanceDashboard: false,
+  showPerformanceDashboard: true, // Enable by default to show performance improvements
 };
 
 const presetRelays = [
@@ -57,6 +72,11 @@ const presetRelays = [
 function AppContent() {
   const { config, updateConfig } = useAppContext();
 
+  // Enable performance optimizations
+  useEnableSmartPrefetch();
+  useEnableBackgroundLoading();
+  useEnablePerformanceMonitoring();
+
   const handleHidePerformanceDashboard = () => {
     updateConfig((current) => ({
       ...current,
@@ -66,6 +86,7 @@ function AppContent() {
 
   return (
     <TooltipProvider>
+      <QueryOptimizer />
       <Toaster />
       <Sonner />
       <PerformanceIndicator

@@ -5,6 +5,29 @@ import { useEventCache } from './useEventCache';
 import { useOptimizedEventLoading } from './useOptimizedEventLoading';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
+function buildMessageFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
+  const filters: NostrFilter[] = [];
+
+  if (channelId === 'general') {
+    // For general channel, query both kinds in one filter
+    filters.push({
+      kinds: [1, 9411], // Combined kinds for efficiency
+      '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
+      limit: 80, // Reduced limit for better performance
+    });
+  } else {
+    // For specific channels, only query kind 9411 with channel tag
+    filters.push({
+      kinds: [9411],
+      '#t': [channelId], // Channel identifier
+      '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
+      limit: 50,
+    });
+  }
+
+  return filters;
+}
+
 function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
   // Accept kind 9411 (channel chat messages) and kind 1 (legacy)
   if (![1, 9411].includes(event.kind)) return false;
@@ -42,7 +65,7 @@ function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boo
 export function useMessages(communityId: string, channelId: string) {
   const { nostr } = useNostr();
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
-  const { getCachedEventsByKind, cacheEvents } = useEventCache();
+  const { cacheEvents } = useEventCache();
   const { preloadRelatedEvents } = useOptimizedEventLoading();
 
   return useQuery({
@@ -61,39 +84,11 @@ export function useMessages(communityId: string, channelId: string) {
         return [];
       }
 
-      // Try to get cached events first for faster initial load
-      const cachedMessages = getCachedEventsByKind(1).concat(getCachedEventsByKind(9411));
-      const relevantCachedEvents = cachedMessages.filter(event => {
-        const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
-        return communityRef === `${kind}:${pubkey}:${identifier}` &&
-               validateMessageEvent(event, channelId);
-      });
+      // Build filters for the query
+      const filters = buildMessageFilters(kind, pubkey, identifier, channelId);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-      // If we have recent cached data, use it while fetching fresh data
-      const _hasCachedData = relevantCachedEvents.length > 0;
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-
-      // Combined filter: Query both kinds in a single request for better performance
-      const filters: NostrFilter[] = [];
-
-      if (channelId === 'general') {
-        // For general channel, query both kinds in one filter
-        filters.push({
-          kinds: [1, 9411], // Combined kinds for efficiency
-          '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
-          limit: 100, // Increased limit to accommodate both kinds
-        });
-      } else {
-        // For specific channels, only query kind 9411 with channel tag
-        filters.push({
-          kinds: [9411],
-          '#t': [channelId], // Channel identifier
-          '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
-          limit: 50,
-        });
-      }
-
+      // Simple direct query - let React Query handle caching
       const events = await nostr.query(filters, { signal });
 
       // Cache the fetched events for future use
@@ -116,18 +111,8 @@ export function useMessages(communityId: string, channelId: string) {
         return isValid;
       });
 
-      // Merge with cached events and deduplicate
-      const allEvents = [...validEvents];
-
-      // Add cached events that aren't in the fresh results
-      relevantCachedEvents.forEach(cachedEvent => {
-        if (!allEvents.some(event => event.id === cachedEvent.id)) {
-          allEvents.push(cachedEvent);
-        }
-      });
-
       // Sort by created_at (oldest first)
-      const sortedEvents = allEvents.sort((a, b) => a.created_at - b.created_at);
+      const sortedEvents = validEvents.sort((a, b) => a.created_at - b.created_at);
 
       // Preload related events (reactions, comments) in the background
       if (sortedEvents.length > 0) {
@@ -137,9 +122,10 @@ export function useMessages(communityId: string, channelId: string) {
       return sortedEvents;
     },
     enabled: !!communityId && !!channelId && canRead,
-    staleTime: 45 * 1000, // 45 seconds - Increased for better caching
-    refetchInterval: 20 * 1000, // 20 seconds - Reduced frequency to balance real-time vs performance
-    // Use cached data as initial data for faster perceived loading
+    staleTime: 2 * 60 * 1000, // 2 minutes - Reasonable for chat
+    gcTime: 10 * 60 * 1000, // 10 minutes - Keep in memory
+    refetchInterval: false,
+    // Keep previous data while fetching new data
     placeholderData: (previousData) => previousData,
   });
 }

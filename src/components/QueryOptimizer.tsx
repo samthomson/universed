@@ -1,0 +1,179 @@
+import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+
+interface QueryOptimizerProps {
+  /** Whether to enable aggressive caching optimizations */
+  enableAggressiveCaching?: boolean;
+  /** Whether to enable query deduplication */
+  enableDeduplication?: boolean;
+  /** Whether to enable background cleanup */
+  enableBackgroundCleanup?: boolean;
+}
+
+/**
+ * Component that optimizes React Query behavior for better performance.
+ * Should be placed near the root of the app to monitor all queries.
+ */
+export function QueryOptimizer({
+  enableAggressiveCaching = true,
+  enableDeduplication = true,
+  enableBackgroundCleanup = true,
+}: QueryOptimizerProps) {
+  const queryClient = useQueryClient();
+  const { user } = useCurrentUser();
+  const cleanupIntervalRef = useRef<NodeJS.Timeout>();
+
+  // Optimize query defaults based on query patterns
+  useEffect(() => {
+    if (!enableAggressiveCaching) return;
+
+    // Set optimized defaults for common query patterns
+    const optimizations = [
+      // Author queries - profile data changes infrequently
+      {
+        queryKey: ['author'],
+        defaults: {
+          staleTime: 15 * 60 * 1000, // 15 minutes
+          gcTime: 2 * 60 * 60 * 1000, // 2 hours
+        },
+      },
+      // Message queries - need balance between real-time and performance
+      {
+        queryKey: ['messages'],
+        defaults: {
+          staleTime: 60 * 1000, // 1 minute
+          gcTime: 10 * 60 * 1000, // 10 minutes
+        },
+      },
+      // Community queries - relatively stable data
+      {
+        queryKey: ['communities'],
+        defaults: {
+          staleTime: 5 * 60 * 1000, // 5 minutes
+          gcTime: 30 * 60 * 1000, // 30 minutes
+        },
+      },
+      // Event batch queries - events are immutable
+      {
+        queryKey: ['events-batch'],
+        defaults: {
+          staleTime: 10 * 60 * 1000, // 10 minutes
+          gcTime: 60 * 60 * 1000, // 1 hour
+        },
+      },
+      // Reaction queries - change frequently but can tolerate some staleness
+      {
+        queryKey: ['reactions'],
+        defaults: {
+          staleTime: 30 * 1000, // 30 seconds
+          gcTime: 5 * 60 * 1000, // 5 minutes
+        },
+      },
+    ];
+
+    optimizations.forEach(({ queryKey, defaults }) => {
+      queryClient.setQueryDefaults(queryKey, defaults);
+    });
+  }, [queryClient, enableAggressiveCaching]);
+
+  // Background cleanup of stale queries
+  useEffect(() => {
+    if (!enableBackgroundCleanup) return;
+
+    const cleanup = () => {
+      const cache = queryClient.getQueryCache();
+      const queries = cache.getAll();
+      const now = Date.now();
+
+      let removedCount = 0;
+
+      queries.forEach(query => {
+        const { dataUpdatedAt, errorUpdatedAt } = query.state;
+        const lastUpdated = Math.max(dataUpdatedAt || 0, errorUpdatedAt || 0);
+        const age = now - lastUpdated;
+
+        // Remove queries that are very old and have no observers
+        if (age > 60 * 60 * 1000 && query.getObserversCount() === 0) { // 1 hour
+          cache.remove(query);
+          removedCount++;
+        }
+      });
+
+      if (removedCount > 0) {
+        console.log(`Cleaned up ${removedCount} stale queries`);
+      }
+    };
+
+    // Run cleanup every 5 minutes
+    cleanupIntervalRef.current = setInterval(cleanup, 5 * 60 * 1000);
+
+    return () => {
+      if (cleanupIntervalRef.current) {
+        clearInterval(cleanupIntervalRef.current);
+      }
+    };
+  }, [queryClient, enableBackgroundCleanup]);
+
+  // Optimize query behavior when user changes
+  useEffect(() => {
+    if (!user?.pubkey) return;
+
+    // Invalidate user-specific queries when user changes
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        return (
+          queryKey.includes('user-communities') ||
+          queryKey.includes('user-membership') ||
+          queryKey.includes('direct-messages')
+        );
+      },
+    });
+  }, [user?.pubkey, queryClient]);
+
+  // Set up query deduplication if enabled
+  useEffect(() => {
+    if (!enableDeduplication) return;
+
+    const pendingQueries = new Map<string, Promise<unknown>>();
+
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event?.type === 'observerAdded' && event.query) {
+        const queryKey = JSON.stringify(event.query.queryKey);
+
+        // If we have a pending query with the same key, don't start a new one
+        if (pendingQueries.has(queryKey)) {
+          return;
+        }
+
+        // Track this query as pending
+        if (event.query.state.status === 'pending') {
+          const promise = new Promise((resolve) => {
+            const checkStatus = () => {
+              if (event.query.state.status !== 'pending') {
+                pendingQueries.delete(queryKey);
+                resolve(event.query.state.data);
+              } else {
+                setTimeout(checkStatus, 100);
+              }
+            };
+            checkStatus();
+          });
+
+          pendingQueries.set(queryKey, promise);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      pendingQueries.clear();
+    };
+  }, [queryClient, enableDeduplication]);
+
+  // This component doesn't render anything
+  return null;
+}
+
+// Note: This component is used for side effects only and doesn't render anything
