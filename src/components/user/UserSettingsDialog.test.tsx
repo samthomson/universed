@@ -38,6 +38,8 @@ describe('UserSettingsDialog', () => {
 
     expect(screen.getByText('User Settings')).toBeInTheDocument();
     expect(screen.getByText('Relay Connection')).toBeInTheDocument();
+    expect(screen.getByText('Developer Tools')).toBeInTheDocument();
+    expect(screen.getByText('Show Performance Metrics')).toBeInTheDocument();
     expect(screen.getByText('Log Out')).toBeInTheDocument();
   });
 
@@ -53,7 +55,7 @@ describe('UserSettingsDialog', () => {
 
   it('calls onOpenChange when dialog is closed', () => {
     const onOpenChange = vi.fn();
-    
+
     render(
       <TestApp>
         <UserSettingsDialog open={true} onOpenChange={onOpenChange} />
@@ -65,5 +67,23 @@ describe('UserSettingsDialog', () => {
     fireEvent.click(closeButton);
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('toggles performance dashboard when button is clicked', () => {
+    render(
+      <TestApp>
+        <UserSettingsDialog open={true} onOpenChange={() => {}} />
+      </TestApp>
+    );
+
+    // Initially should show "Show Performance Metrics"
+    const toggleButton = screen.getByText('Show Performance Metrics');
+    expect(toggleButton).toBeInTheDocument();
+
+    // Click to toggle
+    fireEvent.click(toggleButton);
+
+    // Should now show "Hide Performance Metrics"
+    expect(screen.getByText('Hide Performance Metrics')).toBeInTheDocument();
   });
 });

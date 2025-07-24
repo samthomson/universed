@@ -5,21 +5,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Activity, BarChart3, Zap, X } from 'lucide-react';
 
+interface PerformanceIndicatorProps {
+  /** Whether the performance dashboard is visible */
+  isVisible: boolean;
+  /** Callback to hide the performance dashboard */
+  onHide: () => void;
+}
+
 /**
- * Development-only component that displays performance metrics.
+ * Component that displays performance metrics.
  * Shows cache hit rates, load times, and optimization effectiveness.
  */
-export function PerformanceIndicator() {
+export function PerformanceIndicator({ isVisible, onHide }: PerformanceIndicatorProps) {
   const { getPerformanceSummary, resetMetrics } = usePerformanceMonitor();
-  const [isVisible, setIsVisible] = useState(false);
   const [summary, setSummary] = useState(getPerformanceSummary());
-
-  // Only show in development mode
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      setIsVisible(true);
-    }
-  }, []);
 
   // Update summary periodically
   useEffect(() => {
@@ -59,7 +58,7 @@ export function PerformanceIndicator() {
               variant="ghost"
               size="icon"
               className="h-6 w-6 text-gray-400 hover:text-gray-200"
-              onClick={() => setIsVisible(false)}
+              onClick={onHide}
             >
               <X className="h-3 w-3" />
             </Button>

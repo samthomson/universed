@@ -13,6 +13,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { PerformanceIndicator } from '@/components/PerformanceIndicator';
+import { useAppContext } from '@/hooks/useAppContext';
+
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -41,6 +43,7 @@ const queryClient = new QueryClient({
 const defaultConfig: AppConfig = {
   theme: "dark",
   relayUrl: "wss://relay.chorus.community",
+  showPerformanceDashboard: false,
 };
 
 const presetRelays = [
@@ -51,6 +54,31 @@ const presetRelays = [
   { url: 'wss://relay.primal.net', name: 'Primal' },
 ];
 
+function AppContent() {
+  const { config, updateConfig } = useAppContext();
+
+  const handleHidePerformanceDashboard = () => {
+    updateConfig((current) => ({
+      ...current,
+      showPerformanceDashboard: false,
+    }));
+  };
+
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <PerformanceIndicator
+        isVisible={config.showPerformanceDashboard || false}
+        onHide={handleHidePerformanceDashboard}
+      />
+      <Suspense>
+        <AppRouter />
+      </Suspense>
+    </TooltipProvider>
+  );
+}
+
 export function App() {
   return (
     <UnheadProvider head={head}>
@@ -58,14 +86,7 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <PerformanceIndicator />
-                <Suspense>
-                  <AppRouter />
-                </Suspense>
-              </TooltipProvider>
+              <AppContent />
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>

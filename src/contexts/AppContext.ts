@@ -7,6 +7,8 @@ export interface AppConfig {
   theme: Theme;
   /** Selected relay URL */
   relayUrl: string;
+  /** Whether the performance dashboard is visible */
+  showPerformanceDashboard?: boolean;
 }
 
 export interface AppContextType {

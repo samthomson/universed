@@ -1,4 +1,4 @@
-import { LogOut, Wifi } from "lucide-react";
+import { LogOut, Wifi, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import { RelaySelector } from "@/components/RelaySelector";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useAppContext } from "@/hooks/useAppContext";
 import { genUserName } from "@/lib/genUserName";
 
 interface UserSettingsDialogProps {
@@ -22,6 +23,7 @@ interface UserSettingsDialogProps {
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
   const { logout } = useLoginActions();
   const { user } = useCurrentUser();
+  const { config, updateConfig } = useAppContext();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
 
@@ -34,6 +36,13 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
     onOpenChange(false);
   };
 
+  const handleTogglePerformanceDashboard = () => {
+    updateConfig((current) => ({
+      ...current,
+      showPerformanceDashboard: !current.showPerformanceDashboard,
+    }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -43,7 +52,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             Manage your account settings and preferences for {displayName}.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6 py-4">
           {/* Relay Settings */}
           <div className="space-y-3">
@@ -59,11 +68,32 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
           <Separator />
 
+          {/* Developer Tools */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              <h3 className="text-sm font-medium">Developer Tools</h3>
+            </div>
+            <Button
+              variant={config.showPerformanceDashboard ? "default" : "outline"}
+              onClick={handleTogglePerformanceDashboard}
+              className="w-full"
+            >
+              <Activity className="mr-2 h-4 w-4" />
+              {config.showPerformanceDashboard ? "Hide" : "Show"} Performance Metrics
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Display real-time performance metrics including cache hit rates and load times.
+            </p>
+          </div>
+
+          <Separator />
+
           {/* Account Actions */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium">Account</h3>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleLogout}
               className="w-full"
             >
