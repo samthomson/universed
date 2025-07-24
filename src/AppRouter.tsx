@@ -8,6 +8,7 @@ import { Communities } from "./pages/Communities";
 import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
+import { UserMentionDemo } from "./pages/UserMentionDemo";
 import NotFound from "./pages/NotFound";
 
 export function AppRouter() {
@@ -23,6 +24,7 @@ export function AppRouter() {
         <Route path="/profile/:npub" element={<Profile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
+        <Route path="/mention-demo" element={<UserMentionDemo />} />
         {/* Catch-all route for naddr and other patterns */}
         <Route path="/:identifier" element={<Index />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

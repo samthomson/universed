@@ -5,11 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { FileUploadDialog } from "./FileUploadDialog";
 import { MediaAttachment } from "./MediaAttachment";
+import { UserMentionAutocomplete } from "./UserMentionAutocomplete";
 import { replaceShortcodes } from "@/lib/emoji";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useTypingManager } from "@/hooks/useTypingIndicator";
+import { useUserMentions } from "@/hooks/useUserMentions";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NostrEvent } from "@nostrify/nostrify";
@@ -40,6 +42,14 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { startTyping, stopTyping } = useTypingManager(channelId);
+
+  // User mentions functionality
+  const {
+    currentMention,
+    insertMention,
+    updateMentions,
+    getMentionTags
+  } = useUserMentions(message, setMessage, textareaRef);
 
   // Optimistic message sending mutation
   const sendMessageMutation = useMutation({
@@ -125,6 +135,10 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
       ["a", `${kind}:${pubkey}:${identifier}`],
     ];
 
+    // Add p tags for user mentions
+    const mentionTags = getMentionTags();
+    tags.push(...mentionTags);
+
     // Add imeta tags for attached files
     attachedFiles.forEach(file => {
       const imetaTag = ["imeta"];
@@ -163,6 +177,20 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle mention autocomplete navigation
+    if (currentMention) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        updateMentions(message, textareaRef.current?.selectionStart || 0);
+        return;
+      }
+      if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key)) {
+        e.preventDefault();
+        // These will be handled by the autocomplete component
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -172,6 +200,10 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const handleInputChange = (value: string) => {
     setMessage(value);
     adjustTextareaHeight();
+
+    // Update mentions based on cursor position
+    const cursorPosition = textareaRef.current?.selectionStart || value.length;
+    updateMentions(value, cursorPosition);
 
     if (value.trim() && !sendMessageMutation.isPending) {
       startTyping();
@@ -260,9 +292,29 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={stopTyping}
+            onSelect={(e) => {
+              // Update mentions when cursor position changes
+              const target = e.target as HTMLTextAreaElement;
+              updateMentions(message, target.selectionStart);
+            }}
             placeholder={placeholder || "Type a message..."}
-            className={`${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'} max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors ${isMobile ? 'text-base' : ''}`}
+            className={`${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'} max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors ${isMobile ? 'text-base' : ''} ${currentMention ? 'ring-2 ring-blue-500/50' : ''}`}
             disabled={sendMessageMutation.isPending}
+          />
+
+          {/* User Mention Autocomplete */}
+          <UserMentionAutocomplete
+            open={!!currentMention}
+            onOpenChange={() => {
+              // Close by updating mentions with current cursor position
+              if (textareaRef.current) {
+                updateMentions(message, textareaRef.current.selectionStart);
+              }
+            }}
+            query={currentMention?.query || ''}
+            onSelect={insertMention}
+            communityId={communityId}
+            triggerRef={textareaRef}
           />
         </div>
 

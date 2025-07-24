@@ -101,6 +101,34 @@ describe('NoteContent', () => {
     expect(bitcoinHashtag).toHaveAttribute('href', '/t/bitcoin');
   });
 
+  it('renders user mentions as links', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Hello @[Alice](1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef) and @[Bob](fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321)!',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    const aliceLink = screen.getByRole('link', { name: '@Alice' });
+    const bobLink = screen.getByRole('link', { name: '@Bob' });
+
+    expect(aliceLink).toBeInTheDocument();
+    expect(bobLink).toBeInTheDocument();
+
+    // Check that the links point to npub addresses
+    expect(aliceLink.getAttribute('href')).toMatch(/^\/npub1/);
+    expect(bobLink.getAttribute('href')).toMatch(/^\/npub1/);
+  });
+
   it('generates deterministic names for users without metadata and styles them differently', () => {
     // Use a valid npub for testing
     const event: NostrEvent = {

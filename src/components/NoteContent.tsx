@@ -14,9 +14,9 @@ interface NoteContentProps {
 
 /** Parses content of text note events so that URLs and hashtags are linkified. */
 export function NoteContent({
-  event, 
-  className, 
-}: NoteContentProps) {  
+  event,
+  className,
+}: NoteContentProps) {
   // Extract media attachments from imeta tags
   const mediaAttachments = useMemo(() => {
     return event.tags
@@ -46,7 +46,7 @@ export function NoteContent({
   // Process the content to render mentions, links, etc.
   const content = useMemo(() => {
     let text = event.content;
-    
+
     // Remove media URLs from content if they're already in imeta tags
     const mediaUrls = mediaAttachments.map(a => a.url);
     mediaUrls.forEach(url => {
@@ -54,28 +54,28 @@ export function NoteContent({
         text = text.replace(new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '').trim();
       }
     });
-    
-    // Regex to find URLs, Nostr references, and hashtags
-    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
-    
+
+    // Regex to find URLs, Nostr references, user mentions, and hashtags
+    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
+
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
     let keyCounter = 0;
-    
+
     while ((match = regex.exec(text)) !== null) {
-      const [fullMatch, url, nostrPrefix, nostrData, hashtag] = match;
+      const [fullMatch, url, nostrPrefix, nostrData, mentionDisplayName, mentionPubkey, hashtag] = match;
       const index = match.index;
-      
+
       // Add text before this match
       if (index > lastIndex) {
         parts.push(text.substring(lastIndex, index));
       }
-      
+
       if (url) {
         // Handle URLs
         parts.push(
-          <a 
+          <a
             key={`url-${keyCounter++}`}
             href={url}
             target="_blank"
@@ -90,7 +90,7 @@ export function NoteContent({
         try {
           const nostrId = `${nostrPrefix}${nostrData}`;
           const decoded = nip19.decode(nostrId);
-          
+
           if (decoded.type === 'npub') {
             const pubkey = decoded.data;
             parts.push(
@@ -99,7 +99,7 @@ export function NoteContent({
           } else {
             // For other types, just show as a link
             parts.push(
-              <Link 
+              <Link
                 key={`nostr-${keyCounter++}`}
                 to={`/${nostrId}`}
                 className="text-blue-500 hover:underline"
@@ -112,11 +112,20 @@ export function NoteContent({
           // If decoding fails, just render as text
           parts.push(fullMatch);
         }
+      } else if (mentionDisplayName && mentionPubkey) {
+        // Handle user mentions in @[displayName](pubkey) format
+        parts.push(
+          <NostrMention
+            key={`user-mention-${keyCounter++}`}
+            pubkey={mentionPubkey}
+            displayName={mentionDisplayName}
+          />
+        );
       } else if (hashtag) {
         // Handle hashtags
         const tag = hashtag.slice(1); // Remove the #
         parts.push(
-          <Link 
+          <Link
             key={`hashtag-${keyCounter++}`}
             to={`/t/${tag}`}
             className="text-blue-500 hover:underline"
@@ -125,20 +134,20 @@ export function NoteContent({
           </Link>
         );
       }
-      
+
       lastIndex = index + fullMatch.length;
     }
-    
+
     // Add any remaining text
     if (lastIndex < text.length) {
       parts.push(text.substring(lastIndex));
     }
-    
+
     // If no special content was found, just use the plain text
     if (parts.length === 0) {
       parts.push(text);
     }
-    
+
     return parts;
   }, [event.content, mediaAttachments]);
 
@@ -150,7 +159,7 @@ export function NoteContent({
           {content.length > 0 ? content : event.content}
         </div>
       )}
-      
+
       {/* Media attachments */}
       {mediaAttachments.length > 0 && (
         <div className="space-y-2">
@@ -170,19 +179,19 @@ export function NoteContent({
 }
 
 // Helper component to display user mentions
-function NostrMention({ pubkey }: { pubkey: string }) {
+function NostrMention({ pubkey, displayName: providedDisplayName }: { pubkey: string; displayName?: string }) {
   const author = useAuthor(pubkey);
   const npub = nip19.npubEncode(pubkey);
   const hasRealName = !!author.data?.metadata?.name;
-  const displayName = author.data?.metadata?.name ?? genUserName(pubkey);
+  const displayName = providedDisplayName || author.data?.metadata?.name || genUserName(pubkey);
 
   return (
-    <Link 
+    <Link
       to={`/${npub}`}
       className={cn(
         "font-medium hover:underline",
-        hasRealName 
-          ? "text-blue-500" 
+        hasRealName || providedDisplayName
+          ? "text-blue-500"
           : "text-gray-500 hover:text-gray-700"
       )}
     >
