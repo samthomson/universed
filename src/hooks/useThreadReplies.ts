@@ -41,7 +41,7 @@ export function useThreadReplies(rootEventId: string) {
       return validEvents.sort((a, b) => a.created_at - b.created_at);
     },
     enabled: !!rootEventId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 10, // Refetch every 10 seconds
+    staleTime: 60 * 1000, // 1 minute - Thread replies are more stable
+    refetchInterval: 20 * 1000, // 20 seconds - Reduced refetch frequency
   });
 }

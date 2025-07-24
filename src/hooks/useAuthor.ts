@@ -28,6 +28,9 @@ export function useAuthor(pubkey: string | undefined) {
         return { event };
       }
     },
-    retry: 3,
+    enabled: !!pubkey,
+    staleTime: 15 * 60 * 1000, // 15 minutes - Profile data changes infrequently
+    gcTime: 60 * 60 * 1000, // 1 hour - Keep profile data cached longer
+    retry: 2, // Reduced retries for individual author queries
   });
 }

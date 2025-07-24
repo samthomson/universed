@@ -30,24 +30,30 @@ export function useNotifications() {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-      // Get mentions (events that tag the current user)
-      const mentionEvents = await nostr.query([{
-        kinds: [1, 1111], // Text notes and channel messages
-        '#p': [user.pubkey],
-        limit: 50,
-        since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60), // Last 7 days
-      }], { signal });
+      // Optimized parallel queries for mentions and user events
+      const since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // Last 7 days
 
-      // Get reactions to user's events
-      const userEvents = await nostr.query([{
-        kinds: [1, 1111],
-        authors: [user.pubkey],
-        limit: 20,
-        since: Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60), // Last 7 days
-      }], { signal });
+      const [mentionEvents, userEvents] = await Promise.all([
+        // Get mentions (events that tag the current user)
+        nostr.query([{
+          kinds: [1, 1111], // Text notes and channel messages
+          '#p': [user.pubkey],
+          limit: 50,
+          since,
+        }], { signal }),
+
+        // Get user's events for reaction tracking
+        nostr.query([{
+          kinds: [1, 1111],
+          authors: [user.pubkey],
+          limit: 20,
+          since,
+        }], { signal })
+      ]);
 
       const userEventIds = userEvents.map(e => e.id);
 
+      // Get reactions to user's events if any exist
       const reactionEvents = userEventIds.length > 0 ? await nostr.query([{
         kinds: [7], // Reactions
         '#e': userEventIds,
@@ -101,8 +107,8 @@ export function useNotifications() {
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
     },
     enabled: !!user?.pubkey,
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    refetchInterval: 60000, // Refetch every minute
+    staleTime: 60 * 1000, // 1 minute - Notifications don't need to be ultra real-time
+    refetchInterval: 2 * 60 * 1000, // 2 minutes - Reduced frequency for better performance
   });
 }
 

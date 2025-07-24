@@ -4,11 +4,11 @@ import type { NostrEvent } from '@nostrify/nostrify';
 
 function validateReactionEvent(event: NostrEvent): boolean {
   if (event.kind !== 7) return false;
-  
+
   // Must have an 'e' tag pointing to the target event
   const hasETag = event.tags.some(([name]) => name === 'e');
   if (!hasETag) return false;
-  
+
   return true;
 }
 
@@ -19,7 +19,7 @@ export function useReactions(eventId: string) {
     queryKey: ['reactions', eventId],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-      
+
       const events = await nostr.query([
         {
           kinds: [7], // Reaction events
@@ -29,12 +29,12 @@ export function useReactions(eventId: string) {
       ], { signal });
 
       const validEvents = events.filter(validateReactionEvent);
-      
+
       // Sort by created_at (newest first)
       return validEvents.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!eventId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 15, // Refetch every 15 seconds
+    staleTime: 2 * 60 * 1000, // 2 minutes - Reactions don't change as frequently
+    refetchInterval: 30 * 1000, // 30 seconds - Reduced refetch frequency
   });
 }

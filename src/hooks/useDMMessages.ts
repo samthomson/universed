@@ -6,11 +6,11 @@ import type { NostrEvent } from '@nostrify/nostrify';
 function validateDMEvent(event: NostrEvent): boolean {
   // Accept both NIP-04 (kind 4) and NIP-44 (kind 1059) encrypted DMs
   if (![4, 1059].includes(event.kind)) return false;
-  
+
   // Must have a 'p' tag for the recipient
   const hasP = event.tags.some(([name]) => name === 'p');
   if (!hasP) return false;
-  
+
   return true;
 }
 
@@ -24,36 +24,35 @@ export function useDMMessages(conversationId: string) {
       if (!user || !conversationId) return [];
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      
-      // Query for DMs between us and the other person
-      const [sentToThem, receivedFromThem] = await Promise.all([
-        // DMs we sent to them
-        nostr.query([
-          {
-            kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-            authors: [user.pubkey],
-            '#p': [conversationId],
-            limit: 100,
-          }
-        ], { signal }),
-        // DMs they sent to us
-        nostr.query([
-          {
-            kinds: [4, 1059],
-            authors: [conversationId],
-            '#p': [user.pubkey],
-            limit: 100,
-          }
-        ], { signal }),
-      ]);
 
-      const allMessages = [...sentToThem, ...receivedFromThem].filter(validateDMEvent);
-      
+      // Combined query for DMs in both directions for better performance
+      const allMessages = await nostr.query([
+        {
+          kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
+          authors: [user.pubkey, conversationId], // Both users as authors
+          '#p': [user.pubkey, conversationId], // Both users as recipients
+          limit: 200, // Increased limit to accommodate both directions
+        }
+      ], { signal });
+
+      // Filter for valid DMs between the two users
+      const validMessages = allMessages.filter(event => {
+        if (!validateDMEvent(event)) return false;
+
+        // Ensure the message is between the current user and conversation partner
+        const isFromUser = event.pubkey === user.pubkey;
+        const isToUser = event.tags.some(([name, value]) => name === 'p' && value === user.pubkey);
+        const isFromPartner = event.pubkey === conversationId;
+        const isToPartner = event.tags.some(([name, value]) => name === 'p' && value === conversationId);
+
+        return (isFromUser && isToPartner) || (isFromPartner && isToUser);
+      });
+
       // Sort by created_at (oldest first for chronological order)
-      return allMessages.sort((a, b) => a.created_at - b.created_at);
+      return validMessages.sort((a, b) => a.created_at - b.created_at);
     },
     enabled: !!user && !!conversationId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 10, // Refetch every 10 seconds for real-time feel
+    staleTime: 45 * 1000, // 45 seconds - DMs need reasonable real-time feel
+    refetchInterval: 15 * 1000, // 15 seconds - Balanced for DM responsiveness
   });
 }

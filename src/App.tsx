@@ -24,8 +24,15 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 60000, // 1 minute
-      gcTime: Infinity,
+      staleTime: 5 * 60 * 1000, // 5 minutes - Increased for better caching
+      gcTime: 30 * 60 * 1000, // 30 minutes - Reduced from Infinity for memory management
+      retry: (failureCount, error) => {
+        // Exponential backoff with smart retry logic
+        if (failureCount >= 3) return false;
+        if (error instanceof Error && error.message.includes('timeout')) return false;
+        return true;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
   },
 });

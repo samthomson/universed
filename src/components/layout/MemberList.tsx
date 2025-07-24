@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Crown, Shield, Users, MoreVertical, UserMinus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,12 +8,13 @@ import { useCommunityMembers } from "@/hooks/useCommunityMembers";
 import { useManageMembers } from "@/hooks/useManageMembers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCommunities } from "@/hooks/useCommunities";
-import { useAuthor } from "@/hooks/useAuthor";
+import { useAuthorBatch } from "@/hooks/useAuthorBatch";
 import { genUserName } from "@/lib/genUserName";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/useToast";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import type { NostrEvent, NostrMetadata } from "@nostrify/nostrify";
 
 interface MemberListProps {
   communityId: string | null;
@@ -28,11 +29,11 @@ interface MemberItemProps {
   communityId: string;
   canManage?: boolean;
   onMemberClick?: (pubkey: string) => void;
+  authorData?: { event?: NostrEvent; metadata?: NostrMetadata };
 }
 
-function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, communityId, canManage = false, onMemberClick }: MemberItemProps) {
-  const author = useAuthor(pubkey);
-  const metadata = author.data?.metadata;
+function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, communityId, canManage = false, onMemberClick, authorData }: MemberItemProps) {
+  const metadata = authorData?.metadata;
   const { removeMember, isRemovingMember } = useManageMembers();
   const { toast } = useToast();
 
@@ -148,6 +149,14 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
 
+  // Extract all member pubkeys for batched author query
+  const memberPubkeys = useMemo(() => {
+    return members?.map(member => member.pubkey) || [];
+  }, [members]);
+
+  // Batch query for all member profiles
+  const { data: batchedAuthors, isLoading: isLoadingAuthors } = useAuthorBatch(memberPubkeys);
+
   // Check if current user can manage members (is owner or moderator)
   const canManageMembers = communityId && user ? (() => {
     const community = communities?.find(c => c.id === communityId);
@@ -193,7 +202,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
       {/* Member List */}
       <ScrollArea className="flex-1">
         <div className="p-2">
-          {isLoading ? (
+          {isLoading || isLoadingAuthors ? (
             <div className="space-y-2">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex items-center space-x-2 px-2 py-1">
@@ -220,6 +229,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
                       communityId={communityId}
                       canManage={canManageMembers}
                       onMemberClick={handleMemberClick}
+                      authorData={batchedAuthors?.[member.pubkey]}
                     />
                   ))}
               </div>
@@ -241,6 +251,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
                         communityId={communityId}
                         canManage={canManageMembers}
                         onMemberClick={handleMemberClick}
+                        authorData={batchedAuthors?.[member.pubkey]}
                       />
                     ))}
                 </div>

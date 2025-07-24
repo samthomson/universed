@@ -51,21 +51,21 @@ export function useMessages(communityId: string, channelId: string) {
         return [];
       }
 
-      // Query for channel messages - use multiple filters for better coverage
+      // Combined filter: Query both kinds in a single request for better performance
       const filters: NostrFilter[] = [];
 
-      // Primary filter: kind 9411 messages with specific channel tag
-      filters.push({
-        kinds: [9411],
-        '#t': [channelId], // Channel identifier
-        '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
-        limit: 50,
-      });
-
-      // Secondary filter for legacy kind 1 messages (only for general channel)
       if (channelId === 'general') {
+        // For general channel, query both kinds in one filter
         filters.push({
-          kinds: [1],
+          kinds: [1, 9411], // Combined kinds for efficiency
+          '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
+          limit: 100, // Increased limit to accommodate both kinds
+        });
+      } else {
+        // For specific channels, only query kind 9411 with channel tag
+        filters.push({
+          kinds: [9411],
+          '#t': [channelId], // Channel identifier
           '#a': [`${kind}:${pubkey}:${identifier}`], // Community reference
           limit: 50,
         });
@@ -92,7 +92,7 @@ export function useMessages(communityId: string, channelId: string) {
       return validEvents.sort((a, b) => a.created_at - b.created_at);
     },
     enabled: !!communityId && !!channelId,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 10, // Refetch every 10 seconds for real-time feel
+    staleTime: 45 * 1000, // 45 seconds - Increased for better caching
+    refetchInterval: 20 * 1000, // 20 seconds - Reduced frequency to balance real-time vs performance
   });
 }
