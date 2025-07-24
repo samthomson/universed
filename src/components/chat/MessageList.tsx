@@ -4,6 +4,7 @@ import { MessageItem } from "./MessageItem";
 import { PinnedMessages } from "./PinnedMessages";
 import { useMessages } from "@/hooks/useMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+import { useChannels } from "@/hooks/useChannels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
@@ -19,9 +20,14 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
   const isMobile = useIsMobile();
   const { data: messages, isLoading } = useMessages(communityId, channelId);
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
+  const { data: channels } = useChannels(communityId);
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Get the channel name from the channels data
+  const channel = channels?.find(c => c.id === channelId);
+  const channelName = channel?.name || 'this channel';
 
   // Filter out pinned messages from regular message list
   const regularMessages = useMemo(() => {
@@ -97,10 +103,10 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
           <div className="flex flex-col items-center justify-center h-full text-center py-16">
             <div className="text-6xl mb-4">👋</div>
             <h3 className="text-xl font-semibold text-white mb-2">
-              Welcome to #{channelId}!
+              Welcome to #{channelName}!
             </h3>
             <p className="text-gray-400 max-w-md">
-              This is the beginning of the #{channelId} channel. Start the conversation!
+              This is the beginning of the #{channelName} channel. Start the conversation!
             </p>
           </div>
         </ScrollArea>
