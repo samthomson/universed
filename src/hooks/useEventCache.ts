@@ -10,12 +10,23 @@ export function useEventCache() {
 
   // Store events in cache by ID for quick retrieval
   const cacheEvent = (event: NostrEvent) => {
-    queryClient.setQueryData(['event', event.id], event);
+    queryClient.setQueryData(['event', event.id], event, {
+      updatedAt: Date.now(),
+    });
 
     // Also cache by kind for kind-based queries
     const existingKindEvents = queryClient.getQueryData<NostrEvent[]>(['events-by-kind', event.kind]) || [];
     const updatedKindEvents = [event, ...existingKindEvents.filter(e => e.id !== event.id)];
-    queryClient.setQueryData(['events-by-kind', event.kind], updatedKindEvents);
+    queryClient.setQueryData(['events-by-kind', event.kind], updatedKindEvents, {
+      updatedAt: Date.now(),
+    });
+
+    // Cache by author for author-based queries
+    const existingAuthorEvents = queryClient.getQueryData<NostrEvent[]>(['events-by-author', event.pubkey]) || [];
+    const updatedAuthorEvents = [event, ...existingAuthorEvents.filter(e => e.id !== event.id)];
+    queryClient.setQueryData(['events-by-author', event.pubkey], updatedAuthorEvents, {
+      updatedAt: Date.now(),
+    });
   };
 
   // Store multiple events at once
@@ -35,6 +46,13 @@ export function useEventCache() {
 
   // Get cached events by author
   const getCachedEventsByAuthor = (pubkey: string): NostrEvent[] => {
+    // First try the dedicated author cache
+    const authorEvents = queryClient.getQueryData<NostrEvent[]>(['events-by-author', pubkey]);
+    if (authorEvents && authorEvents.length > 0) {
+      return authorEvents;
+    }
+
+    // Fallback to searching all queries (less efficient)
     const allQueries = queryClient.getQueryCache().getAll();
     const events: NostrEvent[] = [];
 
@@ -65,6 +83,7 @@ export function useEventCache() {
   const invalidateAllEvents = () => {
     queryClient.invalidateQueries({ queryKey: ['event'] });
     queryClient.invalidateQueries({ queryKey: ['events-by-kind'] });
+    queryClient.invalidateQueries({ queryKey: ['events-by-author'] });
     queryClient.invalidateQueries({ queryKey: ['events-batch'] });
   };
 
@@ -74,6 +93,7 @@ export function useEventCache() {
     const eventQueries = allQueries.filter(query =>
       query.queryKey[0] === 'event' ||
       query.queryKey[0] === 'events-by-kind' ||
+      query.queryKey[0] === 'events-by-author' ||
       query.queryKey[0] === 'events-batch'
     );
 

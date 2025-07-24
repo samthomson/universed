@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCanAccessChannel } from './useChannelPermissions';
+import { useEventCache } from './useEventCache';
+import { useOptimizedEventLoading } from './useOptimizedEventLoading';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
@@ -40,6 +42,8 @@ function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boo
 export function useMessages(communityId: string, channelId: string) {
   const { nostr } = useNostr();
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
+  const { getCachedEventsByKind, cacheEvents } = useEventCache();
+  const { preloadRelatedEvents } = useOptimizedEventLoading();
 
   return useQuery({
     queryKey: ['messages', communityId, channelId],
@@ -49,7 +53,6 @@ export function useMessages(communityId: string, channelId: string) {
         console.log(`Access denied for channel ${channelId}: ${reason}`);
         return [];
       }
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
@@ -57,6 +60,19 @@ export function useMessages(communityId: string, channelId: string) {
       if (!kind || !pubkey || !identifier) {
         return [];
       }
+
+      // Try to get cached events first for faster initial load
+      const cachedMessages = getCachedEventsByKind(1).concat(getCachedEventsByKind(9411));
+      const relevantCachedEvents = cachedMessages.filter(event => {
+        const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+        return communityRef === `${kind}:${pubkey}:${identifier}` &&
+               validateMessageEvent(event, channelId);
+      });
+
+      // If we have recent cached data, use it while fetching fresh data
+      const _hasCachedData = relevantCachedEvents.length > 0;
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       // Combined filter: Query both kinds in a single request for better performance
       const filters: NostrFilter[] = [];
@@ -80,6 +96,11 @@ export function useMessages(communityId: string, channelId: string) {
 
       const events = await nostr.query(filters, { signal });
 
+      // Cache the fetched events for future use
+      if (events.length > 0) {
+        cacheEvents(events);
+      }
+
       // Apply strict client-side filtering to ensure channel isolation
       const validEvents = events.filter(event => {
         const isValid = validateMessageEvent(event, channelId);
@@ -95,11 +116,30 @@ export function useMessages(communityId: string, channelId: string) {
         return isValid;
       });
 
+      // Merge with cached events and deduplicate
+      const allEvents = [...validEvents];
+
+      // Add cached events that aren't in the fresh results
+      relevantCachedEvents.forEach(cachedEvent => {
+        if (!allEvents.some(event => event.id === cachedEvent.id)) {
+          allEvents.push(cachedEvent);
+        }
+      });
+
       // Sort by created_at (oldest first)
-      return validEvents.sort((a, b) => a.created_at - b.created_at);
+      const sortedEvents = allEvents.sort((a, b) => a.created_at - b.created_at);
+
+      // Preload related events (reactions, comments) in the background
+      if (sortedEvents.length > 0) {
+        preloadRelatedEvents(communityId, sortedEvents);
+      }
+
+      return sortedEvents;
     },
     enabled: !!communityId && !!channelId && canRead,
     staleTime: 45 * 1000, // 45 seconds - Increased for better caching
     refetchInterval: 20 * 1000, // 20 seconds - Reduced frequency to balance real-time vs performance
+    // Use cached data as initial data for faster perceived loading
+    placeholderData: (previousData) => previousData,
   });
 }

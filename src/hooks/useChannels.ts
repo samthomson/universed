@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
+import { useEventCache } from './useEventCache';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export interface Channel {
@@ -75,6 +76,7 @@ function parseChannelEvent(event: NostrEvent, communityId: string): Channel {
 
 export function useChannels(communityId: string | null) {
   const { nostr } = useNostr();
+  const { getCachedEventsByKind, cacheEvents } = useEventCache();
 
   return useQuery({
     queryKey: ['channels', communityId],
@@ -84,6 +86,12 @@ export function useChannels(communityId: string | null) {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       try {
+        // Check for cached channel events first
+        const cachedChannelEvents = getCachedEventsByKind(32807).filter(event => {
+          const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+          return communityRef === communityId && validateChannelEvent(event);
+        });
+
         // Query for channel definition events
         const events = await nostr.query([
           {
@@ -94,7 +102,20 @@ export function useChannels(communityId: string | null) {
           }
         ], { signal });
 
-        const validEvents = events.filter(validateChannelEvent);
+        // Cache the fetched events
+        if (events.length > 0) {
+          cacheEvents(events);
+        }
+
+        // Merge cached and fresh events, deduplicate
+        const allEvents = [...events];
+        cachedChannelEvents.forEach(cachedEvent => {
+          if (!allEvents.some(event => event.id === cachedEvent.id)) {
+            allEvents.push(cachedEvent);
+          }
+        });
+
+        const validEvents = allEvents.filter(validateChannelEvent);
         const customChannels = validEvents.map(event => parseChannelEvent(event, communityId));
 
         // Always include the default "general" channel

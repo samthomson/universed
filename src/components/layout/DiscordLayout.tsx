@@ -9,7 +9,10 @@ import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
+import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useEnableBackgroundLoading } from "@/hooks/useBackgroundLoader";
+import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -21,6 +24,14 @@ export function DiscordLayout() {
   const [showMemberList, setShowMemberList] = useState(true);
   const [dmTargetPubkey, setDmTargetPubkey] = useState<string | null>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isAutoSelected, setIsAutoSelected] = useState(false);
+
+  // Enable background loading of community events
+  useEnableBackgroundLoading();
+
+  // Enable performance monitoring
+  useEnablePerformanceMonitoring();
 
   // Mobile-specific state
   const isMobile = useIsMobile();
@@ -29,6 +40,7 @@ export function DiscordLayout() {
   const [showChannelSidebar, setShowChannelSidebar] = useState(false);
 
   const { data: channels } = useChannels(selectedCommunity);
+  const { data: userCommunities } = useUserCommunities();
   const { communityId: urlCommunityId, isJoinRequest, clearNavigation } = useUrlNavigation();
   const { data: membershipStatus } = useUserCommunityMembership(urlCommunityId);
 
@@ -44,6 +56,23 @@ export function DiscordLayout() {
       setMobileView('chat');
     }
   };
+
+  // Initialize with first community or DMs
+  useEffect(() => {
+    // Only initialize once and if there's no URL navigation
+    if (!hasInitialized && !urlCommunityId && userCommunities !== undefined) {
+      setHasInitialized(true);
+
+      if (userCommunities.length > 0) {
+        // User has communities, select the first one
+        setSelectedCommunity(userCommunities[0].id);
+        setIsAutoSelected(true);
+      } else {
+        // User has no communities, default to DMs
+        setSelectedCommunity(null);
+      }
+    }
+  }, [hasInitialized, urlCommunityId, userCommunities]);
 
   // Handle URL-based navigation
   useEffect(() => {
@@ -83,9 +112,15 @@ export function DiscordLayout() {
         }
       }
 
-      // On mobile, show channels view when community is selected
+      // On mobile, show appropriate view when community is selected
       if (isMobile) {
-        setMobileView('channels');
+        // If this was auto-selected, go directly to chat for smoother UX
+        // Otherwise, show channels view so user can see available channels
+        setMobileView(isAutoSelected ? 'chat' : 'channels');
+        // Reset auto-selected flag after using it
+        if (isAutoSelected) {
+          setIsAutoSelected(false);
+        }
       }
     } else if (!selectedCommunity) {
       // Clear channel and space selection when no community is selected
@@ -97,7 +132,7 @@ export function DiscordLayout() {
         setMobileView('communities');
       }
     }
-  }, [selectedCommunity, selectedSpace, channels, isMobile]);
+  }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
 
   const handleJoinSuccess = (communityId: string) => {
     // After successful join, select the community
@@ -132,6 +167,8 @@ export function DiscordLayout() {
   const handleCommunitySelect = (communityId: string | null) => {
     setSelectedCommunity(communityId);
     setShowCommunitySidebar(false);
+    // Reset auto-selected flag when user manually selects a community
+    setIsAutoSelected(false);
   };
 
   const handleBackNavigation = () => {
@@ -317,7 +354,10 @@ export function DiscordLayout() {
         <div className="w-16 bg-gray-900 flex flex-col h-full">
           <AppSidebar
             selectedCommunity={selectedCommunity}
-            onSelectCommunity={setSelectedCommunity}
+            onSelectCommunity={(communityId) => {
+              setSelectedCommunity(communityId);
+              setIsAutoSelected(false);
+            }}
           />
         </div>
 
@@ -337,7 +377,10 @@ export function DiscordLayout() {
                   setSelectedSpace(spaceId);
                   setSelectedChannel(null); // Clear channel when selecting space
                 }}
-                onSelectCommunity={setSelectedCommunity}
+                onSelectCommunity={(communityId) => {
+                  setSelectedCommunity(communityId);
+                  setIsAutoSelected(false);
+                }}
                 onNavigateToDMs={handleNavigateToDMs}
               />
               <UserPanel />
@@ -379,7 +422,10 @@ export function DiscordLayout() {
                 communityId={selectedCommunity}
                 selectedChannel={selectedChannel}
                 onSelectChannel={setSelectedChannel}
-                onSelectCommunity={setSelectedCommunity}
+                onSelectCommunity={(communityId) => {
+                  setSelectedCommunity(communityId);
+                  setIsAutoSelected(false);
+                }}
                 dmTargetPubkey={dmTargetPubkey}
                 onDmTargetHandled={() => setDmTargetPubkey(null)}
                 onNavigateToDMs={handleNavigateToDMs}

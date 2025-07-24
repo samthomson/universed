@@ -12,6 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
+import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -60,6 +61,7 @@ export function App() {
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
+                <PerformanceIndicator />
                 <Suspense>
                   <AppRouter />
                 </Suspense>
