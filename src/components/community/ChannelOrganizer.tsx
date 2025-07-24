@@ -57,6 +57,9 @@ export function ChannelOrganizer({
 }: ChannelOrganizerProps) {
   const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
   const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
+
+  // Show loading only if we have no data AND we're actually loading (not just fetching in background)
+  const shouldShowLoading = (isLoadingChannels && !channels) || (isLoadingFolders && !folders);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
@@ -102,8 +105,8 @@ export function ChannelOrganizer({
     navigator.clipboard.writeText(channelLink);
   };
 
-  // Show loading skeleton while data is loading
-  if (isLoadingChannels || isLoadingFolders) {
+  // Show loading skeleton only if we have no data AND we're actually loading (not background fetching)
+  if (shouldShowLoading) {
     return <ChannelOrganizerSkeleton />;
   }
 

@@ -1,20 +1,29 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
 import { ChannelOrganizer } from './ChannelOrganizer';
 
 // Mock the hooks to control loading states
 vi.mock('@/hooks/useChannels', () => ({
   useChannels: vi.fn(() => ({
-    data: [],
+    data: undefined, // No data to trigger loading state
     isLoading: true,
   })),
 }));
 
 vi.mock('@/hooks/useChannelFolders', () => ({
   useChannelFolders: vi.fn(() => ({
-    data: [],
+    data: undefined, // No data to trigger loading state
     isLoading: true,
+  })),
+  useCreateChannelFolder: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+  })),
+  useUpdateChannelFolder: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+  })),
+  useDeleteChannelFolder: vi.fn(() => ({
+    mutateAsync: vi.fn(),
   })),
 }));
 
@@ -39,8 +48,8 @@ describe('ChannelOrganizer', () => {
       </TestApp>
     );
 
-    // Check that skeleton elements are present
-    const skeletons = screen.getAllByTestId('skeleton');
+    // Check that skeleton elements are present by looking for elements with skeleton class
+    const skeletons = document.querySelectorAll('.animate-pulse');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 });

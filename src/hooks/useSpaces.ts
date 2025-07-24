@@ -3,7 +3,8 @@ import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { useEventCache } from './useEventCache';
+import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 export interface Space {
   id: string;
@@ -107,25 +108,21 @@ function parseSpaceEvent(event: NostrEvent, communityId: string): Space {
 
 export function useSpaces(communityId: string | null) {
   const { nostr } = useNostr();
+  const { getCachedEventsByKind, cacheEvents } = useEventCache();
 
   return useQuery({
     queryKey: ['spaces', communityId],
     queryFn: async (c) => {
       if (!communityId) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // PRIORITY 1: Check for cached space events first and return immediately if found
+      const cachedSpaceEvents = getCachedEventsByKind(39097).filter(event => {
+        const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+        return communityRef === communityId && validateSpaceEvent(event);
+      });
 
-      try {
-        // Query for space configuration events
-        const events = await nostr.query([
-          {
-            kinds: [39097], // Community space configuration events
-            '#a': [communityId], // Filter by community
-            '#t': ['space'], // Filter by space tag
-            limit: 50,
-          }
-        ], { signal });
-
+      // Process cached events and return immediately if available
+      const processSpaces = (events: NostrEvent[]) => {
         const validEvents = events.filter(validateSpaceEvent);
         const customSpaces = validEvents.map(event => parseSpaceEvent(event, communityId));
 
@@ -161,21 +158,92 @@ export function useSpaces(communityId: string | null) {
             }
             return a.name.localeCompare(b.name);
           });
-      } catch (error) {
-        console.error('Failed to fetch spaces:', error);
+      };
 
-        // Return default spaces on error
-        return DEFAULT_SPACES.map(space => ({
+      // If we have cached events, process them immediately and return
+      if (cachedSpaceEvents.length > 0) {
+        const cachedSpaces = processSpaces(cachedSpaceEvents);
+
+        // Start background refresh but return cached data immediately
+        setTimeout(() => {
+          refreshSpacesInBackground(communityId, nostr, cacheEvents);
+        }, 100);
+
+        return cachedSpaces;
+      }
+
+      // PRIORITY 2: No cached data, fetch with short timeout for immediate response
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1000)]); // Reduced to 1 second
+
+      try {
+        // Query for space configuration events
+        const events = await nostr.query([
+          {
+            kinds: [39097], // Community space configuration events
+            '#a': [communityId], // Filter by community
+            '#t': ['space'], // Filter by space tag
+            limit: 30, // Reduced limit for faster response
+          }
+        ], { signal });
+
+        // Cache the fetched events immediately
+        if (events.length > 0) {
+          cacheEvents(events);
+        }
+
+        return processSpaces(events);
+      } catch (error) {
+        console.warn('Failed to fetch spaces quickly, returning defaults:', error);
+
+        // PRIORITY 3: On error or timeout, return default spaces immediately
+        const defaultSpaces: Space[] = DEFAULT_SPACES.map(space => ({
           ...space,
           communityId: communityId || '',
           creator: '',
           event: undefined,
         }));
+
+        // Start background refresh for next time
+        setTimeout(() => {
+          refreshSpacesInBackground(communityId, nostr, cacheEvents);
+        }, 1000);
+
+        return defaultSpaces;
       }
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes - very long cache since spaces change less frequently
+    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory very long
+    refetchOnMount: false, // Don't refetch on mount, use cached data
+    refetchOnWindowFocus: false, // Don't refetch on focus, use cached data
+    refetchOnReconnect: false, // Don't refetch on reconnect, use cached data
   });
+}
+
+// Background refresh function that doesn't block the UI
+async function refreshSpacesInBackground(
+  communityId: string,
+  nostr: { query: (filters: NostrFilter[], options: { signal: AbortSignal }) => Promise<NostrEvent[]> },
+  cacheEvents: (events: NostrEvent[]) => void
+) {
+  try {
+    const signal = AbortSignal.timeout(8000); // Longer timeout for background refresh
+    const events = await nostr.query([
+      {
+        kinds: [39097],
+        '#a': [communityId],
+        '#t': ['space'],
+        limit: 50,
+      }
+    ], { signal });
+
+    if (events.length > 0) {
+      cacheEvents(events);
+      console.log(`Background refreshed ${events.length} space events for ${communityId}`);
+    }
+  } catch (error) {
+    console.warn('Background space refresh failed:', error);
+  }
 }
 
 export function useUpdateSpace(communityId: string) {
@@ -274,24 +342,20 @@ export function useDeleteSpace(communityId: string) {
 // Hook to get all spaces including disabled ones (for admin management)
 export function useAllSpaces(communityId: string | null) {
   const { nostr } = useNostr();
+  const { getCachedEventsByKind } = useEventCache();
 
   return useQuery({
     queryKey: ['all-spaces', communityId],
     queryFn: async (c) => {
       if (!communityId) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // Check cache first for admin management
+      const cachedSpaceEvents = getCachedEventsByKind(39097).filter(event => {
+        const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+        return communityRef === communityId && validateSpaceEvent(event);
+      });
 
-      try {
-        const events = await nostr.query([
-          {
-            kinds: [39097],
-            '#a': [communityId],
-            '#t': ['space'],
-            limit: 50,
-          }
-        ], { signal });
-
+      const processAllSpaces = (events: NostrEvent[]) => {
         const validEvents = events.filter(validateSpaceEvent);
         const customSpaces = validEvents.map(event => parseSpaceEvent(event, communityId));
 
@@ -321,8 +385,27 @@ export function useAllSpaces(communityId: string | null) {
           }
           return a.name.localeCompare(b.name);
         });
-      } catch (error) {
-        console.error('Failed to fetch all spaces:', error);
+      };
+
+      // Return cached data if available
+      if (cachedSpaceEvents.length > 0) {
+        return processAllSpaces(cachedSpaceEvents);
+      }
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]);
+
+      try {
+        const events = await nostr.query([
+          {
+            kinds: [39097],
+            '#a': [communityId],
+            '#t': ['space'],
+            limit: 50,
+          }
+        ], { signal });
+
+        return processAllSpaces(events);
+      } catch {
         return DEFAULT_SPACES.map(space => ({
           ...space,
           communityId: communityId || '',
@@ -332,6 +415,7 @@ export function useAllSpaces(communityId: string | null) {
       }
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
   });
 }

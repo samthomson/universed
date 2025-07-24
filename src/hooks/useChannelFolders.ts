@@ -83,7 +83,8 @@ export function useChannelFolders(communityId: string | null) {
     queryFn: async (c) => {
       if (!communityId) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // Use shorter timeout and return empty array quickly if no folders
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1000)]);
 
       try {
         const events = await nostr.query([
@@ -91,7 +92,7 @@ export function useChannelFolders(communityId: string | null) {
             kinds: [32603], // Channel folder definition events
             '#a': [communityId], // Filter by community
             '#t': ['channel-folder'], // Filter by folder tag
-            limit: 100,
+            limit: 50, // Reduced limit for speed
           }
         ], { signal });
 
@@ -100,13 +101,17 @@ export function useChannelFolders(communityId: string | null) {
 
         // Sort by position
         return folders.sort((a, b) => a.position - b.position);
-      } catch (error) {
-        console.error('Failed to fetch channel folders:', error);
+      } catch {
+        // Don't log errors for folders - they're optional and many communities won't have them
         return [];
       }
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 minutes - longer cache
+    gcTime: 1000 * 60 * 60, // 1 hour
+    refetchOnMount: false, // Don't refetch on mount
+    refetchOnWindowFocus: false, // Don't refetch on focus
+    refetchOnReconnect: false, // Don't refetch on reconnect
   });
 }
 

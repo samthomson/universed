@@ -6,7 +6,7 @@ import { SpacesNavigator } from './SpacesNavigator';
 // Mock the hooks to control loading states
 vi.mock('@/hooks/useSpaces', () => ({
   useSpaces: vi.fn(() => ({
-    data: [],
+    data: undefined,
     isLoading: true,
   })),
 }));

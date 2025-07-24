@@ -16,6 +16,8 @@ import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useChannelPreloader } from "@/hooks/useChannelPreloader";
+import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -32,6 +34,10 @@ export function DiscordLayout() {
 
   // Enable performance monitoring
   useEnablePerformanceMonitoring();
+
+  // Channel and spaces preloaders for immediate loading
+  const { preloadImmediately: preloadChannelsImmediately } = useChannelPreloader();
+  const { preloadImmediately: preloadSpacesImmediately } = useSpacesPreloader();
 
   // Mobile-specific state
   const isMobile = useIsMobile();
@@ -65,14 +71,19 @@ export function DiscordLayout() {
 
       if (userCommunities.length > 0) {
         // User has communities, select the first one
-        setSelectedCommunity(userCommunities[0].id);
+        const firstCommunityId = userCommunities[0].id;
+        setSelectedCommunity(firstCommunityId);
         setIsAutoSelected(true);
+
+        // Immediately preload channels and spaces for the first community
+        preloadChannelsImmediately(firstCommunityId);
+        preloadSpacesImmediately(firstCommunityId);
       } else {
         // User has no communities, default to DMs
         setSelectedCommunity(null);
       }
     }
-  }, [hasInitialized, urlCommunityId, userCommunities]);
+  }, [hasInitialized, urlCommunityId, userCommunities, preloadChannelsImmediately, preloadSpacesImmediately]);
 
   // Handle URL-based navigation
   useEffect(() => {
@@ -86,13 +97,17 @@ export function DiscordLayout() {
           // User is a member, select the community
           setSelectedCommunity(urlCommunityId);
           clearNavigation();
+
+          // Immediately preload channels and spaces for the URL community
+          preloadChannelsImmediately(urlCommunityId);
+          preloadSpacesImmediately(urlCommunityId);
         } else {
           // User is not a member, show join dialog
           setShowJoinDialog(true);
         }
       }
     }
-  }, [urlCommunityId, isJoinRequest, membershipStatus, clearNavigation]);
+  }, [urlCommunityId, isJoinRequest, membershipStatus, clearNavigation, preloadChannelsImmediately, preloadSpacesImmediately]);
 
   // Auto-select general channel when community is selected (and no space is selected)
   useEffect(() => {
@@ -138,6 +153,10 @@ export function DiscordLayout() {
     // After successful join, select the community
     setSelectedCommunity(communityId);
     clearNavigation();
+
+    // Immediately preload channels and spaces for the joined community
+    preloadChannelsImmediately(communityId);
+    preloadSpacesImmediately(communityId);
   };
 
   const handleJoinDialogClose = () => {
@@ -169,6 +188,12 @@ export function DiscordLayout() {
     setShowCommunitySidebar(false);
     // Reset auto-selected flag when user manually selects a community
     setIsAutoSelected(false);
+
+    // Immediately preload channels and spaces for the selected community
+    if (communityId) {
+      preloadChannelsImmediately(communityId);
+      preloadSpacesImmediately(communityId);
+    }
   };
 
   const handleBackNavigation = () => {
@@ -357,6 +382,12 @@ export function DiscordLayout() {
             onSelectCommunity={(communityId) => {
               setSelectedCommunity(communityId);
               setIsAutoSelected(false);
+
+              // Immediately preload channels and spaces for the selected community
+              if (communityId) {
+                preloadChannelsImmediately(communityId);
+                preloadSpacesImmediately(communityId);
+              }
             }}
           />
         </div>
@@ -380,6 +411,12 @@ export function DiscordLayout() {
                 onSelectCommunity={(communityId) => {
                   setSelectedCommunity(communityId);
                   setIsAutoSelected(false);
+
+                  // Immediately preload channels and spaces for the selected community
+                  if (communityId) {
+                    preloadChannelsImmediately(communityId);
+                    preloadSpacesImmediately(communityId);
+                  }
                 }}
                 onNavigateToDMs={handleNavigateToDMs}
               />
@@ -425,6 +462,12 @@ export function DiscordLayout() {
                 onSelectCommunity={(communityId) => {
                   setSelectedCommunity(communityId);
                   setIsAutoSelected(false);
+
+                  // Immediately preload channels and spaces for the selected community
+                  if (communityId) {
+                    preloadChannelsImmediately(communityId);
+                    preloadSpacesImmediately(communityId);
+                  }
                 }}
                 dmTargetPubkey={dmTargetPubkey}
                 onDmTargetHandled={() => setDmTargetPubkey(null)}

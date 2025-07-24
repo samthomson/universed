@@ -53,6 +53,9 @@ export function SpacesNavigator({
   onSelectSpace
 }: SpacesNavigatorProps) {
   const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
+
+  // Show loading only if we have no data AND we're actually loading (not just fetching in background)
+  const shouldShowLoading = isLoadingSpaces && !spaces;
   const { canModerate } = useCanModerate(communityId);
   const [isOpen, setIsOpen] = useState(true);
   const [showManagement, setShowManagement] = useState(false);
@@ -61,8 +64,8 @@ export function SpacesNavigator({
     return ICON_COMPONENTS[iconName as keyof typeof ICON_COMPONENTS] || Box;
   };
 
-  // Show loading skeleton while spaces are loading
-  if (isLoadingSpaces) {
+  // Show loading skeleton only if we have no data AND we're actually loading (not background fetching)
+  if (shouldShowLoading) {
     return <SpacesNavigatorSkeleton />;
   }
 

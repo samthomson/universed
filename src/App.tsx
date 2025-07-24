@@ -17,6 +17,9 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
 import { useEnableBackgroundLoading } from '@/hooks/useBackgroundLoader';
 import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
+import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
+import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
+import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 
 
@@ -76,6 +79,9 @@ function AppContent() {
   useEnableSmartPrefetch();
   useEnableBackgroundLoading();
   useEnablePerformanceMonitoring();
+  useHighPriorityChannelPreloader(); // HIGH PRIORITY: Load channels immediately
+  useHighPrioritySpacesPreloader(); // HIGH PRIORITY: Load spaces immediately
+  useUserCommunitiesChannelPreloader(); // BACKGROUND: Continue background loading
 
   const handleHidePerformanceDashboard = () => {
     updateConfig((current) => ({
