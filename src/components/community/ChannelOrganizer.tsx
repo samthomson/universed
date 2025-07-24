@@ -13,7 +13,9 @@ import {
   Eye,
   UserPlus,
   Copy,
-  Trash2
+  Trash2,
+  Users,
+  Globe
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -530,6 +532,11 @@ function ChannelItem({
 
     if (!permissions) return null;
 
+    // Special case: everyone can read, members can write - show users icon
+    if (permissions.readPermissions === 'everyone' && permissions.writePermissions === 'members') {
+      return <Users className="w-3 h-3 text-blue-500" />;
+    }
+
     // Show lock icon based on most restrictive permission
     if (permissions.readPermissions === 'moderators' || permissions.writePermissions === 'moderators') {
       return <Lock className="w-3 h-3 text-yellow-500" />;
@@ -539,8 +546,13 @@ function ChannelItem({
       return <Lock className="w-3 h-3 text-red-500" />;
     }
 
-    if (permissions.readPermissions === 'members' || permissions.writePermissions === 'members') {
+    if (permissions.readPermissions === 'members' && permissions.writePermissions === 'members') {
       return <Lock className="w-3 h-3 text-blue-500" />;
+    }
+
+    // If everyone can read and write, show globe icon
+    if (permissions.readPermissions === 'everyone' && permissions.writePermissions === 'everyone') {
+      return <Globe className="w-3 h-3 text-green-500" />;
     }
 
     return null;
