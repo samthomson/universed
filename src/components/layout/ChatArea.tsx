@@ -1,4 +1,4 @@
-import { Hash, Users, Search, HelpCircle, Volume2 } from "lucide-react";
+import { Hash, Users, Search, HelpCircle, Volume2, Settings, Eye, UserPlus, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { MessageList } from "@/components/chat/MessageList";
@@ -8,6 +8,18 @@ import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useChannels } from "@/hooks/useChannels";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCanModerate } from "@/hooks/useCommunityRoles";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useState } from "react";
+import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
+import { toast } from "sonner";
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -21,6 +33,8 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
   const isMobile = useIsMobile();
   const { data: communities } = useCommunities();
   const { data: channels } = useChannels(communityId);
+  const { canModerate } = useCanModerate(communityId || '');
+  const [showChannelSettings, setShowChannelSettings] = useState(false);
 
   const community = communities?.find(c => c.id === communityId);
   const channel = channels?.find(c => c.id === channelId);
@@ -55,6 +69,12 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
 
   const channelName = channel?.name || channelId;
   const isVoiceChannel = channel?.type === 'voice';
+
+  const copyChannelLink = () => {
+    const channelLink = `${window.location.origin}/communities/${communityId}/channels/${channelId}`;
+    navigator.clipboard.writeText(channelLink);
+    toast.success("Channel link copied to clipboard!");
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -92,9 +112,45 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
             >
               <Users className="w-4 h-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="w-6 h-6">
-              <HelpCircle className="w-4 h-4" />
-            </Button>
+            {canModerate && channel ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-6 h-6">
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  <DropdownMenuLabel>Channel Options</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowChannelSettings(true)}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Edit Channel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Permissions
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Invite Members
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={copyChannelLink}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Channel Link
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Channel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="ghost" size="icon" className="w-6 h-6">
+                <HelpCircle className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -137,6 +193,16 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
           </>
         )}
       </div>
+
+      {/* Channel Settings Dialog */}
+      {channel && (
+        <ChannelSettingsDialog
+          channel={channel}
+          communityId={communityId!}
+          open={showChannelSettings}
+          onOpenChange={setShowChannelSettings}
+        />
+      )}
     </div>
   );
 }

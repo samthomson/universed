@@ -6,12 +6,9 @@ import {
   ChevronRight,
   Folder,
   FolderPlus,
-  MoreHorizontal,
   Plus,
   Lock,
   Megaphone,
-  Eye,
-  UserPlus,
   Copy,
   Trash2,
   Users,
@@ -23,7 +20,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
@@ -214,8 +210,10 @@ function ChannelOrganizerSkeleton() {
         <div className="space-y-0.5 ml-2 border-l border-gray-600/40 pl-2">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="ml-1">
-              <div className="flex items-center px-2 py-1 h-8">
-                <Skeleton className="w-4 h-4 mr-2" />
+              <div className="flex items-center h-8 px-2">
+                <div className="w-5 flex items-center justify-center mr-1.5">
+                  <Skeleton className="w-4 h-4" />
+                </div>
                 <Skeleton className="h-3 w-16" />
               </div>
             </div>
@@ -234,8 +232,10 @@ function ChannelOrganizerSkeleton() {
         <div className="space-y-0.5">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="ml-4">
-              <div className="flex items-center px-2 py-1 h-8">
-                <Skeleton className="w-4 h-4 mr-2" />
+              <div className="flex items-center h-8 px-2">
+                <div className="w-5 flex items-center justify-center mr-1.5">
+                  <Skeleton className="w-4 h-4" />
+                </div>
                 <Skeleton className="h-3 w-20" />
               </div>
             </div>
@@ -254,8 +254,10 @@ function ChannelOrganizerSkeleton() {
         <div className="space-y-0.5">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="ml-4">
-              <div className="flex items-center px-2 py-1 h-8">
-                <Skeleton className="w-4 h-4 mr-2" />
+              <div className="flex items-center h-8 px-2">
+                <div className="w-5 flex items-center justify-center mr-1.5">
+                  <Skeleton className="w-4 h-4" />
+                </div>
                 <Skeleton className="h-3 w-24" />
               </div>
             </div>
@@ -500,19 +502,19 @@ function ChannelItem({
   const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
   const getChannelIcon = () => {
     if (channel.type === 'voice') {
-      return <Volume2 className="w-4 h-4 mr-2 text-gray-400" />;
+      return <Volume2 className="w-4 h-4 text-gray-400 flex-shrink-0" />;
     }
 
     // Special icons for certain channel names
     if (channel.name.toLowerCase().includes('announcement') || channel.name.toLowerCase().includes('news')) {
-      return <Megaphone className="w-4 h-4 mr-2 text-gray-400" />;
+      return <Megaphone className="w-4 h-4 text-gray-400 flex-shrink-0" />;
     }
 
     if (channel.name.toLowerCase().includes('rule') || channel.name.toLowerCase().includes('info')) {
-      return <Lock className="w-4 h-4 mr-2 text-gray-400" />;
+      return <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />;
     }
 
-    return <Hash className="w-4 h-4 mr-2 text-gray-500" />;
+    return <Hash className="w-4 h-4 text-gray-500 flex-shrink-0" />;
   };
 
   const hasNotifications = Math.random() > 0.7; // Demo notification state
@@ -553,90 +555,49 @@ function ChannelItem({
   };
 
   return (
-    <div className={`group ${inFolder ? 'ml-0' : 'ml-4'}`}>
+    <div className={`${inFolder ? 'ml-1' : 'ml-4'}`}>
       <ContextMenu>
         <ContextMenuTrigger>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
+          <div className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative">
+            {/* Selected indicator */}
+            {isSelected && (
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>
+            )}
+
+            {/* Fixed width icon container */}
+            <div className="w-5 flex items-center justify-center mr-1.5">
+              {getChannelIcon()}
+            </div>
+
+            {/* Channel name - clickable area */}
+            <button
               className={`
-                flex-1 flex items-center justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative overflow-hidden
+                flex-1 text-left text-sm font-medium truncate
                 ${isSelected
-                  ? 'bg-gray-600/60 text-white shadow-sm'
+                  ? 'text-white'
                   : hasAccess
-                    ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
-                    : 'text-gray-500 hover:text-gray-400 hover:bg-gray-600/30 opacity-75'
+                    ? 'text-gray-300 hover:text-gray-100'
+                    : 'text-gray-500 hover:text-gray-400 italic'
                 }
               `}
               onClick={onSelect}
             >
-              <div className="flex items-center min-w-0 flex-1 gap-2">
-                {getChannelIcon()}
-                <span className={`text-sm font-medium truncate ${!hasAccess ? 'italic' : ''}`}>
-                  {channel.name}
-                </span>
-              </div>
+              {channel.name}
+            </button>
 
-              {/* Discord-like channel indicators */}
-              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                {getPrivacyIcon()}
-                {channel.type === 'voice' && (
-                  <div className="flex items-center text-xs text-gray-500">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                    {Math.floor(Math.random() * 5)}
-                  </div>
-                )}
-                {hasNotifications && (
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                )}
-              </div>
-
-              {/* Selected indicator */}
-              {isSelected && (
-                <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>
+            {/* Right side indicators - fixed positioning */}
+            <div className="flex items-center gap-1.5 ml-2">
+              {getPrivacyIcon()}
+              {channel.type === 'voice' && (
+                <div className="flex items-center text-xs text-gray-500">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                  <span>{Math.floor(Math.random() * 5)}</span>
+                </div>
               )}
-            </Button>
-
-            {canModerate && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-6 h-6 p-0 opacity-100 hover:bg-gray-600/40 rounded-sm flex-shrink-0"
-                  >
-                    <MoreHorizontal className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[160px]">
-                  <DropdownMenuLabel>Channel Options</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onSettings}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Channel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Permissions
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Invite Members
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={onCopyLink}>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Channel Link
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Channel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+              {hasNotifications && (
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              )}
+            </div>
           </div>
         </ContextMenuTrigger>
 
