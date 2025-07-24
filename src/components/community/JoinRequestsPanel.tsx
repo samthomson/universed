@@ -75,7 +75,10 @@ function JoinRequestItem({ request, onApprove, onDecline, isProcessing }: JoinRe
             <div className="flex items-center space-x-2">
               <Button
                 size="sm"
-                onClick={() => onApprove(request.requesterPubkey)}
+                onClick={() => {
+                  console.log('Approve button clicked for:', request.requesterPubkey);
+                  onApprove(request.requesterPubkey);
+                }}
                 disabled={isProcessing}
                 className="h-8"
               >
@@ -102,18 +105,35 @@ function JoinRequestItem({ request, onApprove, onDecline, isProcessing }: JoinRe
 
 export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
   const { data: joinRequests, isLoading } = useJoinRequests(communityId);
-  const { addMember, isAddingMember } = useManageMembers();
+  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
   const { toast } = useToast();
   const [processingUser, setProcessingUser] = useState<string | null>(null);
 
-  const handleApprove = (pubkey: string) => {
-    if (!communityId) return;
+  console.log('JoinRequestsPanel render:', {
+    communityId,
+    joinRequestsCount: joinRequests?.length,
+    isLoading,
+    addMember: typeof addMember,
+    isAddingMember,
+    isDecliningMember
+  });
 
+  const handleApprove = (pubkey: string) => {
+    console.log('handleApprove called with:', { pubkey, communityId });
+
+    if (!communityId) {
+      console.log('No communityId, returning early');
+      return;
+    }
+
+    console.log('Setting processing user and calling addMember');
     setProcessingUser(pubkey);
+
     addMember(
       { communityId, memberPubkey: pubkey },
       {
         onSuccess: () => {
+          console.log('addMember success');
           toast({
             title: "Member Approved",
             description: "The user has been added to the community.",
@@ -121,6 +141,7 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
           setProcessingUser(null);
         },
         onError: (error) => {
+          console.log('addMember error:', error);
           toast({
             title: "Failed to Approve",
             description: error instanceof Error ? error.message : "An error occurred",
@@ -132,13 +153,30 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
     );
   };
 
-  const handleDecline = (_pubkey: string) => {
-    // TODO: Implement decline functionality (Kind 34552 - Declined Members List)
-    toast({
-      title: "Decline Feature",
-      description: "Decline functionality will be implemented soon.",
-      variant: "default",
-    });
+  const handleDecline = (pubkey: string) => {
+    if (!communityId) return;
+
+    setProcessingUser(pubkey);
+    declineMember(
+      { communityId, memberPubkey: pubkey },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Request Declined",
+            description: "The join request has been declined.",
+          });
+          setProcessingUser(null);
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to Decline",
+            description: error instanceof Error ? error.message : "An error occurred",
+            variant: "destructive",
+          });
+          setProcessingUser(null);
+        },
+      }
+    );
   };
 
   if (!communityId) {
@@ -203,7 +241,7 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
                   request={request}
                   onApprove={handleApprove}
                   onDecline={handleDecline}
-                  isProcessing={processingUser === request.requesterPubkey || isAddingMember}
+                  isProcessing={processingUser === request.requesterPubkey || isAddingMember || isDecliningMember}
                 />
               ))}
             </div>

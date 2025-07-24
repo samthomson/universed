@@ -152,6 +152,174 @@ Spaces are tied to NIP-72 communities via the `a` tag referencing the community 
 
 This design allows communities to have optional specialized functionality while maintaining compatibility with existing Nostr standards.
 
+## Event Kind 34551: Approved Members List
+
+**Event Kind**: 34551 (Addressable Event)
+**Purpose**: Maintain a list of users who are pre-approved to post in the community without requiring individual post approvals
+
+### Description
+
+Approved members lists track users who have been granted automatic posting privileges in a community. Comments from users in this list are automatically considered approved without requiring individual Kind 4550 approval events, reducing moderation overhead for trusted community members.
+
+### Event Structure
+
+```json
+{
+  "kind": 34551,
+  "content": "",
+  "tags": [
+    ["d", "<community-id>"],
+    ["p", "<approved-user-1-pubkey>"],
+    ["p", "<approved-user-2-pubkey>"],
+    ["p", "<approved-user-3-pubkey>"],
+    ["alt", "Approved members list for community"]
+  ]
+}
+```
+
+### Tags
+
+- **`d`** (required): Community identifier (same as community definition `d` tag)
+- **`p`** (multiple): Public keys of approved members
+- **`alt`** (required): Human-readable description for NIP-31 compatibility
+
+### Usage
+
+Only community moderators and owners can create and update approved members lists. When a user from this list posts a comment (Kind 1111) to the community, clients should treat it as automatically approved without waiting for a Kind 4550 approval event.
+
+## Event Kind 34552: Declined Members List
+
+**Event Kind**: 34552 (Addressable Event)
+**Purpose**: Track users whose join requests have been declined
+
+### Description
+
+Declined members lists track users whose join requests have been explicitly declined by community moderators. This prevents the same users from appearing in pending join requests repeatedly and provides a record of moderation decisions.
+
+### Event Structure
+
+```json
+{
+  "kind": 34552,
+  "content": "",
+  "tags": [
+    ["d", "<community-id>"],
+    ["p", "<declined-user-1-pubkey>"],
+    ["p", "<declined-user-2-pubkey>"],
+    ["alt", "Declined members list for community"]
+  ]
+}
+```
+
+### Tags
+
+- **`d`** (required): Community identifier (same as community definition `d` tag)
+- **`p`** (multiple): Public keys of declined users
+- **`alt`** (required): Human-readable description for NIP-31 compatibility
+
+### Usage
+
+When a moderator declines a join request (Kind 4552), the user's public key is added to this list. Users on this list should not appear in pending join requests queries, and their future join requests may be automatically filtered out by clients.
+
+## Event Kind 34553: Banned Members List
+
+**Event Kind**: 34553 (Addressable Event)
+**Purpose**: Maintain a list of users who are banned from the community
+
+### Description
+
+Banned members lists track users who have been banned from participating in the community. Banned users cannot post comments, and their existing content should be hidden from community views.
+
+### Event Structure
+
+```json
+{
+  "kind": 34553,
+  "content": "",
+  "tags": [
+    ["d", "<community-id>"],
+    ["p", "<banned-user-1-pubkey>"],
+    ["p", "<banned-user-2-pubkey>"],
+    ["alt", "Banned members list for community"]
+  ]
+}
+```
+
+### Tags
+
+- **`d`** (required): Community identifier (same as community definition `d` tag)
+- **`p`** (multiple): Public keys of banned users
+- **`alt`** (required): Human-readable description for NIP-31 compatibility
+
+### Usage
+
+Banned users should have all their content hidden from community views, and they should be prevented from posting new comments. Clients should respect banned user lists across all community interactions and may choose to automatically reject events from banned users.
+
+## Member Management Workflow
+
+### Join Request Process
+
+1. **User submits join request**: Kind 4552 event with community `a` tag
+2. **Moderator reviews request**: Appears in moderation dashboard
+3. **Moderator takes action**:
+   - **Approve**: Add user to Kind 34551 (Approved Members List)
+   - **Decline**: Add user to Kind 34552 (Declined Members List)
+   - **Ban**: Add user to Kind 34553 (Banned Members List)
+
+### Auto-Approval System
+
+Users in the approved members list (Kind 34551) can post comments without individual approval:
+- Their Kind 1111 comments are automatically visible
+- No Kind 4550 approval event is required
+- Reduces moderation workload for trusted members
+
+### Query Patterns
+
+**Get pending join requests:**
+```json
+{
+  "kinds": [4552],
+  "#a": ["<community-id>"],
+  "limit": 50
+}
+```
+
+**Get community member lists:**
+```json
+{
+  "kinds": [34551, 34552, 34553],
+  "#d": ["<community-id>"],
+  "limit": 10
+}
+```
+
+**Check if user is approved:**
+```json
+{
+  "kinds": [34551],
+  "#d": ["<community-id>"],
+  "#p": ["<user-pubkey>"],
+  "limit": 1
+}
+```
+
+### Client Implementation
+
+Clients should:
+1. Query for all three member list types when loading a community
+2. Use the most recent event for each kind (highest `created_at`)
+3. Filter join requests to exclude users already in declined/banned lists
+4. Auto-approve comments from users in the approved list
+5. Hide content from banned users
+6. Provide moderation interfaces for managing these lists
+
+### Security Considerations
+
+- Only community moderators and owners should be able to update member lists
+- Clients should verify the author of member list events has moderation permissions
+- Member lists should be queried from trusted relays
+- Consider rate limiting to prevent spam join requests
+
 ## Event Kind 30316: Voice Channel State
 
 **Event Kind**: 30316 (Addressable Event)

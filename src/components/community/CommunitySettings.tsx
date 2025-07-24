@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2, Upload, X } from "lucide-react";
+import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2, Upload, X, Menu } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,13 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +35,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { genUserName } from "@/lib/genUserName";
 import { CommunityShareDialog } from "./CommunityShareDialog";
 
@@ -40,7 +48,9 @@ interface CommunitySettingsProps {
 export function CommunitySettings({ communityId, open, onOpenChange }: CommunitySettingsProps) {
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("overview");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -219,6 +229,21 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const pendingRequests = joinRequests?.length || 0;
   const totalReports = reports?.length || 0;
 
+  // Tab configuration for mobile menu
+  const tabs = [
+    { value: "overview", label: "Overview", icon: Settings },
+    { value: "sharing", label: "Sharing", icon: Share2 },
+    { value: "moderation", label: "Moderation", icon: Shield },
+    { value: "members", label: "Members", icon: Users },
+    { value: "analytics", label: "Analytics", icon: BarChart3 },
+    { value: "audit", label: "Audit Log", icon: FileText },
+  ];
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setMobileMenuOpen(false); // Close mobile menu when tab is selected
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[80vh]">
@@ -229,33 +254,62 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center gap-1">
-              <Settings className="w-4 h-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="sharing" className="flex items-center gap-1">
-              <Share2 className="w-4 h-4" />
-              Sharing
-            </TabsTrigger>
-            <TabsTrigger value="moderation" className="flex items-center gap-1">
-              <Shield className="w-4 h-4" />
-              Moderation
-            </TabsTrigger>
-            <TabsTrigger value="members" className="flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              Members
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-1">
-              <BarChart3 className="w-4 h-4" />
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-1">
-              <FileText className="w-4 h-4" />
-              Audit Log
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          {/* Desktop Tab Navigation */}
+          {!isMobile && (
+            <TabsList className="grid w-full grid-cols-6">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-1">
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          )}
+
+          {/* Mobile Tab Navigation */}
+          {isMobile && (
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Menu className="w-4 h-4" />
+                      Menu
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-72">
+                    <SheetHeader>
+                      <SheetTitle>Settings Menu</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6 space-y-2">
+                      {tabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.value;
+                        return (
+                          <Button
+                            key={tab.value}
+                            variant={isActive ? "default" : "ghost"}
+                            className="w-full justify-start gap-3"
+                            onClick={() => handleTabChange(tab.value)}
+                          >
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
+              <div className="text-sm font-medium text-muted-foreground">
+                {tabs.find(tab => tab.value === activeTab)?.label}
+              </div>
+            </div>
+          )}
 
           <ScrollArea className="h-[60vh] mt-4">
             <TabsContent value="overview" className="space-y-6">
