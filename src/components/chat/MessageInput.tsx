@@ -48,7 +48,8 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     currentMention,
     insertMention,
     updateMentions,
-    getMentionTags
+    getMentionTags,
+    getFullTextWithPubkeys
   } = useUserMentions(message, setMessage, textareaRef);
 
   // Optimistic message sending mutation
@@ -156,9 +157,11 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
       tags.push(imetaTag);
     });
 
-    // Process shortcodes before sending
+    // Process shortcodes and convert mentions to full format before sending
     let content = message.trim();
     if (content) {
+      // Convert display mentions to full mentions with pubkeys
+      content = getFullTextWithPubkeys(content);
       content = replaceShortcodes(content);
     }
 

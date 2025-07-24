@@ -53,8 +53,9 @@ export function UserMentionDemo() {
               <li>Type @ followed by a name to start mentioning a user</li>
               <li>Use arrow keys to navigate the autocomplete suggestions</li>
               <li>Press Enter or click to select a user</li>
-              <li>The mention will be inserted in @[DisplayName](pubkey) format</li>
-              <li>When the message is sent, p tags are automatically added for mentioned users</li>
+              <li>The mention appears as clean @[DisplayName] in the compose box</li>
+              <li>When sent, it's converted to @[DisplayName](pubkey) format with p tags</li>
+              <li>Click any @mention in messages to view that user's profile</li>
             </ol>
           </div>
 
@@ -105,7 +106,8 @@ export function UserMentionDemo() {
           <div>
             <h4 className="font-semibold mb-2">Mention Format</h4>
             <p className="text-sm text-muted-foreground">
-              User mentions are stored in the message content using the format: <code>@[DisplayName](pubkey)</code>
+              In the compose box, mentions appear as clean <code>@[DisplayName]</code> for better UX.
+              When sent, they're converted to <code>@[DisplayName](pubkey)</code> format for Nostr compatibility.
             </p>
           </div>
 
@@ -117,10 +119,10 @@ export function UserMentionDemo() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-2">Autocomplete Source</h4>
+            <h4 className="font-semibold mb-2">Interactive Features</h4>
             <p className="text-sm text-muted-foreground">
-              The autocomplete suggestions come from community members, including owners, moderators, and regular members.
-              Online status is indicated with a green dot.
+              Autocomplete suggestions come from community members with role indicators and online status.
+              Mentions in messages are clickable and open user profiles, just like clicking names in the sidebar.
             </p>
           </div>
         </CardContent>

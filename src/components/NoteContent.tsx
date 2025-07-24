@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { MediaAttachment } from '@/components/chat/MediaAttachment';
+import { UserProfileDialog } from '@/components/profile/UserProfileDialog';
 import { cn } from '@/lib/utils';
 
 interface NoteContentProps {
@@ -17,6 +18,8 @@ export function NoteContent({
   event,
   className,
 }: NoteContentProps) {
+  const [selectedUserPubkey, setSelectedUserPubkey] = useState<string | null>(null);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
   // Extract media attachments from imeta tags
   const mediaAttachments = useMemo(() => {
     return event.tags
@@ -94,7 +97,14 @@ export function NoteContent({
           if (decoded.type === 'npub') {
             const pubkey = decoded.data;
             parts.push(
-              <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
+              <NostrMention
+                key={`mention-${keyCounter++}`}
+                pubkey={pubkey}
+                onUserClick={(pubkey) => {
+                  setSelectedUserPubkey(pubkey);
+                  setShowProfileDialog(true);
+                }}
+              />
             );
           } else {
             // For other types, just show as a link
@@ -119,6 +129,10 @@ export function NoteContent({
             key={`user-mention-${keyCounter++}`}
             pubkey={mentionPubkey}
             displayName={mentionDisplayName}
+            onUserClick={(pubkey) => {
+              setSelectedUserPubkey(pubkey);
+              setShowProfileDialog(true);
+            }}
           />
         );
       } else if (hashtag) {
@@ -174,28 +188,47 @@ export function NoteContent({
           ))}
         </div>
       )}
+
+      {/* User Profile Dialog */}
+      <UserProfileDialog
+        pubkey={selectedUserPubkey}
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+      />
     </div>
   );
 }
 
 // Helper component to display user mentions
-function NostrMention({ pubkey, displayName: providedDisplayName }: { pubkey: string; displayName?: string }) {
+function NostrMention({
+  pubkey,
+  displayName: providedDisplayName,
+  onUserClick
+}: {
+  pubkey: string;
+  displayName?: string;
+  onUserClick?: (pubkey: string) => void;
+}) {
   const author = useAuthor(pubkey);
-  const npub = nip19.npubEncode(pubkey);
   const hasRealName = !!author.data?.metadata?.name;
   const displayName = providedDisplayName || author.data?.metadata?.name || genUserName(pubkey);
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onUserClick?.(pubkey);
+  };
+
   return (
-    <Link
-      to={`/${npub}`}
+    <button
+      onClick={handleClick}
       className={cn(
-        "font-medium hover:underline",
+        "font-medium hover:underline cursor-pointer",
         hasRealName || providedDisplayName
-          ? "text-blue-500"
-          : "text-gray-500 hover:text-gray-700"
+          ? "text-blue-500 hover:text-blue-600"
+          : "text-gray-500 hover:text-gray-600"
       )}
     >
       @{displayName}
-    </Link>
+    </button>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { TestApp } from '@/test/TestApp';
 import { NoteContent } from './NoteContent';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -118,15 +119,42 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    const aliceLink = screen.getByRole('link', { name: '@Alice' });
-    const bobLink = screen.getByRole('link', { name: '@Bob' });
+    const aliceButton = screen.getByRole('button', { name: '@Alice' });
+    const bobButton = screen.getByRole('button', { name: '@Bob' });
 
-    expect(aliceLink).toBeInTheDocument();
-    expect(bobLink).toBeInTheDocument();
+    expect(aliceButton).toBeInTheDocument();
+    expect(bobButton).toBeInTheDocument();
 
-    // Check that the links point to npub addresses
-    expect(aliceLink.getAttribute('href')).toMatch(/^\/npub1/);
-    expect(bobLink.getAttribute('href')).toMatch(/^\/npub1/);
+    // Check that the buttons are clickable
+    expect(aliceButton).toHaveClass('cursor-pointer');
+    expect(bobButton).toHaveClass('cursor-pointer');
+  });
+
+  it('opens profile dialog when mention is clicked', async () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Hello @[Alice](1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef)!',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    const aliceButton = screen.getByRole('button', { name: '@Alice' });
+
+    // Click the mention
+    await userEvent.click(aliceButton);
+
+    // Check that the profile dialog appears (it should contain the user's name or npub)
+    // Note: The dialog content might take time to load, so we check for the dialog structure
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('generates deterministic names for users without metadata and styles them differently', () => {
@@ -148,7 +176,7 @@ describe('NoteContent', () => {
     );
 
     // The mention should be rendered with a deterministic name
-    const mention = screen.getByRole('link');
+    const mention = screen.getByRole('button');
     expect(mention).toBeInTheDocument();
 
     // Should have muted styling for generated names (gray instead of blue)
