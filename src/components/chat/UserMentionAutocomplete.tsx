@@ -50,8 +50,8 @@ function UserMentionItem({ user, onSelect, isSelected }: {
       className={cn(
         "flex items-center gap-3 px-3 py-2 cursor-pointer rounded-sm transition-colors",
         isSelected
-          ? "bg-blue-100 dark:bg-blue-900/50"
-          : "hover:bg-gray-100 dark:hover:bg-gray-700"
+          ? "bg-blue-600/30"
+          : "hover:bg-gray-700"
       )}
     >
       <div className="relative">
@@ -68,7 +68,7 @@ function UserMentionItem({ user, onSelect, isSelected }: {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{displayName}</span>
+          <span className="font-medium text-sm truncate text-gray-100">{displayName}</span>
           {user.role && (
             <span className={cn("text-xs font-medium", roleColor)}>
               {user.role}
@@ -76,7 +76,7 @@ function UserMentionItem({ user, onSelect, isSelected }: {
           )}
         </div>
         {username !== displayName && (
-          <div className="text-xs text-muted-foreground truncate">@{username}</div>
+          <div className="text-xs text-gray-400 truncate">@{username}</div>
         )}
       </div>
     </div>
@@ -181,14 +181,14 @@ export function UserMentionAutocomplete({
 
   return (
     <div className="absolute bottom-full left-0 mb-2 w-80 z-50">
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-64 overflow-y-auto">
+      <div className="bg-gray-800 border border-gray-600 rounded-md shadow-lg max-h-64 overflow-y-auto">
         {mentionableUsers.length === 0 ? (
-          <div className="py-4 text-center text-sm text-gray-500">
+          <div className="py-4 text-center text-sm text-gray-400">
             {query ? `No members found matching "${query}"` : "No community members found"}
           </div>
         ) : (
           <div className="p-2">
-            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2 py-1 mb-1">
+            <div className="text-xs font-medium text-gray-400 px-2 py-1 mb-1">
               Community Members
             </div>
             {mentionableUsers.map((user, index) => (
