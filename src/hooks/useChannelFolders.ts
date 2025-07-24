@@ -53,8 +53,19 @@ function parseChannelFolderEvent(event: NostrEvent, communityId: string): Channe
     content = { name, position: 0 };
   }
 
+  // Extract folder ID by removing the communityId prefix from the d tag
+  // d tag format: "${communityId}:${folderId}"
+  let folderId = d;
+  if (d.startsWith(communityId + ':')) {
+    folderId = d.substring(communityId.length + 1);
+  } else {
+    // Fallback: take the last part after splitting by ':'
+    const parts = d.split(':');
+    folderId = parts[parts.length - 1] || name;
+  }
+
   return {
-    id: d.split(':')[1] || name,
+    id: folderId,
     name: content.name || name,
     description: content.description || description,
     position: content.position || 0,
@@ -144,16 +155,16 @@ export function useUpdateChannelFolder(communityId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      folderId, 
-      name, 
-      description, 
-      position 
-    }: { 
-      folderId: string; 
-      name: string; 
-      description?: string; 
-      position: number; 
+    mutationFn: async ({
+      folderId,
+      name,
+      description,
+      position
+    }: {
+      folderId: string;
+      name: string;
+      description?: string;
+      position: number;
     }) => {
       if (!user || !canModerate) {
         throw new Error('Only moderators and admins can update channel folders');
