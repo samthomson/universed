@@ -131,7 +131,8 @@ export function useChannelPermissions(communityId: string | null, channelId: str
       }
     },
     enabled: !!communityId && !!channelId,
-    staleTime: 1000 * 30, // 30 seconds - shorter for security
+    staleTime: 1000 * 5, // 5 seconds - shorter for security and faster updates
+    refetchInterval: 1000 * 30, // Refetch every 30 seconds to catch permission changes
   });
 }
 
@@ -200,6 +201,8 @@ export function useUpdateChannelPermissions(communityId: string, channelId: stri
       queryClient.invalidateQueries({ queryKey: ['channel-permissions', communityId, channelId] });
       queryClient.invalidateQueries({ queryKey: ['messages', communityId, channelId] });
       queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
+      // Also invalidate the specific channel permission check for all channels
+      queryClient.invalidateQueries({ queryKey: ['channel-permissions'] });
     },
   });
 }

@@ -25,6 +25,7 @@ import { useChannelFolders } from '@/hooks/useChannelFolders';
 import { useChannelPermissions, useUpdateChannelPermissions } from '@/hooks/useChannelPermissions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { DeletionConfirmDialog } from '@/components/moderation/DeletionConfirmDialog';
+import { nip19 } from 'nostr-tools';
 import type { Channel } from '@/hooks/useChannels';
 
 interface ChannelSettingsDialogProps {
@@ -189,7 +190,35 @@ export function ChannelSettingsDialog({
   const addUserToList = (list: string[], setList: (list: string[]) => void) => {
     if (!newUserPubkey.trim()) return;
 
-    const pubkey = newUserPubkey.trim();
+    let pubkey = newUserPubkey.trim();
+
+    // Try to decode if it's an npub
+    if (pubkey.startsWith('npub1')) {
+      try {
+        const decoded = nip19.decode(pubkey);
+        if (decoded.type === 'npub') {
+          pubkey = decoded.data;
+        }
+      } catch {
+        toast({
+          title: "Invalid public key",
+          description: "Please enter a valid npub or hex public key.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Check if it's a valid hex pubkey (64 characters)
+    if (!/^[0-9a-f]{64}$/i.test(pubkey)) {
+      toast({
+        title: "Invalid public key",
+        description: "Please enter a valid npub or hex public key.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!list.includes(pubkey)) {
       setList([...list, pubkey]);
     }
