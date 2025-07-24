@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2, Upload, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -24,6 +25,9 @@ import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { useModerationLogs, useModerationStats } from "@/hooks/useModerationLogs";
 import { useReports } from "@/hooks/useReporting";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useUploadFile } from "@/hooks/useUploadFile";
+import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
 import { CommunityShareDialog } from "./CommunityShareDialog";
 
@@ -37,6 +41,18 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("overview");
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    image: "",
+  });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
+  const { mutateAsync: createEvent } = useNostrPublish();
+  const { toast } = useToast();
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
@@ -47,9 +63,136 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   const community = communities?.find(c => c.id === communityId);
 
+  // Initialize form data when community changes
+  useEffect(() => {
+    if (community) {
+      setFormData({
+        name: community.name,
+        description: community.description || "",
+        image: community.image || "",
+      });
+    }
+  }, [community]);
+
   if (!community) {
     return null;
   }
+
+  // Handle image file selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "Error",
+          description: "Image must be smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Error",
+          description: "Please select an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview("");
+    setFormData(prev => ({ ...prev, image: "" }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (!user || !community) return;
+
+    try {
+      let imageUrl = formData.image;
+
+      // Upload image if a file is selected
+      if (imageFile) {
+        try {
+          const [[_, url]] = await uploadFile(imageFile);
+          imageUrl = url;
+        } catch (error) {
+          console.error("Failed to upload image:", error);
+          toast({
+            title: "Error",
+            description: "Failed to upload community icon",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Get the d tag from the original event
+      const dTag = community.event.tags.find(([name]) => name === 'd')?.[1] || '';
+
+      const tags = [
+        ["d", dTag],
+        ["name", formData.name.trim()],
+      ];
+
+      if (formData.description.trim()) {
+        tags.push(["description", formData.description.trim()]);
+      }
+
+      if (imageUrl) {
+        tags.push(["image", imageUrl]);
+      }
+
+      // Preserve existing moderators
+      community.moderators.forEach(moderatorPubkey => {
+        tags.push(["p", moderatorPubkey, "", "moderator"]);
+      });
+
+      // Add creator as moderator if not already included
+      if (!community.moderators.includes(community.creator)) {
+        tags.push(["p", community.creator, "", "moderator"]);
+      }
+
+      await createEvent({
+        kind: 34550,
+        content: "",
+        tags,
+      });
+
+      toast({
+        title: "Success",
+        description: "Community settings updated successfully!",
+      });
+
+      // Reset image upload state
+      setImageFile(null);
+      setImagePreview("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
+    } catch (error) {
+      console.error("Failed to update community:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update community settings",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Check if user is admin/mod
   const isAdmin = user?.pubkey === community.creator;
@@ -125,15 +268,68 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
+                    <Label htmlFor="community-icon">Community Icon</Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="w-16 h-16">
+                        <AvatarImage src={imagePreview || formData.image || community.image} />
+                        <AvatarFallback className="text-lg">
+                          {community.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploading || !isAdmin}
+                          className="flex items-center gap-2"
+                        >
+                          <Upload className="w-4 h-4" />
+                          {isUploading ? "Uploading..." : "Upload Icon"}
+                        </Button>
+                        {(imagePreview || formData.image || community.image) && isAdmin && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={removeImage}
+                            className="flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Remove
+                          </Button>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageSelect}
+                          className="hidden"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a square image (recommended: 256x256px, max 5MB). Only admins can change the community icon.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="community-name">Community Name</Label>
-                    <Input id="community-name" defaultValue={community.name} />
+                    <Input
+                      id="community-name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      disabled={!isAdmin}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="community-description">Description</Label>
                     <Textarea
                       id="community-description"
                       placeholder="Describe your community..."
-                      defaultValue={community.description || ""}
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      disabled={!isAdmin}
                     />
                   </div>
                   <div className="flex items-center space-x-2">
@@ -410,9 +606,11 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button>
-              Save Changes
-            </Button>
+            {isAdmin && (
+              <Button onClick={handleSaveChanges} disabled={isUploading}>
+                {isUploading ? "Uploading..." : "Save Changes"}
+              </Button>
+            )}
           </div>
         </Tabs>
       </DialogContent>
