@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNow } from "date-fns";
@@ -11,6 +12,7 @@ interface DMConversationListProps {
   selectedConversation: string | null;
   onSelectConversation: (conversationId: string) => void;
   searchQuery: string;
+  isLoading?: boolean;
 }
 
 interface ConversationItemProps {
@@ -79,12 +81,40 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
   );
 }
 
+function ConversationSkeleton() {
+  return (
+    <div className="w-full p-3">
+      <div className="flex items-center space-x-3">
+        <Skeleton className="w-10 h-10 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+          <Skeleton className="h-3 w-32" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DMConversationList({
   conversations,
   selectedConversation,
   onSelectConversation,
-  searchQuery
+  searchQuery,
+  isLoading = false
 }: DMConversationListProps) {
+  if (isLoading) {
+    return (
+      <div className="space-y-1 p-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <ConversationSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
+
   // Filter conversations based on search query
   const filteredConversations = conversations.filter(conversation => {
     if (!searchQuery) return true;

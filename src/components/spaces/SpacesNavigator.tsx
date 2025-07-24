@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SpaceManagementDialog } from './SpaceManagementDialog';
 import { useSpaces, type Space } from '@/hooks/useSpaces';
@@ -52,7 +53,7 @@ export function SpacesNavigator({
   selectedSpace,
   onSelectSpace
 }: SpacesNavigatorProps) {
-  const { data: spaces } = useSpaces(communityId);
+  const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
   const { canModerate } = useCanModerate(communityId);
   const [isOpen, setIsOpen] = useState(true);
   const [showManagement, setShowManagement] = useState(false);
@@ -60,6 +61,11 @@ export function SpacesNavigator({
   const getIconComponent = (iconName: string) => {
     return ICON_COMPONENTS[iconName as keyof typeof ICON_COMPONENTS] || Box;
   };
+
+  // Show loading skeleton while spaces are loading
+  if (isLoadingSpaces) {
+    return <SpacesNavigatorSkeleton />;
+  }
 
   if (!spaces || spaces.length === 0) {
     return null;
@@ -115,6 +121,32 @@ export function SpacesNavigator({
         open={showManagement}
         onOpenChange={setShowManagement}
       />
+    </div>
+  );
+}
+
+// Loading skeleton for SpacesNavigator
+function SpacesNavigatorSkeleton() {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between group">
+        <div className="flex-1 flex items-center p-1 h-auto">
+          <Skeleton className="w-3 h-3 mr-1" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="ml-2 h-4 w-4 rounded-full" />
+        </div>
+        <Skeleton className="w-6 h-6" />
+      </div>
+      <div className="space-y-0.5">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="ml-4">
+            <div className="flex items-center px-2 py-1 h-8">
+              <Skeleton className="w-4 h-4 mr-2" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

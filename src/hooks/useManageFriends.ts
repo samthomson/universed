@@ -53,21 +53,51 @@ export function useManageFriends() {
 
       return newFriend;
     },
-    onSuccess: (newFriend) => {
-      // Invalidate friends query to refetch
-      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
-      
-      toast({
-        title: 'Friend added',
-        description: `Added ${newFriend.petname || 'user'} to your friend list`,
+    onMutate: async ({ pubkey, relay, petname }) => {
+      if (!user?.pubkey) return;
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['friends', user.pubkey] });
+
+      // Snapshot the previous value
+      const previousFriends = queryClient.getQueryData<Friend[]>(['friends', user.pubkey]);
+
+      // Create new friend entry
+      const newFriend: Friend = {
+        pubkey,
+        relay: relay || '',
+        petname: petname || '',
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<Friend[]>(['friends', user.pubkey], old => {
+        return [...(old || []), newFriend];
       });
+
+      // Return a context object with the snapshotted value
+      return { previousFriends, newFriend };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousFriends && user?.pubkey) {
+        queryClient.setQueryData(['friends', user.pubkey], context.previousFriends);
+      }
+
       toast({
         title: 'Failed to add friend',
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSuccess: (newFriend) => {
+      toast({
+        title: 'Friend added',
+        description: `Added ${newFriend.petname || 'user'} to your friend list`,
+      });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
     },
   });
 
@@ -97,21 +127,44 @@ export function useManageFriends() {
 
       return pubkey;
     },
-    onSuccess: () => {
-      // Invalidate friends query to refetch
-      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
-      
-      toast({
-        title: 'Friend removed',
-        description: 'Removed user from your friend list',
+    onMutate: async (pubkey) => {
+      if (!user?.pubkey) return;
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['friends', user.pubkey] });
+
+      // Snapshot the previous value
+      const previousFriends = queryClient.getQueryData<Friend[]>(['friends', user.pubkey]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<Friend[]>(['friends', user.pubkey], old => {
+        return (old || []).filter(friend => friend.pubkey !== pubkey);
       });
+
+      // Return a context object with the snapshotted value
+      return { previousFriends };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousFriends && user?.pubkey) {
+        queryClient.setQueryData(['friends', user.pubkey], context.previousFriends);
+      }
+
       toast({
         title: 'Failed to remove friend',
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Friend removed',
+        description: 'Removed user from your friend list',
+      });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
     },
   });
 
@@ -145,21 +198,48 @@ export function useManageFriends() {
 
       return { pubkey, petname };
     },
-    onSuccess: () => {
-      // Invalidate friends query to refetch
-      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
-      
-      toast({
-        title: 'Petname updated',
-        description: 'Friend petname has been updated',
+    onMutate: async ({ pubkey, petname }) => {
+      if (!user?.pubkey) return;
+
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['friends', user.pubkey] });
+
+      // Snapshot the previous value
+      const previousFriends = queryClient.getQueryData<Friend[]>(['friends', user.pubkey]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<Friend[]>(['friends', user.pubkey], old => {
+        return (old || []).map(friend =>
+          friend.pubkey === pubkey
+            ? { ...friend, petname }
+            : friend
+        );
       });
+
+      // Return a context object with the snapshotted value
+      return { previousFriends };
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousFriends && user?.pubkey) {
+        queryClient.setQueryData(['friends', user.pubkey], context.previousFriends);
+      }
+
       toast({
         title: 'Failed to update petname',
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Petname updated',
+        description: 'Friend petname has been updated',
+      });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['friends', user?.pubkey] });
     },
   });
 

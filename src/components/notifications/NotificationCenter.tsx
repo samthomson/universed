@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useNotifications, useMarkNotificationsRead, useUnreadNotificationCount, useBrowserNotifications, type Notification } from '@/hooks/useNotifications';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -134,11 +135,29 @@ function NotificationSettings() {
   );
 }
 
+function NotificationSkeleton() {
+  return (
+    <div className="flex items-start space-x-3 p-3">
+      <Skeleton className="w-4 h-4 rounded-full mt-1" />
+      <div className="flex-1 space-y-2">
+        <div className="flex items-center space-x-2">
+          <Skeleton className="w-6 h-6 rounded-full" />
+          <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-4 w-full" />
+      </div>
+    </div>
+  );
+}
+
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const { data: notifications = [] } = useNotifications();
+  const { data: notifications = [], isLoading } = useNotifications();
   const unreadCount = useUnreadNotificationCount();
   const { mutate: markAsRead } = useMarkNotificationsRead();
 
@@ -214,7 +233,16 @@ export function NotificationCenter() {
 
             {/* Notifications List */}
             <ScrollArea className="h-96">
-              {notifications.length > 0 ? (
+              {isLoading ? (
+                <div>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i}>
+                      <NotificationSkeleton />
+                      {i < 4 && <Separator />}
+                    </div>
+                  ))}
+                </div>
+              ) : notifications.length > 0 ? (
                 <div>
                   {notifications.map((notification, index) => (
                     <div key={notification.id}>

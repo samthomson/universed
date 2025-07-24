@@ -23,7 +23,7 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
-  const { data: conversations } = useDirectMessages();
+  const { data: conversations, isLoading } = useDirectMessages();
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -92,6 +92,7 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
                   selectedConversation={selectedConversation}
                   onSelectConversation={setSelectedConversation}
                   searchQuery={searchQuery}
+                  isLoading={isLoading}
                 />
               </ScrollArea>
             </div>

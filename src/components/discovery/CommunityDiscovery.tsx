@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useUserMembership } from "@/hooks/useUserMembership";
 import { useJoinCommunity } from "@/hooks/useJoinCommunity";
@@ -270,20 +271,29 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="animate-pulse bg-gray-800/60 border-gray-700">
+            <Card key={i} className="bg-gray-800/60 border-gray-700">
               <CardHeader>
                 <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-gray-600 rounded-2xl" />
+                  <Skeleton className="w-12 h-12 rounded-2xl" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-5 bg-gray-600 rounded w-3/4" />
-                    <div className="h-4 bg-gray-600 rounded w-1/2" />
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-600 rounded w-full" />
-                  <div className="h-4 bg-gray-600 rounded w-2/3" />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <Skeleton className="h-5 w-16" />
+                  </div>
                 </div>
               </CardContent>
             </Card>

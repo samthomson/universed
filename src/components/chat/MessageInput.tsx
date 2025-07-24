@@ -10,8 +10,9 @@ import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useTypingManager } from "@/hooks/useTypingIndicator";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import type { NostrEvent } from "@nostrify/nostrify";
 
 interface MessageInputProps {
   communityId: string;
@@ -29,7 +30,6 @@ interface AttachedFile {
 
 export function MessageInput({ communityId, channelId, placeholder }: MessageInputProps) {
   const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -41,76 +41,125 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const queryClient = useQueryClient();
   const { startTyping, stopTyping } = useTypingManager(channelId);
 
-  const handleSubmit = async () => {
-    if (!user || (!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
-
-    setIsSubmitting(true);
-    stopTyping();
-
-    try {
-      const [kind, pubkey, identifier] = communityId.split(':');
-
-      if (!kind || !pubkey || !identifier) {
-        throw new Error('Invalid community ID');
-      }
-
-      const tags = [
-        ["t", channelId],
-        ["a", `${kind}:${pubkey}:${identifier}`],
-      ];
-
-      // Add imeta tags for attached files
-      attachedFiles.forEach(file => {
-        const imetaTag = ["imeta"];
-        imetaTag.push(`url ${file.url}`);
-        if (file.mimeType) imetaTag.push(`m ${file.mimeType}`);
-        if (file.size) imetaTag.push(`size ${file.size}`);
-        if (file.name) imetaTag.push(`alt ${file.name}`);
-
-        // Add any additional tags from the upload response
-        file.tags.forEach(tag => {
-          if (tag[0] === 'x') imetaTag.push(`x ${tag[1]}`); // hash
-          if (tag[0] === 'ox') imetaTag.push(`ox ${tag[1]}`); // original hash
-        });
-
-        tags.push(imetaTag);
-      });
-
-      // Process shortcodes before sending
-      let content = message.trim();
-      if (content) {
-        content = replaceShortcodes(content);
-      }
-
-      // Add file URLs to content if there are attachments
-      if (attachedFiles.length > 0) {
-        const fileUrls = attachedFiles.map(file => file.url).join('\n');
-        content = content ? `${content}\n\n${fileUrls}` : fileUrls;
-      }
-
-      await createEvent({
+  // Optimistic message sending mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content, tags }: { content: string; tags: string[][] }) => {
+      const event = await createEvent({
         kind: 9411,
         content,
         tags,
       });
+      return event;
+    },
+    onMutate: async ({ content, tags }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', communityId, channelId] });
 
-      setMessage("");
-      setAttachedFiles([]);
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData<NostrEvent[]>(['messages', communityId, channelId]);
 
-      queryClient.invalidateQueries({
-        queryKey: ['messages', communityId, channelId]
+      // Create optimistic message
+      const optimisticMessage: NostrEvent = {
+        id: `optimistic-${Date.now()}`,
+        pubkey: user!.pubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 9411,
+        tags,
+        content,
+        sig: '', // Will be filled by the actual event
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<NostrEvent[]>(['messages', communityId, channelId], old => {
+        return [...(old || []), optimisticMessage];
       });
 
-    } catch (error) {
-      console.error("Failed to send message:", error);
+      // Return a context object with the snapshotted value
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', communityId, channelId], context.previousMessages);
+      }
+
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
+    },
+    onSuccess: (data, variables, context) => {
+      // Replace optimistic message with real one
+      queryClient.setQueryData<NostrEvent[]>(['messages', communityId, channelId], old => {
+        if (!old) return [data];
+        return old.map(msg =>
+          msg.id === context?.optimisticMessage.id ? data : msg
+        );
+      });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['messages', communityId, channelId] });
+    },
+  });
+
+  const handleSubmit = async () => {
+    if (!user || (!message.trim() && attachedFiles.length === 0) || sendMessageMutation.isPending) return;
+
+    stopTyping();
+
+    const [kind, pubkey, identifier] = communityId.split(':');
+
+    if (!kind || !pubkey || !identifier) {
+      toast({
+        title: "Error",
+        description: "Invalid community ID",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const tags = [
+      ["t", channelId],
+      ["a", `${kind}:${pubkey}:${identifier}`],
+    ];
+
+    // Add imeta tags for attached files
+    attachedFiles.forEach(file => {
+      const imetaTag = ["imeta"];
+      imetaTag.push(`url ${file.url}`);
+      if (file.mimeType) imetaTag.push(`m ${file.mimeType}`);
+      if (file.size) imetaTag.push(`size ${file.size}`);
+      if (file.name) imetaTag.push(`alt ${file.name}`);
+
+      // Add any additional tags from the upload response
+      file.tags.forEach(tag => {
+        if (tag[0] === 'x') imetaTag.push(`x ${tag[1]}`); // hash
+        if (tag[0] === 'ox') imetaTag.push(`ox ${tag[1]}`); // original hash
+      });
+
+      tags.push(imetaTag);
+    });
+
+    // Process shortcodes before sending
+    let content = message.trim();
+    if (content) {
+      content = replaceShortcodes(content);
+    }
+
+    // Add file URLs to content if there are attachments
+    if (attachedFiles.length > 0) {
+      const fileUrls = attachedFiles.map(file => file.url).join('\n');
+      content = content ? `${content}\n\n${fileUrls}` : fileUrls;
+    }
+
+    // Clear input immediately for better UX
+    setMessage("");
+    setAttachedFiles([]);
+
+    // Send message with optimistic update
+    sendMessageMutation.mutate({ content, tags });
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -124,7 +173,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     setMessage(value);
     adjustTextareaHeight();
 
-    if (value.trim() && !isSubmitting) {
+    if (value.trim() && !sendMessageMutation.isPending) {
       startTyping();
     } else {
       stopTyping();
@@ -213,7 +262,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             onBlur={stopTyping}
             placeholder={placeholder || "Type a message..."}
             className={`${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'} max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors ${isMobile ? 'text-base' : ''}`}
-            disabled={isSubmitting}
+            disabled={sendMessageMutation.isPending}
           />
         </div>
 
@@ -246,7 +295,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
           {(message.trim() || attachedFiles.length > 0) && (
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={sendMessageMutation.isPending}
               size="icon"
               className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} bg-indigo-600 hover:bg-indigo-700 text-white mobile-touch`}
             >

@@ -9,6 +9,8 @@ import { replaceShortcodes } from "@/lib/emoji";
 import { useSendDM } from "@/hooks/useSendDM";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import type { NostrEvent } from "@nostrify/nostrify";
 
 interface DMMessageInputProps {
   conversationId: string; // The other person's pubkey
@@ -24,7 +26,6 @@ interface AttachedFile {
 
 export function DMMessageInput({ conversationId }: DMMessageInputProps) {
   const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -32,44 +33,93 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
   const { user } = useCurrentUser();
   const { mutateAsync: sendDM } = useSendDM();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const handleSubmit = async () => {
-    if (!user || (!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
-
-    setIsSubmitting(true);
-
-    try {
-      // Process shortcodes before sending
-      let processedContent = message.trim();
-      if (processedContent) {
-        processedContent = replaceShortcodes(processedContent);
-      }
-
-      await sendDM({
+  // Optimistic DM sending mutation
+  const sendDMMutation = useMutation({
+    mutationFn: async ({ content, attachments }: { content: string; attachments: AttachedFile[] }) => {
+      return await sendDM({
         recipientPubkey: conversationId,
-        content: processedContent,
-        attachments: attachedFiles,
+        content,
+        attachments,
+      });
+    },
+    onMutate: async ({ content }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['dm-messages', conversationId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData<NostrEvent[]>(['dm-messages', conversationId]);
+
+      // Create optimistic message
+      const optimisticMessage: NostrEvent = {
+        id: `optimistic-dm-${Date.now()}`,
+        pubkey: user!.pubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1059, // Encrypted DM kind
+        tags: [['p', conversationId]],
+        content: content, // This would be encrypted in reality
+        sig: '',
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<NostrEvent[]>(['dm-messages', conversationId], old => {
+        return [...(old || []), optimisticMessage];
       });
 
-      // Clear the input
-      setMessage("");
-      setAttachedFiles([]);
-
-      // Reset textarea height
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
+      // Return a context object with the snapshotted value
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['dm-messages', conversationId], context.previousMessages);
       }
 
-    } catch (error) {
-      console.error("Failed to send DM:", error);
+      console.error("Failed to send DM:", err);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
+    },
+    onSuccess: (data, variables, context) => {
+      // Replace optimistic message with real one
+      if (context?.optimisticMessage) {
+        queryClient.setQueryData<NostrEvent[]>(['dm-messages', conversationId], old => {
+          if (!old) return [data];
+          return old.map(msg =>
+            msg.id === context.optimisticMessage.id ? data : msg
+          );
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['dm-messages', conversationId] });
+    },
+  });
+
+  const handleSubmit = async () => {
+    if (!user || (!message.trim() && attachedFiles.length === 0) || sendDMMutation.isPending) return;
+
+    // Process shortcodes before sending
+    let processedContent = message.trim();
+    if (processedContent) {
+      processedContent = replaceShortcodes(processedContent);
     }
+
+    // Clear the input immediately for better UX
+    setMessage("");
+    setAttachedFiles([]);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    // Send DM with optimistic update
+    sendDMMutation.mutate({ content: processedContent, attachments: attachedFiles });
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -167,7 +217,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
-            disabled={isSubmitting}
+            disabled={sendDMMutation.isPending}
           />
         </div>
 
@@ -199,7 +249,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
           {(message.trim() || attachedFiles.length > 0) && (
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={sendDMMutation.isPending}
               size="icon"
               className="w-8 h-8 bg-indigo-600 hover:bg-indigo-700 text-white"
             >

@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
+import type { Report } from './useReporting';
 
 export interface BanUserParams {
   communityId: string;
@@ -163,7 +164,24 @@ export function useModerationActions() {
         );
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ communityId }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['reports', communityId] });
+
+      // Snapshot the previous value
+      const previousReports = queryClient.getQueryData<Report[]>(['reports', communityId]);
+
+      // Return a context object with the snapshotted value
+      return { previousReports };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousReports) {
+        queryClient.setQueryData(['reports', variables.communityId], context.previousReports);
+      }
+    },
+    onSettled: (_, __, { communityId }) => {
+      queryClient.invalidateQueries({ queryKey: ['reports', communityId] });
       queryClient.invalidateQueries({ queryKey: ['community-posts'] });
       queryClient.invalidateQueries({ queryKey: ['moderation-logs'] });
     },
@@ -197,7 +215,24 @@ export function useModerationActions() {
         );
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ communityId }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['reports', communityId] });
+
+      // Snapshot the previous value
+      const previousReports = queryClient.getQueryData<Report[]>(['reports', communityId]);
+
+      // Return a context object with the snapshotted value
+      return { previousReports };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousReports) {
+        queryClient.setQueryData(['reports', variables.communityId], context.previousReports);
+      }
+    },
+    onSettled: (_, __, { communityId }) => {
+      queryClient.invalidateQueries({ queryKey: ['reports', communityId] });
       queryClient.invalidateQueries({ queryKey: ['community-posts'] });
       queryClient.invalidateQueries({ queryKey: ['post-approvals'] });
     },

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import type { Community } from "@/hooks/useCommunities";
 
 interface CreateCommunityDialogProps {
   open: boolean;
@@ -20,29 +21,15 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
     description: "",
     identifier: "",
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || isSubmitting) return;
-
-    if (!formData.name.trim() || !formData.identifier.trim()) {
-      toast({
-        title: "Error",
-        description: "Name and identifier are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
+  // Optimistic community creation mutation
+  const createCommunityMutation = useMutation({
+    mutationFn: async () => {
       const tags = [
         ["d", formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")],
         ["name", formData.name.trim()],
@@ -53,14 +40,64 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
       }
 
       // Add creator as moderator
-      tags.push(["p", user.pubkey, "", "moderator"]);
+      tags.push(["p", user!.pubkey, "", "moderator"]);
 
-      await createEvent({
+      const event = await createEvent({
         kind: 34550,
         content: "",
         tags,
       });
 
+      return event;
+    },
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['communities'] });
+
+      // Snapshot the previous value
+      const previousCommunities = queryClient.getQueryData<Community[]>(['communities']);
+
+      // Create optimistic community
+      const optimisticCommunity: Community = {
+        id: `34550:${user!.pubkey}:${formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        creator: user!.pubkey,
+        moderators: [],
+        relays: [],
+        event: {
+          id: `optimistic-community-${Date.now()}`,
+          pubkey: user!.pubkey,
+          created_at: Math.floor(Date.now() / 1000),
+          kind: 34550,
+          tags: [],
+          content: "",
+          sig: "",
+        },
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<Community[]>(['communities'], old => {
+        return [...(old || []), optimisticCommunity];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousCommunities, optimisticCommunity };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousCommunities) {
+        queryClient.setQueryData(['communities'], context.previousCommunities);
+      }
+
+      console.error("Failed to create community:", err);
+      toast({
+        title: "Error",
+        description: "Failed to create community. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Community created successfully!",
@@ -69,19 +106,27 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
       // Reset form
       setFormData({ name: "", description: "", identifier: "" });
       onOpenChange(false);
-
-      // Refresh communities list
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: ['communities'] });
-    } catch (error) {
-      console.error("Failed to create community:", error);
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || createCommunityMutation.isPending) return;
+
+    if (!formData.name.trim() || !formData.identifier.trim()) {
       toast({
         title: "Error",
-        description: "Failed to create community. Please try again.",
+        description: "Name and identifier are required",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
+
+    createCommunityMutation.mutate();
   };
 
   return (
@@ -90,7 +135,7 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
         <DialogHeader>
           <DialogTitle>Create a Community</DialogTitle>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Community Name</Label>
@@ -131,16 +176,16 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
           </div>
 
           <div className="flex justify-end space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
+              disabled={createCommunityMutation.isPending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Community"}
+            <Button type="submit" disabled={createCommunityMutation.isPending}>
+              {createCommunityMutation.isPending ? "Creating..." : "Create Community"}
             </Button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import { Pin, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { NoteContent } from "@/components/NoteContent";
 import { usePinnedMessageEvents } from "@/hooks/usePinnedMessages";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -27,9 +28,10 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs }: Pinn
     return (
       <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50">
         <div className="px-4 py-2">
-          <div className="flex items-center space-x-2 text-xs text-gray-400">
-            <Pin className="w-3 h-3" />
-            <span>Loading pinned messages...</span>
+          <div className="flex items-center space-x-2">
+            <Pin className="w-3 h-3 text-yellow-500" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-48" />
           </div>
         </div>
       </div>

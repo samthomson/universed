@@ -1,6 +1,7 @@
 import { Settings, MoreHorizontal, FolderPlus, Users, Crown, Shield, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
@@ -63,11 +64,11 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
               {isLoadingUserCommunities ? (
                 // Loading skeleton
                 Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="w-full flex flex-col items-center p-3 rounded-lg bg-gray-700/50 animate-pulse overflow-hidden">
-                    <div className="w-12 h-12 bg-gray-600 rounded-lg mb-3" />
+                  <div key={i} className="w-full flex flex-col items-center p-3 rounded-lg bg-gray-700/50 overflow-hidden">
+                    <Skeleton className="w-12 h-12 rounded-lg mb-3" />
                     <div className="w-full text-center space-y-2">
-                      <div className="h-4 bg-gray-600 rounded w-3/4 mx-auto" />
-                      <div className="h-3 bg-gray-600 rounded w-1/2 mx-auto" />
+                      <Skeleton className="h-4 w-3/4 mx-auto" />
+                      <Skeleton className="h-3 w-1/2 mx-auto" />
                     </div>
                   </div>
                 ))
@@ -166,12 +167,12 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 border-b border-gray-600">
-          <div className="h-6 bg-gray-600 rounded animate-pulse" />
+          <Skeleton className="h-6 w-full" />
         </div>
         <div className="flex-1 p-4">
           <div className="space-y-2">
-            <div className="h-4 bg-gray-600 rounded animate-pulse" />
-            <div className="h-4 bg-gray-600 rounded animate-pulse w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
           </div>
         </div>
       </div>

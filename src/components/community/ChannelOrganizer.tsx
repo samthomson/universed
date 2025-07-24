@@ -34,6 +34,7 @@ import {
   ContextMenuLabel
 } from "@/components/ui/context-menu";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CreateChannelDialog } from "./CreateChannelDialog";
 import { FolderManagementDialog } from "./FolderManagementDialog";
 import { useChannels, type Channel } from "@/hooks/useChannels";
@@ -56,8 +57,8 @@ export function ChannelOrganizer({
   canModerate,
   onChannelCreated,
 }: ChannelOrganizerProps) {
-  const { data: channels } = useChannels(communityId);
-  const { data: folders } = useChannelFolders(communityId);
+  const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
+  const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
@@ -94,6 +95,11 @@ export function ChannelOrganizer({
     const channelLink = `${window.location.origin}/communities/${communityId}/channels/${channel.id}`;
     navigator.clipboard.writeText(channelLink);
   };
+
+  // Show loading skeleton while data is loading
+  if (isLoadingChannels || isLoadingFolders) {
+    return <ChannelOrganizerSkeleton />;
+  }
 
   return (
     <div className="space-y-1">
@@ -174,6 +180,76 @@ export function ChannelOrganizer({
         open={showFolderManagement}
         onOpenChange={setShowFolderManagement}
       />
+    </div>
+  );
+}
+
+// Loading skeleton for ChannelOrganizer
+function ChannelOrganizerSkeleton() {
+  return (
+    <div className="space-y-1">
+      {/* Folders skeleton */}
+      <div className="space-y-1">
+        <div className="flex items-center group">
+          <div className="flex-1 flex items-center p-1 h-auto">
+            <Skeleton className="w-3 h-3 mr-1" />
+            <Skeleton className="w-4 h-4 mr-1" />
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="ml-2 h-4 w-6 rounded-full" />
+          </div>
+        </div>
+        {/* Folder channels skeleton */}
+        <div className="space-y-0.5 ml-2 border-l border-gray-600/40 pl-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="ml-1">
+              <div className="flex items-center px-2 py-1 h-8">
+                <Skeleton className="w-4 h-4 mr-2" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Text Channels skeleton */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between group">
+          <div className="flex-1 flex items-center p-1 h-auto">
+            <Skeleton className="w-3 h-3 mr-1" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <div className="space-y-0.5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="ml-4">
+              <div className="flex items-center px-2 py-1 h-8">
+                <Skeleton className="w-4 h-4 mr-2" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Voice Channels skeleton */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between group">
+          <div className="flex-1 flex items-center p-1 h-auto">
+            <Skeleton className="w-3 h-3 mr-1" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        </div>
+        <div className="space-y-0.5">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="ml-4">
+              <div className="flex items-center px-2 py-1 h-8">
+                <Skeleton className="w-4 h-4 mr-2" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

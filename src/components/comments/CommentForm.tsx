@@ -10,6 +10,7 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { NostrEvent } from '@nostrify/nostrify';
 import { MessageSquare, Send, Plus } from 'lucide-react';
 
+
 interface CommentFormProps {
   root: NostrEvent | URL;
   reply?: NostrEvent | URL;

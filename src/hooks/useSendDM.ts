@@ -77,7 +77,7 @@ export function useSendDM() {
         tags.push(imetaTag);
       });
 
-      await createEvent({
+      const event = await createEvent({
         kind,
         content: encryptedContent,
         tags,
@@ -90,6 +90,8 @@ export function useSendDM() {
       queryClient.invalidateQueries({
         queryKey: ['dm-messages', user.pubkey, recipientPubkey]
       });
+
+      return event;
     },
     onError: (error) => {
       console.error('Failed to send DM:', error);
