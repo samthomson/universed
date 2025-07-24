@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, UserPlus, MoreHorizontal, Calendar, Link as LinkIcon } from "lucide-react";
+import { MessageCircle, UserPlus, MoreHorizontal, Calendar, Link as LinkIcon, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { nip19 } from "nostr-tools";
 import { MessageItem } from "@/components/chat/MessageItem";
 import { NewDMDialog } from "@/components/dm/NewDMDialog";
+import { toast } from "sonner";
 
 interface UserProfileProps {
   pubkey: string;
@@ -20,6 +21,7 @@ interface UserProfileProps {
 
 export function UserProfile({ pubkey }: UserProfileProps) {
   const [showNewDM, setShowNewDM] = useState(false);
+  const [copied, setCopied] = useState(false);
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey);
   const metadata = author.data?.metadata;
@@ -38,6 +40,17 @@ export function UserProfile({ pubkey }: UserProfileProps) {
 
   const handleStartDM = () => {
     setShowNewDM(true);
+  };
+
+  const handleCopyNpub = async () => {
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopied(true);
+      toast.success("Copied npub to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy npub");
+    }
   };
 
   return (
@@ -90,7 +103,22 @@ export function UserProfile({ pubkey }: UserProfileProps) {
           <div className="space-y-4">
             <div>
               <h1 className="text-2xl font-bold text-white">{displayName}</h1>
-              <p className="text-gray-400">@{npub.slice(0, 16)}...</p>
+              <div className="flex items-center space-x-2 mt-1">
+                <p className="text-gray-400">@{npub.slice(0, 16)}...</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopyNpub}
+                  className="h-7 w-7 hover:bg-gray-700"
+                  title="Copy npub"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-gray-400" />
+                  )}
+                </Button>
+              </div>
               {nip05 && (
                 <Badge variant="secondary" className="mt-2">
                   ✓ {nip05}
