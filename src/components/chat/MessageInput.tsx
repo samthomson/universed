@@ -1,5 +1,5 @@
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
-import { Send, Plus, Smile, Gift } from "lucide-react";
+import { Send, Plus, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
@@ -267,16 +267,6 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
         </div>
 
         <div className={`flex items-center ${isMobile ? 'space-x-1' : 'space-x-1'} flex-shrink-0`}>
-          {!isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-8 h-8 text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"
-            >
-              <Gift className="w-5 h-5" />
-            </Button>
-          )}
-
           <EmojiPickerComponent
             onEmojiSelect={handleEmojiSelect}
             trigger={
