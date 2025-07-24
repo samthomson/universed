@@ -35,7 +35,6 @@ import {
   ContextMenuTrigger,
   ContextMenuLabel
 } from "@/components/ui/context-menu";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateChannelDialog } from "./CreateChannelDialog";
 import { FolderManagementDialog } from "./FolderManagementDialog";
@@ -313,11 +312,6 @@ function FolderSection({
                     <Folder className={`w-4 h-4 mr-1 transition-colors duration-150 ${isOpen ? 'text-gray-300' : 'text-gray-400'}`} />
                     <span className="tracking-wide">{folder.name.toUpperCase()}</span>
                   </div>
-                  {allChannels.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 text-xs px-1 py-0">
-                      {allChannels.length}
-                    </Badge>
-                  )}
                 </Button>
               </CollapsibleTrigger>
 

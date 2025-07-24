@@ -18,7 +18,6 @@ import {
   Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { SpaceManagementDialog } from './SpaceManagementDialog';
@@ -82,11 +81,6 @@ export function SpacesNavigator({
             >
               <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
               <span className="tracking-wide">SPACES</span>
-              {spaces.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs px-1 py-0">
-                  {spaces.length}
-                </Badge>
-              )}
             </Button>
           </CollapsibleTrigger>
 
@@ -133,7 +127,6 @@ function SpacesNavigatorSkeleton() {
         <div className="flex-1 flex items-center p-1 h-auto">
           <Skeleton className="w-3 h-3 mr-1" />
           <Skeleton className="h-3 w-16" />
-          <Skeleton className="ml-2 h-4 w-4 rounded-full" />
         </div>
         <Skeleton className="w-6 h-6" />
       </div>
