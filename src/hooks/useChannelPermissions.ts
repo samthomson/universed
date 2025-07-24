@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
+import { useCommunityMembers } from './useCommunityMembers';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export interface ChannelPermissions {
@@ -24,7 +25,7 @@ export interface ChannelPermissionsContent {
 }
 
 function validateChannelPermissionsEvent(event: NostrEvent): boolean {
-  if (event.kind !== 39923) return false;
+  if (event.kind !== 30143) return false;
 
   const d = event.tags.find(([name]) => name === 'd')?.[1];
   const channelRef = event.tags.find(([name]) => name === 'channel')?.[1];
@@ -100,9 +101,8 @@ export function useChannelPermissions(communityId: string | null, channelId: str
       try {
         const events = await nostr.query([
           {
-            kinds: [39923], // Channel permissions events
+            kinds: [30143], // Channel permissions events
             '#d': [`${communityId}:${channelId}`],
-            '#channel': [channelId],
             limit: 1,
           }
         ], { signal });
@@ -131,7 +131,7 @@ export function useChannelPermissions(communityId: string | null, channelId: str
       }
     },
     enabled: !!communityId && !!channelId,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 30, // 30 seconds - shorter for security
   });
 }
 
@@ -187,7 +187,7 @@ export function useUpdateChannelPermissions(communityId: string, channelId: stri
       });
 
       await createEvent({
-        kind: 39923,
+        kind: 30143,
         content: JSON.stringify({
           readPermissions,
           writePermissions,
@@ -196,18 +196,47 @@ export function useUpdateChannelPermissions(communityId: string, channelId: stri
       });
     },
     onSuccess: () => {
+      // Invalidate all related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['channel-permissions', communityId, channelId] });
+      queryClient.invalidateQueries({ queryKey: ['messages', communityId, channelId] });
+      queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
     },
   });
 }
 
 export function useCanAccessChannel(communityId: string, channelId: string, accessType: 'read' | 'write') {
   const { user } = useCurrentUser();
-  const { data: permissions } = useChannelPermissions(communityId, channelId);
+  const { data: permissions, isLoading: permissionsLoading } = useChannelPermissions(communityId, channelId);
   const { canModerate } = useCanModerate(communityId);
+  const { data: members, isLoading: membersLoading } = useCommunityMembers(communityId);
 
-  if (!permissions || !user) {
-    return { canAccess: false, reason: 'No permissions or user not logged in' };
+  // If user is not logged in, deny access
+  if (!user) {
+    return { canAccess: false, reason: 'User not logged in' };
+  }
+
+  // If permissions are still loading, deny access temporarily (security-first approach)
+  if (permissionsLoading) {
+    return { canAccess: false, reason: 'Loading permissions...' };
+  }
+
+  // If no permissions found, use default permissions
+  if (!permissions) {
+    if (accessType === 'read') {
+      // Default: everyone can read
+      return { canAccess: true, reason: 'Default read access for everyone' };
+    } else {
+      // Default: only members can write
+      if (membersLoading) {
+        return { canAccess: false, reason: 'Loading member list...' };
+      }
+
+      const isMember = canModerate || (members && members.some(member => member.pubkey === user.pubkey));
+      return {
+        canAccess: !!isMember,
+        reason: isMember ? 'Default write access for members' : 'Default: only members can write'
+      };
+    }
   }
 
   const userPubkey = user.pubkey;
@@ -229,9 +258,19 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
     case 'everyone':
       return { canAccess: true, reason: 'Channel allows everyone' };
 
-    case 'members':
-      // TODO: Check if user is a community member
-      return { canAccess: true, reason: 'User is a community member' };
+    case 'members': {
+      // If members are still loading, deny access temporarily
+      if (membersLoading) {
+        return { canAccess: false, reason: 'Loading member list...' };
+      }
+
+      // Check if user is a community member
+      const isMember = members?.some(member => member.pubkey === userPubkey);
+      return {
+        canAccess: !!isMember,
+        reason: isMember ? 'User is a community member' : 'Only community members can access this channel'
+      };
+    }
 
     case 'moderators':
       return {

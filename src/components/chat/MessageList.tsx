@@ -6,6 +6,8 @@ import { useMessages } from "@/hooks/useMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
+import { Lock } from "lucide-react";
 
 interface MessageListProps {
   communityId: string;
@@ -17,6 +19,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
   const isMobile = useIsMobile();
   const { data: messages, isLoading } = useMessages(communityId, channelId);
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
+  const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +36,25 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [regularMessages]);
+
+  // If user doesn't have read access, show access denied message
+  if (!canRead) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <ScrollArea className="flex-1 px-4">
+          <div className="flex flex-col items-center justify-center h-full text-center py-16">
+            <Lock className="w-16 h-16 text-gray-500 mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Private Channel
+            </h3>
+            <p className="text-gray-400 max-w-md">
+              {reason || "You don't have permission to view this channel"}
+            </p>
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

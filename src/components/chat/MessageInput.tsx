@@ -14,6 +14,7 @@ import { useTypingManager } from "@/hooks/useTypingIndicator";
 import { useUserMentions } from "@/hooks/useUserMentions";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface MessageInputProps {
@@ -42,6 +43,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { startTyping, stopTyping } = useTypingManager(channelId);
+  const { canAccess: canWrite, reason } = useCanAccessChannel(communityId, channelId, 'write');
 
   // User mentions functionality
   const {
@@ -117,6 +119,16 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
 
   const handleSubmit = async () => {
     if (!user || (!message.trim() && attachedFiles.length === 0) || sendMessageMutation.isPending) return;
+
+    // Check write permissions
+    if (!canWrite) {
+      toast({
+        title: "Cannot send message",
+        description: reason || "You don't have permission to write in this channel",
+        variant: "destructive",
+      });
+      return;
+    }
 
     stopTyping();
 
@@ -254,6 +266,21 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
       stopTyping();
     };
   }, [channelId, stopTyping]);
+
+  // If user doesn't have write access, show a disabled state
+  if (!canWrite) {
+    return (
+      <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'} opacity-60`}>
+        <div className="flex items-center justify-center py-4">
+          <div className="text-center">
+            <p className="text-gray-400 text-sm">
+              {reason || "You don't have permission to write in this channel"}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'}`}>

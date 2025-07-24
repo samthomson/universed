@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/useToast';
 import { useCommunities } from '@/hooks/useCommunities';
 import { useUserMembership } from '@/hooks/useUserMembership';
 import { useChannelFolders } from '@/hooks/useChannelFolders';
+import { Switch } from '@/components/ui/switch';
 
 interface CreateChannelDialogProps {
   communityId: string;
@@ -43,6 +44,7 @@ export function CreateChannelDialog({
   const [type, setType] = useState<'text' | 'voice'>(defaultType);
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || 'none');
   const [position, setPosition] = useState(0);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useCurrentUser();
@@ -139,6 +141,26 @@ export function CreateChannelDialog({
         tags,
       });
 
+      // Create default permissions if channel is private
+      if (isPrivate) {
+        const permissionTags = [
+          ['d', `${communityId}:${channelName}`],
+          ['a', communityId],
+          ['channel', channelName],
+          ['t', 'channel-permissions'],
+          ['alt', `Channel permissions for ${channelName}`],
+        ];
+
+        await createEvent({
+          kind: 30143, // Channel permissions event
+          content: JSON.stringify({
+            readPermissions: 'members',
+            writePermissions: 'members',
+          }),
+          tags: permissionTags,
+        });
+      }
+
       toast({
         title: "Channel created",
         description: `#${channelName} has been created successfully.`,
@@ -150,6 +172,7 @@ export function CreateChannelDialog({
       setType(defaultType);
       setSelectedFolderId(initialFolderId || 'none');
       setPosition(0);
+      setIsPrivate(false);
       setOpen(false);
 
       // Notify parent component
@@ -275,6 +298,22 @@ export function CreateChannelDialog({
               Lower numbers appear first in the channel list.
             </p>
           </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="private-channel"
+              checked={isPrivate}
+              onCheckedChange={setIsPrivate}
+            />
+            <Label htmlFor="private-channel" className="text-sm font-medium">
+              Private Channel
+            </Label>
+          </div>
+          {isPrivate && (
+            <p className="text-xs text-muted-foreground">
+              Only community members will be able to see and write in this channel.
+            </p>
+          )}
 
           <DialogFooter>
             <Button

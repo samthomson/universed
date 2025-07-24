@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Hash,
   Volume2,
@@ -39,6 +39,7 @@ import { CreateChannelDialog } from "./CreateChannelDialog";
 import { FolderManagementDialog } from "./FolderManagementDialog";
 import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
+import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 
 interface ChannelOrganizerProps {
   communityId: string;
@@ -64,13 +65,21 @@ export function ChannelOrganizer({
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [folderStates, setFolderStates] = useState<Record<string, boolean>>({});
 
+  // Filter channels to only show those the user can access
+  const visibleChannels = useMemo(() => {
+    if (!channels) return [];
+    // We'll filter channels in the ChannelItem component to avoid too many permission checks
+    // For now, return all channels but they'll be hidden if no access
+    return channels;
+  }, [channels]);
+
   // Group channels by folder and type
-  const channelsWithoutFolder = channels?.filter(c => !c.folderId) || [];
+  const channelsWithoutFolder = visibleChannels?.filter(c => !c.folderId) || [];
   const textChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'text');
   const voiceChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'voice');
 
   const channelsByFolder = folders?.reduce((acc, folder) => {
-    const folderChannels = channels?.filter(c => c.folderId === folder.id) || [];
+    const folderChannels = visibleChannels?.filter(c => c.folderId === folder.id) || [];
     acc[folder.id] = {
       folder,
       textChannels: folderChannels.filter(c => c.type === 'text'),
@@ -134,7 +143,7 @@ export function ChannelOrganizer({
           defaultChannelType="text"
         >
           {textChannelsWithoutFolder.map((channel) => (
-            <ChannelItem
+            <ChannelItemWithPermissionCheck
               key={channel.id}
               channel={channel}
               isSelected={selectedChannel === channel.id}
@@ -142,6 +151,7 @@ export function ChannelOrganizer({
               onSettings={() => onChannelSettings(channel)}
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
+              communityId={communityId}
             />
           ))}
         </CategorySection>
@@ -159,7 +169,7 @@ export function ChannelOrganizer({
           defaultChannelType="voice"
         >
           {voiceChannelsWithoutFolder.map((channel) => (
-            <ChannelItem
+            <ChannelItemWithPermissionCheck
               key={channel.id}
               channel={channel}
               isSelected={selectedChannel === channel.id}
@@ -167,6 +177,7 @@ export function ChannelOrganizer({
               onSettings={() => onChannelSettings(channel)}
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
+              communityId={communityId}
             />
           ))}
         </CategorySection>
@@ -351,7 +362,7 @@ function FolderSection({
 
             <CollapsibleContent className="space-y-0.5 ml-2 border-l border-gray-600/40 pl-2">
               {allChannels.map((channel) => (
-                <ChannelItem
+                <ChannelItemWithPermissionCheck
                   key={channel.id}
                   channel={channel}
                   isSelected={selectedChannel === channel.id}
@@ -360,6 +371,7 @@ function FolderSection({
                   onCopyLink={() => onCopyChannelLink(channel)}
                   canModerate={canModerate}
                   inFolder={true}
+                  communityId={communityId}
                 />
               ))}
             </CollapsibleContent>
@@ -446,6 +458,27 @@ function CategorySection({
   );
 }
 
+// Wrapper component that checks permissions before rendering
+function ChannelItemWithPermissionCheck(props: {
+  channel: Channel;
+  isSelected: boolean;
+  onSelect: () => void;
+  onSettings: () => void;
+  onCopyLink: () => void;
+  canModerate: boolean;
+  inFolder?: boolean;
+  communityId: string;
+}) {
+  const { canAccess } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
+
+  // If user can't access the channel and is not a moderator, don't show it
+  if (!canAccess && !props.canModerate) {
+    return null;
+  }
+
+  return <ChannelItem {...props} hasAccess={canAccess} />;
+}
+
 // Enhanced Channel Item with Discord-like styling and context menu
 function ChannelItem({
   channel,
@@ -454,7 +487,9 @@ function ChannelItem({
   onSettings,
   onCopyLink,
   canModerate,
-  inFolder = false
+  inFolder = false,
+  communityId,
+  hasAccess = true
 }: {
   channel: Channel;
   isSelected: boolean;
@@ -463,7 +498,10 @@ function ChannelItem({
   onCopyLink: () => void;
   canModerate: boolean;
   inFolder?: boolean;
+  communityId?: string;
+  hasAccess?: boolean;
 }) {
+  const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
   const getChannelIcon = () => {
     if (channel.type === 'voice') {
       return <Volume2 className="w-4 h-4 mr-2 text-gray-400" />;
@@ -482,7 +520,31 @@ function ChannelItem({
   };
 
   const hasNotifications = Math.random() > 0.7; // Demo notification state
-  const isPrivate = channel.name.toLowerCase().includes('private') || channel.name.toLowerCase().includes('admin');
+
+  // Get privacy level for icon display
+  const getPrivacyIcon = () => {
+    // If user doesn't have access, always show a lock
+    if (!hasAccess) {
+      return <Lock className="w-3 h-3 text-red-400" />;
+    }
+
+    if (!permissions) return null;
+
+    // Show lock icon based on most restrictive permission
+    if (permissions.readPermissions === 'moderators' || permissions.writePermissions === 'moderators') {
+      return <Lock className="w-3 h-3 text-yellow-500" />;
+    }
+
+    if (permissions.readPermissions === 'specific' || permissions.writePermissions === 'specific') {
+      return <Lock className="w-3 h-3 text-red-500" />;
+    }
+
+    if (permissions.readPermissions === 'members' || permissions.writePermissions === 'members') {
+      return <Lock className="w-3 h-3 text-blue-500" />;
+    }
+
+    return null;
+  };
 
   return (
     <div className={`group ${inFolder ? 'ml-0' : 'ml-4'}`}>
@@ -496,18 +558,22 @@ function ChannelItem({
                 flex-1 justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative
                 ${isSelected
                   ? 'bg-gray-600/60 text-white shadow-sm'
-                  : 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
+                  : hasAccess
+                    ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
+                    : 'text-gray-500 hover:text-gray-400 hover:bg-gray-600/30 opacity-75'
                 }
                 ${inFolder ? 'ml-1' : ''}
               `}
               onClick={onSelect}
             >
               {getChannelIcon()}
-              <span className="text-sm font-medium truncate">{channel.name}</span>
+              <span className={`text-sm font-medium truncate ${!hasAccess ? 'italic' : ''}`}>
+                {channel.name}
+              </span>
 
               {/* Discord-like channel indicators */}
               <div className="ml-auto flex items-center space-x-1">
-                {isPrivate && <Lock className="w-3 h-3 text-gray-500" />}
+                {getPrivacyIcon()}
                 {channel.type === 'voice' && (
                   <div className="flex items-center text-xs text-gray-500">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>

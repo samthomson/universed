@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useCanAccessChannel } from './useChannelPermissions';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
@@ -38,10 +39,16 @@ function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boo
 
 export function useMessages(communityId: string, channelId: string) {
   const { nostr } = useNostr();
+  const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
 
   return useQuery({
     queryKey: ['messages', communityId, channelId],
     queryFn: async (c) => {
+      // Check if user has read access to this channel
+      if (!canRead) {
+        console.log(`Access denied for channel ${channelId}: ${reason}`);
+        return [];
+      }
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       // Parse community ID to get the components
@@ -91,7 +98,7 @@ export function useMessages(communityId: string, channelId: string) {
       // Sort by created_at (oldest first)
       return validEvents.sort((a, b) => a.created_at - b.created_at);
     },
-    enabled: !!communityId && !!channelId,
+    enabled: !!communityId && !!channelId && canRead,
     staleTime: 45 * 1000, // 45 seconds - Increased for better caching
     refetchInterval: 20 * 1000, // 20 seconds - Reduced frequency to balance real-time vs performance
   });
