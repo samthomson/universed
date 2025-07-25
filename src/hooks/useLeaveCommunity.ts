@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useUserCommunitiesCache } from './useUserCommunitiesCache';
 
 export interface LeaveCommunityParams {
   communityId: string;
@@ -10,13 +9,12 @@ export interface LeaveCommunityParams {
 
 /**
  * Hook for requesting to leave a community.
- * Creates a Kind 4553 leave request event and optimistically updates the cache.
+ * Creates a Kind 4553 leave request event.
  */
 export function useLeaveCommunity() {
   const { mutate: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
-  const { removeCommunityFromCache, invalidateUserCommunitiesCache } = useUserCommunitiesCache();
 
   return useMutation({
     mutationFn: async ({ communityId, message = '' }: LeaveCommunityParams) => {
@@ -38,21 +36,10 @@ export function useLeaveCommunity() {
         );
       });
     },
-    onMutate: async ({ communityId }) => {
-      // Optimistically remove the community from cache immediately
-      removeCommunityFromCache(communityId);
-    },
     onSuccess: () => {
       // Invalidate membership queries to refetch updated status
       queryClient.invalidateQueries({ queryKey: ['user-membership'] });
       queryClient.invalidateQueries({ queryKey: ['communities'] });
-
-      // Invalidate user communities cache to trigger background refresh
-      invalidateUserCommunitiesCache();
-    },
-    onError: (_error, { communityId: _communityId }) => {
-      // On error, invalidate the cache to restore the correct state
-      invalidateUserCommunitiesCache();
     },
   });
 }

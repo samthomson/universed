@@ -12,7 +12,6 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Upload, X } from "lucide-react";
 import type { Community } from "@/hooks/useCommunities";
-import { useUserCommunitiesCache } from "@/hooks/useUserCommunitiesCache";
 
 interface CreateCommunityDialogProps {
   open: boolean;
@@ -35,7 +34,6 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { addCommunityToCache } = useUserCommunitiesCache();
 
   // Handle image file selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,16 +162,11 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
         variant: "destructive",
       });
     },
-    onSuccess: (event, variables, context) => {
+    onSuccess: () => {
       toast({
         title: "Success",
         description: "Community created successfully!",
       });
-
-      // Add the created community to the user's cache as owner
-      if (context?.optimisticCommunity) {
-        addCommunityToCache(context.optimisticCommunity, 'owner');
-      }
 
       // Reset form
       setFormData({ name: "", description: "", identifier: "", image: "" });
@@ -187,7 +180,6 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
     onSettled: () => {
       // Always refetch after error or success
       queryClient.invalidateQueries({ queryKey: ['communities'] });
-      queryClient.invalidateQueries({ queryKey: ['user-communities'] });
     },
   });
 
