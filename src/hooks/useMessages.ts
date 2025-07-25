@@ -32,11 +32,12 @@ function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boo
   // Accept kind 9411 (channel chat messages) and kind 1 (legacy)
   if (![1, 9411].includes(event.kind)) return false;
 
-  // Exclude replies from the main chat feed
-  // Replies are events that have 'e' tags referencing other events
+  // AGGRESSIVE FILTERING: Exclude ALL events with e-tags from main chat feed
+  // This ensures thread replies never appear as top-level messages
+  // Any event with e-tags (replies, mentions, etc.) is filtered out of the main feed
   const eTags = event.tags.filter(([name]) => name === 'e');
   if (eTags.length > 0) {
-    return false; // This is a reply, don't show in main chat
+    return false; // Any event with e-tags is filtered out
   }
 
   // For kind 9411, we MUST have the correct channel tag

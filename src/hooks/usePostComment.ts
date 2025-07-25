@@ -47,40 +47,28 @@ export function usePostComment() {
         tags.push(['P', root.pubkey]);
       }
 
-      // Reply event tags
-      if (reply) {
-        if (reply instanceof URL) {
-          tags.push(['i', reply.toString()]);
-        } else if (NKinds.addressable(reply.kind)) {
-          tags.push(['a', `${reply.kind}:${reply.pubkey}:${dReply}`]);
-        } else if (NKinds.replaceable(reply.kind)) {
-          tags.push(['a', `${reply.kind}:${reply.pubkey}:`]);
-        } else {
-          tags.push(['e', reply.id]);
-        }
-        if (reply instanceof URL) {
-          tags.push(['k', reply.hostname]);
-        } else {
-          tags.push(['k', reply.kind.toString()]);
-          tags.push(['p', reply.pubkey]);
-        }
+      // Parent event tags (for replies, this is the reply target; for top-level comments, this is the root)
+      const parent = reply || root;
+      const dParent = reply ? dReply : dRoot;
+
+      if (parent instanceof URL) {
+        tags.push(['i', parent.toString()]);
+      } else if (NKinds.addressable(parent.kind)) {
+        tags.push(['a', `${parent.kind}:${parent.pubkey}:${dParent}`]);
+        // When the parent event is addressable, also include an 'e' tag referencing its id
+        tags.push(['e', parent.id]);
+      } else if (NKinds.replaceable(parent.kind)) {
+        tags.push(['a', `${parent.kind}:${parent.pubkey}:`]);
+        // When the parent event is replaceable, also include an 'e' tag referencing its id
+        tags.push(['e', parent.id]);
       } else {
-        // If this is a top-level comment, use the root event's tags
-        if (root instanceof URL) {
-          tags.push(['i', root.toString()]);
-        } else if (NKinds.addressable(root.kind)) {
-          tags.push(['a', `${root.kind}:${root.pubkey}:${dRoot}`]);
-        } else if (NKinds.replaceable(root.kind)) {
-          tags.push(['a', `${root.kind}:${root.pubkey}:`]);
-        } else {
-          tags.push(['e', root.id]);
-        }
-        if (root instanceof URL) {
-          tags.push(['k', root.hostname]);
-        } else {
-          tags.push(['k', root.kind.toString()]);
-          tags.push(['p', root.pubkey]);
-        }
+        tags.push(['e', parent.id]);
+      }
+      if (parent instanceof URL) {
+        tags.push(['k', parent.hostname]);
+      } else {
+        tags.push(['k', parent.kind.toString()]);
+        tags.push(['p', parent.pubkey]);
       }
 
       // Add imeta tags for attached files
