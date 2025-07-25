@@ -539,7 +539,7 @@ function ChannelItem({
   // Stable icon rendering without dynamic checks
   const ChannelIcon = iconType === 'voice' ? Volume2 : Hash;
 
-  // Determine privacy icon - simplified for stability
+  // Determine privacy icon - only show for restricted channels
   const getPrivacyIcon = () => {
     // No access - always show lock
     if (!hasAccess) {
@@ -551,12 +551,18 @@ function ChannelItem({
       return <span className="w-3 h-3 block" />;
     }
 
-    // Private channel (any restriction)
-    if (permissions.readPermissions !== 'everyone' || permissions.writePermissions !== 'everyone') {
+    // Show lock only for channels restricted to moderators or specific people
+    const isRestricted =
+      permissions.readPermissions === 'moderators' ||
+      permissions.readPermissions === 'specific' ||
+      permissions.writePermissions === 'moderators' ||
+      permissions.writePermissions === 'specific';
+
+    if (isRestricted) {
       return <Lock className="w-3 h-3 text-gray-500 opacity-50" />;
     }
 
-    // Public channel - no icon needed, just empty space
+    // Public or member-accessible channel - no icon needed, just empty space
     return <span className="w-3 h-3 block" />;
   };
 
