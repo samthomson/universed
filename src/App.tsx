@@ -20,6 +20,7 @@ import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
+import { useEnableUserCommunitiesPreloader } from '@/hooks/useUserCommunitiesPreloader';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 
 
@@ -58,6 +59,17 @@ const queryClient = new QueryClient({
   },
 });
 
+// Configure specific caching behavior for user communities
+queryClient.setQueryDefaults(['user-communities'], {
+  staleTime: 10 * 60 * 1000, // 10 minutes - Communities don't change often
+  gcTime: 2 * 60 * 60 * 1000, // 2 hours - Keep user communities in memory longer
+  refetchOnMount: false, // Don't refetch on mount, rely on background updates
+  refetchOnWindowFocus: false, // Don't refetch on window focus
+  refetchOnReconnect: true, // Refetch when reconnecting to network
+  refetchInterval: 5 * 60 * 1000, // Background refresh every 5 minutes
+  placeholderData: (previousData) => previousData, // Always show cached data instantly
+});
+
 const defaultConfig: AppConfig = {
   theme: "dark",
   relayUrl: "wss://relay.chorus.community",
@@ -76,6 +88,7 @@ function AppContent() {
   const { config, updateConfig } = useAppContext();
 
   // Enable performance optimizations
+  useEnableUserCommunitiesPreloader(); // HIGHEST PRIORITY: Load user communities immediately
   useEnableSmartPrefetch();
   useEnableBackgroundLoading();
   useEnablePerformanceMonitoring();

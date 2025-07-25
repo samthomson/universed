@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
+import { useUserCommunitiesCache } from './useUserCommunitiesCache';
 
 export interface JoinCommunityParams {
   communityId: string;
@@ -9,12 +10,13 @@ export interface JoinCommunityParams {
 
 /**
  * Hook for requesting to join a community.
- * Creates a Kind 4552 join request event.
+ * Creates a Kind 4552 join request event and optimistically updates the cache.
  */
 export function useJoinCommunity() {
   const { mutate: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const { invalidateUserCommunitiesCache } = useUserCommunitiesCache();
 
   return useMutation({
     mutationFn: async ({ communityId, message = '' }: JoinCommunityParams) => {
@@ -40,6 +42,9 @@ export function useJoinCommunity() {
       // Invalidate membership queries to refetch updated status
       queryClient.invalidateQueries({ queryKey: ['user-membership'] });
       queryClient.invalidateQueries({ queryKey: ['communities'] });
+
+      // Invalidate user communities cache to trigger background refresh
+      invalidateUserCommunitiesCache();
     },
   });
 }
