@@ -8,11 +8,8 @@ import {
   FolderPlus,
   Plus,
   Lock,
-  Megaphone,
   Copy,
-  Trash2,
-  Users,
-  Globe
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -221,10 +218,13 @@ function ChannelOrganizerSkeleton() {
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="ml-1">
               <div className="flex items-center h-8 px-2">
-                <div className="w-5 flex items-center justify-center mr-1.5">
+                <div className="w-5 h-5 flex items-center justify-center mr-1.5 flex-shrink-0">
                   <Skeleton className="w-4 h-4" />
                 </div>
-                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-16 flex-1 min-w-0" />
+                <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+                  <Skeleton className="w-3 h-3 flex-shrink-0" />
+                </div>
               </div>
             </div>
           ))}
@@ -243,10 +243,13 @@ function ChannelOrganizerSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="ml-4">
               <div className="flex items-center h-8 px-2">
-                <div className="w-5 flex items-center justify-center mr-1.5">
+                <div className="w-5 h-5 flex items-center justify-center mr-1.5 flex-shrink-0">
                   <Skeleton className="w-4 h-4" />
                 </div>
-                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-20 flex-1 min-w-0" />
+                <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+                  <Skeleton className="w-3 h-3 flex-shrink-0" />
+                </div>
               </div>
             </div>
           ))}
@@ -265,10 +268,17 @@ function ChannelOrganizerSkeleton() {
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="ml-4">
               <div className="flex items-center h-8 px-2">
-                <div className="w-5 flex items-center justify-center mr-1.5">
+                <div className="w-5 h-5 flex items-center justify-center mr-1.5 flex-shrink-0">
                   <Skeleton className="w-4 h-4" />
                 </div>
-                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-24 flex-1 min-w-0" />
+                <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+                  <Skeleton className="w-3 h-3 flex-shrink-0" />
+                  <div className="flex items-center text-xs flex-shrink-0">
+                    <Skeleton className="w-2 h-2 rounded-full mr-1" />
+                    <Skeleton className="w-2 h-3" />
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -522,58 +532,32 @@ function ChannelItem({
   onChannelHoverEnd?: (communityId: string, channelId: string) => void;
 }) {
   const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
-  const getChannelIcon = () => {
-    if (channel.type === 'voice') {
-      return <Volume2 className="w-4 h-4 text-gray-400 flex-shrink-0" />;
-    }
 
-    // Special icons for certain channel names
-    if (channel.name.toLowerCase().includes('announcement') || channel.name.toLowerCase().includes('news')) {
-      return <Megaphone className="w-4 h-4 text-gray-400 flex-shrink-0" />;
-    }
+  // Determine icon type once based on channel properties
+  const iconType = channel.type === 'voice' ? 'voice' : 'text';
 
-    if (channel.name.toLowerCase().includes('rule') || channel.name.toLowerCase().includes('info')) {
-      return <Lock className="w-4 h-4 text-gray-400 flex-shrink-0" />;
-    }
+  // Stable icon rendering without dynamic checks
+  const ChannelIcon = iconType === 'voice' ? Volume2 : Hash;
 
-    return <Hash className="w-4 h-4 text-gray-500 flex-shrink-0" />;
-  };
-
-  const hasNotifications = Math.random() > 0.7; // Demo notification state
-
-  // Get privacy level for icon display
+  // Determine privacy icon - simplified for stability
   const getPrivacyIcon = () => {
-    // If user doesn't have access, always show a lock
+    // No access - always show lock
     if (!hasAccess) {
-      return <Lock className="w-3 h-3 text-red-400" />;
+      return <Lock className="w-3 h-3 text-gray-500 opacity-50" />;
     }
 
-    if (!permissions) return null;
-
-    // Special case: everyone can read, members can write - show users icon
-    if (permissions.readPermissions === 'everyone' && permissions.writePermissions === 'members') {
-      return <Users className="w-3 h-3 text-blue-500" />;
+    // No permissions data yet - return empty space to prevent layout shift
+    if (!permissions) {
+      return <span className="w-3 h-3 block" />;
     }
 
-    // Show lock icon based on most restrictive permission
-    if (permissions.readPermissions === 'moderators' || permissions.writePermissions === 'moderators') {
-      return <Lock className="w-3 h-3 text-yellow-500" />;
+    // Private channel (any restriction)
+    if (permissions.readPermissions !== 'everyone' || permissions.writePermissions !== 'everyone') {
+      return <Lock className="w-3 h-3 text-gray-500 opacity-50" />;
     }
 
-    if (permissions.readPermissions === 'specific' || permissions.writePermissions === 'specific') {
-      return <Lock className="w-3 h-3 text-red-500" />;
-    }
-
-    if (permissions.readPermissions === 'members' && permissions.writePermissions === 'members') {
-      return <Lock className="w-3 h-3 text-blue-500" />;
-    }
-
-    // If everyone can read and write, show globe icon
-    if (permissions.readPermissions === 'everyone' && permissions.writePermissions === 'everyone') {
-      return <Globe className="w-3 h-3 text-green-500" />;
-    }
-
-    return null;
+    // Public channel - no icon needed, just empty space
+    return <span className="w-3 h-3 block" />;
   };
 
   return (
@@ -581,7 +565,7 @@ function ChannelItem({
       <ContextMenu>
         <ContextMenuTrigger>
           <div
-            className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative"
+            className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative overflow-hidden"
             onMouseEnter={() => communityId && onChannelHover?.(communityId, channel.id)}
             onMouseLeave={() => communityId && onChannelHoverEnd?.(communityId, channel.id)}
           >
@@ -591,14 +575,14 @@ function ChannelItem({
             )}
 
             {/* Fixed width icon container */}
-            <div className="w-5 flex items-center justify-center mr-1.5">
-              {getChannelIcon()}
+            <div className="w-5 h-5 flex items-center justify-center mr-1.5 flex-shrink-0">
+              <ChannelIcon className="w-4 h-4 text-gray-400" />
             </div>
 
             {/* Channel name - clickable area */}
             <button
               className={`
-                flex-1 text-left text-sm font-medium truncate
+                flex-1 text-left text-sm font-medium truncate min-w-0
                 ${isSelected
                   ? 'text-white'
                   : hasAccess
@@ -611,17 +595,19 @@ function ChannelItem({
               {channel.name}
             </button>
 
-            {/* Right side indicators - fixed positioning */}
-            <div className="flex items-center gap-1.5 ml-2">
-              {getPrivacyIcon()}
+            {/* Right side indicators - fixed width container */}
+            <div className="flex items-center gap-1 ml-1 flex-shrink-0">
+              {/* Privacy icon slot - always reserve space */}
+              <div className="w-3 h-3 flex items-center justify-center flex-shrink-0">
+                {getPrivacyIcon()}
+              </div>
+
+              {/* Voice channel users - fixed width */}
               {channel.type === 'voice' && (
-                <div className="flex items-center text-xs text-gray-500">
+                <div className="flex items-center text-xs text-gray-500 flex-shrink-0">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                  <span>{Math.floor(Math.random() * 5)}</span>
+                  <span>0</span>
                 </div>
-              )}
-              {hasNotifications && (
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
               )}
             </div>
           </div>
