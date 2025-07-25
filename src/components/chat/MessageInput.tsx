@@ -84,6 +84,12 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
 
       // Optimistically update to the new value
       queryClient.setQueryData<NostrEvent[]>(['messages', communityId, channelId], old => {
+        // Don't add the optimistic message if it has e-tags (it's a reply)
+        const eTags = optimisticMessage.tags.filter(([name]) => name === 'e');
+        if (eTags.length > 0) {
+          console.warn('[MessageInput] Attempted to add reply to channel messages:', optimisticMessage);
+          return old || [];
+        }
         return [...(old || []), optimisticMessage];
       });
 

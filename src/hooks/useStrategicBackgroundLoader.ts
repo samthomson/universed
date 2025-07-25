@@ -176,28 +176,50 @@ export function useStrategicBackgroundLoader() {
         // Cache events
         cacheEvents(events);
 
-        // Filter and sort events
+        // Filter and sort events using the SAME validation as useMessages
+        // This ensures consistency across all message queries
         const validEvents = events.filter(event => {
-          // Filter out replies (events with e-tags)
-          const eTags = event.tags.filter(([name]) => name === 'e');
-          if (eTags.length > 0) return false;
+          // Import the validation logic inline to avoid circular dependencies
+          // Accept kind 9411 (channel chat messages) and kind 1 (legacy)
+          if (![1, 9411].includes(event.kind)) return false;
 
-          // Validate channel assignment
-          if (event.kind === 9411) {
-            const channelTag = event.tags.find(([name]) => name === 't')?.[1];
-            return channelTag === channelId;
+          // AGGRESSIVE FILTERING: Exclude ALL events with e-tags from main chat feed
+          const eTags = event.tags.filter(([name]) => name === 'e');
+          if (eTags.length > 0) {
+            return false; // Any event with e-tags is filtered out
           }
 
-          // For kind 1, only in general channel
-          return event.kind === 1 && channelId === 'general';
+          // For kind 9411, we MUST have the correct channel tag
+          if (event.kind === 9411) {
+            const eventChannelTag = event.tags.find(([name]) => name === 't')?.[1];
+            if (!eventChannelTag || eventChannelTag !== channelId) {
+              return false; // Message doesn't belong to this channel
+            }
+          }
+
+          // For kind 1 (legacy), only allow if it has the correct channel tag OR no channel tag at all
+          if (event.kind === 1) {
+            const eventChannelTag = event.tags.find(([name]) => name === 't')?.[1];
+            if (eventChannelTag && eventChannelTag !== channelId) {
+              return false; // Message has a different channel tag
+            }
+            // If no channel tag and we're in general channel, allow it (legacy support)
+            if (!eventChannelTag && channelId !== 'general') {
+              return false; // Untagged messages only go to general channel
+            }
+          }
+
+          return true;
         });
 
-        const sortedEvents = validEvents.sort((a, b) => a.created_at - b.created_at);
+        // CRITICAL FIX: DO NOT set message query data directly!
+        // The background loader should ONLY cache individual events.
+        // Let useMessages be the single source of truth for message queries.
+        // This prevents race conditions where the background loader overwrites
+        // properly filtered data from useMessages.
 
-        // Update query cache
-        queryClient.setQueryData(cacheKey, sortedEvents, {
-          updatedAt: Date.now(),
-        });
+        // Just mark the channel as loaded - don't update the query cache
+        console.log(`[StrategicBackgroundLoader] Cached ${validEvents.length} events for channel ${channelId}, but NOT updating message query cache`);
 
         // Mark channel as loaded
         stateRef.current.loadedChannels.set(`${communityId}:${channelId}`, Date.now());

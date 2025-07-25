@@ -115,11 +115,10 @@ export function useSmartPrefetch() {
             signal: AbortSignal.timeout(4000)
           });
 
-          // Cache the messages
+          // DO NOT set message query data directly!
+          // This can cause race conditions with useMessages.
+          // Just prefetch author profiles from the events.
           if (events.length > 0) {
-            const sortedEvents = events.sort((a, b) => a.created_at - b.created_at);
-            queryClient.setQueryData(['messages', communityId, 'general'], sortedEvents);
-
             // Extract and prefetch author profiles from messages
             const authorPubkeys = [...new Set(events.map(e => e.pubkey))];
             if (authorPubkeys.length > 0) {

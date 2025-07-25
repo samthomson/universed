@@ -48,14 +48,9 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
         ["p", rootMessage.pubkey], // Root author
       ];
 
-      // If this is a channel message, preserve channel context
-      if (rootMessage.kind === 9411) {
-        const channelTag = rootMessage.tags.find(([name]) => name === 't');
-        const communityTag = rootMessage.tags.find(([name]) => name === 'a');
-
-        if (channelTag) tags.push(["t", channelTag[1]]);
-        if (communityTag) tags.push(["a", communityTag[1]]);
-      }
+      // Thread replies should NOT include channel or community tags
+      // This prevents them from appearing in the main channel feed
+      // They are discovered through the e-tag reference to the root message
 
       // Add imeta tags for attached files
       attachedFiles.forEach(file => {
@@ -87,7 +82,7 @@ export function ThreadReplyInput({ rootMessage }: ThreadReplyInputProps) {
       }
 
       await createEvent({
-        kind: rootMessage.kind === 9411 ? 9411 : 1, // Match the root message kind
+        kind: 1, // Thread replies are always kind 1 to ensure compatibility
         content,
         tags,
       });

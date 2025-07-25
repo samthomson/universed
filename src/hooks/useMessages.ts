@@ -69,6 +69,9 @@ export function useMessages(communityId: string, channelId: string) {
   const { cacheEvents } = useEventCache();
   const { preloadRelatedEvents } = useOptimizedEventLoading();
 
+  // Debug logging
+  console.log(`[useMessages] Hook called for channel ${channelId}`);
+
   return useQuery({
     queryKey: ['messages', communityId, channelId],
     queryFn: async (c) => {
@@ -115,18 +118,34 @@ export function useMessages(communityId: string, channelId: string) {
       // Sort by created_at (oldest first)
       const sortedEvents = validEvents.sort((a, b) => a.created_at - b.created_at);
 
+      // NUCLEAR OPTION: Final safety check - one more time before returning
+      // This is paranoid but ensures NO replies ever get through
+      const absolutelyNoReplies = sortedEvents.filter(event => {
+        const eTags = event.tags.filter(([name]) => name === 'e');
+        if (eTags.length > 0) {
+          console.error('[useMessages] CRITICAL BUG: Reply survived all filters!', {
+            id: event.id,
+            content: event.content.substring(0, 50),
+            tags: event.tags
+          });
+          return false;
+        }
+        return true;
+      });
+
       // Preload related events (reactions, comments) in the background
-      if (sortedEvents.length > 0) {
-        preloadRelatedEvents(communityId, sortedEvents);
+      if (absolutelyNoReplies.length > 0) {
+        preloadRelatedEvents(communityId, absolutelyNoReplies);
       }
 
-      return sortedEvents;
+      console.log(`[useMessages] Returning ${absolutelyNoReplies.length} messages for channel ${channelId} (filtered ${sortedEvents.length - absolutelyNoReplies.length} replies)`);
+
+      return absolutelyNoReplies;
     },
     enabled: !!communityId && !!channelId && canRead,
     staleTime: 2 * 60 * 1000, // 2 minutes - Reasonable for chat
     gcTime: 10 * 60 * 1000, // 10 minutes - Keep in memory
     refetchInterval: false,
-    // Keep previous data while fetching new data
-    placeholderData: (previousData) => previousData,
+    // REMOVED placeholderData to prevent stale replies from persisting
   });
 }
