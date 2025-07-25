@@ -14,8 +14,7 @@ import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useChannelPreloader } from "@/hooks/useChannelPreloader";
-import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
+import { useHoverPreloader } from "@/hooks/useHoverPreloader";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -36,8 +35,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
-  const { startPreload: startChannelPreload, cancelPreload: cancelChannelPreload } = useChannelPreloader();
-  const { startPreload: startSpacesPreload, cancelPreload: cancelSpacesPreload } = useSpacesPreloader();
+  const { onCommunityHover, onCommunityHoverEnd } = useHoverPreloader();
   const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
@@ -81,14 +79,8 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                   <button
                     key={community.id}
                     onClick={() => onSelectCommunity?.(community.id)}
-                    onMouseEnter={() => {
-                      startChannelPreload(community.id);
-                      startSpacesPreload(community.id);
-                    }}
-                    onMouseLeave={() => {
-                      cancelChannelPreload(community.id);
-                      cancelSpacesPreload(community.id);
-                    }}
+                    onMouseEnter={() => onCommunityHover(community.id)}
+                    onMouseLeave={() => onCommunityHoverEnd(community.id)}
                     className="w-full flex flex-col p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button overflow-hidden"
                   >
                     {/* Icon/Avatar at the top */}

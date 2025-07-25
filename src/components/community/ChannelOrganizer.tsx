@@ -38,6 +38,8 @@ import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
 import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 
+import { useHoverPreloader } from "@/hooks/useHoverPreloader";
+
 interface ChannelOrganizerProps {
   communityId: string;
   selectedChannel: string | null;
@@ -57,6 +59,7 @@ export function ChannelOrganizer({
 }: ChannelOrganizerProps) {
   const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
   const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
+  const { onChannelHover, onChannelHoverEnd } = useHoverPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = (isLoadingChannels && !channels) || (isLoadingFolders && !folders);
@@ -128,6 +131,8 @@ export function ChannelOrganizer({
           canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
+          onChannelHover={onChannelHover}
+          onChannelHoverEnd={onChannelHoverEnd}
         />
       ))}
 
@@ -152,6 +157,8 @@ export function ChannelOrganizer({
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
               communityId={communityId}
+              onChannelHover={onChannelHover}
+              onChannelHoverEnd={onChannelHoverEnd}
             />
           ))}
         </CategorySection>
@@ -284,7 +291,9 @@ function FolderSection({
   onCopyChannelLink,
   canModerate,
   communityId,
-  onChannelCreated
+  onChannelCreated,
+  onChannelHover,
+  onChannelHoverEnd
 }: {
   folder: ChannelFolder;
   textChannels: Channel[];
@@ -298,6 +307,8 @@ function FolderSection({
   canModerate: boolean;
   communityId: string;
   onChannelCreated: () => void;
+  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelHoverEnd?: (communityId: string, channelId: string) => void;
 }) {
   const allChannels = [...textChannels, ...voiceChannels];
 
@@ -373,6 +384,8 @@ function FolderSection({
                   canModerate={canModerate}
                   inFolder={true}
                   communityId={communityId}
+                  onChannelHover={onChannelHover}
+                  onChannelHoverEnd={onChannelHoverEnd}
                 />
               ))}
             </CollapsibleContent>
@@ -469,6 +482,8 @@ function ChannelItemWithPermissionCheck(props: {
   canModerate: boolean;
   inFolder?: boolean;
   communityId: string;
+  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelHoverEnd?: (communityId: string, channelId: string) => void;
 }) {
   const { canAccess } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
 
@@ -490,7 +505,9 @@ function ChannelItem({
   canModerate,
   inFolder = false,
   communityId,
-  hasAccess = true
+  hasAccess = true,
+  onChannelHover,
+  onChannelHoverEnd
 }: {
   channel: Channel;
   isSelected: boolean;
@@ -501,6 +518,8 @@ function ChannelItem({
   inFolder?: boolean;
   communityId?: string;
   hasAccess?: boolean;
+  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelHoverEnd?: (communityId: string, channelId: string) => void;
 }) {
   const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
   const getChannelIcon = () => {
@@ -561,7 +580,11 @@ function ChannelItem({
     <div className={`${inFolder ? 'ml-1' : 'ml-4'}`}>
       <ContextMenu>
         <ContextMenuTrigger>
-          <div className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative">
+          <div
+            className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative"
+            onMouseEnter={() => communityId && onChannelHover?.(communityId, channel.id)}
+            onMouseLeave={() => communityId && onChannelHoverEnd?.(communityId, channel.id)}
+          >
             {/* Selected indicator */}
             {isSelected && (
               <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>

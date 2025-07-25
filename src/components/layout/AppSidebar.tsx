@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
-import { useCommunityPreloader } from "@/hooks/useCommunityPreloader";
+import { useHoverPreloader } from "@/hooks/useHoverPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { useState } from "react";
 
@@ -15,7 +15,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
   const { data: communities } = useUserCommunities();
-  const { startPreload, cancelPreload } = useCommunityPreloader();
+  const { onCommunityHover, onCommunityHoverEnd } = useHoverPreloader();
   const [showSelectionDialog, setShowSelectionDialog] = useState(false);
 
   return (
@@ -53,8 +53,8 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                 <TooltipTrigger asChild>
                   <div
                     className="relative"
-                    onMouseEnter={() => startPreload(community.id)}
-                    onMouseLeave={() => cancelPreload(community.id)}
+                    onMouseEnter={() => onCommunityHover(community.id)}
+                    onMouseLeave={() => onCommunityHoverEnd(community.id)}
                   >
                     <Button
                       variant="ghost"

@@ -23,6 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SpaceManagementDialog } from './SpaceManagementDialog';
 import { useSpaces, type Space } from '@/hooks/useSpaces';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { useHoverPreloader } from '@/hooks/useHoverPreloader';
 
 interface SpacesNavigatorProps {
   communityId: string;
@@ -53,6 +54,7 @@ export function SpacesNavigator({
   onSelectSpace
 }: SpacesNavigatorProps) {
   const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
+  const { onSpaceHover, onSpaceHoverEnd } = useHoverPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = isLoadingSpaces && !spaces;
@@ -107,6 +109,9 @@ export function SpacesNavigator({
               isSelected={selectedSpace === space.id}
               onSelect={() => onSelectSpace(space.id)}
               getIconComponent={getIconComponent}
+              communityId={communityId}
+              onSpaceHover={onSpaceHover}
+              onSpaceHoverEnd={onSpaceHoverEnd}
             />
           ))}
         </CollapsibleContent>
@@ -152,16 +157,26 @@ function SpaceItem({
   isSelected,
   onSelect,
   getIconComponent,
+  communityId,
+  onSpaceHover,
+  onSpaceHoverEnd,
 }: {
   space: Space;
   isSelected: boolean;
   onSelect: () => void;
   getIconComponent: (iconName: string) => React.ComponentType<{ className?: string }>;
+  communityId: string;
+  onSpaceHover?: (communityId: string, spaceId: string) => void;
+  onSpaceHoverEnd?: (communityId: string, spaceId: string) => void;
 }) {
   const IconComponent = getIconComponent(space.icon);
 
   return (
-    <div className="ml-4">
+    <div
+      className="ml-4"
+      onMouseEnter={() => onSpaceHover?.(communityId, space.id)}
+      onMouseLeave={() => onSpaceHoverEnd?.(communityId, space.id)}
+    >
       <Button
         variant="ghost"
         size="sm"

@@ -11,13 +11,14 @@ import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useEnableBackgroundLoading } from "@/hooks/useBackgroundLoader";
+import { useEnableStrategicBackgroundLoading } from "@/hooks/useStrategicBackgroundLoader";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
+import { useVisitHistory } from "@/hooks/useVisitHistory";
 
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -29,8 +30,8 @@ export function DiscordLayout() {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
 
-  // Enable background loading of community events
-  useEnableBackgroundLoading();
+  // Enable strategic background loading of community events
+  useEnableStrategicBackgroundLoading();
 
   // Enable performance monitoring
   useEnablePerformanceMonitoring();
@@ -38,6 +39,9 @@ export function DiscordLayout() {
   // Channel and spaces preloaders for immediate loading
   const { preloadImmediately: preloadChannelsImmediately } = useChannelPreloader();
   const { preloadImmediately: preloadSpacesImmediately } = useSpacesPreloader();
+
+  // Visit history tracking
+  const { recordCommunityVisit, recordChannelVisit } = useVisitHistory();
 
   // Mobile-specific state
   const isMobile = useIsMobile();
@@ -168,6 +172,12 @@ export function DiscordLayout() {
   const handleChannelSelect = (channelId: string) => {
     setSelectedChannel(channelId);
     setSelectedSpace(null);
+
+    // Record channel visit
+    if (selectedCommunity) {
+      recordChannelVisit(selectedCommunity, channelId);
+    }
+
     if (isMobile) {
       setMobileView('chat');
       setShowChannelSidebar(false);
@@ -189,8 +199,9 @@ export function DiscordLayout() {
     // Reset auto-selected flag when user manually selects a community
     setIsAutoSelected(false);
 
-    // Immediately preload channels and spaces for the selected community
+    // Record visit and immediately preload channels and spaces for the selected community
     if (communityId) {
+      recordCommunityVisit(communityId);
       preloadChannelsImmediately(communityId);
       preloadSpacesImmediately(communityId);
     }
