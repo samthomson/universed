@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { MoreHorizontal, Reply, Smile, Pin, PinOff, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ interface MessageItemProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function MessageItem({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
+function MessageItemComponent({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const isMobile = useIsMobile();
   const [isHovered, setIsHovered] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -437,3 +437,12 @@ export function MessageItem({ message, showAvatar, communityId, channelId, onNav
     </MessageContextMenu>
   );
 }
+
+export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.showAvatar === nextProps.showAvatar &&
+    prevProps.communityId === nextProps.communityId &&
+    prevProps.channelId === nextProps.channelId
+  );
+});

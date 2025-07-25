@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageItem } from "./MessageItem";
 import { PinnedMessages } from "./PinnedMessages";
@@ -24,6 +24,8 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isUserScrolling = useRef(false);
+  const lastMessageCount = useRef(0);
 
   // Get the channel name from the channels data
   const channel = channels?.find(c => c.id === channelId);
@@ -36,12 +38,39 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
     ) || [];
   }, [messages, pinnedMessageIds]);
 
+  // Smooth scroll to bottom function
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (bottomRef.current && !isUserScrolling.current) {
+      bottomRef.current.scrollIntoView({ behavior, block: "end" });
+    }
+  }, []);
+
+  // Handle scroll events to detect user scrolling
+  const handleScroll = useCallback(() => {
+    if (!scrollAreaRef.current) return;
+
+    const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+    if (!scrollContainer) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+    isUserScrolling.current = !isAtBottom;
+  }, []);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    // Only auto-scroll if there are new messages and user isn't scrolling
+    if (regularMessages.length > lastMessageCount.current && !isUserScrolling.current) {
+      scrollToBottom();
     }
-  }, [regularMessages]);
+    lastMessageCount.current = regularMessages.length;
+  }, [regularMessages, scrollToBottom]);
+
+  // Initial scroll to bottom
+  useEffect(() => {
+    scrollToBottom("instant");
+  }, [channelId, scrollToBottom]);
 
   // If user doesn't have read access, show access denied message
   if (!canRead) {
@@ -121,7 +150,11 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
         channelId={channelId}
         onNavigateToDMs={onNavigateToDMs}
       />
-      <ScrollArea className={`flex-1 ${isMobile ? 'px-3' : 'px-4'} ${isMobile ? 'mobile-scroll' : ''}`} ref={scrollAreaRef}>
+      <ScrollArea
+        className={`flex-1 ${isMobile ? 'px-3' : 'px-4'} channel-scroll`}
+        ref={scrollAreaRef}
+        onScroll={handleScroll}
+      >
         <div className={`${isMobile ? 'space-y-3' : 'space-y-4'} py-4`}>
           {regularMessages.map((message, index) => {
             const previousMessage = index > 0 ? regularMessages[index - 1] : null;
@@ -130,7 +163,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
               (message.created_at - previousMessage.created_at) > 300; // 5 minutes
 
             return (
-              <div key={message.id} className={isMobile ? 'message-enter' : ''}>
+              <div key={message.id} className="message-item">
                 <MessageItem
                   message={message}
                   showAvatar={showAvatar}
@@ -141,7 +174,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
               </div>
             );
           })}
-          <div ref={bottomRef} />
+          <div ref={bottomRef} className="scroll-anchor" />
         </div>
       </ScrollArea>
     </div>

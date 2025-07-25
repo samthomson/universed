@@ -94,6 +94,82 @@
     }
   }
 
+  /* Super smooth channel scrolling */
+  .channel-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  .channel-scroll [data-radix-scroll-area-viewport] {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+  }
+
+  .channel-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .channel-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .channel-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .channel-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.5);
+  }
+
+  /* Message item optimizations */
+  .message-item {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Smooth scroll anchor */
+  .scroll-anchor {
+    height: 1px;
+    margin-top: -1px;
+  }
+
+  /* Performance optimizations for smooth scrolling */
+  @media (prefers-reduced-motion: no-preference) {
+    .channel-scroll {
+      scroll-behavior: smooth;
+    }
+
+    .message-item {
+      transition: opacity 0.2s ease-out;
+    }
+
+    .message-item:hover {
+      opacity: 1;
+    }
+  }
+
+  /* Mobile-specific smooth scrolling */
+  @media (max-width: 640px) {
+    .channel-scroll [data-radix-scroll-area-viewport] {
+      -webkit-overflow-scrolling: touch;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+
+    .channel-scroll [data-radix-scroll-area-viewport]::-webkit-scrollbar {
+      width: 4px;
+    }
+  }
+
   /* Mobile keyboard handling */
   .mobile-input-container {
     padding-bottom: env(keyboard-inset-height, 0px);
