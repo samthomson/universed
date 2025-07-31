@@ -14,7 +14,6 @@ export interface VoiceChannelMember {
   muted: boolean;
   deafened: boolean;
   speaking: boolean;
-  joinedAt: number;
 }
 
 export interface VoiceChannelState {
@@ -738,7 +737,6 @@ export function useVoiceChannel(channelId?: string) {
             muted: mutedTag === 'true',
             deafened: deafenedTag === 'true',
             speaking: speakingTag === 'true',
-            joinedAt: action === 'join' ? event.created_at * 1000 : (memberMap.get(event.pubkey)?.joinedAt || event.created_at * 1000),
           });
         } else if (action === 'leave') {
           memberMap.delete(event.pubkey);
@@ -749,7 +747,6 @@ export function useVoiceChannel(channelId?: string) {
             muted: mutedTag === 'true',
             deafened: deafenedTag === 'true',
             speaking: speakingTag === 'true',
-            joinedAt: event.created_at * 1000
           });
         }
       });
