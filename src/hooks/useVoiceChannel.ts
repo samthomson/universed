@@ -723,29 +723,30 @@ export function useVoiceChannel(channelId?: string) {
       const memberLastSeen = new Map<string, number>();
 
       sortedEvents.forEach(event => {
-        const action = event.tags.find(([name]) => name === 'action')?.[1];
-        const muted = !!event.tags.find(([name]) => name === 'muted')?.[1];
-        const deafened = !!event.tags.find(([name]) => name === 'deafened')?.[1];
-        const speaking = !!event.tags.find(([name]) => name === 'speaking')?.[1];
+        const { pubkey, created_at, tags } = event;
+        const action = tags.find(([name]) => name === 'action')?.[1];
+        const muted = !!tags.find(([name]) => name === 'muted')?.[1];
+        const deafened = !!tags.find(([name]) => name === 'deafened')?.[1];
+        const speaking = !!tags.find(([name]) => name === 'speaking')?.[1];
 
         // Track when we last saw activity from this member
-        memberLastSeen.set(event.pubkey, event.created_at * 1000);
+        memberLastSeen.set(pubkey, created_at * 1000);
 
         // either the user is still around (joining, updating, or idle) or they left
         switch (action) {
           case 'join':
           case 'heartbeat':
           case 'update':
-            memberMap.set(event.pubkey, {
-              pubkey: event.pubkey,
+            memberMap.set(pubkey, {
+              pubkey,
               muted,
               deafened,
               speaking,
             });
             break;
           case 'leave':
-            memberMap.delete(event.pubkey);
-            memberLastSeen.delete(event.pubkey);
+            memberMap.delete(pubkey);
+            memberLastSeen.delete(pubkey);
             break;
         }
       });
