@@ -178,7 +178,7 @@ export function useVoiceChannel(channelId?: string) {
         }
         return;
       } catch (error) {
-        console.error(`Failed to send signaling message to ${message.to} (attempt ${attempt + 1}):`, error);
+        console.error(`Failed to send signaling (${message.type}) to ${message.to} (attempt ${attempt + 1}):`, error);
 
         if (attempt < retries - 1) {
           // Wait before retry with exponential backoff
@@ -187,7 +187,7 @@ export function useVoiceChannel(channelId?: string) {
       }
     }
 
-    console.error(`Failed to send signaling message to ${message.to} after ${retries} attempts`);
+    console.error(`Failed to send signaling (${message.type}) to ${message.to} after ${retries} attempts`);
   }, [user?.pubkey, channelId, publishEvent]);
 
   // Heartbeat mechanism to maintain presence
@@ -744,21 +744,19 @@ export function useVoiceChannel(channelId?: string) {
           memberMap.delete(event.pubkey);
           memberLastSeen.delete(event.pubkey);
         } else if (action === 'update') {
-          const existing = memberMap.get(event.pubkey);
-          if (existing) {
-            memberMap.set(event.pubkey, {
-              ...existing,
-              muted: mutedTag === 'true',
-              deafened: deafenedTag === 'true',
-              speaking: speakingTag === 'true',
-            });
-          }
+          memberMap.set(event.pubkey, {
+            pubkey: event.pubkey,
+            muted: mutedTag === 'true',
+            deafened: deafenedTag === 'true',
+            speaking: speakingTag === 'true',
+            joinedAt: event.created_at * 1000
+          });
         }
       });
 
       // Remove members who haven't been seen in the last 3 minutes (likely disconnected)
       const now = Date.now();
-      const staleThreshold = 3 * 60 * 1000; // 3 minutes (increased for stability)
+      const staleThreshold = 3 * 60 * 1000; // 3 minutes
 
       for (const [pubkey, lastSeen] of memberLastSeen.entries()) {
         if (now - lastSeen > staleThreshold) {
