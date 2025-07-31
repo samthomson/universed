@@ -146,6 +146,7 @@ export function useMessages(communityId: string, channelId: string) {
     staleTime: 2 * 60 * 1000, // 2 minutes - Reasonable for chat
     gcTime: 10 * 60 * 1000, // 10 minutes - Keep in memory
     refetchInterval: false,
-    // REMOVED placeholderData to prevent stale replies from persisting
+    // this tells react-query to clear messages when changing community/channel
+    placeholderData: undefined
   });
 }
