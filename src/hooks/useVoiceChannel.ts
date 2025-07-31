@@ -724,30 +724,29 @@ export function useVoiceChannel(channelId?: string) {
 
       sortedEvents.forEach(event => {
         const action = event.tags.find(([name]) => name === 'action')?.[1];
-        const mutedTag = event.tags.find(([name]) => name === 'muted')?.[1];
-        const deafenedTag = event.tags.find(([name]) => name === 'deafened')?.[1];
-        const speakingTag = event.tags.find(([name]) => name === 'speaking')?.[1];
+        const muted = !!event.tags.find(([name]) => name === 'muted')?.[1];
+        const deafened = !!event.tags.find(([name]) => name === 'deafened')?.[1];
+        const speaking = !!event.tags.find(([name]) => name === 'speaking')?.[1];
 
         // Track when we last saw activity from this member
         memberLastSeen.set(event.pubkey, event.created_at * 1000);
 
-        if (action === 'join' || action === 'heartbeat') {
-          memberMap.set(event.pubkey, {
-            pubkey: event.pubkey,
-            muted: mutedTag === 'true',
-            deafened: deafenedTag === 'true',
-            speaking: speakingTag === 'true',
-          });
-        } else if (action === 'leave') {
-          memberMap.delete(event.pubkey);
-          memberLastSeen.delete(event.pubkey);
-        } else if (action === 'update') {
-          memberMap.set(event.pubkey, {
-            pubkey: event.pubkey,
-            muted: mutedTag === 'true',
-            deafened: deafenedTag === 'true',
-            speaking: speakingTag === 'true',
-          });
+        // either the user is still around (joining, updating, or idle) or they left
+        switch (action) {
+          case 'join':
+          case 'heartbeat':
+          case 'update':
+            memberMap.set(event.pubkey, {
+              pubkey: event.pubkey,
+              muted,
+              deafened,
+              speaking,
+            });
+            break;
+          case 'leave':
+            memberMap.delete(event.pubkey);
+            memberLastSeen.delete(event.pubkey);
+            break;
         }
       });
 
