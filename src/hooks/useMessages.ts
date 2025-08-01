@@ -118,29 +118,14 @@ export function useMessages(communityId: string, channelId: string) {
       // Sort by created_at (oldest first)
       const sortedEvents = validEvents.sort((a, b) => a.created_at - b.created_at);
 
-      // NUCLEAR OPTION: Final safety check - one more time before returning
-      // This is paranoid but ensures NO replies ever get through
-      const absolutelyNoReplies = sortedEvents.filter(event => {
-        const eTags = event.tags.filter(([name]) => name === 'e');
-        if (eTags.length > 0) {
-          console.error('[useMessages] CRITICAL BUG: Reply survived all filters!', {
-            id: event.id,
-            content: event.content.substring(0, 50),
-            tags: event.tags
-          });
-          return false;
-        }
-        return true;
-      });
-
       // Preload related events (reactions, comments) in the background
-      if (absolutelyNoReplies.length > 0) {
-        preloadRelatedEvents(communityId, absolutelyNoReplies);
+      if (sortedEvents.length > 0) {
+        preloadRelatedEvents(communityId, sortedEvents);
       }
 
-      console.log(`[useMessages] Returning ${absolutelyNoReplies.length} messages for channel ${channelId} (filtered ${sortedEvents.length - absolutelyNoReplies.length} replies)`);
+      console.log(`[useMessages] Returning ${sortedEvents.length} messages for channel ${channelId}`);
 
-      return absolutelyNoReplies;
+      return sortedEvents;
     },
     enabled: !!communityId && !!channelId && canRead,
     staleTime: 2 * 60 * 1000, // 2 minutes - Reasonable for chat
