@@ -68,52 +68,9 @@ export function QueryOptimizer({
   useEffect(() => {
     if (!enableAggressiveCaching) return;
 
-    // Set optimized defaults for common query patterns
-    const optimizations = [
-      // Author queries - profile data changes infrequently
-      {
-        queryKey: ['author'],
-        defaults: reactQueryConfigs.author,
-      },
-      // Message queries - need balance between real-time and performance
-      {
-        queryKey: ['messages'],
-        defaults: reactQueryConfigs.messages,
-      },
-      // Community queries - relatively stable data
-      {
-        queryKey: ['communities'],
-        defaults: reactQueryConfigs.communities,
-      },
-      // Event batch queries - events are immutable
-      {
-        queryKey: ['events-batch'],
-        defaults: reactQueryConfigs.events,
-      },
-      // Reaction queries - change frequently but can tolerate some staleness
-      {
-        queryKey: ['reactions'],
-        defaults: reactQueryConfigs.reactions,
-      },
-      // Pinned messages - similar caching to regular messages
-      {
-        queryKey: ['pinned-messages'],
-        defaults: reactQueryConfigs['pinned-messages'],
-      },
-      // Thread replies - similar caching to regular messages
-      {
-        queryKey: ['thread-replies'],
-        defaults: reactQueryConfigs['thread-replies'],
-      },
-      // User status - needs to be fresh for presence
-      {
-        queryKey: ['user-status'],
-        defaults: reactQueryConfigs['user-status'],
-      },
-    ];
-
-    optimizations.forEach(({ queryKey, defaults }) => {
-      queryClient.setQueryDefaults(queryKey, defaults);
+    // Set optimized defaults for all configured query patterns
+    Object.entries(reactQueryConfigs).forEach(([queryKey, defaults]) => {
+      queryClient.setQueryDefaults([queryKey], defaults);
     });
   }, [queryClient, enableAggressiveCaching]);
 
