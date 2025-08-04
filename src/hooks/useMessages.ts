@@ -29,39 +29,20 @@ function buildMessageFilters(kind: string, pubkey: string, identifier: string, c
   return filters;
 }
 
-function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
-  // Accept kind 9411 (channel chat messages) and kind 1 (legacy)
-  if (![1, 9411].includes(event.kind)) return false;
-
-  // AGGRESSIVE FILTERING: Exclude ALL events with e-tags from main chat feed
-  // This ensures thread replies never appear as top-level messages
-  // Any event with e-tags (replies, mentions, etc.) is filtered out of the main feed
-  const eTags = event.tags.filter(([name]) => name === 'e');
-  if (eTags.length > 0) {
-    return false; // Any event with e-tags is filtered out
-  }
-
-  // For kind 9411, we MUST have the correct channel tag
-  if (event.kind === 9411) {
-    const channelTag = event.tags.find(([name]) => name === 't')?.[1];
-    if (!channelTag || channelTag !== expectedChannelId) {
-      return false; // Message doesn't belong to this channel
-    }
-  }
-
-  // For kind 1 (legacy), only allow if it has the correct channel tag OR no channel tag at all (for backward compatibility with general channel)
-  if (event.kind === 1) {
-    const channelTag = event.tags.find(([name]) => name === 't')?.[1];
-    if (channelTag && channelTag !== expectedChannelId) {
-      return false; // Message has a different channel tag
-    }
-    // If no channel tag and we're in general channel, allow it (legacy support)
-    if (!channelTag && expectedChannelId !== 'general') {
-      return false; // Untagged messages only go to general channel
-    }
-  }
-
-  return true;
+export function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
+  // Combine all validation into a single pass with short-circuit evaluation
+  return (
+    // Check kind first (fastest check)
+    ([1, 9411].includes(event.kind)) &&
+    // Check for e-tags in one operation (no replies in main feed)
+    (!event.tags.some(([name]) => name === 'e')) &&
+    // Check channel tag only once with appropriate logic for each kind
+    ((event.kind === 9411 && event.tags.some(([name, value]) => name === 't' && value === expectedChannelId)) ||
+     (event.kind === 1 && (
+       (expectedChannelId === 'general' && !event.tags.some(([name]) => name === 't')) ||
+       event.tags.some(([name, value]) => name === 't' && value === expectedChannelId)
+     )))
+  );
 }
 
 export function useMessages(communityId: string, channelId: string) {
