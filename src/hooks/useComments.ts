@@ -94,7 +94,5 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       };
     },
     enabled: !!root,
-    staleTime: 2 * 60 * 1000, // 2 minutes - Comments are relatively stable
-    gcTime: 15 * 60 * 1000, // 15 minutes - Keep comment hierarchies cached
   });
 }

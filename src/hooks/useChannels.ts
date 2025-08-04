@@ -231,8 +231,6 @@ export function useChannels(communityId: string | null) {
       }
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 15, // 15 minutes - very long cache since we prioritize cached data
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory very long
     refetchOnMount: false, // Don't refetch on mount, use cached data
     refetchOnWindowFocus: false, // Don't refetch on focus, use cached data
     refetchOnReconnect: false, // Don't refetch on reconnect, use cached data

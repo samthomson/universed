@@ -46,7 +46,6 @@ export function useUserStatus(pubkey?: string) {
       };
     },
     enabled: !!targetPubkey,
-    staleTime: 30000,
     refetchInterval: 60000,
   });
 }

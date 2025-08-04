@@ -2,6 +2,7 @@ import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nos
 import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useQueryDeduplication } from './useQueryDeduplication';
+import { reactQueryConfigs } from '@/components/QueryOptimizer';
 
 export function useAuthorBatch(pubkeys: (string | undefined)[]) {
   const { nostr } = useNostr();
@@ -53,19 +54,17 @@ export function useAuthorBatch(pubkeys: (string | undefined)[]) {
           result[event.pubkey] = authorData;
 
           // Cache individual author for future use
-          setCachedData(['author', event.pubkey], authorData, 15 * 60 * 1000); // 15 minutes
+          setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
         } catch {
           const authorData = { event };
           result[event.pubkey] = authorData;
-          setCachedData(['author', event.pubkey], authorData, 15 * 60 * 1000);
+          setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
         }
       });
 
       return result;
     },
     enabled: validPubkeys.length > 0,
-    staleTime: 15 * 60 * 1000, // 15 minutes - Profile data changes infrequently
-    gcTime: 2 * 60 * 60 * 1000, // 2 hours - Keep profile data cached longer
     retry: 1, // Fewer retries for batch queries
     // Use cached data immediately while fetching
     placeholderData: (previousData) => {

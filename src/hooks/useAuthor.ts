@@ -29,8 +29,6 @@ export function useAuthor(pubkey: string | undefined) {
       }
     },
     enabled: !!pubkey,
-    staleTime: 10 * 60 * 1000, // 10 minutes - Profile data changes infrequently
-    gcTime: 60 * 60 * 1000, // 1 hour - Keep profile data cached
     retry: 2, // Standard retries
     // Keep previous data while fetching
     placeholderData: (previousData) => previousData,

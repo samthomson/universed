@@ -3,6 +3,33 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { logger } from '@/lib/logger';
 
+/**
+ * Centralized React Query configurations
+ * These settings control caching behavior across the application
+ */
+export const reactQueryConfigs = {
+  author: {
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+  },
+  messages: {
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  },
+  communities: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  },
+  events: {
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  },
+  reactions: {
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  },
+} as const;
+
 interface QueryOptimizerProps {
   /** Whether to enable aggressive caching optimizations */
   enableAggressiveCaching?: boolean;
@@ -34,42 +61,27 @@ export function QueryOptimizer({
       // Author queries - profile data changes infrequently
       {
         queryKey: ['author'],
-        defaults: {
-          staleTime: 15 * 60 * 1000, // 15 minutes
-          gcTime: 2 * 60 * 60 * 1000, // 2 hours
-        },
+        defaults: reactQueryConfigs.author,
       },
       // Message queries - need balance between real-time and performance
       {
         queryKey: ['messages'],
-        defaults: {
-          staleTime: 60 * 1000, // 1 minute
-          gcTime: 10 * 60 * 1000, // 10 minutes
-        },
+        defaults: reactQueryConfigs.messages,
       },
       // Community queries - relatively stable data
       {
         queryKey: ['communities'],
-        defaults: {
-          staleTime: 5 * 60 * 1000, // 5 minutes
-          gcTime: 30 * 60 * 1000, // 30 minutes
-        },
+        defaults: reactQueryConfigs.communities,
       },
       // Event batch queries - events are immutable
       {
         queryKey: ['events-batch'],
-        defaults: {
-          staleTime: 10 * 60 * 1000, // 10 minutes
-          gcTime: 60 * 60 * 1000, // 1 hour
-        },
+        defaults: reactQueryConfigs.events,
       },
       // Reaction queries - change frequently but can tolerate some staleness
       {
         queryKey: ['reactions'],
-        defaults: {
-          staleTime: 30 * 1000, // 30 seconds
-          gcTime: 5 * 60 * 1000, // 5 minutes
-        },
+        defaults: reactQueryConfigs.reactions,
       },
     ];
 
