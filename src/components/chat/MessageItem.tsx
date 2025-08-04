@@ -1,5 +1,6 @@
 import { useState, memo, useCallback } from "react";
 import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import { MoreHorizontal, Reply, Smile, Pin, PinOff, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -194,9 +195,15 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
       communityId={communityId}
     >
       <div
-        className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/30 transition-all duration-200 ${
-          showAvatar ? (isMobile ? 'mt-3' : 'mt-4') : ''
-        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''}`}
+        className={cn({
+          "group relative hover:bg-gray-800/30 transition-all duration-200": true,
+          "px-3 py-2": isMobile,
+          "px-4 py-1": !isMobile,
+          "mt-3": showAvatar && isMobile,
+          "mt-4": showAvatar && !isMobile,
+          [messageOpacity]: true,
+          "mobile-touch": isMobile,
+        })}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && !isDropdownOpen && setIsHovered(false)}
         onClick={() => isMobile && setIsHovered(!isHovered)}
@@ -209,15 +216,31 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           </div>
         )}
 
-        <div className={`flex ${isMobile ? 'space-x-2' : 'space-x-3'}`}>
+        <div className={cn({
+          "flex": true,
+          "space-x-2": isMobile,
+          "space-x-3": !isMobile,
+        })}>
           {/* Avatar */}
-          <div className={`${isMobile ? 'w-8' : 'w-10'} flex-shrink-0`}>
+          <div className={cn({
+            "flex-shrink-0": true,
+            "w-8": isMobile,
+            "w-10": !isMobile,
+          })}>
             {showAvatar ? (
               <UserContextMenu pubkey={message.pubkey} displayName={displayName}>
                 <div className="relative cursor-pointer" onClick={handleProfileClick}>
-                  <Avatar className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} hover:opacity-80 transition-opacity`}>
+                  <Avatar className={cn({
+                    "hover:opacity-80 transition-opacity": true,
+                    "w-8 h-8": isMobile,
+                    "w-10 h-10": !isMobile,
+                  })}>
                     <AvatarImage src={profileImage} alt={displayName} />
-                    <AvatarFallback className={`bg-indigo-600 text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <AvatarFallback className={cn({
+                      "bg-indigo-600 text-white": true,
+                      "text-xs": isMobile,
+                      "text-sm": !isMobile,
+                    })}>
                       {displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -227,7 +250,11 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                 </div>
               </UserContextMenu>
             ) : (
-              <div className={`${isMobile ? 'w-8' : 'w-10'} h-5 flex items-center justify-center`}>
+              <div className={cn({
+                "h-5 flex items-center justify-center": true,
+                "w-8": isMobile,
+                "w-10": !isMobile,
+              })}>
                 {isHovered && !isMobile && (
                   <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
@@ -274,7 +301,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
             {replyCount > 0 && (
               <Button
                 variant="ghost"
-                size="sm" className="mt-1 h-6 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
+                size="sm" 
+                className="mt-1 h-6 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
                 onClick={() => setShowThread(true)}
               >
                 {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
@@ -284,18 +312,29 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
           {/* Message Actions - Same for both Desktop and Mobile */}
           {isHovered && (
-            <div className={`absolute ${isMobile ? '-top-1 right-2' : '-top-2 right-4'} bg-gray-700 border border-gray-600 rounded-md shadow-lg flex items-center divide-x divide-gray-600`}>
+            <div className={cn({
+              "absolute bg-gray-700 border border-gray-600 rounded-md shadow-lg flex items-center divide-x divide-gray-600": true,
+              "-top-1 right-2": isMobile,
+              "-top-2 right-4": !isMobile,
+            })}>
               {/* Quick Actions Group */}
               <div className="flex items-center">
                 {/* Quick Reply Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-l-md rounded-r-none`}
+                  className={cn({
+                    "hover:bg-gray-600 rounded-l-md rounded-r-none": true,
+                    "w-9 h-9": isMobile,
+                    "w-8 h-8": !isMobile,
+                  })}
                   onClick={() => setShowThread(true)}
                   title="Reply"
                 >
-                  <Reply className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                  <Reply className={cn({
+                    "w-5 h-5": isMobile,
+                    "w-4 h-4": !isMobile,
+                  })} />
                 </Button>
 
                 {/* Quick React Button */}
@@ -305,10 +344,17 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-none`}
+                      className={cn({
+                        "hover:bg-gray-600 rounded-none": true,
+                        "w-9 h-9": isMobile,
+                        "w-8 h-8": !isMobile,
+                      })}
                       title="Add reaction"
                     >
-                      <Smile className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                      <Smile className={cn({
+                        "w-5 h-5": isMobile,
+                        "w-4 h-4": !isMobile,
+                      })} />
                     </Button>
                   }
                   side="top"
@@ -323,10 +369,17 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-r-md rounded-l-none`}
+                      className={cn({
+                        "hover:bg-gray-600 rounded-r-md rounded-l-none": true,
+                        "w-9 h-9": isMobile,
+                        "w-8 h-8": !isMobile,
+                      })}
                       title="More actions"
                     >
-                      <MoreHorizontal className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                      <MoreHorizontal className={cn({
+                          "w-5 h-5": isMobile,
+                          "w-4 h-4": !isMobile,
+                        })} />
                     </Button>
                   </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
