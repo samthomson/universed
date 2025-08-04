@@ -22,7 +22,6 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const { data: channels } = useChannels(communityId);
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
-  const bottomRef = useMemo(() => ({ current: null }), []);
 
   // Get the channel name from the channels data
   const channel = channels?.find(c => c.id === channelId);
@@ -135,9 +134,6 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
         }}
         followOutput="smooth"
         initialTopMostItemIndex={regularMessages.length - 1}
-        components={{
-          Footer: () => <div ref={bottomRef} className="scroll-anchor" />, 
-        }}
       />
     </div>
   );
