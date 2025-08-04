@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
 
 interface PerformanceMetrics {
   cacheHits: number;
@@ -71,10 +72,10 @@ export function usePerformanceMonitor() {
 
     if (wasFromCache) {
       metrics.cacheHits++;
-      console.log(`🎯 Cache HIT for ${queryKey.substring(0, 50)}...`);
+      logger.log(`🎯 Cache HIT for ${queryKey.substring(0, 50)}...`);
     } else {
       metrics.cacheMisses++;
-      console.log(`🌐 Cache MISS for ${queryKey.substring(0, 50)}... (${duration.toFixed(0)}ms)`);
+      logger.log(`🌐 Cache MISS for ${queryKey.substring(0, 50)}... (${duration.toFixed(0)}ms)`);
     }
 
     // Update average load time (only count non-cached queries for realistic timing)
@@ -223,7 +224,7 @@ export function usePerformanceMonitor() {
     const interval = setInterval(() => {
       const summary = getPerformanceSummary();
       if (summary.totalQueries > 0) {
-        console.log('🚀 Performance Summary:', summary);
+        logger.log('🚀 Performance Summary:', summary);
       }
     }, 30000); // Log every 30 seconds
 

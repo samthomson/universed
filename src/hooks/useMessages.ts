@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCanAccessChannel } from './useChannelPermissions';
 import { useEventCache } from './useEventCache';
 import { useOptimizedEventLoading } from './useOptimizedEventLoading';
+import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 function buildMessageFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
@@ -70,14 +71,14 @@ export function useMessages(communityId: string, channelId: string) {
   const { preloadRelatedEvents } = useOptimizedEventLoading();
 
   // Debug logging
-  console.log(`[useMessages] Hook called for channel ${channelId}`);
+  logger.log(`[useMessages] Hook called for channel ${channelId}`);
 
   return useQuery({
     queryKey: ['messages', communityId, channelId],
     queryFn: async (c) => {
       // Check if user has read access to this channel
       if (!canRead) {
-        console.log(`Access denied for channel ${channelId}: ${reason}`);
+        logger.warn(`Access denied for channel ${channelId}: ${reason}`);
         return [];
       }
 
@@ -123,7 +124,7 @@ export function useMessages(communityId: string, channelId: string) {
         preloadRelatedEvents(communityId, sortedEvents);
       }
 
-      console.log(`[useMessages] Returning ${sortedEvents.length} messages for channel ${channelId}`);
+      logger.log(`[useMessages] Returning ${sortedEvents.length} messages for channel ${channelId}`);
 
       return sortedEvents;
     },

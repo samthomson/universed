@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
+import { logger } from '@/lib/logger';
 import type { NostrFilter } from '@nostrify/nostrify';
 
 const PRELOAD_DELAY = 300; // Wait 300ms before preloading (hover intent)
@@ -127,11 +128,11 @@ export function useCommunityPreloader() {
         // Mark as preloaded
         preloadedCommunities.current.add(communityId);
 
-        console.log(`Preloaded data for community ${communityId}: ${events.length} events`);
+        logger.log(`Preloaded data for community ${communityId}: ${events.length} events`);
       }
     } catch (error) {
       // Silently handle preload errors
-      console.warn(`Preload failed for community ${communityId}:`, error);
+      logger.warn(`Preload failed for community ${communityId}:`, error);
     }
   }, [nostr, cacheEvents, queryClient, isCommunityDataFresh]);
 

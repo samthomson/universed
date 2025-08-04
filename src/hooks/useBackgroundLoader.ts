@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { useUserCommunities } from './useUserCommunities';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 
 interface BackgroundLoadingState {
@@ -409,11 +410,11 @@ export function useBackgroundLoader() {
           }
         }
 
-        console.log(`Background loaded events for ${communityIds.length} communities: ${events.length} events`);
+        logger.log(`Background loaded events for ${communityIds.length} communities: ${events.length} events`);
       }
     } catch (error) {
       // Silently handle errors in background loading
-      console.warn('Background loading failed:', error);
+      logger.warn('Background loading failed:', error);
     }
   }, [user?.pubkey, nostr, cacheEvents, queryClient]);
 

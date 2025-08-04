@@ -14,6 +14,7 @@ import { nip19 } from "nostr-tools";
 import { MessageItem } from "@/components/chat/MessageItem";
 import { NewDMDialog } from "@/components/dm/NewDMDialog";
 import { toast } from "sonner";
+import { logger } from '@/lib/logger';
 
 interface UserProfileProps {
   pubkey: string;
@@ -246,7 +247,7 @@ export function UserProfile({ pubkey }: UserProfileProps) {
         onOpenChange={setShowNewDM}
         onConversationCreated={() => {
           // TODO: Navigate to DM conversation
-          console.log('Started DM with:', pubkey);
+          logger.log('Started DM with:', pubkey);
         }}
       />
     </div>

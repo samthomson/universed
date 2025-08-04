@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { useToast } from './useToast';
+import { logger } from '@/lib/logger';
 
 // Custom event kinds for voice channel functionality
 const VOICE_CHANNEL_STATE_KIND = 30316;
@@ -174,11 +175,11 @@ export function useVoiceChannel(channelId?: string) {
 
         // Success - log and return
         if (attempt > 0) {
-          console.log(`Signaling message sent to ${message.to} on attempt ${attempt + 1}`);
+          logger.log(`Signaling message sent to ${message.to} on attempt ${attempt + 1}`);
         }
         return;
       } catch (error) {
-        console.error(`Failed to send signaling message to ${message.to} (attempt ${attempt + 1}):`, error);
+        logger.error(`Failed to send signaling message to ${message.to} (attempt ${attempt + 1}):`, error);
 
         if (attempt < retries - 1) {
           // Wait before retry with exponential backoff
@@ -187,7 +188,7 @@ export function useVoiceChannel(channelId?: string) {
       }
     }
 
-    console.error(`Failed to send signaling message to ${message.to} after ${retries} attempts`);
+    logger.error(`Failed to send signaling message to ${message.to} after ${retries} attempts`);
   }, [user?.pubkey, channelId, publishEvent]);
 
   // Heartbeat mechanism to maintain presence
@@ -207,7 +208,7 @@ export function useVoiceChannel(channelId?: string) {
         ],
       });
     } catch (error) {
-      console.error('Failed to send heartbeat:', error);
+      logger.error('Failed to send heartbeat:', error);
     }
   }, [channelId, user?.pubkey, isConnected, isMuted, isDeafened, isSpeaking, publishEvent]);
 
@@ -248,11 +249,11 @@ export function useVoiceChannel(channelId?: string) {
 
         // Check for stale connections
         if (peerConnected && lastConnectedTime > 0 && (now - lastConnectedTime) > staleConnectionThreshold) {
-          console.log(`Connection to ${pubkey} appears stale, checking health`);
+          logger.log(`Connection to ${pubkey} appears stale, checking health`);
 
           // Check actual connection state
           if (connection.connectionState === 'disconnected' || connection.connectionState === 'failed') {
-            console.log(`Triggering recovery for stale connection to ${pubkey}`);
+            logger.log(`Triggering recovery for stale connection to ${pubkey}`);
             if (performFullReconnectionRef.current) {
               performFullReconnectionRef.current(pubkey);
             }
@@ -264,7 +265,7 @@ export function useVoiceChannel(channelId?: string) {
           // ICE is stuck in checking state, might need restart
           const checkingTime = now - (peerConn.lastConnectedTime || now);
           if (checkingTime > 15000) { // 15 seconds in checking state
-            console.log(`ICE checking timeout for ${pubkey}, restarting ICE`);
+            logger.log(`ICE checking timeout for ${pubkey}, restarting ICE`);
             connection.restartIce();
           }
         }
@@ -279,7 +280,7 @@ export function useVoiceChannel(channelId?: string) {
 
   // Create peer connection for a specific user with improved reliability
   const createPeerConnection = useCallback(async (remotePubkey: string): Promise<PeerConnection> => {
-    console.log(`Creating peer connection to ${remotePubkey}`);
+    logger.log(`Creating peer connection to ${remotePubkey}`);
 
     const pc = new RTCPeerConnection(rtcConfig);
     const remoteAudio = new Audio();
@@ -305,7 +306,7 @@ export function useVoiceChannel(channelId?: string) {
 
     // Handle incoming remote stream
     pc.ontrack = (event) => {
-      console.log(`Received remote stream from ${remotePubkey}`);
+      logger.log(`Received remote stream from ${remotePubkey}`);
       const [remoteStream] = event.streams;
       remoteAudio.srcObject = remoteStream;
       peerConnection.isConnected = true;
@@ -314,22 +315,22 @@ export function useVoiceChannel(channelId?: string) {
     // Handle ICE candidates with retry logic and queuing
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log(`Sending ICE candidate to ${remotePubkey}:`, event.candidate.candidate);
+        logger.log(`Sending ICE candidate to ${remotePubkey}:`, event.candidate.candidate);
         sendSignalingMessage({
           type: 'ice-candidate',
           data: event.candidate,
           to: remotePubkey,
         }).catch(error => {
-          console.error(`Failed to send ICE candidate to ${remotePubkey}:`, error);
+          logger.error(`Failed to send ICE candidate to ${remotePubkey}:`, error);
         });
       } else {
-        console.log(`ICE gathering complete for ${remotePubkey}`);
+        logger.log(`ICE gathering complete for ${remotePubkey}`);
       }
     };
 
     // Handle connection state changes with reconnection logic
     pc.onconnectionstatechange = () => {
-      console.log(`Connection state with ${remotePubkey}: ${pc.connectionState}`);
+      logger.log(`Connection state with ${remotePubkey}: ${pc.connectionState}`);
 
       if (pc.connectionState === 'connected') {
         peerConnection.isConnected = true;
@@ -350,13 +351,13 @@ export function useVoiceChannel(channelId?: string) {
           reconnectTimeoutsRef.current.delete(remotePubkey);
         }
 
-        console.log(`Peer connection established with ${remotePubkey}`);
+        logger.log(`Peer connection established with ${remotePubkey}`);
       } else if (pc.connectionState === 'disconnected') {
-        console.log(`Peer connection disconnected with ${remotePubkey}, monitoring for recovery`);
+        logger.log(`Peer connection disconnected with ${remotePubkey}, monitoring for recovery`);
         // Don't immediately mark as disconnected - wait for ICE to attempt recovery
         // The ICE connection state handler will manage reconnection logic
       } else if (pc.connectionState === 'failed') {
-        console.log(`Peer connection failed with ${remotePubkey}`);
+        logger.log(`Peer connection failed with ${remotePubkey}`);
         peerConnection.isConnected = false;
         remoteAudio.srcObject = null;
 
@@ -369,7 +370,7 @@ export function useVoiceChannel(channelId?: string) {
 
         // Let ICE connection state handler manage reconnection
       } else if (pc.connectionState === 'closed') {
-        console.log(`Peer connection closed with ${remotePubkey}`);
+        logger.log(`Peer connection closed with ${remotePubkey}`);
         peerConnection.isConnected = false;
         remoteAudio.srcObject = null;
 
@@ -385,7 +386,7 @@ export function useVoiceChannel(channelId?: string) {
     // Handle ICE connection state changes with detailed monitoring
     pc.oniceconnectionstatechange = () => {
       const iceState = pc.iceConnectionState;
-      console.log(`ICE connection state with ${remotePubkey}: ${peerConnection.lastIceState} → ${iceState}`);
+      logger.log(`ICE connection state with ${remotePubkey}: ${peerConnection.lastIceState} → ${iceState}`);
 
       peerConnection.lastIceState = iceState;
 
@@ -394,16 +395,16 @@ export function useVoiceChannel(channelId?: string) {
         case 'completed':
           peerConnection.lastConnectedTime = Date.now();
           peerConnection.reconnectAttempts = 0;
-          console.log(`ICE connection established with ${remotePubkey}`);
+          logger.log(`ICE connection established with ${remotePubkey}`);
           break;
 
         case 'disconnected':
-          console.log(`ICE connection lost with ${remotePubkey}, attempting ICE restart`);
+          logger.log(`ICE connection lost with ${remotePubkey}, attempting ICE restart`);
           // Try ICE restart first before full reconnection
           if (peerConnection.reconnectAttempts < 2) {
             setTimeout(() => {
               if (pc.connectionState !== 'closed' && isConnected) {
-                console.log(`Attempting ICE restart with ${remotePubkey}`);
+                logger.log(`Attempting ICE restart with ${remotePubkey}`);
                 pc.restartIce();
                 peerConnection.reconnectAttempts++;
               }
@@ -412,7 +413,7 @@ export function useVoiceChannel(channelId?: string) {
           break;
 
         case 'failed':
-          console.log(`ICE connection failed with ${remotePubkey}`);
+          logger.log(`ICE connection failed with ${remotePubkey}`);
           peerConnection.isConnected = false;
           remoteAudio.srcObject = null;
 
@@ -432,7 +433,7 @@ export function useVoiceChannel(channelId?: string) {
 
             const delay = Math.min(10000, 3000 * Math.pow(2, peerConnection.reconnectAttempts - 2)); // Exponential backoff
             const newTimeoutId = window.setTimeout(async () => {
-              console.log(`Full reconnection attempt to ${remotePubkey} (attempt ${peerConnection.reconnectAttempts})`);
+              logger.log(`Full reconnection attempt to ${remotePubkey} (attempt ${peerConnection.reconnectAttempts})`);
               if (performFullReconnectionRef.current) {
                 await performFullReconnectionRef.current(remotePubkey);
               }
@@ -443,7 +444,7 @@ export function useVoiceChannel(channelId?: string) {
           break;
 
         case 'closed':
-          console.log(`ICE connection closed with ${remotePubkey}`);
+          logger.log(`ICE connection closed with ${remotePubkey}`);
           peerConnection.isConnected = false;
           break;
       }
@@ -457,7 +458,7 @@ export function useVoiceChannel(channelId?: string) {
     if (!isConnected || !user?.pubkey) return;
 
     try {
-      console.log(`Performing full reconnection to ${remotePubkey}`);
+      logger.log(`Performing full reconnection to ${remotePubkey}`);
 
       // Remove old connection
       const oldConnection = peerConnectionsRef.current.get(remotePubkey);
@@ -492,9 +493,9 @@ export function useVoiceChannel(channelId?: string) {
         to: remotePubkey,
       });
 
-      console.log(`Full reconnection initiated to ${remotePubkey}`);
+      logger.log(`Full reconnection initiated to ${remotePubkey}`);
     } catch (error) {
-      console.error(`Failed to perform full reconnection to ${remotePubkey}:`, error);
+      logger.error(`Failed to perform full reconnection to ${remotePubkey}:`, error);
 
       // Schedule another attempt with longer delay
       const connection = peerConnectionsRef.current.get(remotePubkey);
@@ -548,7 +549,7 @@ export function useVoiceChannel(channelId?: string) {
             let peerConnection = peerConnectionsRef.current.get(remotePubkey);
 
             if (!peerConnection) {
-              console.log(`Creating new peer connection for ${remotePubkey}`);
+              logger.log(`Creating new peer connection for ${remotePubkey}`);
               peerConnection = await createPeerConnection(remotePubkey);
               peerConnectionsRef.current.set(remotePubkey, peerConnection);
             }
@@ -557,24 +558,24 @@ export function useVoiceChannel(channelId?: string) {
 
             // Skip if connection is in a bad state
             if (pc.connectionState === 'closed') {
-              console.log(`Skipping message for closed connection to ${remotePubkey}`);
+              logger.log(`Skipping message for closed connection to ${remotePubkey}`);
               continue;
             }
 
             switch (message.type) {
               case 'offer': {
-                console.log(`Processing offer from ${remotePubkey}`);
+                logger.log(`Processing offer from ${remotePubkey}`);
                 if (pc.signalingState === 'stable' || pc.signalingState === 'have-local-offer') {
                   await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
 
                   // Process any queued ICE candidates
                   if (peerConnection.queuedCandidates) {
-                    console.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
+                    logger.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
                     for (const candidate of peerConnection.queuedCandidates) {
                       try {
                         await pc.addIceCandidate(candidate);
                       } catch (error) {
-                        console.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
+                        logger.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
                       }
                     }
                     peerConnection.queuedCandidates = [];
@@ -587,47 +588,47 @@ export function useVoiceChannel(channelId?: string) {
                     data: answer,
                     to: remotePubkey,
                   });
-                  console.log(`Sent answer to ${remotePubkey}`);
+                  logger.log(`Sent answer to ${remotePubkey}`);
                 }
                 break;
               }
 
               case 'answer': {
-                console.log(`Processing answer from ${remotePubkey}`);
+                logger.log(`Processing answer from ${remotePubkey}`);
                 if (pc.signalingState === 'have-local-offer') {
                   await pc.setRemoteDescription(new RTCSessionDescription(message.data as RTCSessionDescriptionInit));
 
                   // Process any queued ICE candidates
                   if (peerConnection.queuedCandidates) {
-                    console.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
+                    logger.log(`Processing ${peerConnection.queuedCandidates.length} queued candidates for ${remotePubkey}`);
                     for (const candidate of peerConnection.queuedCandidates) {
                       try {
                         await pc.addIceCandidate(candidate);
                       } catch (error) {
-                        console.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
+                        logger.error(`Failed to add queued candidate from ${remotePubkey}:`, error);
                       }
                     }
                     peerConnection.queuedCandidates = [];
                   }
 
-                  console.log(`Set remote description from ${remotePubkey}`);
+                  logger.log(`Set remote description from ${remotePubkey}`);
                 }
                 break;
               }
 
               case 'ice-candidate': {
                 const candidate = new RTCIceCandidate(message.data as RTCIceCandidate);
-                console.log(`Received ICE candidate from ${remotePubkey}:`, candidate.candidate);
+                logger.log(`Received ICE candidate from ${remotePubkey}:`, candidate.candidate);
 
                 if (pc.remoteDescription && pc.signalingState !== 'closed') {
                   try {
                     await pc.addIceCandidate(candidate);
-                    console.log(`Added ICE candidate from ${remotePubkey}`);
+                    logger.log(`Added ICE candidate from ${remotePubkey}`);
                   } catch (error) {
-                    console.error(`Failed to add ICE candidate from ${remotePubkey}:`, error);
+                    logger.error(`Failed to add ICE candidate from ${remotePubkey}:`, error);
                   }
                 } else {
-                  console.log(`Queueing ICE candidate from ${remotePubkey} (no remote description yet)`);
+                  logger.log(`Queueing ICE candidate from ${remotePubkey} (no remote description yet)`);
                   // Store candidate for later - we'll add it after remote description is set
                   if (!peerConnection.queuedCandidates) {
                     peerConnection.queuedCandidates = [];
@@ -641,11 +642,11 @@ export function useVoiceChannel(channelId?: string) {
             // Update last processed timestamp
             lastProcessedTimestamp = Math.max(lastProcessedTimestamp, event.created_at);
           } catch (error) {
-            console.error('Error processing signaling message:', error);
+            logger.error('Error processing signaling message:', error);
           }
         }
       } catch (error) {
-        console.error('Error fetching signaling messages:', error);
+        logger.error('Error fetching signaling messages:', error);
       }
     };
 
@@ -660,7 +661,7 @@ export function useVoiceChannel(channelId?: string) {
   const initiateConnections = useCallback(async (members: VoiceChannelMember[]) => {
     if (!user?.pubkey || !localStreamRef.current) return;
 
-    console.log(`Initiating connections to ${members.length} members`);
+    logger.log(`Initiating connections to ${members.length} members`);
 
     for (const member of members) {
       if (member.pubkey === user.pubkey) continue;
@@ -669,7 +670,7 @@ export function useVoiceChannel(channelId?: string) {
         // Check if we already have a connection
         const existingConnection = peerConnectionsRef.current.get(member.pubkey);
         if (existingConnection && existingConnection.connection.connectionState === 'connected') {
-          console.log(`Already connected to ${member.pubkey}`);
+          logger.log(`Already connected to ${member.pubkey}`);
           continue;
         }
 
@@ -693,9 +694,9 @@ export function useVoiceChannel(channelId?: string) {
           to: member.pubkey,
         });
 
-        console.log(`Sent offer to ${member.pubkey}`);
+        logger.log(`Sent offer to ${member.pubkey}`);
       } catch (error) {
-        console.error(`Failed to initiate connection to ${member.pubkey}:`, error);
+        logger.error(`Failed to initiate connection to ${member.pubkey}:`, error);
       }
     }
   }, [user?.pubkey, createPeerConnection, sendSignalingMessage]);
@@ -801,7 +802,7 @@ export function useVoiceChannel(channelId?: string) {
     // Clean up connections to members who are no longer in the channel
     connectedPubkeys.forEach(pubkey => {
       if (!currentMemberPubkeys.has(pubkey)) {
-        console.log(`Cleaning up stale connection to ${pubkey}`);
+        logger.log(`Cleaning up stale connection to ${pubkey}`);
         const connection = peerConnectionsRef.current.get(pubkey);
         if (connection) {
           connection.connection.close();
@@ -834,7 +835,7 @@ export function useVoiceChannel(channelId?: string) {
 
       // Clean up connections for members who left
       if (leftMembers && leftMembers.length > 0) {
-        console.log(`Cleaning up connections for ${leftMembers.length} members who left`);
+        logger.log(`Cleaning up connections for ${leftMembers.length} members who left`);
         leftMembers.forEach(pubkey => {
           const connection = peerConnectionsRef.current.get(pubkey);
           if (connection) {
@@ -855,7 +856,7 @@ export function useVoiceChannel(channelId?: string) {
 
       // Initiate connections to new members (with validation)
       if (newMembers && newMembers.length > 0) {
-        console.log(`Connecting to ${newMembers.length} new members`);
+        logger.log(`Connecting to ${newMembers.length} new members`);
         const newMemberObjects = voiceState.members.filter(m =>
           newMembers.includes(m.pubkey) && m.pubkey !== user.pubkey
         );
@@ -881,7 +882,7 @@ export function useVoiceChannel(channelId?: string) {
       setConnectionStatus('connecting');
 
       try {
-        console.log('Requesting microphone access...');
+        logger.log('Requesting microphone access...');
 
         // Request microphone permission with audio processing
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -894,7 +895,7 @@ export function useVoiceChannel(channelId?: string) {
         });
 
         localStreamRef.current = stream;
-        console.log('Microphone access granted');
+        logger.log('Microphone access granted');
 
         // Set up audio context for voice detection
         const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -908,7 +909,7 @@ export function useVoiceChannel(channelId?: string) {
         startVoiceDetection();
 
         // Publish join event first
-        console.log('Publishing join event...');
+        logger.log('Publishing join event...');
         await publishEvent({
           kind: VOICE_CHANNEL_STATE_KIND,
           content: '',
@@ -942,12 +943,12 @@ export function useVoiceChannel(channelId?: string) {
           const userInChannel = currentState?.members?.some((m: VoiceChannelMember) => m.pubkey === user.pubkey);
 
           if (userInChannel) {
-            console.log('User successfully added to voice channel member list');
+            logger.log('User successfully added to voice channel member list');
             break;
           }
 
           retries++;
-          console.log(`User not yet in member list, retry ${retries}/${maxRetries}`);
+          logger.log(`User not yet in member list, retry ${retries}/${maxRetries}`);
 
           if (retries < maxRetries) {
             // Send another join event if not found
@@ -968,7 +969,7 @@ export function useVoiceChannel(channelId?: string) {
 
         // Get current members and initiate connections
         const currentMembers = voiceState?.members?.filter(m => m.pubkey !== user.pubkey) || [];
-        console.log(`Found ${currentMembers.length} existing members to connect to`);
+        logger.log(`Found ${currentMembers.length} existing members to connect to`);
 
         if (currentMembers.length > 0) {
           await initiateConnections(currentMembers);
@@ -1161,7 +1162,7 @@ export function useVoiceChannel(channelId?: string) {
           ],
         });
       } catch (error) {
-        console.error('Failed to publish speaking status:', error);
+        logger.error('Failed to publish speaking status:', error);
       }
     };
 
@@ -1173,7 +1174,7 @@ export function useVoiceChannel(channelId?: string) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('Cleaning up voice channel hook');
+      logger.log('Cleaning up voice channel hook');
 
       // Stop voice detection
       if (voiceDetectionRef.current) {

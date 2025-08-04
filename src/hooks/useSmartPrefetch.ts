@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import { useUserCommunities } from './useUserCommunities';
 import { useQueryDeduplication } from './useQueryDeduplication';
 import type { NostrFilter } from '@nostrify/nostrify';
@@ -84,9 +85,9 @@ export function useSmartPrefetch() {
         stateRef.current.prefetchedAuthors.add(pubkey);
       });
 
-      console.log(`Prefetched ${newPubkeys.length} author profiles`);
+      logger.log(`Prefetched ${newPubkeys.length} author profiles`);
     } catch (error) {
-      console.warn('Author prefetch failed:', error);
+      logger.warn('Author prefetch failed:', error);
     }
   }, [user?.pubkey, nostr, queryClient, prefetchQuery, getCachedData]);
 
@@ -133,9 +134,9 @@ export function useSmartPrefetch() {
       );
 
       stateRef.current.prefetchedCommunities.add(communityId);
-      console.log(`Prefetched messages for community: ${communityId}`);
+      logger.log(`Prefetched messages for community: ${communityId}`);
     } catch (error) {
-      console.warn('Community prefetch failed:', error);
+      logger.warn('Community prefetch failed:', error);
     }
   }, [user?.pubkey, nostr, queryClient, prefetchQuery, getCachedData, prefetchAuthors]);
 
@@ -205,9 +206,9 @@ export function useSmartPrefetch() {
       // 2. Prefetch user's communities
       await prefetchUserCommunities();
 
-      console.log('Smart prefetch cycle completed');
+      logger.log('Smart prefetch cycle completed');
     } catch (error) {
-      console.warn('Prefetch cycle failed:', error);
+      logger.warn('Prefetch cycle failed:', error);
     } finally {
       state.isActive = false;
     }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { logger } from '@/lib/logger';
 
 interface QueryOptimizerProps {
   /** Whether to enable aggressive caching optimizations */
@@ -101,7 +102,7 @@ export function QueryOptimizer({
       });
 
       if (removedCount > 0) {
-        console.log(`Cleaned up ${removedCount} stale queries`);
+        logger.log(`Cleaned up ${removedCount} stale queries`);
       }
     };
 
