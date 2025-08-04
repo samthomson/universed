@@ -1,4 +1,5 @@
-import { useState, memo } from "react";
+import { useState, memo, useCallback } from "react";
+import { logger } from '@/lib/logger';
 import { MoreHorizontal, Reply, Smile, Pin, PinOff, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -40,13 +41,15 @@ interface MessageItemProps {
 
 function MessageItemComponent({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const isMobile = useIsMobile();
-  const [isHovered, setIsHovered] = useState(false);
+  
+  // UI states
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Dialog states
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showBanDialog, setShowBanDialog] = useState(false);
-  const [showMuteDialog, setShowMuteDialog] = useState(false);
+  const [activeModerationDialog, setActiveModerationDialog] = useState<'delete' | 'ban' | 'mute' | null>(null);
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const { addReaction } = useEmojiReactions();
@@ -68,23 +71,16 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
 
-  // Don't render blocked messages
-  if (isBlocked) {
-    return null;
-  }
-
-  // Show muted messages with reduced opacity
-  const messageOpacity = isMuted ? 'opacity-50' : '';
-
-  const handleEmojiSelect = (emoji: string) => {
+  // Memoize handlers to prevent unnecessary recreations
+  const handleEmojiSelect = useCallback((emoji: string) => {
     if (!user) return;
     addReaction({
       targetEvent: message,
       emoji,
     });
-  };
+  }, [user, message, addReaction]);
 
-  const handleTogglePin = () => {
+  const handleTogglePin = useCallback(() => {
     if (!communityId || !messageChannelId) return;
 
     if (isPinned) {
@@ -92,9 +88,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
     } else {
       pinMessage({ communityId, channelId: messageChannelId, messageId: message.id });
     }
-  };
+  }, [communityId, messageChannelId, message.id, isPinned, pinMessage, unpinMessage]);
 
-  const handleDeleteMessage = (reason?: string) => {
+  const handleDeleteMessage = useCallback((reason?: string) => {
     deleteMessage(
       { messageEvent: message, reason },
       {
@@ -105,7 +101,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to delete message:', error);
+          logger.error('Failed to delete message:', error);
           toast({
             title: "Failed to delete message",
             description: "There was an error deleting the message. Please try again.",
@@ -114,9 +110,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [message, deleteMessage, toast]);
 
-  const handleBanUser = (reason?: string) => {
+  const handleBanUser = useCallback((reason?: string) => {
     moderationActions.banUser.mutate(
       {
         communityId: communityId || '',
@@ -131,7 +127,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to ban user:', error);
+          logger.error('Failed to ban user:', error);
           toast({
             title: "Failed to ban user",
             description: "There was an error banning the user. Please try again.",
@@ -140,9 +136,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [communityId, message.pubkey, moderationActions.banUser, toast]);
 
-  const handleMuteUser = (reason?: string) => {
+  const handleMuteUser = useCallback((reason?: string) => {
     moderationActions.muteUser.mutate(
       {
         communityId: communityId || '',
@@ -157,7 +153,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to mute user:', error);
+          logger.error('Failed to mute user:', error);
           toast({
             title: "Failed to mute user",
             description: "There was an error muting the user. Please try again.",
@@ -166,22 +162,30 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [communityId, message.pubkey, moderationActions.muteUser, toast]);
 
-  const replyCount = replies?.length || 0;
-
-  const handleProfileClick = (e: React.MouseEvent) => {
+  const handleProfileClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (user?.pubkey !== message.pubkey) {
       setShowProfileDialog(true);
     }
-  };
+  }, [user?.pubkey, message.pubkey]);
 
-  const handleStartDM = (pubkey: string) => {
+  const handleStartDM = useCallback((pubkey: string) => {
     onNavigateToDMs?.(pubkey);
     setShowProfileDialog(false);
-  };
+  }, [onNavigateToDMs]);
+
+  // Don't render blocked messages
+  if (isBlocked) {
+    return null;
+  }
+
+  // Show muted messages with reduced opacity
+  const messageOpacity = isMuted ? 'opacity-50' : '';
+
+  const replyCount = replies?.length || 0;
 
   return (
     <MessageContextMenu
@@ -192,7 +196,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
       <div
         className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/30 transition-all duration-200 ${
           showAvatar ? (isMobile ? 'mt-3' : 'mt-4') : ''
-        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''} ${isHovered && !isMobile ? 'bg-gray-800/20' : ''}`}
+        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''}`}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && !isDropdownOpen && setIsHovered(false)}
         onClick={() => isMobile && setIsHovered(!isHovered)}
@@ -270,8 +274,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
             {replyCount > 0 && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="mt-1 h-6 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
+                size="sm" className="mt-1 h-6 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
                 onClick={() => setShowThread(true)}
               >
                 {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
@@ -315,13 +318,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
               {/* More Actions Group */}
               <div className="flex items-center">
-                <DropdownMenu onOpenChange={(open) => {
-                  setIsDropdownOpen(open);
-                  // Reset hover state when dropdown closes on desktop
-                  if (!open && !isMobile) {
-                    setIsHovered(false);
-                  }
-                }}>
+                <DropdownMenu onOpenChange={setIsDropdownOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
@@ -352,18 +349,18 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                   {canModerate && user?.pubkey !== message.pubkey && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
+                      <DropdownMenuItem onClick={() => setActiveModerationDialog('delete')}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Message
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => setShowMuteDialog(true)}>
+                      <DropdownMenuItem onClick={() => setActiveModerationDialog('mute')}>
                         <VolumeX className="mr-2 h-4 w-4" />
                         Mute User
                       </DropdownMenuItem>
 
                       <DropdownMenuItem
-                        onClick={() => setShowBanDialog(true)}
+                        onClick={() => setActiveModerationDialog('ban')}
                         className="text-red-600 focus:text-red-600"
                       >
                         <Ban className="mr-2 h-4 w-4" />
@@ -396,8 +393,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
         {/* Moderation Dialogs */}
         <DeletionConfirmDialog
-          open={showDeleteDialog}
-          onOpenChange={setShowDeleteDialog}
+          open={activeModerationDialog === 'delete'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'delete' : null)}
           title="Delete Message (Moderator)"
           description="You are about to delete another user's message as a moderator."
           itemName="this message"
@@ -408,8 +405,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         />
 
         <DeletionConfirmDialog
-          open={showBanDialog}
-          onOpenChange={setShowBanDialog}
+          open={activeModerationDialog === 'ban'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'ban' : null)}
           title="Ban User"
           description="You are about to ban this user from the community."
           itemName="this user"
@@ -422,8 +419,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         />
 
         <DeletionConfirmDialog
-          open={showMuteDialog}
-          onOpenChange={setShowMuteDialog}
+          open={activeModerationDialog === 'mute'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'mute' : null)}
           title="Mute User"
           description="You are about to mute this user in the community."
           itemName="this user"
@@ -441,6 +438,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => {
   return (
     prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
     prevProps.showAvatar === nextProps.showAvatar &&
     prevProps.communityId === nextProps.communityId &&
     prevProps.channelId === nextProps.channelId
