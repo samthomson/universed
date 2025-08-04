@@ -28,6 +28,18 @@ export const reactQueryConfigs = {
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
   },
+  'pinned-messages': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
+  'thread-replies': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
+  'user-status': {
+    staleTime: 30 * 1000, // 30 seconds - needs to be fresh for presence
+    gcTime: 5 * 60 * 1000, // 5 minutes - similar to reactions
+  },
 } as const;
 
 interface QueryOptimizerProps {
@@ -82,6 +94,21 @@ export function QueryOptimizer({
       {
         queryKey: ['reactions'],
         defaults: reactQueryConfigs.reactions,
+      },
+      // Pinned messages - similar caching to regular messages
+      {
+        queryKey: ['pinned-messages'],
+        defaults: reactQueryConfigs['pinned-messages'],
+      },
+      // Thread replies - similar caching to regular messages
+      {
+        queryKey: ['thread-replies'],
+        defaults: reactQueryConfigs['thread-replies'],
+      },
+      // User status - needs to be fresh for presence
+      {
+        queryKey: ['user-status'],
+        defaults: reactQueryConfigs['user-status'],
       },
     ];
 
