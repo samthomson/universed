@@ -7,18 +7,30 @@ import { useCurrentUser } from './useCurrentUser';
 import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 
+interface CommunityLoadInfo {
+  loadCount: number;
+  lastLoadTime: number;
+}
+
 interface BackgroundLoadingState {
   isLoading: boolean;
   lastLoadTime: number;
-  loadedCommunities: Set<string>;
+  loadedCommunities: Map<string, CommunityLoadInfo>;
   loadQueue: string[];
   currentBatch: string[];
 }
 
-const BACKGROUND_LOAD_DELAY = 2000; // Wait 2 seconds after other activity stops
+const BACKGROUND_LOAD_DELAY = 8000; // Wait 8 seconds after other activity stops
 const BATCH_SIZE = 3; // Load events for 3 communities at once
-const LOAD_COOLDOWN = 30000; // Wait 30 seconds between background loads for same community
+const LOAD_COOLDOWN = 3 * 60 * 1000; // Wait 3 minutes between background loads for same community
 const MAX_EVENTS_PER_COMMUNITY = 50; // Limit events per community to avoid overwhelming
+
+// Progressive backoff: start with 3 minutes, increase by 2x each time, cap at 15 minutes
+const getNextCooldown = (previousLoads: number): number => {
+  const baseTime = 3 * 60 * 1000; // 3 minutes
+  const multiplier = Math.min(Math.pow(2, previousLoads), 5); // Cap at 5x (15 minutes)
+  return baseTime * multiplier;
+};
 
 /**
  * Hook that manages background loading of community events when the app is idle.
@@ -34,7 +46,7 @@ export function useBackgroundLoader() {
   const stateRef = useRef<BackgroundLoadingState>({
     isLoading: false,
     lastLoadTime: 0,
-    loadedCommunities: new Set(),
+    loadedCommunities: new Map(),
     loadQueue: [],
     currentBatch: [],
   });
@@ -65,9 +77,15 @@ export function useBackgroundLoader() {
   // Check if we should skip loading for a community (recently loaded)
   const shouldSkipCommunity = useCallback((communityId: string): boolean => {
     const now = Date.now();
-    const lastLoaded = stateRef.current.loadedCommunities.has(communityId);
+    const communityLoadStateInfo = stateRef.current.loadedCommunities.get(communityId);
 
-    if (!lastLoaded) return false;
+    if (!communityLoadStateInfo) return false;
+
+    // Check progressive backoff - each community gets longer cooldowns based on load count
+    const cooldownTime = getNextCooldown(communityLoadStateInfo.loadCount);
+    if (now - communityLoadStateInfo.lastLoadTime < cooldownTime) {
+      return true;
+    }
 
     // Check if we have recent data in cache
     const cacheKey = ['messages', communityId, 'general'];
@@ -405,8 +423,13 @@ export function useBackgroundLoader() {
               );
             }
 
-            // Mark community as loaded
-            stateRef.current.loadedCommunities.add(communityId);
+            // Mark community as loaded and track load count for progressive backoff
+            const now = Date.now();
+            const currentInfo = stateRef.current.loadedCommunities.get(communityId);
+            stateRef.current.loadedCommunities.set(communityId, {
+              loadCount: currentInfo ? currentInfo.loadCount + 1 : 1,
+              lastLoadTime: now,
+            });
           }
         }
 
