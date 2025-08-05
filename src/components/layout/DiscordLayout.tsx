@@ -12,7 +12,6 @@ import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/contexts/MessageSystemContext";
-import { useEnableStrategicBackgroundLoading } from "@/hooks/useStrategicBackgroundLoader";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
@@ -32,8 +31,7 @@ export function DiscordLayout() {
   const [isAutoSelected, setIsAutoSelected] = useState(false);
 
   const { setActiveCommunity } = useMessageSystem();
-  // Enable strategic background loading and performance monitoring
-  useEnableStrategicBackgroundLoading();
+  // Enable performance monitoring (strategic background loading disabled - using LRU instead)
   useEnablePerformanceMonitoring();
   // Sync active community with selected community automatically
   useEffect(() => {

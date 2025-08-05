@@ -6,6 +6,7 @@ import { useUserCommunities } from './useUserCommunities';
 import { useCurrentUser } from './useCurrentUser';
 import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
+import { validateMessageEvent } from './useMessages';
 
 interface LoadInfo {
   loadCount: number;
@@ -88,7 +89,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
     return (now - loadInfo.lastLoadTime) < backoffDelay;
   }, [activeCommunityId]);
 
-  // Load community batch
+  // Load community batch (all channels like the old strategic loader)
   const loadBatch = useCallback(async (communityIds: string[]) => {
     if (!communityIds.length || !user?.pubkey) return;
 
@@ -99,10 +100,18 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
         const [kind, pubkey, identifier] = communityId.split(':');
         if (!kind || !pubkey || !identifier) continue;
 
+        // Load general channel (both kinds like useMessages does)
         filters.push({
           kinds: [1, 9411],
           '#a': [`${kind}:${pubkey}:${identifier}`],
-          limit: 10,
+          limit: 8, // Smaller limit since we're loading multiple channels
+        });
+
+        // Load recent channel messages (kind 9411 only for specific channels)
+        filters.push({
+          kinds: [9411],
+          '#a': [`${kind}:${pubkey}:${identifier}`],
+          limit: 5, // Even smaller for channel messages
         });
       }
 
@@ -113,7 +122,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
       if (events.length > 0) {
         cacheEvents(events);
 
-        // Update query cache
+        // Group events by community and channel
         for (const communityId of communityIds) {
           const communityEvents = events.filter(event => {
             const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
@@ -121,24 +130,42 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
           });
 
           if (communityEvents.length > 0) {
-            const messageEvents = communityEvents
-              .filter(event => [1, 9411].includes(event.kind))
-              .sort((a, b) => a.created_at - b.created_at);
-
-            if (messageEvents.length > 0) {
-              queryClient.setQueryData(
-                ['messages', communityId, 'general'],
-                (oldMessages: NostrEvent[] | undefined) => {
-                  if (!oldMessages) return messageEvents;
-                  
-                  const existingIds = new Set(oldMessages.map(m => m.id));
-                  const newMessages = messageEvents.filter(m => !existingIds.has(m.id));
-                  
-                  if (!newMessages.length) return oldMessages;
-                  
-                  return [...oldMessages, ...newMessages].sort((a, b) => a.created_at - b.created_at);
+            // Group by channel
+            const eventsByChannel = new Map<string, NostrEvent[]>();
+            
+            for (const event of communityEvents) {
+              // Determine channel
+              const channelTag = event.tags.find(([name]) => name === 't')?.[1];
+              const channelId = channelTag || 'general';
+              
+              // Validate event for this channel
+              if (validateMessageEvent(event, channelId)) {
+                if (!eventsByChannel.has(channelId)) {
+                  eventsByChannel.set(channelId, []);
                 }
-              );
+                eventsByChannel.get(channelId)!.push(event);
+              }
+            }
+
+            // Update cache for each channel
+            for (const [channelId, channelEvents] of eventsByChannel) {
+              if (channelEvents.length > 0) {
+                const sortedEvents = channelEvents.sort((a, b) => a.created_at - b.created_at);
+                
+                queryClient.setQueryData(
+                  ['messages', communityId, channelId],
+                  (oldMessages: NostrEvent[] | undefined) => {
+                    if (!oldMessages) return sortedEvents;
+                    
+                    const existingIds = new Set(oldMessages.map(m => m.id));
+                    const newMessages = sortedEvents.filter(m => !existingIds.has(m.id));
+                    
+                    if (!newMessages.length) return oldMessages;
+                    
+                    return [...oldMessages, ...newMessages].sort((a, b) => a.created_at - b.created_at);
+                  }
+                );
+              }
             }
           }
 
