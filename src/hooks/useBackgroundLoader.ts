@@ -12,10 +12,19 @@ interface CommunityLoadInfo {
   lastLoadTime: number;
 }
 
+interface LRUCommunityCache {
+  // Ordered list of community IDs, most recently used first
+  communities: string[];
+  // Map of community ID to load info
+  loadInfo: Map<string, CommunityLoadInfo>;
+  // Set of communities currently being actively used (and should not be background loaded)
+  activeCommunities: Set<string>;
+}
+
 interface BackgroundLoadingState {
   isLoading: boolean;
   lastLoadTime: number;
-  loadedCommunities: Map<string, CommunityLoadInfo>;
+  lruCache: LRUCommunityCache;
   loadQueue: string[];
   currentBatch: string[];
 }
@@ -24,6 +33,7 @@ const BACKGROUND_LOAD_DELAY = 8000; // Wait 8 seconds after other activity stops
 const BATCH_SIZE = 3; // Load events for 3 communities at once
 const LOAD_COOLDOWN = 3 * 60 * 1000; // Wait 3 minutes between background loads for same community
 const MAX_EVENTS_PER_COMMUNITY = 50; // Limit events per community to avoid overwhelming
+const MAX_BACKGROUND_COMMUNITIES = 10; // Maximum number of communities to track for background loading
 
 // Progressive backoff: start with 3 minutes, increase by 2x each time, cap at 15 minutes
 const getNextCooldown = (previousLoads: number): number => {
@@ -32,9 +42,58 @@ const getNextCooldown = (previousLoads: number): number => {
   return baseTime * multiplier;
 };
 
+// LRU Cache management functions
+const addCommunityToLRU = (cache: LRUCommunityCache, communityId: string): void => {
+  // Remove if already exists
+  const existingIndex = cache.communities.indexOf(communityId);
+  if (existingIndex >= 0) {
+    cache.communities.splice(existingIndex, 1);
+  }
+  
+  // Add to front (most recently used)
+  cache.communities.unshift(communityId);
+  
+  // Enforce max size - remove least recently used communities
+  while (cache.communities.length > MAX_BACKGROUND_COMMUNITIES) {
+    const removedCommunity = cache.communities.pop();
+    if (removedCommunity) {
+      cache.loadInfo.delete(removedCommunity);
+    }
+  }
+};
+
+const removeCommunityFromLRU = (cache: LRUCommunityCache, communityId: string): void => {
+  const index = cache.communities.indexOf(communityId);
+  if (index >= 0) {
+    cache.communities.splice(index, 1);
+    cache.loadInfo.delete(communityId);
+  }
+};
+
+const markCommunityActive = (cache: LRUCommunityCache, communityId: string): void => {
+  cache.activeCommunities.add(communityId);
+  // Remove from LRU list since it's now active
+  removeCommunityFromLRU(cache, communityId);
+};
+
+const markCommunityInactive = (cache: LRUCommunityCache, communityId: string): void => {
+  cache.activeCommunities.delete(communityId);
+  // Add back to LRU list with reset backoff
+  addCommunityToLRU(cache, communityId);
+  // Reset backoff time
+  cache.loadInfo.delete(communityId);
+};
+
 /**
  * Hook that manages background loading of community events when the app is idle.
  * This improves perceived performance by preloading content users are likely to access.
+ * 
+ * Features:
+ * - Prioritizes user's own communities by membership status (owners > moderators > members)
+ * - Tracks additional communities via LRU (Least Recently Used) cache for visited communities
+ * - Excludes currently active communities from background loading
+ * - Limits to max 10 communities to avoid overwhelming the relay
+ * - Uses progressive backoff timing to balance freshness vs relay load
  */
 export function useBackgroundLoader() {
   const { nostr } = useNostr();
@@ -46,7 +105,11 @@ export function useBackgroundLoader() {
   const stateRef = useRef<BackgroundLoadingState>({
     isLoading: false,
     lastLoadTime: 0,
-    loadedCommunities: new Map(),
+    lruCache: {
+      communities: [],
+      loadInfo: new Map(),
+      activeCommunities: new Set(),
+    },
     loadQueue: [],
     currentBatch: [],
   });
@@ -74,17 +137,31 @@ export function useBackgroundLoader() {
     }, BACKGROUND_LOAD_DELAY);
   }, []);
 
-  // Check if we should skip loading for a community (recently loaded)
+  // Check if we should skip loading for a community (recently loaded or active)
   const shouldSkipCommunity = useCallback((communityId: string): boolean => {
+    const cache = stateRef.current.lruCache;
+    
+    // Active communities get refreshed, but less frequently (every 10 minutes instead of 5)
+    const isActiveCommunity = cache.activeCommunities.has(communityId);
+    const activeCommunityInterval = 10 * 60 * 1000; // 10 minutes for active communities
+
     const now = Date.now();
-    const communityLoadStateInfo = stateRef.current.loadedCommunities.get(communityId);
+    const communityLoadStateInfo = cache.loadInfo.get(communityId);
 
     if (!communityLoadStateInfo) return false;
 
-    // Check progressive backoff - each community gets longer cooldowns based on load count
-    const cooldownTime = getNextCooldown(communityLoadStateInfo.loadCount);
-    if (now - communityLoadStateInfo.lastLoadTime < cooldownTime) {
-      return true;
+    // Different logic for active vs inactive communities
+    if (isActiveCommunity) {
+      // Active communities: only refresh every 10 minutes, ignore progressive backoff
+      if (now - communityLoadStateInfo.lastLoadTime < activeCommunityInterval) {
+        return true;
+      }
+    } else {
+      // Inactive communities: use progressive backoff
+      const cooldownTime = getNextCooldown(communityLoadStateInfo.loadCount);
+      if (now - communityLoadStateInfo.lastLoadTime < cooldownTime) {
+        return true;
+      }
     }
 
     // Check if we have recent data in cache
@@ -92,37 +169,62 @@ export function useBackgroundLoader() {
     const cachedData = queryClient.getQueryData(cacheKey);
     const queryState = queryClient.getQueryState(cacheKey);
 
-    // Skip if we have fresh data (less than 5 minutes old)
-    if (cachedData && queryState?.dataUpdatedAt && (now - queryState.dataUpdatedAt) < 5 * 60 * 1000) {
+    // Different freshness thresholds for active vs inactive communities
+    const freshnessThreshold = isActiveCommunity ? activeCommunityInterval : 5 * 60 * 1000;
+    if (cachedData && queryState?.dataUpdatedAt && (now - queryState.dataUpdatedAt) < freshnessThreshold) {
       return true;
     }
 
     return false;
   }, [queryClient]);
 
-  // Prepare the loading queue based on user communities
+  // Prepare the loading queue based on user communities (prioritized) and LRU cache
   const prepareLoadQueue = useCallback((): string[] => {
-    if (!userCommunities || userCommunities.length === 0) {
-      return [];
+    const cache = stateRef.current.lruCache;
+    
+    // Get all potential communities: user communities + LRU cache communities
+    const allPotentialCommunities = new Set<string>();
+    
+    // Add user communities (these are the primary ones we want to background load)
+    if (userCommunities && userCommunities.length > 0) {
+      userCommunities.forEach(community => {
+        allPotentialCommunities.add(community.id);
+      });
     }
-
-    // Filter out communities that should be skipped
-    const communitiesToLoad = userCommunities
-      .filter(community => !shouldSkipCommunity(community.id))
-      .map(community => community.id);
-
-    // Prioritize communities by membership status (owners/moderators first)
-    const prioritized = communitiesToLoad.sort((a, b) => {
-      const communityA = userCommunities.find(c => c.id === a);
-      const communityB = userCommunities.find(c => c.id === b);
-
-      if (!communityA || !communityB) return 0;
-
-      const statusOrder = { owner: 0, moderator: 1, approved: 2 };
-      return statusOrder[communityA.membershipStatus] - statusOrder[communityB.membershipStatus];
+    
+    // Add LRU cache communities (previously visited)
+    cache.communities.forEach(communityId => {
+      allPotentialCommunities.add(communityId);
     });
+    
+    // Filter out communities that should be skipped (active or recently loaded)
+    const availableCommunities = Array.from(allPotentialCommunities)
+      .filter(communityId => !shouldSkipCommunity(communityId));
+    
+    // Prioritize by membership status if we have userCommunities data
+    if (userCommunities && userCommunities.length > 0) {
+      return availableCommunities.sort((a, b) => {
+        const communityA = userCommunities.find(c => c.id === a);
+        const communityB = userCommunities.find(c => c.id === b);
 
-    return prioritized;
+        // User communities get priority over LRU-only communities
+        if (communityA && !communityB) return -1;
+        if (!communityA && communityB) return 1;
+        if (!communityA && !communityB) {
+          // Both are LRU-only, maintain LRU order
+          const indexA = cache.communities.indexOf(a);
+          const indexB = cache.communities.indexOf(b);
+          return indexA - indexB;
+        }
+
+        // Both are user communities, prioritize by membership status
+        const statusOrder = { owner: 0, moderator: 1, approved: 2 };
+        return statusOrder[communityA!.membershipStatus] - statusOrder[communityB!.membershipStatus];
+      });
+    }
+    
+    // Fallback: just return available communities in LRU order
+    return availableCommunities;
   }, [userCommunities, shouldSkipCommunity]);
 
   // Load events for a batch of communities
@@ -425,8 +527,9 @@ export function useBackgroundLoader() {
 
             // Mark community as loaded and track load count for progressive backoff
             const now = Date.now();
-            const currentInfo = stateRef.current.loadedCommunities.get(communityId);
-            stateRef.current.loadedCommunities.set(communityId, {
+            const cache = stateRef.current.lruCache;
+            const currentInfo = cache.loadInfo.get(communityId);
+            cache.loadInfo.set(communityId, {
               loadCount: currentInfo ? currentInfo.loadCount + 1 : 1,
               lastLoadTime: now,
             });
@@ -496,6 +599,10 @@ export function useBackgroundLoader() {
     return unsubscribe;
   }, [queryClient, trackQueryActivity]);
 
+  // Note: User communities are now handled directly in prepareLoadQueue() 
+  // to maintain proper prioritization. The LRU cache tracks additional 
+  // communities that were visited but may not be in userCommunities anymore.
+
   // Start initial background loading when user communities are available
   useEffect(() => {
     if (userCommunities && userCommunities.length > 0 && user?.pubkey) {
@@ -530,22 +637,43 @@ export function useBackgroundLoader() {
   }, [startBackgroundLoading]);
 
   const getLoadingState = useCallback(() => {
+    const cache = stateRef.current.lruCache;
     return {
       isLoading: stateRef.current.isLoading,
-      loadedCount: stateRef.current.loadedCommunities.size,
+      loadedCount: cache.loadInfo.size,
       queueLength: stateRef.current.loadQueue.length,
       currentBatch: [...stateRef.current.currentBatch],
+      lruCommunities: [...cache.communities],
+      activeCommunities: [...cache.activeCommunities],
     };
   }, []);
 
   const clearLoadedCache = useCallback(() => {
-    stateRef.current.loadedCommunities.clear();
+    const cache = stateRef.current.lruCache;
+    cache.communities = [];
+    cache.loadInfo.clear();
+  }, []);
+
+  // Methods to control active communities
+  const markCommunityActiveCallback = useCallback((communityId: string) => {
+    markCommunityActive(stateRef.current.lruCache, communityId);
+  }, []);
+
+  const markCommunityInactiveCallback = useCallback((communityId: string) => {
+    markCommunityInactive(stateRef.current.lruCache, communityId);
+  }, []);
+
+  const addCommunityToBackgroundLoading = useCallback((communityId: string) => {
+    addCommunityToLRU(stateRef.current.lruCache, communityId);
   }, []);
 
   return {
     triggerBackgroundLoad,
     getLoadingState,
     clearLoadedCache,
+    markCommunityActive: markCommunityActiveCallback,
+    markCommunityInactive: markCommunityInactiveCallback,
+    addCommunityToBackgroundLoading,
   };
 }
 

@@ -15,8 +15,8 @@ import { AppConfig } from '@/contexts/AppContext';
 import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
-import { useEnableBackgroundLoading } from '@/hooks/useBackgroundLoader';
 import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
+import { BackgroundLoaderProvider } from '@/contexts/BackgroundLoaderContext';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
@@ -77,7 +77,6 @@ function AppContent() {
 
   // Enable performance optimizations
   useEnableSmartPrefetch();
-  useEnableBackgroundLoading();
   useEnablePerformanceMonitoring();
   useHighPriorityChannelPreloader(); // HIGH PRIORITY: Load channels immediately
   useHighPrioritySpacesPreloader(); // HIGH PRIORITY: Load spaces immediately
@@ -91,18 +90,20 @@ function AppContent() {
   };
 
   return (
-    <TooltipProvider>
-      <QueryOptimizer />
-      <Toaster />
-      <Sonner />
-      <PerformanceIndicator
-        isVisible={config.showPerformanceDashboard || false}
-        onHide={handleHidePerformanceDashboard}
-      />
-      <Suspense>
-        <AppRouter />
-      </Suspense>
-    </TooltipProvider>
+    <BackgroundLoaderProvider>
+      <TooltipProvider>
+        <QueryOptimizer />
+        <Toaster />
+        <Sonner />
+        <PerformanceIndicator
+          isVisible={config.showPerformanceDashboard || false}
+          onHide={handleHidePerformanceDashboard}
+        />
+        <Suspense>
+          <AppRouter />
+        </Suspense>
+      </TooltipProvider>
+    </BackgroundLoaderProvider>
   );
 }
 

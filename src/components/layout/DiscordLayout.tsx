@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
+import { useActiveCommunitySetter } from "@/contexts/BackgroundLoaderContext";
 
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -42,6 +43,9 @@ export function DiscordLayout() {
 
   // Visit history tracking
   const { recordCommunityVisit, recordChannelVisit } = useVisitHistory();
+
+  // Background loader community tracking
+  const { setActiveCommunity } = useActiveCommunitySetter();
 
   // Mobile-specific state
   const isMobile = useIsMobile();
@@ -152,6 +156,11 @@ export function DiscordLayout() {
       }
     }
   }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
+
+  // Track active community for background loader
+  useEffect(() => {
+    setActiveCommunity(selectedCommunity);
+  }, [selectedCommunity, setActiveCommunity]);
 
   const handleJoinSuccess = (communityId: string) => {
     // After successful join, select the community
