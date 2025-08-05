@@ -16,7 +16,7 @@ import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
 import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
-import { BackgroundLoaderProvider } from '@/contexts/BackgroundLoaderContext';
+import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
@@ -90,7 +90,7 @@ function AppContent() {
   };
 
   return (
-    <BackgroundLoaderProvider>
+    <MessageSystemProvider>
       <TooltipProvider>
         <QueryOptimizer />
         <Toaster />
@@ -103,7 +103,7 @@ function AppContent() {
           <AppRouter />
         </Suspense>
       </TooltipProvider>
-    </BackgroundLoaderProvider>
+    </MessageSystemProvider>
   );
 }
 

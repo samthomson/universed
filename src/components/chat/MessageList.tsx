@@ -8,7 +8,7 @@ import { useChannels } from "@/hooks/useChannels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
-import { Lock } from "lucide-react";
+import { Lock, Radio } from "lucide-react";
 
 interface MessageListProps {
   communityId: string;
@@ -18,7 +18,7 @@ interface MessageListProps {
 
 export function MessageList({ communityId, channelId, onNavigateToDMs }: MessageListProps) {
   const isMobile = useIsMobile();
-  const { data: messages, isLoading } = useMessages(communityId, channelId);
+  const { data: messages, isLoading, isSubscribed } = useMessages(communityId, channelId);
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const { data: channels } = useChannels(communityId);
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
@@ -96,9 +96,23 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
             <h3 className="text-xl font-semibold text-white mb-2">
               Welcome to #{channelName}!
             </h3>
-            <p className="text-gray-400 max-w-md">
+            <p className="text-gray-400 max-w-md mb-4">
               This is the beginning of the #{channelName} channel. Start the conversation!
             </p>
+            {/* Real-time subscription status indicator */}
+            <div className="flex items-center space-x-2 text-sm">
+              {isSubscribed ? (
+                <>
+                  <Radio className="w-4 h-4 text-green-500 animate-pulse" />
+                  <span className="text-green-400">Live subscription active</span>
+                </>
+              ) : (
+                <>
+                  <Radio className="w-4 h-4 text-orange-500" />
+                  <span className="text-orange-400">Connecting...</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

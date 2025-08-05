@@ -11,6 +11,7 @@ import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useMessageSystem } from "@/contexts/MessageSystemContext";
 import { useEnableStrategicBackgroundLoading } from "@/hooks/useStrategicBackgroundLoader";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
-import { useActiveCommunitySetter } from "@/contexts/BackgroundLoaderContext";
 
 export function DiscordLayout() {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
@@ -31,11 +31,14 @@ export function DiscordLayout() {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
 
-  // Enable strategic background loading of community events
+  const { setActiveCommunity } = useMessageSystem();
+  // Enable strategic background loading and performance monitoring
   useEnableStrategicBackgroundLoading();
-
-  // Enable performance monitoring
   useEnablePerformanceMonitoring();
+  // Sync active community with selected community automatically
+  useEffect(() => {
+    setActiveCommunity(selectedCommunity);
+  }, [selectedCommunity, setActiveCommunity]);
 
   // Channel and spaces preloaders for immediate loading
   const { preloadImmediately: preloadChannelsImmediately } = useChannelPreloader();
@@ -43,9 +46,6 @@ export function DiscordLayout() {
 
   // Visit history tracking
   const { recordCommunityVisit, recordChannelVisit } = useVisitHistory();
-
-  // Background loader community tracking
-  const { setActiveCommunity } = useActiveCommunitySetter();
 
   // Mobile-specific state
   const isMobile = useIsMobile();
@@ -156,11 +156,6 @@ export function DiscordLayout() {
       }
     }
   }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
-
-  // Track active community for background loader
-  useEffect(() => {
-    setActiveCommunity(selectedCommunity);
-  }, [selectedCommunity, setActiveCommunity]);
 
   const handleJoinSuccess = (communityId: string) => {
     // After successful join, select the community

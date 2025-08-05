@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCanAccessChannel } from './useChannelPermissions';
 import { useEventCache } from './useEventCache';
-import { useOptimizedEventLoading } from './useOptimizedEventLoading';
 import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
-function buildMessageFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
+function buildFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
   const filters: NostrFilter[] = [];
 
   if (channelId === 'general') {
@@ -45,72 +45,147 @@ export function validateMessageEvent(event: NostrEvent, expectedChannelId: strin
   );
 }
 
+/**
+ * Hook for loading messages from a community channel.
+ * Provides message history + real-time updates as new messages arrive.
+ */
 export function useMessages(communityId: string, channelId: string) {
   const { nostr } = useNostr();
-  const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
+  const queryClient = useQueryClient();
+  const { canAccess: canRead } = useCanAccessChannel(communityId, channelId, 'read');
   const { cacheEvents } = useEventCache();
-  const { preloadRelatedEvents } = useOptimizedEventLoading();
+  
+  const subscriptionRef = useRef<{ close: () => void } | null>(null);
+  const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
-  // Debug logging
-  logger.log(`[useMessages] Hook called for channel ${channelId}`);
+  // Handle new real-time messages
+  const handleNewMessage = useCallback((event: NostrEvent) => {
+    if (!validateMessageEvent(event, channelId)) return;
 
-  return useQuery({
-    queryKey: ['messages', communityId, channelId],
+    cacheEvents([event]);
+
+    queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
+      if (!oldMessages) return [event];
+      if (oldMessages.some(msg => msg.id === event.id)) return oldMessages;
+      
+      return [...oldMessages, event].sort((a, b) => a.created_at - b.created_at);
+    });
+
+    logger.log(`[Messages] New message: ${event.id}`);
+  }, [channelId, cacheEvents, queryClient, queryKey]);
+
+  // Start real subscription
+  const startSubscription = useCallback(async () => {
+    if (!communityId || !channelId || !canRead) return;
+
+    const [kind, pubkey, identifier] = communityId.split(':');
+    if (!kind || !pubkey || !identifier) return;
+
+    try {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.close();
+      }
+
+      // Real-time subscription: ONLY new messages from now onwards
+      // This avoids duplicates with initial query and provides true real-time updates
+      const filters = buildFilters(kind, pubkey, identifier, channelId).map(filter => ({
+        ...filter,
+        since: Math.floor(Date.now() / 1000), // From NOW onwards (no historical overlap)
+      }));
+
+      logger.log(`[Messages] Starting subscription for ${channelId}`);
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              handleNewMessage(msg[2]);
+            }
+          }
+        } catch (error) {
+          logger.warn('Subscription error:', error);
+        }
+      })();
+
+      subscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log(`[Messages] Subscription closed for ${channelId}`);
+        }
+      };
+
+    } catch (error) {
+      logger.error('Failed to start subscription:', error);
+    }
+  }, [communityId, channelId, canRead, nostr, handleNewMessage]);
+
+  // Stop subscription
+  const stopSubscription = useCallback(() => {
+    if (subscriptionRef.current) {
+      subscriptionRef.current.close();
+      subscriptionRef.current = null;
+    }
+  }, []);
+
+  // Initial query for existing messages
+  const query = useQuery({
+    queryKey,
     queryFn: async (c) => {
-      // Check if user has read access to this channel
-      if (!canRead) {
-        logger.warn(`Access denied for channel ${channelId}: ${reason}`);
-        return [];
-      }
+      if (!canRead) return [];
 
-      // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
+      if (!kind || !pubkey || !identifier) return [];
 
-      if (!kind || !pubkey || !identifier) {
-        return [];
-      }
+      // Load recent message history for context (Slack-like experience)
+      const filters = buildFilters(kind, pubkey, identifier, channelId);
 
-      // Build filters for the query
-      const filters = buildMessageFilters(kind, pubkey, identifier, channelId);
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-
-      // Simple direct query - let React Query handle caching
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
       const events = await nostr.query(filters, { signal });
 
-      // Cache the fetched events for future use
       if (events.length > 0) {
         cacheEvents(events);
       }
 
-      // Apply strict client-side filtering to ensure channel isolation
-      const validEvents = events.filter(event => {
-        const isValid = validateMessageEvent(event, channelId);
-
-        // Additional safety check: ensure the event actually belongs to this channel
-        if (isValid && event.kind === 9411) {
-          const eventChannelId = event.tags.find(([name]) => name === 't')?.[1];
-          if (eventChannelId !== channelId) {
-            return false;
-          }
-        }
-
-        return isValid;
-      });
-
-      // Sort by created_at (oldest first)
-      const sortedEvents = validEvents.sort((a, b) => a.created_at - b.created_at);
-
-      // Preload related events (reactions, comments) in the background
-      if (sortedEvents.length > 0) {
-        preloadRelatedEvents(communityId, sortedEvents);
-      }
-
-      logger.log(`[useMessages] Returning ${sortedEvents.length} messages for channel ${channelId}`);
-
-      return sortedEvents;
+      const validEvents = events.filter(event => validateMessageEvent(event, channelId));
+      return validEvents.sort((a, b) => a.created_at - b.created_at);
     },
     enabled: !!communityId && !!channelId && canRead,
-    refetchInterval: false,
-    // REMOVED placeholderData to prevent stale replies from persisting
   });
+
+  // Manage subscription lifecycle
+  useEffect(() => {
+    if (query.data && canRead) {
+      startSubscription();
+    }
+    return stopSubscription;
+  }, [query.data, canRead, startSubscription, stopSubscription]);
+
+  // Handle tab visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        stopSubscription();
+      } else if (document.visibilityState === 'visible' && query.data && canRead) {
+        startSubscription();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopSubscription();
+    };
+  }, [query.data, canRead, startSubscription, stopSubscription]);
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+    isSubscribed: !!subscriptionRef.current,
+  };
 }
