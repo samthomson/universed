@@ -1,0 +1,211 @@
+import { memo, useCallback, useState } from "react";
+import { cn } from "@/lib/utils";
+import { Ban, MoreHorizontal, Pin, Reply, Trash2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import { NoteContent } from "@/components/NoteContent";
+import { UserContextMenu } from "@/components/user/UserContextMenu";
+import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+
+import { useAuthor } from "@/hooks/useAuthor";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { genUserName } from "@/lib/genUserName";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
+import type { NostrEvent } from "@nostrify/nostrify";
+
+export interface MessageItemConfig {
+  showContextMenu: boolean;
+  showReactions: boolean;
+  showThreadReply: boolean;
+  showPin: boolean;
+  showDelete: boolean;
+  showBan: boolean;
+}
+
+export interface BaseMessageItemProps {
+  message: NostrEvent;
+  showAvatar: boolean;
+  config: MessageItemConfig;
+  onReply?: (message: NostrEvent) => void;
+  onPin?: (message: NostrEvent) => void;
+  onDelete?: (message: NostrEvent, reason?: string) => void;
+  onBan?: (pubkey: string, reason?: string) => void;
+  onNavigateToDMs?: (targetPubkey: string) => void;
+}
+
+function BaseMessageItemComponent({
+  message,
+  showAvatar,
+  config,
+  onReply,
+  onPin,
+  onDelete,
+  onBan,
+  onNavigateToDMs,
+}: BaseMessageItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+
+  const author = useAuthor(message.pubkey);
+  const { user } = useCurrentUser();
+  const metadata = author.data?.metadata;
+
+  const displayName = metadata?.name || genUserName(message.pubkey);
+  const profileImage = metadata?.picture;
+  const timestamp = new Date(message.created_at * 1000);
+
+  const handleProfileClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (user?.pubkey !== message.pubkey) {
+      setShowProfileDialog(true);
+    }
+  }, [user?.pubkey, message.pubkey]);
+
+  return (
+    <div
+      className={cn(
+        "group relative hover:bg-secondary/50 transition-all duration-200 w-full px-4 py-1",
+        {
+          "mt-4": showAvatar,
+        },
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="flex space-x-3">
+        <div className="w-10 flex-shrink-0">
+          {showAvatar
+            ? (
+              <UserContextMenu
+                pubkey={message.pubkey}
+                displayName={displayName}
+              >
+                <div
+                  className="relative cursor-pointer"
+                  onClick={handleProfileClick}
+                >
+                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
+                    <AvatarImage src={profileImage} alt={displayName} />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {displayName.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              </UserContextMenu>
+            )
+            : (
+              <div className="h-5 flex items-center justify-center w-10">
+                {isHovered && (
+                  <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
+                    {timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </div>
+            )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {showAvatar && (
+            <div className="flex items-baseline space-x-2 mb-1">
+              <UserContextMenu
+                pubkey={message.pubkey}
+                displayName={displayName}
+              >
+                <span
+                  className="font-semibold hover:underline cursor-pointer"
+                  onClick={handleProfileClick}
+                >
+                  {displayName}
+                </span>
+              </UserContextMenu>
+              <span className="text-xs text-muted-foreground">
+                {formatDistanceToNowShort(timestamp, { addSuffix: true })}
+              </span>
+            </div>
+          )}
+          <div className="text-foreground break-words">
+            <NoteContent event={message} className="text-sm leading-relaxed" />
+          </div>
+          {/* Reactions and thread replies will be added here based on config */}
+        </div>
+
+        {isHovered && (
+          <div className="absolute bg-background border rounded-md shadow-lg flex items-center -top-2 right-4">
+            {config.showThreadReply && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-8 h-8 rounded-r-none"
+                onClick={() => onReply?.(message)}
+                title="Reply"
+              >
+                <Reply className="w-4 h-4" />
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-8 h-8 rounded-l-none"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {config.showPin && (
+                  <DropdownMenuItem onClick={() => onPin?.(message)}>
+                    <Pin className="mr-2 h-4 w-4" />Pin Message
+                  </DropdownMenuItem>
+                )}
+                {config.showDelete && (
+                  <DropdownMenuItem onClick={() => onDelete?.(message)}>
+                    <Trash2 className="mr-2 h-4 w-4" />Delete
+                  </DropdownMenuItem>
+                )}
+                {config.showBan && (
+                  <DropdownMenuItem
+                    onClick={() => onBan?.(message.pubkey)}
+                    className="text-destructive"
+                  >
+                    <Ban className="mr-2 h-4 w-4" />Ban User
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </div>
+
+      <UserProfileDialog
+        pubkey={message.pubkey}
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+        onStartDM={onNavigateToDMs}
+      />
+    </div>
+  );
+}
+
+export const BaseMessageItem = memo(
+  BaseMessageItemComponent,
+  (prevProps, nextProps) => {
+    return (
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.showAvatar === nextProps.showAvatar
+    );
+  },
+);

@@ -1,108 +1,113 @@
-import { Hash, Users, Search, HelpCircle, Volume2, Settings, Eye, UserPlus, Copy, Trash2 } from "lucide-react";
+import {
+  Copy,
+  Hash,
+  HelpCircle,
+  Search,
+  Settings,
+  Users,
+  Volume2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { MessageList } from "@/components/chat/MessageList";
-import { MessageInput } from "@/components/chat/MessageInput";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
-import { useCommunities } from "@/hooks/useCommunities";
 import { useChannels } from "@/hooks/useChannels";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
+import { useMessages } from "@/hooks/useMessages";
+import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
 
+import { BaseMessageList } from "@/components/messaging/BaseMessageList";
+import { BaseMessageInput } from "@/components/messaging/BaseMessageInput";
+import {
+  groupMessageInputConfig,
+  groupMessageItemConfig,
+  groupMessageListConfig,
+} from "@/components/messaging/configs/groupConfig";
+
 interface ChatAreaProps {
   communityId: string | null;
   channelId: string | null;
   onToggleMemberList: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
-  onCloseCommunitySelectionDialog?: () => void;
-  preloadedMessages?: import("@nostrify/nostrify").NostrEvent[];
 }
 
-export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs, onCloseCommunitySelectionDialog, preloadedMessages }: ChatAreaProps) {
+function CommunityChat(
+  { communityId, channelId, onToggleMemberList, onNavigateToDMs }:
+    & Omit<ChatAreaProps, "communityId" | "channelId">
+    & { communityId: string; channelId: string },
+) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { data: communities } = useCommunities();
   const { data: channels } = useChannels(communityId);
-  const { canModerate } = useCanModerate(communityId || '');
+  const { canModerate } = useCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
 
-  const community = communities?.find(c => c.id === communityId);
-  const channel = channels?.find(c => c.id === channelId);
+  const { user } = useCurrentUser();
+  const { data: messages, isLoading } = useMessages(communityId, channelId);
+  const { mutateAsync: createEvent, isPending: isSending } = useNostrPublish();
 
-  if (!communityId) {
-    // Direct Messages view - handled by CommunityPanel
-    return null;
-  }
+  const channel = channels?.find((c) => c.id === channelId);
 
-  if (!community || !channelId) {
-    return (
-      <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
-        {/* Header Skeleton */}
-        <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-gray-600 rounded animate-pulse" />
-            <div className="w-24 h-5 bg-gray-600 rounded animate-pulse" />
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <Hash className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Select a channel</h3>
-            <p className="text-sm">Choose a channel to start chatting!</p>
-          </div>
-        </div>
-      </div>
-    );
+  if (!channel) {
+    // This should theoretically not happen if channelId is guaranteed to be valid
+    return <div>Channel not found</div>;
   }
 
   const channelName = channel?.name || channelId;
-  const isVoiceChannel = channel?.type === 'voice';
+  const isVoiceChannel = channel?.type === "voice";
 
   const copyChannelLink = () => {
-    const channelLink = `${window.location.origin}/communities/${communityId}/channels/${channelId}`;
+    const channelLink =
+      `${window.location.origin}/communities/${communityId}/channels/${channelId}`;
     navigator.clipboard.writeText(channelLink);
     toast.success("Channel link copied to clipboard!");
   };
 
+  const handleSendMessage = async (content: string, mentions: string[][]) => {
+    if (!user || !communityId || !channelId) return;
+    const [kind, pubkey, identifier] = communityId.split(":");
+
+    const tags = [
+      ["t", channelId],
+      ["a", `${kind}:${pubkey}:${identifier}`],
+      ...mentions,
+    ];
+
+    await createEvent({
+      kind: 9411,
+      content,
+      tags,
+    });
+  };
+
   return (
     <div className="flex flex-col h-full chat-container">
-      {/* Header - Hidden on mobile since it's handled by DiscordLayout */}
       {!isMobile && (
-        <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
+        <div className="h-12 border-b flex items-center justify-between px-4">
           <div className="flex items-center space-x-2">
-            {isVoiceChannel ? (
-              <Volume2 className="w-5 h-5 text-green-500" />
-            ) : (
-              <Hash className="w-5 h-5 text-gray-400" />
-            )}
-            <span className="font-semibold text-white">{channelName}</span>
-            {channel?.description && (
-              <>
-                <div className="w-px h-4 bg-gray-600" />
-                <span className="text-sm text-gray-400 hidden lg:inline">{channel.description}</span>
-              </>
-            )}
+            {isVoiceChannel
+              ? <Volume2 className="w-5 h-5 text-green-500" />
+              : <Hash className="w-5 h-5 text-muted-foreground" />}
+            <span className="font-semibold">{channelName}</span>
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="ghost"
               size="icon"
               className="w-6 h-6"
-              onClick={() => navigate('/search')}
+              onClick={() => navigate("/search")}
             >
               <Search className="w-4 h-4" />
             </Button>
@@ -114,99 +119,109 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
             >
               <Users className="w-4 h-4" />
             </Button>
-            {canModerate && channel ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-6 h-6">
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[200px]">
-                  <DropdownMenuLabel>Channel Options</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowChannelSettings(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Edit Channel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Permissions
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Invite Members
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={copyChannelLink}>
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy Channel Link
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-red-400 hover:text-red-300 hover:bg-red-500/10">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Channel
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button variant="ghost" size="icon" className="w-6 h-6">
-                <HelpCircle className="w-4 h-4" />
-              </Button>
-            )}
+            {canModerate && channel
+              ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="w-6 h-6">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => setShowChannelSettings(true)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Edit Channel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={copyChannelLink}>
+                      <Copy className="w-4 h-4 mr-2" />
+                      Copy Channel Link
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
+              : (
+                <Button variant="ghost" size="icon" className="w-6 h-6">
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
+              )}
           </div>
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-hidden">
-        {isVoiceChannel ? (
-          /* Voice Channel Interface */
-          <div className="flex-1 p-4">
-            <VoiceChannel
-              channelId={channelId}
-              channelName={channelName}
-              className="max-w-md mx-auto mt-8"
-            />
-          </div>
-        ) : (
-          /* Text Channel Interface */
-          <>
-            {/* Messages take up remaining space */}
-            <MessageList
-              communityId={communityId}
-              channelId={channelId}
-              onNavigateToDMs={onNavigateToDMs}
-              onCloseCommunitySelectionDialog={onCloseCommunitySelectionDialog}
-              preloadedMessages={preloadedMessages}
-            />
-
-            {/* Fixed bottom section */}
-            <div className="flex-shrink-0">
-              {/* Typing Indicator */}
-              <TypingIndicator channelId={channelId} />
-
-              {/* Message Input */}
-              <div className={`p-4 ${isMobile ? 'mobile-input-container pb-safe' : ''}`}>
-                <MessageInput
-                  communityId={communityId}
-                  channelId={channelId}
-                  placeholder={`Message #${channelName}`}
-                />
-              </div>
+        {isVoiceChannel
+          ? (
+            <div className="flex-1 p-4">
+              <VoiceChannel channelId={channelId} channelName={channelName} />
             </div>
-          </>
-        )}
+          )
+          : (
+            <>
+              <BaseMessageList
+                messages={messages || []}
+                isLoading={isLoading}
+                config={groupMessageListConfig}
+                messageItemProps={{
+                  config: groupMessageItemConfig,
+                  onNavigateToDMs,
+                }}
+              />
+
+              <div className="flex-shrink-0">
+                <TypingIndicator channelId={channelId} />
+                <div className="p-4">
+                  <BaseMessageInput
+                    onSendMessage={handleSendMessage}
+                    config={groupMessageInputConfig}
+                    placeholder={`Message #${channelName}`}
+                    isSending={isSending}
+                  />
+                </div>
+              </div>
+            </>
+          )}
       </div>
 
-      {/* Channel Settings Dialog */}
       {channel && (
         <ChannelSettingsDialog
           channel={channel}
-          communityId={communityId!}
+          communityId={communityId}
           open={showChannelSettings}
           onOpenChange={setShowChannelSettings}
         />
       )}
     </div>
+  );
+}
+
+export function ChatArea(props: ChatAreaProps) {
+  if (!props.communityId || !props.channelId) {
+    return (
+      <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
+        <div className="h-12 border-b flex items-center justify-between px-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-secondary rounded animate-pulse" />
+            <div className="w-24 h-5 bg-secondary rounded animate-pulse" />
+          </div>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <Hash className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">Select a channel</h3>
+            <p className="text-sm">Choose a channel to start chatting!</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CommunityChat
+      {...props}
+      communityId={props.communityId}
+      channelId={props.channelId}
+    />
   );
 }
