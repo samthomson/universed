@@ -1,15 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import { useIntelligentLRU } from '@/hooks/useIntelligentLRU';
-
-type IntelligentLRUReturn = ReturnType<typeof useIntelligentLRU>;
-
-interface MessageSystemContextValue {
-  activeCommunityId: string | null;
-  setActiveCommunity: (communityId: string | null) => void;
-  lruStatus: IntelligentLRUReturn;
-}
-
-const MessageSystemContext = createContext<MessageSystemContextValue | null>(null);
+import { MessageSystemContext } from './MessageSystemContextBase';
 
 interface MessageSystemProviderProps {
   children: ReactNode;
@@ -22,7 +13,7 @@ interface MessageSystemProviderProps {
  */
 export function MessageSystemProvider({ children }: MessageSystemProviderProps) {
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
-  
+
   // Intelligent LRU background loading (excludes active community)
   const lruStatus = useIntelligentLRU(activeCommunityId);
 
@@ -32,7 +23,7 @@ export function MessageSystemProvider({ children }: MessageSystemProviderProps) 
       if (communityId) {
         lruStatus.addToTop(communityId);
       }
-      
+
       setActiveCommunityId(communityId);
     }
   };
@@ -48,13 +39,3 @@ export function MessageSystemProvider({ children }: MessageSystemProviderProps) 
   );
 }
 
-/**
- * Hook to access the message system context
- */
-export function useMessageSystem(): MessageSystemContextValue {
-  const context = useContext(MessageSystemContext);
-  if (!context) {
-    throw new Error('useMessageSystem must be used within a MessageSystemProvider');
-  }
-  return context;
-}

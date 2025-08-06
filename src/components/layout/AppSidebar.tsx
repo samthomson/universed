@@ -1,4 +1,4 @@
-import { Plus, MessageCircle, Crown, Shield, Bell } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,7 +8,6 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
-import { useState } from "react";
 
 interface AppSidebarProps {
   selectedCommunity: string | null;

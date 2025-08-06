@@ -32,7 +32,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
   const { cacheEvents } = useEventCache();
   const { data: userCommunities } = useUserCommunities();
   const { user } = useCurrentUser();
-  
+
   const loadInfoRef = useRef<Map<string, LoadInfo>>(new Map());
   const lruListRef = useRef<string[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -50,7 +50,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
       const levelPriority = { owner: 3, moderator: 2, approved: 1 };
       const aLevel = levelPriority[a.membershipStatus as keyof typeof levelPriority] || 1;
       const bLevel = levelPriority[b.membershipStatus as keyof typeof levelPriority] || 1;
-      
+
       if (aLevel !== bLevel) return bLevel - aLevel;
       return (a.name || '').localeCompare(b.name || '');
     });
@@ -63,10 +63,10 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
   const addToTop = useCallback((communityId: string) => {
     // Remove if exists
     lruListRef.current = lruListRef.current.filter(id => id !== communityId);
-    
+
     // Add to top
     lruListRef.current.unshift(communityId);
-    
+
     // Trim to max size
     if (lruListRef.current.length > MAX_LRU_SIZE) {
       lruListRef.current = lruListRef.current.slice(0, MAX_LRU_SIZE);
@@ -95,7 +95,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
 
     try {
       const filters: NostrFilter[] = [];
-      
+
       for (const communityId of communityIds) {
         const [kind, pubkey, identifier] = communityId.split(':');
         if (!kind || !pubkey || !identifier) continue;
@@ -132,12 +132,12 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
           if (communityEvents.length > 0) {
             // Group by channel
             const eventsByChannel = new Map<string, NostrEvent[]>();
-            
+
             for (const event of communityEvents) {
               // Determine channel
               const channelTag = event.tags.find(([name]) => name === 't')?.[1];
               const channelId = channelTag || 'general';
-              
+
               // Validate event for this channel
               if (validateMessageEvent(event, channelId)) {
                 if (!eventsByChannel.has(channelId)) {
@@ -151,17 +151,17 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
             for (const [channelId, channelEvents] of eventsByChannel) {
               if (channelEvents.length > 0) {
                 const sortedEvents = channelEvents.sort((a, b) => a.created_at - b.created_at);
-                
+
                 queryClient.setQueryData(
                   ['messages', communityId, channelId],
                   (oldMessages: NostrEvent[] | undefined) => {
                     if (!oldMessages) return sortedEvents;
-                    
+
                     const existingIds = new Set(oldMessages.map(m => m.id));
                     const newMessages = sortedEvents.filter(m => !existingIds.has(m.id));
-                    
+
                     if (!newMessages.length) return oldMessages;
-                    
+
                     return [...oldMessages, ...newMessages].sort((a, b) => a.created_at - b.created_at);
                   }
                 );
@@ -206,7 +206,7 @@ export function useIntelligentLRU(activeCommunityId: string | null) {
 
     intervalRef.current = setInterval(runPoll, INTERVAL);
     setTimeout(runPoll, 2000); // Run immediately with delay
-  }, [runPoll]);
+  }, [runPoll, INTERVAL]);
 
   const stopPolling = useCallback(() => {
     if (intervalRef.current) {

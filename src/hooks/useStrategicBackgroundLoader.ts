@@ -230,7 +230,7 @@ export function useStrategicBackgroundLoader() {
         logger.warn(`Failed to load channel ${channelId} for community ${communityId}:`, error);
       }
     }
-  }, [nostr, cacheEvents, queryClient, isCacheValid]);
+  }, [nostr, cacheEvents, isCacheValid]);
 
   // Load all data for a community
   const loadCommunityData = useCallback(async (
