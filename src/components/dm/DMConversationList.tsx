@@ -49,7 +49,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
   return (
     <Button
       variant="ghost"
-      className={`flex w-90 justify-start p-3 h-auto text-left hover:bg-gray-800/60 ${
+      className={`flex w-full justify-start p-3 h-auto text-left hover:bg-gray-800/60 ${
         isSelected ? 'bg-gray-900/80' : ''
       }`}
       onClick={onSelect}
