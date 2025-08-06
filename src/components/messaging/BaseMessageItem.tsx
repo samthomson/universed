@@ -15,6 +15,7 @@ import { NoteContent } from "@/components/NoteContent";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { MessageReactions } from "@/components/chat/MessageReactions";
 
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -78,6 +79,7 @@ function BaseMessageItemComponent({
   const handleEmojiSelect = useCallback((emoji: string) => {
     addReaction({ targetEvent: message, emoji });
     setIsEmojiPickerOpen(false);
+    setIsHovered(false); // Hide message actions after emoji selection
   }, [addReaction, message]);
 
   const handleEmojiPickerOpenChange = useCallback((open: boolean) => {
@@ -167,7 +169,11 @@ function BaseMessageItemComponent({
               )}
             </div>
           </div>
-          {/* Reactions and thread replies will be added here based on config */}
+
+          {/* Message Reactions */}
+          {config.showReactions && (
+            <MessageReactions message={message} />
+          )}
         </div>
 
         {isHovered && (

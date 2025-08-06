@@ -2,9 +2,9 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { useReactions } from "@/hooks/useReactions";
-import { useEmojiReactions } from "@/hooks/useEmojiReactions";
+import { useAddReaction } from "@/hooks/useAddReaction";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import type { NostrEvent } from "@nostrify/nostrify";
+import type { NostrEvent } from "@/types/nostr";
 
 interface MessageReactionsProps {
   message: NostrEvent;
@@ -12,7 +12,7 @@ interface MessageReactionsProps {
 
 export function MessageReactions({ message }: MessageReactionsProps) {
   const { data: reactions } = useReactions(message.id);
-  const { addReaction } = useEmojiReactions();
+  const { mutate: addReaction } = useAddReaction();
   const { user } = useCurrentUser();
 
   if (!reactions || reactions.length === 0) {
