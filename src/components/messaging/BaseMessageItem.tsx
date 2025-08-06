@@ -57,6 +57,7 @@ function BaseMessageItemComponent({
   const [isHovered, setIsHovered] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
@@ -67,6 +68,9 @@ function BaseMessageItemComponent({
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
+
+  // Keep actions visible if any interactive element is open
+  const shouldShowActions = isHovered || isEmojiPickerOpen || isDropdownOpen;
 
   const handleProfileClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -79,11 +83,15 @@ function BaseMessageItemComponent({
   const handleEmojiSelect = useCallback((emoji: string) => {
     addReaction({ targetEvent: message, emoji });
     setIsEmojiPickerOpen(false);
-    setIsHovered(false); // Hide message actions after emoji selection
+    setIsHovered(false); // Hide actions after selecting emoji
   }, [addReaction, message]);
 
   const handleEmojiPickerOpenChange = useCallback((open: boolean) => {
     setIsEmojiPickerOpen(open);
+  }, []);
+
+  const handleDropdownOpenChange = useCallback((open: boolean) => {
+    setIsDropdownOpen(open);
   }, []);
 
   return (
@@ -121,7 +129,7 @@ function BaseMessageItemComponent({
             )
             : (
               <div className="h-5 flex items-center justify-center w-10">
-                {(isHovered || isEmojiPickerOpen) && (
+                {shouldShowActions && (
                   <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -172,11 +180,14 @@ function BaseMessageItemComponent({
 
           {/* Message Reactions */}
           {config.showReactions && (
-            <MessageReactions message={message} />
+            <MessageReactions
+              message={message}
+              onReactionClick={() => setIsHovered(false)}
+            />
           )}
         </div>
 
-        {isHovered && (
+        {shouldShowActions && (
           <div className={cn(
             "absolute bg-background border rounded-md shadow-lg flex items-center right-4 z-10",
             showAvatar
@@ -212,7 +223,7 @@ function BaseMessageItemComponent({
                 }
               />
             )}
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={handleDropdownOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
