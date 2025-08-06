@@ -4,6 +4,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import Index from "./pages/Index";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
 import { Communities } from "./pages/Communities";
 import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
@@ -22,6 +23,7 @@ export function AppRouter() {
         <Route path="/communities/:communityId/manage" element={<CommunityManagement />} />
         <Route path="/join/:naddr" element={<Index />} />
         <Route path="/profile/:npub" element={<Profile />} />
+        <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
         <Route path="/mention-demo" element={<UserMentionDemo />} />

@@ -1,10 +1,10 @@
-import { Settings, Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
+import { Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { ProfileModal } from "@/components/user/ProfileModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus } from "@/hooks/useUserStatus";
@@ -23,11 +23,16 @@ export function UserPanel() {
   const [isDeafened, setIsDeafened] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (!user) return null;
 
   const displayName = metadata?.name || genUserName(user.pubkey);
   const profileImage = metadata?.picture;
+
+  const handleOpenProfileModal = () => {
+    setShowProfileModal(true);
+  };
 
   return (
     <>
@@ -35,7 +40,7 @@ export function UserPanel() {
         {/* User Info */}
         <div
           className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch`}
-          onClick={() => setShowStatusDialog(true)}
+          onClick={handleOpenProfileModal}
         >
           <div className="relative">
             <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
@@ -61,9 +66,6 @@ export function UserPanel() {
 
         {/* Controls */}
         <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
-          {/* Notification Center */}
-          <NotificationCenter />
-
           {/* Voice Controls - Hide some on mobile to save space */}
           {!isMobile && (
             <>
@@ -88,18 +90,15 @@ export function UserPanel() {
               </Button>
             </>
           )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 mobile-touch`}
-            title="User Settings"
-            onClick={() => setShowSettingsDialog(true)}
-          >
-            <Settings className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-          </Button>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        open={showProfileModal}
+        onOpenChange={setShowProfileModal}
+        onOpenSettings={() => setShowSettingsDialog(true)}
+      />
 
       {/* Status Dialog */}
       <UserStatusDialog
