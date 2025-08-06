@@ -18,8 +18,8 @@ vi.mock('@/hooks/useChannels', () => ({
 
 vi.mock('@/hooks/useChannelFolders', () => ({
   useChannelFolders: vi.fn(() => ({
-    data: undefined, // No data to trigger loading state
-    isLoading: true,
+    data: [], // Empty array to avoid loading state
+    isLoading: false,
   })),
   useCreateChannelFolder: vi.fn(() => ({
     mutateAsync: vi.fn(),
@@ -43,6 +43,18 @@ vi.mock('@/hooks/useVoiceChannel', () => ({
     voiceState: { members: [] },
     isConnected: false,
     connectionStatus: 'disconnected',
+  })),
+}));
+
+vi.mock('@/hooks/useChannelPermissions', () => ({
+  useCanAccessChannel: vi.fn(() => ({
+    canAccess: true,
+  })),
+  useChannelPermissions: vi.fn(() => ({
+    data: {
+      readPermissions: 'everyone',
+      writePermissions: 'everyone',
+    },
   })),
 }));
 
@@ -93,6 +105,37 @@ describe('ChannelOrganizer', () => {
       isLeaving: false,
     });
 
+    // Mock channels to include a voice channel
+    vi.mocked(_useChannels).mockReturnValue({
+      data: [
+        {
+          id: 'voice-channel-1',
+          name: 'Voice Channel',
+          type: 'voice',
+          communityId: 'test-community',
+          creator: 'test-user',
+          position: 0,
+          event: {
+            id: 'test-event',
+            pubkey: 'test-user',
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 1,
+            tags: [],
+            content: '',
+            sig: 'test-sig',
+          },
+        },
+      ],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      isPending: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      invalidateQueries: vi.fn(),
+    } as unknown as ReturnType<typeof _useChannels>);
+
     render(
       <TestApp>
         <ChannelOrganizer
@@ -134,6 +177,37 @@ describe('ChannelOrganizer', () => {
       isJoining: false,
       isLeaving: false,
     });
+
+    // Mock channels to include a voice channel
+    vi.mocked(_useChannels).mockReturnValue({
+      data: [
+        {
+          id: 'voice-channel-1',
+          name: 'Voice Channel',
+          type: 'voice',
+          communityId: 'test-community',
+          creator: 'test-user',
+          position: 0,
+          event: {
+            id: 'test-event',
+            pubkey: 'test-user',
+            created_at: Math.floor(Date.now() / 1000),
+            kind: 1,
+            tags: [],
+            content: '',
+            sig: 'test-sig',
+          },
+        },
+      ],
+      isLoading: false,
+      isSuccess: true,
+      isError: false,
+      isPending: false,
+      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
+      invalidateQueries: vi.fn(),
+    } as unknown as ReturnType<typeof _useChannels>);
 
     render(
       <TestApp>
