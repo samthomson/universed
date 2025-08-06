@@ -2,7 +2,7 @@ import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nos
 import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useQueryDeduplication } from './useQueryDeduplication';
-import { reactQueryConfigs } from '@/components/QueryOptimizer';
+import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 
 export function useAuthorBatch(pubkeys: (string | undefined)[]) {
   const { nostr } = useNostr();

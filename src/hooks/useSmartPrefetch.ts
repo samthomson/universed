@@ -138,7 +138,7 @@ export function useSmartPrefetch() {
     } catch (error) {
       logger.warn('Community prefetch failed:', error);
     }
-  }, [user?.pubkey, nostr, queryClient, prefetchQuery, getCachedData, prefetchAuthors]);
+  }, [user?.pubkey, nostr, prefetchQuery, getCachedData, prefetchAuthors]);
 
   // Prefetch user's most active communities
   const prefetchUserCommunities = useCallback(async (): Promise<void> => {

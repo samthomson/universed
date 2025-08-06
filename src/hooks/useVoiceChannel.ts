@@ -450,7 +450,7 @@ export function useVoiceChannel(channelId?: string) {
     };
 
     return peerConnection;
-  }, [sendSignalingMessage, rtcConfig, channelId, isConnected, user?.pubkey]);
+  }, [sendSignalingMessage, rtcConfig, channelId, isConnected]);
 
   // Full reconnection function for failed connections
   const performFullReconnection = useCallback(async (remotePubkey: string) => {
@@ -508,7 +508,7 @@ export function useVoiceChannel(channelId?: string) {
         reconnectTimeoutsRef.current.set(remotePubkey, timeoutId);
       }
     }
-  }, [isConnected, createPeerConnection, sendSignalingMessage]);
+  }, [isConnected, createPeerConnection, sendSignalingMessage, user?.pubkey]);
 
   // Assign the function to the ref for forward reference
   performFullReconnectionRef.current = performFullReconnection;
