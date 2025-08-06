@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 import type { Channel } from './useChannels';
 
@@ -211,11 +212,11 @@ export function useChannelPreloader() {
           }
         }
 
-        console.log(`Preloaded channels for ${communityIds.length} communities: ${events.length} events`);
+        logger.log(`Preloaded channels for ${communityIds.length} communities: ${events.length} events`);
       }
     } catch (error) {
       // Silently handle preload errors
-      console.warn(`Channel preload failed for communities:`, communityIds, error);
+      logger.warn(`Channel preload failed for communities:`, communityIds, error);
     }
   }, [nostr, cacheEvents, queryClient, validateChannelEvent, parseChannelEvent]);
 

@@ -34,7 +34,6 @@ export function useReactions(eventId: string) {
       return validEvents.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!eventId,
-    staleTime: 2 * 60 * 1000, // 2 minutes - Reactions don't change as frequently
     refetchInterval: 30 * 1000, // 30 seconds - Reduced refetch frequency
   });
 }

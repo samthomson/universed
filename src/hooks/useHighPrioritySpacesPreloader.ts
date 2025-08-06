@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { useUserCommunities } from './useUserCommunities';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 import type { Space } from './useSpaces';
 
@@ -102,7 +103,7 @@ export function useHighPrioritySpacesPreloader() {
     if (isPreloadingRef.current || communityIds.length === 0) return;
     
     isPreloadingRef.current = true;
-    console.log('🚀 HIGH PRIORITY: Preloading spaces for', communityIds.length, 'communities');
+    logger.log('🚀 HIGH PRIORITY: Preloading spaces for', communityIds.length, 'communities');
 
     try {
       // Create aggressive filters for immediate space loading
@@ -195,7 +196,7 @@ export function useHighPrioritySpacesPreloader() {
           );
         }
 
-        console.log(`✅ HIGH PRIORITY: Cached spaces for ${communitiesProcessed.size} communities (${events.length} events)`);
+        logger.log(`✅ HIGH PRIORITY: Cached spaces for ${communitiesProcessed.size} communities (${events.length} events)`);
       } else {
         // No custom space events found, cache default spaces for all communities
         for (const communityId of communityIds) {
@@ -223,10 +224,10 @@ export function useHighPrioritySpacesPreloader() {
           );
         }
 
-        console.log(`✅ HIGH PRIORITY: Cached default spaces for ${communityIds.length} communities`);
+        logger.log(`✅ HIGH PRIORITY: Cached default spaces for ${communityIds.length} communities`);
       }
     } catch (error) {
-      console.warn('High priority spaces preload failed:', error);
+      logger.warn('High priority spaces preload failed:', error);
       
       // On error, still cache default spaces
       for (const communityId of communityIds) {

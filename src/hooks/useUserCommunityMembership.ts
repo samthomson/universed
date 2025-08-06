@@ -120,6 +120,5 @@ export function useUserCommunityMembership(communityId: string | null) {
       return 'not-member';
     },
     enabled: !!user?.pubkey && !!communityId && !!communities,
-    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

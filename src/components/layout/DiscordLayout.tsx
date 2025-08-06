@@ -11,7 +11,7 @@ import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useEnableStrategicBackgroundLoading } from "@/hooks/useStrategicBackgroundLoader";
+import { useMessageSystem } from "@/contexts/MessageSystemContext";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
@@ -30,11 +30,13 @@ export function DiscordLayout() {
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
 
-  // Enable strategic background loading of community events
-  useEnableStrategicBackgroundLoading();
-
-  // Enable performance monitoring
+  const { setActiveCommunity } = useMessageSystem();
+  // Enable performance monitoring (strategic background loading disabled - using LRU instead)
   useEnablePerformanceMonitoring();
+  // Sync active community with selected community automatically
+  useEffect(() => {
+    setActiveCommunity(selectedCommunity);
+  }, [selectedCommunity, setActiveCommunity]);
 
   // Channel and spaces preloaders for immediate loading
   const { preloadImmediately: preloadChannelsImmediately } = useChannelPreloader();

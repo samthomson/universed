@@ -52,7 +52,7 @@ export function useDMMessages(conversationId: string) {
       return validMessages.sort((a, b) => a.created_at - b.created_at);
     },
     enabled: !!user && !!conversationId,
-    staleTime: 45 * 1000, // 45 seconds - DMs need reasonable real-time feel
+
     refetchInterval: 15 * 1000, // 15 seconds - Balanced for DM responsiveness
   });
 }

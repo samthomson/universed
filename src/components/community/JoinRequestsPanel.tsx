@@ -11,6 +11,7 @@ import { useManageMembers } from "@/hooks/useManageMembers";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
+import { logger } from '@/lib/logger';
 import type { JoinRequest } from "@/hooks/useJoinRequests";
 
 interface JoinRequestsProps {
@@ -76,7 +77,7 @@ function JoinRequestItem({ request, onApprove, onDecline, isProcessing }: JoinRe
               <Button
                 size="sm"
                 onClick={() => {
-                  console.log('Approve button clicked for:', request.requesterPubkey);
+                  logger.log('Approve button clicked for:', request.requesterPubkey);
                   onApprove(request.requesterPubkey);
                 }}
                 disabled={isProcessing}
@@ -109,7 +110,7 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
   const { toast } = useToast();
   const [processingUser, setProcessingUser] = useState<string | null>(null);
 
-  console.log('JoinRequestsPanel render:', {
+  logger.log('JoinRequestsPanel render:', {
     communityId,
     joinRequestsCount: joinRequests?.length,
     isLoading,
@@ -119,21 +120,21 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
   });
 
   const handleApprove = (pubkey: string) => {
-    console.log('handleApprove called with:', { pubkey, communityId });
+    logger.log('handleApprove called with:', { pubkey, communityId });
 
     if (!communityId) {
-      console.log('No communityId, returning early');
+      logger.log('No communityId, returning early');
       return;
     }
 
-    console.log('Setting processing user and calling addMember');
+    logger.log('Setting processing user and calling addMember');
     setProcessingUser(pubkey);
 
     addMember(
       { communityId, memberPubkey: pubkey },
       {
         onSuccess: () => {
-          console.log('addMember success');
+          logger.log('addMember success');
           toast({
             title: "Member Approved",
             description: "The user has been added to the community.",
@@ -141,7 +142,7 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
           setProcessingUser(null);
         },
         onError: (error) => {
-          console.log('addMember error:', error);
+          logger.error('addMember error:', error);
           toast({
             title: "Failed to Approve",
             description: error instanceof Error ? error.message : "An error occurred",
