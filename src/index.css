@@ -499,6 +499,21 @@
     box-sizing: border-box;
   }
 
+  /* Ordered list inline styling */
+  .ordered-list-inline {
+    list-style-position: inside;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    padding-left: 0;
+  }
+
+  .ordered-list-inline li {
+    display: inline-flex;
+    align-items: baseline;
+    margin: 0;
+  }
+
   /* Mobile communities list - force containment */
   .mobile-communities-container {
     width: 100%;

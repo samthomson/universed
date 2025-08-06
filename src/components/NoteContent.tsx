@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -6,7 +8,57 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { MediaAttachment } from '@/components/chat/MediaAttachment';
 import { UserProfileDialog } from '@/components/profile/UserProfileDialog';
+import { InlineEvent } from '@/components/InlineEvent';
 import { cn } from '@/lib/utils';
+
+// Helper function to check if a URL is an image
+function isImageURL(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname.toLowerCase();
+    const searchParams = parsedUrl.search.toLowerCase();
+
+    // Check file extension
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.tiff', '.ico'];
+    if (imageExtensions.some(ext => pathname.endsWith(ext))) {
+      return true;
+    }
+
+    // Check query parameters that might indicate images
+    if (searchParams.includes('format=jpg') ||
+        searchParams.includes('format=jpeg') ||
+        searchParams.includes('format=png') ||
+        searchParams.includes('format=gif') ||
+        searchParams.includes('format=webp')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Helper function to detect if content contains markdown syntax
+function containsMarkdown(text: string): boolean {
+  // Check for common markdown patterns
+  const markdownPatterns = [
+    /^#{1,6}\s+/m,           // Headers
+    /\*\*.*?\*\*/,          // Bold
+    /\*.*?\*/,              // Italic
+    /`.*?`/,                // Inline code
+    /```[\s\S]*?```/,       // Code blocks
+    /^>\s+/m,               // Blockquotes
+    /^[-*+]\s+/m,           // Lists
+    /^\d+\.\s+/m,           // Numbered lists
+    /\[.*?\]\(.*?\)/,       // Links
+    /!\[.*?\]\(.*?\)/,      // Images
+    /\|.*?\|/,              // Tables
+    /~~.*?~~/,              // Strikethrough
+  ];
+
+  return markdownPatterns.some(pattern => pattern.test(text));
+}
 
 interface NoteContentProps {
   event: NostrEvent;
@@ -46,6 +98,9 @@ export function NoteContent({
       .filter(attachment => attachment.url); // Only include valid attachments
   }, [event.tags]);
 
+  // Check if content contains markdown
+  const hasMarkdown = useMemo(() => containsMarkdown(event.content), [event.content]);
+
   // Process the content to render mentions, links, etc.
   const content = useMemo(() => {
     let text = event.content;
@@ -58,8 +113,163 @@ export function NoteContent({
       }
     });
 
-    // Regex to find URLs, Nostr references, user mentions, and hashtags
-    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
+    // If content contains markdown, use ReactMarkdown with custom components
+    if (hasMarkdown) {
+      return (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            // Custom link component to handle external links and user mentions
+            a: ({ href, children, ...props }) => {
+              // Check if this is a user mention in the format @[name](pubkey)
+              const childText = Array.isArray(children) ? children.join('') : String(children || '');
+              const isUserMention = href && /^[0-9a-f]{64}$/i.test(href); // 64 char hex pubkey
+
+              if (isUserMention) {
+                const displayName = childText.startsWith('@') ? childText.substring(1) : childText;
+                const pubkey = href;
+
+                return (
+                  <NostrMention
+                    pubkey={pubkey}
+                    displayName={displayName}
+                    onUserClick={(pubkey) => {
+                      setSelectedUserPubkey(pubkey);
+                      setShowProfileDialog(true);
+                    }}
+                  />
+                );
+              }
+
+              if (href?.startsWith('http')) {
+                return (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              }
+              return (
+                <Link to={href || '#'} className="text-blue-500 hover:underline" {...props}>
+                  {children}
+                </Link>
+              );
+            },
+            // Custom image component
+            img: ({ src, alt, ...props }) => {
+              if (src) {
+                return (
+                  <div className="my-1 inline-block">
+                    <img
+                      src={src}
+                      alt={alt || 'Markdown image'}
+                      className="rounded-lg max-h-64 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => window.open(src, '_blank')}
+                      loading="lazy"
+                      {...props}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            },
+            // Custom code component for inline code
+            code: ({ children, ...props }) => (
+              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+                {children}
+              </code>
+            ),
+            // Custom pre component for code blocks
+            pre: ({ children, ...props }) => (
+              <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-1" {...props}>
+                {children}
+              </pre>
+            ),
+            // Custom blockquote component
+            blockquote: ({ children, ...props }) => (
+              <blockquote className="border-l-4 border-muted-foreground/30 pl-4 my-1 italic" {...props}>
+                {children}
+              </blockquote>
+            ),
+            // Custom heading components
+            h1: ({ children, ...props }) => (
+              <h1 className="text-2xl font-bold mt-2 mb-1" {...props}>
+                {children}
+              </h1>
+            ),
+            h2: ({ children, ...props }) => (
+              <h2 className="text-xl font-semibold mt-2 mb-1" {...props}>
+                {children}
+              </h2>
+            ),
+            h3: ({ children, ...props }) => (
+              <h3 className="text-lg font-medium mt-2 mb-1" {...props}>
+                {children}
+              </h3>
+            ),
+            h4: ({ children, ...props }) => (
+              <h4 className="text-base font-medium mt-1 mb-1" {...props}>
+                {children}
+              </h4>
+            ),
+            h5: ({ children, ...props }) => (
+              <h5 className="text-sm font-medium mt-1 mb-1" {...props}>
+                {children}
+              </h5>
+            ),
+            h6: ({ children, ...props }) => (
+              <h6 className="text-sm font-medium mt-1 mb-0.5" {...props}>
+                {children}
+              </h6>
+            ),
+            // Custom list components
+            ul: ({ children, ...props }) => (
+              <ul className="list-disc list-inside space-y-0.5 my-0.5 pl-2" {...props}>
+                {children}
+              </ul>
+            ),
+            ol: ({ children, ...props }) => (
+              <ol className="list-decimal list-inside space-y-0.5 my-0.5 pl-4" {...props}>
+                {children}
+              </ol>
+            ),
+            li: ({ children, ...props }) => (
+              <li className="pl-1" {...props}>
+                {children}
+              </li>
+            ),
+            // Custom table components
+            table: ({ children, ...props }) => (
+              <div className="overflow-x-auto my-1">
+                <table className="min-w-full border-collapse border border-border" {...props}>
+                  {children}
+                </table>
+              </div>
+            ),
+            th: ({ children, ...props }) => (
+              <th className="border border-border px-3 py-2 bg-muted font-semibold text-left" {...props}>
+                {children}
+              </th>
+            ),
+            td: ({ children, ...props }) => (
+              <td className="border border-border px-3 py-2" {...props}>
+                {children}
+              </td>
+            ),
+          }}
+        >
+          {text}
+        </ReactMarkdown>
+      );
+    }
+
+    // If no markdown, use the original regex-based processing
+    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1|naddr1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
 
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -76,18 +286,46 @@ export function NoteContent({
       }
 
       if (url) {
-        // Handle URLs
-        parts.push(
-          <a
-            key={`url-${keyCounter++}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {url}
-          </a>
-        );
+        // Check if URL is an image
+        const isImageUrl = isImageURL(url);
+
+        if (isImageUrl) {
+          // Render image URLs as actual images
+          parts.push(
+            <div key={`image-${keyCounter++}`} className="my-1 inline-block">
+              <img
+                src={url}
+                alt="Shared image"
+                className="rounded-lg max-h-64 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(url, '_blank')}
+                loading="lazy"
+                onError={(e) => {
+                  // If image fails to load, fall back to link
+                  const fallbackLink = document.createElement('a');
+                  fallbackLink.href = url;
+                  fallbackLink.target = '_blank';
+                  fallbackLink.rel = 'noopener noreferrer';
+                  fallbackLink.className = 'text-blue-500 hover:underline';
+                  fallbackLink.textContent = url;
+                  e.currentTarget.parentNode?.replaceChild(fallbackLink, e.currentTarget);
+                }}
+              />
+            </div>
+          );
+        } else {
+          // Handle non-image URLs as regular links
+          parts.push(
+            <a
+              key={`url-${keyCounter++}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              {url}
+            </a>
+          );
+        }
       } else if (nostrPrefix && nostrData) {
         // Handle Nostr references
         try {
@@ -105,6 +343,17 @@ export function NoteContent({
                   setShowProfileDialog(true);
                 }}
               />
+            );
+          } else if (decoded.type === 'note' || decoded.type === 'nevent' || decoded.type === 'naddr') {
+            // Render inline event for note, nevent, and naddr
+            parts.push(
+              <div key={`inline-event-${keyCounter++}`} className="my-1">
+                <InlineEvent
+                  eventId={nostrId}
+                  showHeader={true}
+                  maxContentLength={250}
+                />
+              </div>
             );
           } else {
             // For other types, just show as a link
@@ -163,20 +412,20 @@ export function NoteContent({
     }
 
     return parts;
-  }, [event.content, mediaAttachments]);
+  }, [event.content, mediaAttachments, hasMarkdown]);
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-1", className)}>
       {/* Text content */}
-      {(content.length > 0 || event.content) && (
+      {(content || event.content) && (
         <div className="whitespace-pre-wrap break-words">
-          {content.length > 0 ? content : event.content}
+          {content || event.content}
         </div>
       )}
 
       {/* Media attachments */}
       {mediaAttachments.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {mediaAttachments.map((attachment, index) => (
             <MediaAttachment
               key={index}
