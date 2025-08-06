@@ -14,9 +14,11 @@ import {
 import { NoteContent } from "@/components/NoteContent";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAddReaction } from "@/hooks/useAddReaction";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
@@ -56,6 +58,7 @@ function BaseMessageItemComponent({
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
+  const { mutate: addReaction } = useAddReaction();
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
 
@@ -70,6 +73,10 @@ function BaseMessageItemComponent({
       setShowProfileDialog(true);
     }
   }, [user?.pubkey, message.pubkey]);
+
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    addReaction({ targetEvent: message, emoji });
+  }, [addReaction, message]);
 
   return (
     <div
@@ -158,7 +165,12 @@ function BaseMessageItemComponent({
         </div>
 
         {isHovered && (
-          <div className="absolute bg-background border rounded-md shadow-lg flex items-center -top-2 right-4">
+          <div className={cn(
+            "absolute bg-background border rounded-md shadow-lg flex items-center right-4 z-10",
+            showAvatar
+              ? "-top-2"
+              : "top-1/2 -translate-y-1/2"
+          )}>
             {config.showThreadReply && (
               <Button
                 variant="ghost"
@@ -169,6 +181,23 @@ function BaseMessageItemComponent({
               >
                 <Reply className="w-4 h-4" />
               </Button>
+            )}
+            {config.showReactions && (
+              <EmojiPickerComponent
+                onEmojiSelect={handleEmojiSelect}
+                side="top"
+                align="center"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 rounded-none"
+                    title="Add Reaction"
+                  >
+                    😊
+                  </Button>
+                }
+              />
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
