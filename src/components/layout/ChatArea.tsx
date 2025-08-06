@@ -16,9 +16,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { logger } from "@/lib/logger";
+import { useState } from "react";
+import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
+import { toast } from "sonner";
 
 import {
   DropdownMenu,
@@ -26,18 +26,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
-import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
-import { toast } from "sonner";
 
-import { BaseMessageList } from "@/components/messaging/BaseMessageList";
-import { BaseMessageInput } from "@/components/messaging/BaseMessageInput";
+import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   groupMessageInputConfig,
   groupMessageItemConfig,
   groupMessageListConfig,
 } from "@/components/messaging/configs/groupConfig";
-import type { NostrEvent } from "@/types/nostr";
+
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -46,84 +42,25 @@ interface ChatAreaProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-function CommunityChat(
-  { communityId, channelId, onToggleMemberList, onNavigateToDMs }:
-    & Omit<ChatAreaProps, "communityId" | "channelId">
-    & { communityId: string; channelId: string },
-) {
+function CommunityChatHeader({ 
+  communityId, 
+  channelId, 
+  onToggleMemberList 
+}: {
+  communityId: string;
+  channelId: string;
+  onToggleMemberList: () => void;
+}) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data: channels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
-  const queryClient = useQueryClient();
-
-  const { user } = useCurrentUser();
-  const { data: messages, isLoading } = useMessages(communityId, channelId);
-  const { mutateAsync: createEvent } = useNostrPublish();
 
   const channel = channels?.find((c) => c.id === channelId);
 
-  // Optimistic message sending mutation
-  const sendMessageMutation = useMutation({
-    mutationFn: async ({ content, tags }: { content: string; tags: string[][] }) => {
-      const event = await createEvent({
-        kind: 9411,
-        content,
-        tags,
-      });
-      return event;
-    },
-    onMutate: async ({ content, tags }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['messages', communityId, channelId] });
-
-      // Snapshot the previous value
-      const previousMessages = queryClient.getQueryData(['messages', communityId, channelId]);
-
-      // Create optimistic message
-      const optimisticMessage: NostrEvent = {
-        id: `optimistic-${Date.now()}`,
-        pubkey: user!.pubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 9411,
-        tags: tags || [],
-        content,
-        sig: '', // Will be filled by the actual event
-        isSending: true, // Mark as sending state for optimistic UI
-      };
-
-      // Optimistically update to the new value
-      queryClient.setQueryData(['messages', communityId, channelId], old => {
-        const oldMessages = Array.isArray(old) ? old : [];
-        // Don't add the optimistic message if it has e-tags (it's a reply)
-        const eTags = optimisticMessage.tags.filter(([name]) => name === 'e');
-        if (eTags.length > 0) {
-          console.warn('[ChatArea] Attempted to add reply to channel messages:', optimisticMessage);
-          return oldMessages;
-        }
-        return [...oldMessages, optimisticMessage];
-      });
-
-      // Return a context object with the snapshotted value
-      return { previousMessages, optimisticMessage };
-    },
-    onError: (err, variables, context) => {
-      // If the mutation fails, use the context returned from onMutate to roll back
-      if (context?.previousMessages) {
-        queryClient.setQueryData(['messages', communityId, channelId], context.previousMessages);
-      }
-      logger.error('Failed to send message:', err);
-    },
-    onSettled: () => {
-      // Always refetch after error or success to make sure we're in sync
-      queryClient.invalidateQueries({ queryKey: ['messages', communityId, channelId] });
-    },
-  });
-
   if (!channel) {
-    // This should theoretically not happen if channelId is guaranteed to be valid
-    return <div>Channel not found</div>;
+    return null;
   }
 
   const channelName = channel?.name || channelId;
@@ -136,112 +73,64 @@ function CommunityChat(
     toast.success("Channel link copied to clipboard!");
   };
 
-  const handleSendMessage = async (content: string, mentions: string[][]) => {
-    if (!user || !communityId || !channelId) return;
-    const [kind, pubkey, identifier] = communityId.split(":");
-
-    const tags = [
-      ["t", channelId],
-      ["a", `${kind}:${pubkey}:${identifier}`],
-      ...mentions,
-    ];
-
-    sendMessageMutation.mutate({
-      content,
-      tags,
-    });
-  };
+  if (isMobile) {
+    return null; // Mobile header handled separately
+  }
 
   return (
-    <div className="flex flex-col h-full chat-container">
-      {!isMobile && (
-        <div className="h-12 border-b flex items-center justify-between px-4">
-          <div className="flex items-center space-x-2">
-            {isVoiceChannel
-              ? <Volume2 className="w-5 h-5 text-green-500" />
-              : <Hash className="w-5 h-5 text-muted-foreground" />}
-            <span className="font-semibold">{channelName}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6"
-              onClick={() => navigate("/search")}
-            >
-              <Search className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6"
-              onClick={onToggleMemberList}
-            >
-              <Users className="w-4 h-4" />
-            </Button>
-            {canModerate && channel
-              ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-6 h-6">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => setShowChannelSettings(true)}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Edit Channel
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={copyChannelLink}>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Copy Channel Link
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )
-              : (
-                <Button variant="ghost" size="icon" className="w-6 h-6">
-                  <HelpCircle className="w-4 h-4" />
-                </Button>
-              )}
-          </div>
+    <>
+      <div className="h-12 border-b flex items-center justify-between px-4">
+        <div className="flex items-center space-x-2">
+          {isVoiceChannel
+            ? <Volume2 className="w-5 h-5 text-green-500" />
+            : <Hash className="w-5 h-5 text-muted-foreground" />}
+          <span className="font-semibold">{channelName}</span>
         </div>
-      )}
-
-      <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-hidden">
-        {isVoiceChannel
-          ? (
-            <div className="flex-1 p-4">
-              <VoiceChannel channelId={channelId} channelName={channelName} />
-            </div>
-          )
-          : (
-            <>
-              <BaseMessageList
-                messages={messages || []}
-                isLoading={isLoading}
-                config={groupMessageListConfig}
-                messageItemProps={{
-                  config: groupMessageItemConfig,
-                  onNavigateToDMs,
-                }}
-              />
-
-              <div className="flex-shrink-0">
-                <TypingIndicator channelId={channelId} />
-                <div className="p-4">
-                  <BaseMessageInput
-                    onSendMessage={handleSendMessage}
-                    config={groupMessageInputConfig}
-                    placeholder={`Message #${channelName}`}
-                    isSending={sendMessageMutation.isPending}
-                  />
-                </div>
-              </div>
-            </>
-          )}
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-6 h-6"
+            onClick={() => navigate("/search")}
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="w-6 h-6"
+            onClick={onToggleMemberList}
+          >
+            <Users className="w-4 h-4" />
+          </Button>
+          {canModerate && channel
+            ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-6 h-6">
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setShowChannelSettings(true)}
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Edit Channel
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={copyChannelLink}>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Channel Link
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )
+            : (
+              <Button variant="ghost" size="icon" className="w-6 h-6">
+                <HelpCircle className="w-4 h-4" />
+              </Button>
+            )}
+        </div>
       </div>
 
       {channel && (
@@ -252,7 +141,81 @@ function CommunityChat(
           onOpenChange={setShowChannelSettings}
         />
       )}
-    </div>
+    </>
+  );
+}
+
+function CommunityChat(
+  { communityId, channelId, onToggleMemberList, onNavigateToDMs }:
+    & Omit<ChatAreaProps, "communityId" | "channelId">
+    & { communityId: string; channelId: string },
+) {
+  const { data: channels } = useChannels(communityId);
+  const { data: messages, isLoading } = useMessages(communityId, channelId);
+  const { mutateAsync: createEvent } = useNostrPublish();
+
+  const channel = channels?.find((c) => c.id === channelId);
+
+  if (!channel) {
+    return <div>Channel not found</div>;
+  }
+
+  const channelName = channel?.name || channelId;
+  const isVoiceChannel = channel?.type === "voice";
+
+  const handleSendMessage = async (content: string) => {
+    const [kind, pubkey, identifier] = communityId.split(":");
+
+    const tags = [
+      ["t", channelId],
+      ["a", `${kind}:${pubkey}:${identifier}`],
+    ];
+
+    await createEvent({
+      kind: 9411,
+      content,
+      tags,
+    });
+  };
+
+  if (isVoiceChannel) {
+    return (
+      <div className="flex flex-col h-full chat-container">
+        <CommunityChatHeader 
+          communityId={communityId} 
+          channelId={channelId} 
+          onToggleMemberList={onToggleMemberList} 
+        />
+        <div className="flex-1 p-4">
+          <VoiceChannel channelId={channelId} channelName={channelName} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <BaseChatArea
+      messages={messages || []}
+      isLoading={isLoading}
+      onSendMessage={handleSendMessage}
+      header={
+        <CommunityChatHeader 
+          communityId={communityId} 
+          channelId={channelId} 
+          onToggleMemberList={onToggleMemberList} 
+        />
+      }
+      messageListConfig={groupMessageListConfig}
+      messageItemConfig={groupMessageItemConfig}
+      messageInputConfig={groupMessageInputConfig}
+      inputPlaceholder={`Message #${channelName}`}
+      onNavigateToDMs={onNavigateToDMs}
+      additionalContent={
+        <div className="flex-shrink-0">
+          <TypingIndicator channelId={channelId} />
+        </div>
+      }
+    />
   );
 }
 
