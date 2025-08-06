@@ -8,6 +8,7 @@ import type { NostrEvent } from '@nostrify/nostrify';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useRSVPStatus, type RSVPStatus } from '@/hooks/useRSVPStatus';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { cn } from '@/lib/utils';
@@ -18,13 +19,14 @@ interface CalendarEventCardProps {
   compact?: boolean;
 }
 
-type RSVPStatus = 'accepted' | 'declined' | 'tentative';
 
 export function CalendarEventCard({ event, className, compact = false }: CalendarEventCardProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [isRSVPing, setIsRSVPing] = useState(false);
-  const [currentRSVP, setCurrentRSVP] = useState<RSVPStatus | null>(null);
+  
+  // Get current RSVP status
+  const { status: currentRSVP, isLoading: rsvpLoading, refetch: refetchRSVP } = useRSVPStatus(event);
   
   const author = useAuthor(event.pubkey);
   const metadata = author.data?.metadata;
@@ -118,7 +120,8 @@ export function CalendarEventCard({ event, className, compact = false }: Calenda
         tags: rsvpTags,
       });
 
-      setCurrentRSVP(status);
+      // Refetch RSVP status to show the updated state
+      setTimeout(() => refetchRSVP(), 1000); // Small delay to allow the event to propagate
     } catch (error) {
       console.error('Failed to RSVP:', error);
     } finally {
@@ -145,6 +148,14 @@ export function CalendarEventCard({ event, className, compact = false }: Calenda
                 <Calendar className="w-3 h-3 mr-1" />
                 Event
               </Badge>
+              {currentRSVP && !rsvpLoading && (
+                <Badge 
+                  variant={currentRSVP === 'accepted' ? 'default' : currentRSVP === 'declined' ? 'destructive' : 'secondary'} 
+                  className="text-xs"
+                >
+                  {currentRSVP === 'accepted' ? 'Going' : currentRSVP === 'tentative' ? 'Maybe' : 'Not Going'}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {formatDistanceToNowShort(new Date(event.created_at * 1000), { addSuffix: true })}
@@ -218,7 +229,7 @@ export function CalendarEventCard({ event, className, compact = false }: Calenda
               <Button
                 size="sm"
                 variant={currentRSVP === 'accepted' ? 'default' : 'outline'}
-                disabled={isRSVPing}
+                disabled={isRSVPing || rsvpLoading}
                 onClick={() => handleRSVP('accepted')}
                 className="h-7 px-2 text-xs"
               >
@@ -228,7 +239,7 @@ export function CalendarEventCard({ event, className, compact = false }: Calenda
               <Button
                 size="sm"
                 variant={currentRSVP === 'tentative' ? 'default' : 'outline'}
-                disabled={isRSVPing}
+                disabled={isRSVPing || rsvpLoading}
                 onClick={() => handleRSVP('tentative')}
                 className="h-7 px-2 text-xs"
               >
@@ -238,7 +249,7 @@ export function CalendarEventCard({ event, className, compact = false }: Calenda
               <Button
                 size="sm"
                 variant={currentRSVP === 'declined' ? 'destructive' : 'outline'}
-                disabled={isRSVPing}
+                disabled={isRSVPing || rsvpLoading}
                 onClick={() => handleRSVP('declined')}
                 className="h-7 px-2 text-xs"
               >
