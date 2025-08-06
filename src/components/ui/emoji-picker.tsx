@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 interface EmojiPickerComponentProps {
   onEmojiSelect: (emoji: string) => void;
+  onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
   className?: string;
   side?: 'top' | 'right' | 'bottom' | 'left';
@@ -15,6 +16,7 @@ interface EmojiPickerComponentProps {
 
 export function EmojiPickerComponent({
   onEmojiSelect,
+  onOpenChange,
   trigger,
   className,
   side = 'top',
@@ -22,9 +24,15 @@ export function EmojiPickerComponent({
 }: EmojiPickerComponentProps) {
   const [open, setOpen] = useState(false);
 
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    onOpenChange?.(newOpen);
+  };
+
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
     setOpen(false);
+    onOpenChange?.(false);
   };
 
   const defaultTrigger = (
@@ -38,15 +46,24 @@ export function EmojiPickerComponent({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         {trigger || defaultTrigger}
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-auto p-0 border-gray-600 bg-gray-800" 
-        side={side} 
+      <PopoverContent
+        className="w-auto p-0 border-gray-600 bg-gray-800"
+        side={side}
         align={align}
-        sideOffset={8}
+        sideOffset={0}
+        collisionPadding={8}
+        onPointerDownOutside={(e) => {
+          // Prevent closing when clicking on the trigger button
+          const target = e.currentTarget as HTMLElement | null;
+          const trigger = target?.previousElementSibling as HTMLElement | null;
+          if (trigger && e.target instanceof Node && trigger.contains(e.target)) {
+            e.preventDefault();
+          }
+        }}
       >
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
