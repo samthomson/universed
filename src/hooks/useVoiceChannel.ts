@@ -5,6 +5,7 @@ import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { useToast } from './useToast';
 import { useVoiceContext } from '@/contexts/VoiceContext';
+import { useVoiceSoundEffects } from './useVoiceSoundEffects';
 import { logger } from '@/lib/logger';
 
 // Custom event kinds for voice channel functionality
@@ -52,6 +53,7 @@ export function useVoiceChannel(channelId?: string) {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { playJoinSound, playLeaveSound } = useVoiceSoundEffects();
 
   // Local audio state
   const [isConnected, setIsConnected] = useState(false);
@@ -981,10 +983,13 @@ export function useVoiceChannel(channelId?: string) {
     const timeoutId = setTimeout(() => {
       const { newMembers, leftMembers } = voiceState;
 
-      // Clean up connections for members who left
+      // Play leave sounds for members who left (excluding current user)
       if (leftMembers && leftMembers.length > 0) {
         logger.log(`Cleaning up connections for ${leftMembers.length} members who left`);
         leftMembers.forEach(pubkey => {
+          // Play leave sound for other users
+          playLeaveSound(pubkey);
+
           const connection = peerConnectionsRef.current.get(pubkey);
           if (connection) {
             connection.connection.close();
@@ -1002,9 +1007,17 @@ export function useVoiceChannel(channelId?: string) {
         });
       }
 
-      // Initiate connections to new members (with validation)
+      // Play join sounds and initiate connections for new members (excluding current user)
       if (newMembers && newMembers.length > 0) {
         logger.log(`Connecting to ${newMembers.length} new members`);
+
+        // Play join sounds for new members (excluding current user)
+        newMembers.forEach(pubkey => {
+          if (pubkey !== user.pubkey) {
+            playJoinSound(pubkey);
+          }
+        });
+
         const newMemberObjects = voiceState.members.filter(m =>
           newMembers.includes(m.pubkey) && m.pubkey !== user.pubkey
         );
@@ -1018,7 +1031,7 @@ export function useVoiceChannel(channelId?: string) {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [voiceState, isConnected, user?.pubkey, initiateConnections, validateConnections]);
+  }, [voiceState, isConnected, user?.pubkey, initiateConnections, validateConnections, playJoinSound, playLeaveSound]);
 
   // Join voice channel with improved reliability
   const joinVoiceChannel = useMutation({
@@ -1119,7 +1132,15 @@ export function useVoiceChannel(channelId?: string) {
         const currentMembers = voiceState?.members?.filter(m => m.pubkey !== user.pubkey) || [];
         logger.log(`Found ${currentMembers.length} existing members to connect to`);
 
+        // Play join sounds for existing members (since we're joining and they're already there)
         if (currentMembers.length > 0) {
+          // Add a small delay before playing sounds to let the UI settle
+          setTimeout(() => {
+            currentMembers.forEach(member => {
+              playJoinSound(member.pubkey);
+            });
+          }, 500);
+
           await initiateConnections(currentMembers);
         }
 

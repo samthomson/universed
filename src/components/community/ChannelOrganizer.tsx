@@ -34,6 +34,7 @@ import { FolderManagementDialog } from "./FolderManagementDialog";
 import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
 import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
+import { useVoiceChannel } from "@/hooks/useVoiceChannel";
 
 import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 
@@ -524,6 +525,10 @@ function ChannelItem({
   hasAccess?: boolean;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
+  // Get real-time voice channel status for voice channels
+  const { voiceState } = useVoiceChannel(channel.type === 'voice' ? channel.id : '');
+  const memberCount = voiceState?.members.length || 0;
+  const hasUsersConnected = memberCount > 0;
   const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
 
   // Determine icon type once based on channel properties
@@ -602,9 +607,11 @@ function ChannelItem({
 
               {/* Voice channel users - fixed width */}
               {channel.type === 'voice' && (
-                <div className="flex items-center text-xs text-gray-500 flex-shrink-0">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                  <span>0</span>
+                <div className="flex items-center text-xs flex-shrink-0">
+                  <div className={`w-2 h-2 rounded-full mr-1 ${hasUsersConnected ? 'bg-green-500' : 'bg-gray-500'}`}></div>
+                  <span className={hasUsersConnected ? 'text-gray-300' : 'text-gray-500'}>
+                    {memberCount}
+                  </span>
                 </div>
               )}
             </div>
