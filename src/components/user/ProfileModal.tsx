@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { 
   Bolt, 
-  ExternalLink, 
+  Edit, 
   Settings, 
   MoreHorizontal,
   Globe,
@@ -29,6 +29,7 @@ import {
   XCircle,
   Circle
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { nip19 } from "nostr-tools";
 
 interface ProfileModalProps {
@@ -56,6 +57,7 @@ export function ProfileModal({
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
   const updateUserStatus = useUpdateUserStatus();
+  const navigate = useNavigate();
 
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
@@ -80,6 +82,11 @@ export function ProfileModal({
   const handleZap = () => {
     // TODO: Implement zap functionality
     console.log('Zap user:', user.pubkey);
+  };
+
+  const handleEditProfile = () => {
+    navigate(`/profile/${npub}/edit`);
+    onOpenChange(false);
   };
 
   return (
@@ -190,24 +197,21 @@ export function ProfileModal({
                   <Button
                     variant="default"
                     size="sm"
-                    onClick={handleZap}
-                    className="flex items-center space-x-2 bg-yellow-600 hover:bg-yellow-700"
+                    onClick={handleEditProfile}
+                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700"
                   >
-                    <Bolt className="w-4 h-4" />
-                    <span>Zap</span>
+                    <Edit className="w-4 h-4" />
+                    <span>Edit Profile</span>
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      onNavigateToProfile();
-                      onOpenChange(false);
-                    }}
+                    onClick={handleZap}
                     className="flex items-center space-x-2"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>View Profile</span>
+                    <Bolt className="w-4 h-4" />
+                    <span>Zap</span>
                   </Button>
 
                   <Button
