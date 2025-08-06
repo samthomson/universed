@@ -28,15 +28,15 @@ interface JoinRequestDialogProps {
   onJoinSuccess?: (communityId: string) => void;
 }
 
-export function JoinRequestDialog({ 
-  communityId, 
-  open, 
-  onOpenChange, 
-  onJoinSuccess 
+export function JoinRequestDialog({
+  communityId,
+  open,
+  onOpenChange,
+  onJoinSuccess
 }: JoinRequestDialogProps) {
   const [joinMessage, setJoinMessage] = useState('');
   const [isJoining, setIsJoining] = useState(false);
-  
+
   const { user } = useCurrentUser();
   const { data: communities } = useCommunities();
   const { mutate: joinCommunity } = useJoinCommunity();
@@ -45,18 +45,18 @@ export function JoinRequestDialog({
   // Find the community
   const community = communities?.find(c => c.id === communityId);
   const creatorAuthor = useAuthor(community?.creator || '');
-  
+
   // Check user's membership status
   const { data: membershipStatus } = useUserCommunityMembership(communityId || '');
 
   const handleJoinRequest = async () => {
     if (!communityId || !user) return;
-    
+
     setIsJoining(true);
-    
+
     joinCommunity(
-      { 
-        communityId, 
+      {
+        communityId,
         message: joinMessage.trim() || `I would like to join ${community?.name || 'this community'}.`
       },
       {
@@ -66,8 +66,12 @@ export function JoinRequestDialog({
             description: 'Your request to join the community has been sent to the moderators.',
           });
           setJoinMessage('');
-          onJoinSuccess?.(communityId);
+          // Close the dialog first, then handle success
           onOpenChange(false);
+          // Call onJoinSuccess after a small delay to ensure dialog is closed
+          setTimeout(() => {
+            onJoinSuccess?.(communityId);
+          }, 100);
         },
         onError: (error) => {
           toast({
@@ -144,7 +148,7 @@ export function JoinRequestDialog({
     }
   };
 
-  if (!community) {
+  if (!community && open) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
@@ -156,10 +160,22 @@ export function JoinRequestDialog({
             <p className="text-muted-foreground">
               This community doesn't exist or hasn't been loaded yet.
             </p>
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="mt-4"
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
     );
+  }
+
+  // If community is not found and dialog is not open, don't render anything
+  if (!community) {
+    return null;
   }
 
   const statusDisplay = getMembershipStatusDisplay();
@@ -250,14 +266,30 @@ export function JoinRequestDialog({
             </div>
           )}
 
+          {/* Pending Request Info */}
+          {user && membershipStatus === 'pending' && (
+            <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-orange-500" />
+                <div>
+                  <h4 className="font-medium text-orange-500">Request Pending</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Your join request is currently being reviewed by the community moderators.
+                    You'll receive a notification once a decision is made.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             {user && statusDisplay.canJoin && (
-              <Button 
-                onClick={handleJoinRequest} 
+              <Button
+                onClick={handleJoinRequest}
                 disabled={isJoining}
               >
                 {isJoining ? 'Sending Request...' : 'Send Join Request'}

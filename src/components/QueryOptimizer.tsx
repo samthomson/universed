@@ -1,6 +1,50 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { logger } from '@/lib/logger';
+
+/**
+ * Centralized React Query configurations
+ * These settings control caching behavior across the application
+ */
+export const reactQueryConfigs = {
+  author: {
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 2 * 60 * 60 * 1000, // 2 hours
+  },
+  messages: {
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  },
+  communities: {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  },
+  events: {
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+  },
+  reactions: {
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  },
+  'pinned-messages': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
+  'pinned-messages-events': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
+  'thread-replies': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
+  'user-status': {
+    staleTime: 30 * 1000, // 30 seconds - needs to be fresh for presence
+    gcTime: 5 * 60 * 1000, // 5 minutes - similar to reactions
+  },
+} as const;
 
 interface QueryOptimizerProps {
   /** Whether to enable aggressive caching optimizations */
@@ -28,52 +72,9 @@ export function QueryOptimizer({
   useEffect(() => {
     if (!enableAggressiveCaching) return;
 
-    // Set optimized defaults for common query patterns
-    const optimizations = [
-      // Author queries - profile data changes infrequently
-      {
-        queryKey: ['author'],
-        defaults: {
-          staleTime: 15 * 60 * 1000, // 15 minutes
-          gcTime: 2 * 60 * 60 * 1000, // 2 hours
-        },
-      },
-      // Message queries - need balance between real-time and performance
-      {
-        queryKey: ['messages'],
-        defaults: {
-          staleTime: 60 * 1000, // 1 minute
-          gcTime: 10 * 60 * 1000, // 10 minutes
-        },
-      },
-      // Community queries - relatively stable data
-      {
-        queryKey: ['communities'],
-        defaults: {
-          staleTime: 5 * 60 * 1000, // 5 minutes
-          gcTime: 30 * 60 * 1000, // 30 minutes
-        },
-      },
-      // Event batch queries - events are immutable
-      {
-        queryKey: ['events-batch'],
-        defaults: {
-          staleTime: 10 * 60 * 1000, // 10 minutes
-          gcTime: 60 * 60 * 1000, // 1 hour
-        },
-      },
-      // Reaction queries - change frequently but can tolerate some staleness
-      {
-        queryKey: ['reactions'],
-        defaults: {
-          staleTime: 30 * 1000, // 30 seconds
-          gcTime: 5 * 60 * 1000, // 5 minutes
-        },
-      },
-    ];
-
-    optimizations.forEach(({ queryKey, defaults }) => {
-      queryClient.setQueryDefaults(queryKey, defaults);
+    // Set optimized defaults for all configured query patterns
+    Object.entries(reactQueryConfigs).forEach(([queryKey, defaults]) => {
+      queryClient.setQueryDefaults([queryKey], defaults);
     });
   }, [queryClient, enableAggressiveCaching]);
 
@@ -101,7 +102,7 @@ export function QueryOptimizer({
       });
 
       if (removedCount > 0) {
-        console.log(`Cleaned up ${removedCount} stale queries`);
+        logger.log(`Cleaned up ${removedCount} stale queries`);
       }
     };
 

@@ -36,6 +36,7 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useManageMembers } from "@/hooks/useManageMembers";
 import { genUserName } from "@/lib/genUserName";
 import { CommunityShareDialog } from "./CommunityShareDialog";
 
@@ -63,15 +64,50 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
+  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
+  const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
+  const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
-  const { data: joinRequests } = useJoinRequests(communityId);
+  const { data: joinRequests, isRefetching: isRefetchingRequests } = useJoinRequests(communityId);
   const { data: moderationLogs } = useModerationLogs(communityId || '');
   const moderationStats = useModerationStats(communityId || '');
   const { data: reports } = useReports(communityId);
 
   const community = communities?.find(c => c.id === communityId);
+
+  // Simple handlers that track which member is being processed
+  const handleApprove = (memberPubkey: string) => {
+    if (!community) return;
+    setApprovingMembers(prev => new Set([...prev, memberPubkey]));
+    addMember({ 
+      communityId: community.id, 
+      memberPubkey,
+    });
+  };
+
+  const handleDecline = (memberPubkey: string) => {
+    if (!community) return;
+    setDecliningMembers(prev => new Set([...prev, memberPubkey]));
+    declineMember({ 
+      communityId: community.id, 
+      memberPubkey,
+    });
+  };
+
+  // Clear individual member states when global operations complete
+  useEffect(() => {
+    if (!isAddingMember) {
+      setApprovingMembers(new Set());
+    }
+  }, [isAddingMember]);
+
+  useEffect(() => {
+    if (!isDecliningMember) {
+      setDecliningMembers(new Set());
+    }
+  }, [isDecliningMember]);
 
   // Initialize form data when community changes
   useEffect(() => {
@@ -549,9 +585,21 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {joinRequests && joinRequests.length > 0 ? (
+                    {isRefetchingRequests ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                        <p>Updating...</p>
+                      </div>
+                    ) : joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
-                        <JoinRequestItem key={request.event.id} request={request} />
+                        <JoinRequestItem 
+                          key={request.event.id} 
+                          request={request} 
+                          onApprove={() => handleApprove(request.requesterPubkey)}
+                          onDecline={() => handleDecline(request.requesterPubkey)}
+                          isApproving={approvingMembers.has(request.requesterPubkey)}
+                          isDeclining={decliningMembers.has(request.requesterPubkey)}
+                        />
                       ))
                     ) : (
                       <div className="text-center py-6 text-muted-foreground">
@@ -731,7 +779,19 @@ function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'mod
 }
 
 // Helper component for displaying join requests
-function JoinRequestItem({ request }: { request: { requesterPubkey: string; message: string; createdAt: number } }) {
+function JoinRequestItem({ 
+  request, 
+  onApprove, 
+  onDecline, 
+  isApproving, 
+  isDeclining 
+}: { 
+  request: { requesterPubkey: string; message: string; createdAt: number };
+  onApprove: () => void;
+  onDecline: () => void;
+  isApproving: boolean;
+  isDeclining: boolean;
+}) {
   const author = useAuthor(request.requesterPubkey);
   const displayName = author.data?.metadata?.name || genUserName(request.requesterPubkey);
   const avatar = author.data?.metadata?.picture;
@@ -757,8 +817,22 @@ function JoinRequestItem({ request }: { request: { requesterPubkey: string; mess
         </div>
       </div>
       <div className="flex gap-2">
-        <Button size="sm" variant="outline">Accept</Button>
-        <Button size="sm" variant="destructive">Decline</Button>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={onApprove}
+          disabled={isApproving || isDeclining}
+        >
+          {isApproving ? "Approving..." : "Accept"}
+        </Button>
+        <Button 
+          size="sm" 
+          variant="destructive" 
+          onClick={onDecline}
+          disabled={isApproving || isDeclining}
+        >
+          {isDeclining ? "Declining..." : "Decline"}
+        </Button>
       </div>
     </div>
   );

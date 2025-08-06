@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Users, Hash, Plus, Clock, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
+import { generateCommunityNaddr } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import type { MembershipStatus } from "@/hooks/useUserMembership";
 
@@ -26,7 +28,8 @@ interface CommunityCardProps {
   onSelect?: (communityId: string) => void;
 }
 
-function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardProps) {
+function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: CommunityCardProps) {
+  const navigate = useNavigate();
   const author = useAuthor(community.creator);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
@@ -38,6 +41,7 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
 
   const handleJoinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
 
     if (!user) {
       toast({
@@ -121,8 +125,30 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
     }
   };
 
+  const handleCardClick = () => {
+    // If user is already a member (approved, owner, or moderator), select the community directly
+    if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
+      _onSelect?.(community.id);
+    } else if (membershipStatus === 'pending') {
+      // For pending requests, show a toast or handle appropriately
+      // Don't navigate or open modal - just inform user
+      toast({
+        title: 'Request Pending',
+        description: `Your join request for ${community.name} is still being reviewed.`,
+        variant: 'default',
+      });
+    } else {
+      // For non-members (not-member, declined, banned), generate naddr and navigate to it (triggers join flow)
+      const naddr = generateCommunityNaddr(community.event);
+      // Use a small timeout to ensure the callback is processed before navigation
+      setTimeout(() => {
+        navigate(`/${naddr}`);
+      }, 50);
+    }
+  };
+
   return (
-    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={() => onSelect?.(community.id)}>
+    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={handleCardClick}>
       <CardHeader className="pb-3 overflow-hidden">
         <div className="flex items-start justify-between min-w-0">
           <div className="flex items-center space-x-3 min-w-0 flex-1">

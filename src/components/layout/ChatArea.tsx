@@ -26,9 +26,10 @@ interface ChatAreaProps {
   channelId: string | null;
   onToggleMemberList: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  onCloseCommunitySelectionDialog?: () => void;
 }
 
-export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs }: ChatAreaProps) {
+export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs, onCloseCommunitySelectionDialog }: ChatAreaProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data: communities } = useCommunities();
@@ -46,7 +47,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
 
   if (!community || !channelId) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
         {/* Header Skeleton */}
         <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
           <div className="flex items-center space-x-2">
@@ -77,7 +78,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full chat-container">
       {/* Header - Hidden on mobile since it's handled by DiscordLayout */}
       {!isMobile && (
         <div className="h-12 border-b border-gray-600 flex items-center justify-between px-4">
@@ -156,7 +157,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
       )}
 
       {/* Content */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-hidden">
         {isVoiceChannel ? (
           /* Voice Channel Interface */
           <div className="flex-1 p-4">
@@ -174,6 +175,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
               communityId={communityId}
               channelId={channelId}
               onNavigateToDMs={onNavigateToDMs}
+              onCloseCommunitySelectionDialog={onCloseCommunitySelectionDialog}
             />
 
             {/* Fixed bottom section */}

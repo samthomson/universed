@@ -41,7 +41,5 @@ export function useUserPosts(pubkey: string) {
       return validEvents.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!pubkey,
-    staleTime: 5 * 60 * 1000, // 5 minutes - User posts don't change as frequently
-    gcTime: 30 * 60 * 1000, // 30 minutes - Keep user posts cached
   });
 }

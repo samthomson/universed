@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 
 interface VisitHistory {
@@ -16,23 +16,33 @@ interface ChannelVisitHistory {
 export function useVisitHistory() {
   const [communityHistory, setCommunityHistory] = useLocalStorage<VisitHistory>('community-visit-history', {});
   const [channelHistory, setChannelHistory] = useLocalStorage<ChannelVisitHistory>('channel-visit-history', {});
+  
+  // Use refs to maintain stable function references
+  const setCommunityHistoryRef = useRef(setCommunityHistory);
+  const setChannelHistoryRef = useRef(setChannelHistory);
+  
+  // Update refs when the setters change
+  useEffect(() => {
+    setCommunityHistoryRef.current = setCommunityHistory;
+    setChannelHistoryRef.current = setChannelHistory;
+  }, [setCommunityHistory, setChannelHistory]);
 
   // Record a community visit
   const recordCommunityVisit = useCallback((communityId: string) => {
-    setCommunityHistory(prev => ({
+    setCommunityHistoryRef.current(prev => ({
       ...prev,
       [communityId]: Date.now()
     }));
-  }, [setCommunityHistory]);
+  }, []);
 
   // Record a channel visit
   const recordChannelVisit = useCallback((communityId: string, channelId: string) => {
     const key = `${communityId}:${channelId}`;
-    setChannelHistory(prev => ({
+    setChannelHistoryRef.current(prev => ({
       ...prev,
       [key]: Date.now()
     }));
-  }, [setChannelHistory]);
+  }, []);
 
   // Get last visit time for a community
   const getLastCommunityVisit = useCallback((communityId: string): number | null => {
@@ -66,7 +76,7 @@ export function useVisitHistory() {
   const cleanupOldHistory = useCallback(() => {
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
 
-    setCommunityHistory(prev => {
+    setCommunityHistoryRef.current(prev => {
       const cleaned: VisitHistory = {};
       Object.entries(prev).forEach(([id, timestamp]) => {
         if (timestamp > thirtyDaysAgo) {
@@ -76,7 +86,7 @@ export function useVisitHistory() {
       return cleaned;
     });
 
-    setChannelHistory(prev => {
+    setChannelHistoryRef.current(prev => {
       const cleaned: ChannelVisitHistory = {};
       Object.entries(prev).forEach(([key, timestamp]) => {
         if (timestamp > thirtyDaysAgo) {
@@ -85,7 +95,7 @@ export function useVisitHistory() {
       });
       return cleaned;
     });
-  }, [setCommunityHistory, setChannelHistory]);
+  }, []);
 
   // Clean up old entries on mount
   useEffect(() => {

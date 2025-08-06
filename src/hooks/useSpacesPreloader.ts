@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 import type { Space } from './useSpaces';
 
@@ -208,10 +209,10 @@ export function useSpacesPreloader() {
         preloadedCommunities.current.add(communityId);
       }
 
-      console.log(`Preloaded spaces for ${communityIds.length} communities: ${events.length} events`);
+      logger.log(`Preloaded spaces for ${communityIds.length} communities: ${events.length} events`);
     } catch (error) {
       // Silently handle preload errors but still cache defaults
-      console.warn(`Spaces preload failed for communities:`, communityIds, error);
+      logger.warn(`Spaces preload failed for communities:`, communityIds, error);
       
       // Cache default spaces for communities that failed
       for (const communityId of communityIds) {

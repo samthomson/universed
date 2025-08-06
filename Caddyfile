@@ -1,0 +1,17 @@
+universes.chadwick.site {
+    root * /usr/share/caddy
+    file_server
+    encode gzip
+    handle_errors {
+        rewrite * /404.html
+        file_server
+    }
+    header {
+        # Security headers
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-XSS-Protection "1; mode=block"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}
