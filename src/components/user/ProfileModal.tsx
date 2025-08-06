@@ -19,7 +19,6 @@ import {
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu";
 import { 
-  Bolt, 
   Edit, 
   Settings, 
   MoreHorizontal,
@@ -35,7 +34,6 @@ import { nip19 } from "nostr-tools";
 interface ProfileModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onNavigateToProfile: () => void;
   onOpenSettings: () => void;
 }
 
@@ -48,8 +46,7 @@ const statusOptions = [
 
 export function ProfileModal({ 
   open, 
-  onOpenChange, 
-  onNavigateToProfile, 
+  onOpenChange,
   onOpenSettings 
 }: ProfileModalProps) {
   const { user } = useCurrentUser();
@@ -77,11 +74,6 @@ export function ProfileModal({
       customMessage: userStatus?.customMessage || ''
     });
     setStatusDropdownOpen(false);
-  };
-
-  const handleZap = () => {
-    // TODO: Implement zap functionality
-    console.log('Zap user:', user.pubkey);
   };
 
   const handleEditProfile = () => {
@@ -202,16 +194,6 @@ export function ProfileModal({
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit Profile</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleZap}
-                    className="flex items-center space-x-2"
-                  >
-                    <Bolt className="w-4 h-4" />
-                    <span>Zap</span>
                   </Button>
 
                   <Button
