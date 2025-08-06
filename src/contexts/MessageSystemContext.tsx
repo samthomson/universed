@@ -1,16 +1,12 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { useIntelligentLRU } from '@/hooks/useIntelligentLRU';
 
+type IntelligentLRUReturn = ReturnType<typeof useIntelligentLRU>;
+
 interface MessageSystemContextValue {
   activeCommunityId: string | null;
   setActiveCommunity: (communityId: string | null) => void;
-  lruStatus: {
-    addToTop: (communityId: string) => void;
-    getLRUList: () => unknown[];
-    getLoadInfo: () => Record<string, unknown>;
-    isPolling: boolean;
-    triggerPoll: () => void;
-  };
+  lruStatus: IntelligentLRUReturn;
 }
 
 const MessageSystemContext = createContext<MessageSystemContextValue | null>(null);
