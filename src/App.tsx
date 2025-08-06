@@ -18,6 +18,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
 import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
 import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
+import { NWCProvider } from '@/contexts/NWCContext';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
@@ -115,9 +116,11 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
-              <VoiceProvider>
-                <AppContent />
-              </VoiceProvider>
+              <NWCProvider>
+                <VoiceProvider>
+                  <AppContent />
+                </VoiceProvider>
+              </NWCProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>

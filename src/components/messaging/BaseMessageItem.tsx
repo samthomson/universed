@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2 } from "lucide-react";
+import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -16,10 +16,12 @@ import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
+import { ZapButton } from "@/components/ZapButton";
 
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
+import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
@@ -69,6 +71,7 @@ function BaseMessageItemComponent({
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
+  const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
   const isNew = isNewMessage(message);
@@ -190,11 +193,27 @@ function BaseMessageItemComponent({
           </div>
 
           {/* Message Reactions */}
-          {config.showReactions && (
-            <MessageReactions
-              message={message}
-              onReactionClick={() => setIsHovered(false)}
-            />
+          {config.showReactions && reactionsAndZaps && (
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {/* Zap Count Display - Left of emojis */}
+                {reactionsAndZaps?.totalSats > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 h-6">
+                    <Zap className="h-3 w-3 flex-shrink-0" />
+                    <span>{reactionsAndZaps.totalSats.toLocaleString()} sats</span>
+                    {reactionsAndZaps.zapCount > 1 && (
+                      <span className="text-muted-foreground">({reactionsAndZaps.zapCount} zaps)</span>
+                    )}
+                  </div>
+                )}
+              {/* Emoji Reactions */}
+                <div className="flex items-center h-6">
+                  <MessageReactions
+                    message={message}
+                    onReactionClick={() => setIsHovered(false)}
+                    reactionGroups={reactionsAndZaps.reactionGroups}
+                  />
+                </div>
+            </div>
           )}
         </div>
 
@@ -234,6 +253,10 @@ function BaseMessageItemComponent({
                 }
               />
             )}
+            <ZapButton
+              target={message}
+              className=""
+            />
             <DropdownMenu onOpenChange={handleDropdownOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button

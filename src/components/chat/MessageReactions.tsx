@@ -1,7 +1,6 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
-import { useReactions } from "@/hooks/useReactions";
 import { useAddReaction } from "@/hooks/useAddReaction";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { NostrEvent } from "@/types/nostr";
@@ -9,26 +8,18 @@ import type { NostrEvent } from "@/types/nostr";
 interface MessageReactionsProps {
   message: NostrEvent;
   onReactionClick?: () => void;
+  reactionGroups?: Record<string, NostrEvent[]>;
 }
 
-export function MessageReactions({ message, onReactionClick }: MessageReactionsProps) {
-  const { data: reactions } = useReactions(message.id);
+export function MessageReactions({ message, onReactionClick, reactionGroups }: MessageReactionsProps) {
   const { mutate: addReaction } = useAddReaction();
   const { user } = useCurrentUser();
 
-  if (!reactions || reactions.length === 0) {
+  if (!reactionGroups || Object.keys(reactionGroups).length === 0) {
     return null;
   }
 
-  // Group reactions by emoji
-  const groupedReactions = reactions.reduce((acc, reaction) => {
-    const emoji = reaction.content || "👍";
-    if (!acc[emoji]) {
-      acc[emoji] = [];
-    }
-    acc[emoji].push(reaction);
-    return acc;
-  }, {} as Record<string, NostrEvent[]>);
+  const groupedReactions = reactionGroups;
 
   const handleEmojiSelect = (emoji: string) => {
     if (!user) return;
@@ -58,7 +49,7 @@ export function MessageReactions({ message, onReactionClick }: MessageReactionsP
   };
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1">
+    <div className="flex flex-wrap gap-1">
       {Object.entries(groupedReactions).map(([emoji, reactionList]) => (
         <Button
           key={emoji}
