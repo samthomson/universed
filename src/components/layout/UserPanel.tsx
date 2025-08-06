@@ -10,6 +10,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useVoiceMuteState, useVoiceDeafenState, useVoiceConnectionState } from "@/contexts/VoiceContext";
 import { useState } from "react";
 
 export function UserPanel() {
@@ -19,8 +20,10 @@ export function UserPanel() {
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDeafened, setIsDeafened] = useState(false);
+  const { isMuted, toggleMute } = useVoiceMuteState();
+  const { isDeafened, toggleDeafen } = useVoiceDeafenState();
+  const { isConnectedToVoice: _isConnectedToVoice } = useVoiceConnectionState();
+
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -73,7 +76,7 @@ export function UserPanel() {
                 variant="ghost"
                 size="icon"
                 className={`w-8 h-8 ${isMuted ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={toggleMute}
                 title={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -83,7 +86,7 @@ export function UserPanel() {
                 variant="ghost"
                 size="icon"
                 className={`w-8 h-8 ${isDeafened ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-                onClick={() => setIsDeafened(!isDeafened)}
+                onClick={toggleDeafen}
                 title={isDeafened ? "Undeafen" : "Deafen"}
               >
                 {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}

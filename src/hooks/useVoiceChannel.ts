@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { useToast } from './useToast';
+import { useVoiceContext } from '@/contexts/VoiceContext';
 import { logger } from '@/lib/logger';
 
 // Custom event kinds for voice channel functionality
@@ -147,6 +148,149 @@ export function useVoiceChannel(channelId?: string) {
     }
     setIsSpeaking(false);
   }, []);
+
+  // Register audio control functions with shared context
+  const { registerAudioControls, unregisterAudioControls } = useVoiceContext();
+
+  useEffect(() => {
+    if (isConnected) {
+      // Register the actual audio control functions
+      registerAudioControls({
+        toggleMute: async () => {
+          const newMutedState = !isMuted;
+
+          // Mute/unmute local stream
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = !newMutedState;
+            });
+          }
+
+          setIsMuted(newMutedState);
+
+          // Publish state update
+          if (channelId && user?.pubkey) {
+            await publishEvent({
+              kind: VOICE_CHANNEL_STATE_KIND,
+              content: '',
+              tags: [
+                ['d', channelId],
+                ['action', 'update'],
+                ['muted', newMutedState.toString()],
+                ['deafened', isDeafened.toString()],
+                ['speaking', (isSpeaking && !newMutedState).toString()],
+              ],
+            });
+          }
+        },
+
+        toggleDeafen: async () => {
+          const newDeafenedState = !isDeafened;
+          const newMutedState = newDeafenedState ? true : isMuted;
+
+          // Update local stream (mute microphone when deafened)
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = !newMutedState;
+            });
+          }
+
+          // Mute/unmute all remote audio streams
+          peerConnectionsRef.current.forEach(({ remoteAudio }) => {
+            remoteAudio.muted = newDeafenedState;
+          });
+
+          setIsDeafened(newDeafenedState);
+          if (newDeafenedState) {
+            setIsMuted(true);
+          }
+
+          // Publish state update
+          if (channelId && user?.pubkey) {
+            await publishEvent({
+              kind: VOICE_CHANNEL_STATE_KIND,
+              content: '',
+              tags: [
+                ['d', channelId],
+                ['action', 'update'],
+                ['muted', newMutedState.toString()],
+                ['deafened', newDeafenedState.toString()],
+                ['speaking', (isSpeaking && !newMutedState).toString()],
+              ],
+            });
+          }
+        },
+
+        setMuted: async (muted: boolean) => {
+          // Mute/unmute local stream
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = !muted;
+            });
+          }
+
+          setIsMuted(muted);
+
+          // Publish state update
+          if (channelId && user?.pubkey) {
+            await publishEvent({
+              kind: VOICE_CHANNEL_STATE_KIND,
+              content: '',
+              tags: [
+                ['d', channelId],
+                ['action', 'update'],
+                ['muted', muted.toString()],
+                ['deafened', isDeafened.toString()],
+                ['speaking', (isSpeaking && !muted).toString()],
+              ],
+            });
+          }
+        },
+
+        setDeafened: async (deafened: boolean) => {
+          const newMutedState = deafened ? true : isMuted;
+
+          // Update local stream (mute microphone when deafened)
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = !newMutedState;
+            });
+          }
+
+          // Mute/unmute all remote audio streams
+          peerConnectionsRef.current.forEach(({ remoteAudio }) => {
+            remoteAudio.muted = deafened;
+          });
+
+          setIsDeafened(deafened);
+          if (deafened) {
+            setIsMuted(true);
+          }
+
+          // Publish state update
+          if (channelId && user?.pubkey) {
+            await publishEvent({
+              kind: VOICE_CHANNEL_STATE_KIND,
+              content: '',
+              tags: [
+                ['d', channelId],
+                ['action', 'update'],
+                ['muted', newMutedState.toString()],
+                ['deafened', deafened.toString()],
+                ['speaking', (isSpeaking && !newMutedState).toString()],
+              ],
+            });
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (isConnected) {
+        unregisterAudioControls();
+      }
+    };
+  }, [isConnected, isMuted, isDeafened, isSpeaking, channelId, user?.pubkey, registerAudioControls, unregisterAudioControls, publishEvent, localStreamRef, peerConnectionsRef]);
 
   // WebRTC signaling through Nostr with retry logic
   const sendSignalingMessage = useCallback(async (message: Omit<SignalingMessage, 'from' | 'channelId'>, retries = 3) => {
@@ -726,9 +870,18 @@ export function useVoiceChannel(channelId?: string) {
       sortedEvents.forEach(event => {
         const { pubkey, created_at, tags } = event;
         const action = tags.find(([name]) => name === 'action')?.[1];
-        const muted = !!tags.find(([name]) => name === 'muted')?.[1];
-        const deafened = !!tags.find(([name]) => name === 'deafened')?.[1];
-        const speaking = !!tags.find(([name]) => name === 'speaking')?.[1];
+        const mutedTag = tags.find(([name]) => name === 'muted')?.[1];
+        const deafenedTag = tags.find(([name]) => name === 'deafened')?.[1];
+        const speakingTag = tags.find(([name]) => name === 'speaking')?.[1];
+
+        const muted = mutedTag === 'true';
+        const deafened = deafenedTag === 'true';
+        const speaking = speakingTag === 'true';
+
+        // Debug logging to see what values we're getting
+        if (action === 'update' || action === 'heartbeat') {
+          console.log(`Voice state event for ${pubkey.slice(0, 8)}...: action=${action}, muted=${mutedTag}->${muted}, deafened=${deafenedTag}->${deafened}, speaking=${speakingTag}->${speaking}`);
+        }
 
         // Track when we last saw activity from this member
         memberLastSeen.set(pubkey, created_at * 1000);
