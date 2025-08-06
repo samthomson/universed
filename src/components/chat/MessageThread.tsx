@@ -1,5 +1,4 @@
-import { MessageSquare, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { MessageItem } from "./MessageItem";
@@ -27,14 +26,6 @@ export function MessageThread({ rootMessage, open, onOpenChange, onNavigateToDMs
               <MessageSquare className="w-5 h-5" />
               <span>Thread</span>
             </SheetTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="text-gray-400 hover:text-gray-300"
-            >
-              <X className="w-4 h-4" />
-            </Button>
           </div>
           <div className="text-sm text-gray-400">
             {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
