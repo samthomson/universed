@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, ClipboardEvent } from "react";
 import { Send, Plus, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { useSendDM } from "@/hooks/useSendDM";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useUploadFile } from "@/hooks/useUploadFile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface DMMessageInputProps {
@@ -32,6 +33,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
 
   const { user } = useCurrentUser();
   const { mutateAsync: sendDM } = useSendDM();
+  const { mutateAsync: uploadFile } = useUploadFile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -163,6 +165,62 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+
+    if (imageItems.length > 0) {
+      e.preventDefault(); // Prevent default paste behavior for images
+
+      const files = await Promise.all(
+        imageItems.map(item => new Promise<File | null>((resolve) => {
+          const file = item.getAsFile();
+          resolve(file);
+        }))
+      );
+
+      const validFiles = files.filter((file): file is File => file !== null);
+
+      if (validFiles.length > 0) {
+        try {
+          // Upload each image file
+          for (const file of validFiles) {
+            const tags = await uploadFile(file);
+            
+            // Extract URL from tags (first tag should contain the URL)
+            const url = tags[0]?.[1];
+            if (!url) {
+              throw new Error('No URL returned from upload');
+            }
+
+            const attachedFile: AttachedFile = {
+              url,
+              mimeType: file.type,
+              size: file.size,
+              name: file.name || `pasted-image-${Date.now()}`,
+              tags,
+            };
+
+            setAttachedFiles(prev => [...prev, attachedFile]);
+          }
+
+          toast({
+            title: 'Image uploaded',
+            description: `${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully.`,
+          });
+        } catch (error) {
+          console.error('Paste upload failed:', error);
+          toast({
+            title: 'Upload failed',
+            description: 'Failed to upload pasted image. Please try again.',
+            variant: 'destructive',
+          });
+        }
+      }
+    }
+    // If no images, let the default paste behavior handle text
+  };
+
   if (!user) {
     return (
       <div className="text-center text-gray-400 py-4">
@@ -215,6 +273,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
               adjustTextareaHeight();
             }}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Type a message..."
             className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 focus:bg-gray-800/30 text-gray-100 placeholder:text-gray-400 p-0 rounded transition-colors"
             disabled={sendDMMutation.isPending}
@@ -253,7 +312,7 @@ export function DMMessageInput({ conversationId }: DMMessageInputProps) {
 
       {/* Helper Text */}
       <div className="mt-1 text-xs text-gray-500">
-        Press Enter to send, Shift+Enter for new line
+        Press Enter to send, Shift+Enter for new line. Paste images to upload them as attachments.
       </div>
 
       {/* File Upload Dialog */}
