@@ -6,8 +6,8 @@ interface MessageSystemContextValue {
   setActiveCommunity: (communityId: string | null) => void;
   lruStatus: {
     addToTop: (communityId: string) => void;
-    getLRUList: () => any[];
-    getLoadInfo: () => Record<string, any>;
+    getLRUList: () => unknown[];
+    getLoadInfo: () => Record<string, unknown>;
     isPolling: boolean;
     triggerPoll: () => void;
   };
