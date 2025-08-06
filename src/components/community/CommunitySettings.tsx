@@ -36,6 +36,7 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useManageMembers } from "@/hooks/useManageMembers";
 import { genUserName } from "@/lib/genUserName";
 import { CommunityShareDialog } from "./CommunityShareDialog";
 
@@ -63,6 +64,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
+  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
@@ -125,6 +127,52 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     setFormData(prev => ({ ...prev, image: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle join request approval
+  const handleApproveRequest = async (requesterPubkey: string) => {
+    if (!community) return;
+    
+    try {
+      addMember({ 
+        communityId: community.id, 
+        memberPubkey: requesterPubkey 
+      });
+      toast({
+        title: "Success",
+        description: "Join request approved successfully!",
+      });
+    } catch (error) {
+      console.error("Failed to approve join request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve join request",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle join request decline
+  const handleDeclineRequest = async (requesterPubkey: string) => {
+    if (!community) return;
+    
+    try {
+      declineMember({ 
+        communityId: community.id, 
+        memberPubkey: requesterPubkey 
+      });
+      toast({
+        title: "Success", 
+        description: "Join request declined successfully!",
+      });
+    } catch (error) {
+      console.error("Failed to decline join request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to decline join request",
+        variant: "destructive",
+      });
     }
   };
 
@@ -551,7 +599,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                   <div className="space-y-3">
                     {joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
-                        <JoinRequestItem key={request.event.id} request={request} />
+                        <JoinRequestItem 
+                          key={request.event.id} 
+                          request={request} 
+                          onApprove={() => handleApproveRequest(request.requesterPubkey)}
+                          onDecline={() => handleDeclineRequest(request.requesterPubkey)}
+                          isApproving={isAddingMember}
+                          isDeclining={isDecliningMember}
+                        />
                       ))
                     ) : (
                       <div className="text-center py-6 text-muted-foreground">
@@ -731,7 +786,19 @@ function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'mod
 }
 
 // Helper component for displaying join requests
-function JoinRequestItem({ request }: { request: { requesterPubkey: string; message: string; createdAt: number } }) {
+function JoinRequestItem({ 
+  request, 
+  onApprove, 
+  onDecline, 
+  isApproving, 
+  isDeclining 
+}: { 
+  request: { requesterPubkey: string; message: string; createdAt: number };
+  onApprove: () => void;
+  onDecline: () => void;
+  isApproving: boolean;
+  isDeclining: boolean;
+}) {
   const author = useAuthor(request.requesterPubkey);
   const displayName = author.data?.metadata?.name || genUserName(request.requesterPubkey);
   const avatar = author.data?.metadata?.picture;
@@ -757,8 +824,22 @@ function JoinRequestItem({ request }: { request: { requesterPubkey: string; mess
         </div>
       </div>
       <div className="flex gap-2">
-        <Button size="sm" variant="outline">Accept</Button>
-        <Button size="sm" variant="destructive">Decline</Button>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={onApprove}
+          disabled={isApproving || isDeclining}
+        >
+          {isApproving ? "Approving..." : "Accept"}
+        </Button>
+        <Button 
+          size="sm" 
+          variant="destructive" 
+          onClick={onDecline}
+          disabled={isApproving || isDeclining}
+        >
+          {isDeclining ? "Declining..." : "Decline"}
+        </Button>
       </div>
     </div>
   );
