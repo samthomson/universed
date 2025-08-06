@@ -171,7 +171,10 @@ export function useManageMembers() {
 
   const declineMember = useMutation({
     mutationFn: async ({ communityId, memberPubkey }: DeclineMemberParams) => {
+      logger.log('declineMember mutationFn called with:', { communityId, memberPubkey, user: user?.pubkey });
+
       if (!user) {
+        logger.log('No user logged in');
         throw new Error('User must be logged in to manage members');
       }
 
@@ -209,6 +212,8 @@ export function useManageMembers() {
         ...Array.from(currentDeclined).map(pubkey => ['p', pubkey])
       ];
 
+      logger.log('Creating decline event with tags:', tags);
+
       return new Promise<void>((resolve, reject) => {
         createEvent(
           {
@@ -217,8 +222,14 @@ export function useManageMembers() {
             tags,
           },
           {
-            onSuccess: () => resolve(),
-            onError: (error) => reject(error),
+            onSuccess: () => {
+              logger.log('createEvent success for decline');
+              resolve();
+            },
+            onError: (error) => {
+              logger.error('createEvent error for decline:', error);
+              reject(error);
+            },
           }
         );
       });
@@ -233,7 +244,10 @@ export function useManageMembers() {
 
   const banMember = useMutation({
     mutationFn: async ({ communityId, memberPubkey }: BanMemberParams) => {
+      logger.log('banMember mutationFn called with:', { communityId, memberPubkey, user: user?.pubkey });
+
       if (!user) {
+        logger.log('No user logged in');
         throw new Error('User must be logged in to manage members');
       }
 
@@ -271,6 +285,8 @@ export function useManageMembers() {
         ...Array.from(currentBanned).map(pubkey => ['p', pubkey])
       ];
 
+      logger.log('Creating ban event with tags:', tags);
+
       return new Promise<void>((resolve, reject) => {
         createEvent(
           {
@@ -279,8 +295,14 @@ export function useManageMembers() {
             tags,
           },
           {
-            onSuccess: () => resolve(),
-            onError: (error) => reject(error),
+            onSuccess: () => {
+              logger.log('createEvent success for ban');
+              resolve();
+            },
+            onError: (error) => {
+              logger.error('createEvent error for ban:', error);
+              reject(error);
+            },
           }
         );
       });
