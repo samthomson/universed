@@ -20,6 +20,7 @@ import { MessageReactions } from "@/components/chat/MessageReactions";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
+import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
@@ -42,6 +43,8 @@ export interface BaseMessageItemProps {
   onDelete?: (message: NostrEvent, reason?: string) => void;
   onBan?: (pubkey: string, reason?: string) => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  communityId?: string;
+  channelId?: string;
 }
 
 function BaseMessageItemComponent({
@@ -53,6 +56,8 @@ function BaseMessageItemComponent({
   onDelete,
   onBan,
   onNavigateToDMs,
+  communityId,
+  channelId,
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
@@ -62,8 +67,11 @@ function BaseMessageItemComponent({
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
+  const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
+
+  const isPinned = pinnedMessageIds?.includes(message.id) || false;
 
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
@@ -236,7 +244,8 @@ function BaseMessageItemComponent({
               <DropdownMenuContent align="end">
                 {config.showPin && (
                   <DropdownMenuItem onClick={() => onPin?.(message)}>
-                    <Pin className="mr-2 h-4 w-4" />Pin Message
+                    <Pin className="mr-2 h-4 w-4" />
+                    {isPinned ? 'Unpin Message' : 'Pin Message'}
                   </DropdownMenuItem>
                 )}
                 {config.showDelete && (

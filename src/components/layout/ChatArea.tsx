@@ -1,9 +1,9 @@
 import {
   HelpCircle,
-  Hash, 
-  Users, 
-  Search, 
-  Volume2, 
+  Hash,
+  Users,
+  Search,
+  Volume2,
   Settings,
   Copy,
 } from "lucide-react";
@@ -16,6 +16,8 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
+import type { NostrEvent } from "@nostrify/nostrify";
 import { useState } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
@@ -42,10 +44,10 @@ interface ChatAreaProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-function CommunityChatHeader({ 
-  communityId, 
-  channelId, 
-  onToggleMemberList 
+function CommunityChatHeader({
+  communityId,
+  channelId,
+  onToggleMemberList
 }: {
   communityId: string;
   channelId: string;
@@ -153,6 +155,9 @@ function CommunityChat(
   const { data: channels } = useChannels(communityId);
   const { data: messages, isLoading } = useMessages(communityId, channelId);
   const { mutateAsync: createEvent } = useNostrPublish();
+  const { mutate: pinMessage } = usePinMessage();
+  const { mutate: unpinMessage } = useUnpinMessage();
+  const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
 
   const channel = channels?.find((c) => c.id === channelId);
 
@@ -178,13 +183,23 @@ function CommunityChat(
     });
   };
 
+  const handlePinMessage = (message: NostrEvent) => {
+    const isPinned = pinnedMessageIds?.includes(message.id) || false;
+
+    if (isPinned) {
+      unpinMessage({ communityId, channelId, messageId: message.id });
+    } else {
+      pinMessage({ communityId, channelId, messageId: message.id });
+    }
+  };
+
   if (isVoiceChannel) {
     return (
       <div className="flex flex-col h-full chat-container">
-        <CommunityChatHeader 
-          communityId={communityId} 
-          channelId={channelId} 
-          onToggleMemberList={onToggleMemberList} 
+        <CommunityChatHeader
+          communityId={communityId}
+          channelId={channelId}
+          onToggleMemberList={onToggleMemberList}
         />
         <div className="flex-1 p-4">
           <VoiceChannel channelId={channelId} channelName={channelName} />
@@ -198,11 +213,12 @@ function CommunityChat(
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
+      onPin={handlePinMessage}
       header={
-        <CommunityChatHeader 
-          communityId={communityId} 
-          channelId={channelId} 
-          onToggleMemberList={onToggleMemberList} 
+        <CommunityChatHeader
+          communityId={communityId}
+          channelId={channelId}
+          onToggleMemberList={onToggleMemberList}
         />
       }
       messageListConfig={groupMessageListConfig}
@@ -210,6 +226,8 @@ function CommunityChat(
       messageInputConfig={groupMessageInputConfig}
       inputPlaceholder={`Message #${channelName}`}
       onNavigateToDMs={onNavigateToDMs}
+      communityId={communityId}
+      channelId={channelId}
       additionalContent={
         <div className="flex-shrink-0">
           <TypingIndicator channelId={channelId} />
