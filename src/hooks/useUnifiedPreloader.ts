@@ -57,6 +57,27 @@ export function useUnifiedPreloader() {
     preloadSpaceDefinitions(communityId);
   }, [preloadSpaceDefinitions]);
 
+  // Preload space-specific content (marketplace items, resource folders, etc.)
+  const preloadSpaceContent = useCallback((communityId: string, spaceId: string) => {
+    if (spaceId === 'marketplace') {
+      const queryKey = ['marketplace-items', communityId];
+      if (!isDataFresh(queryKey)) {
+        queryClient.prefetchQuery({
+          queryKey,
+          staleTime: CACHE_DURATION,
+        });
+      }
+    } else if (spaceId === 'resources') {
+      const queryKey = ['resource-folders', communityId];
+      if (!isDataFresh(queryKey)) {
+        queryClient.prefetchQuery({
+          queryKey,
+          staleTime: CACHE_DURATION,
+        });
+      }
+    }
+  }, [queryClient, isDataFresh]);
+
   // Complete community preload (channels + spaces + general messages)
   const preloadCommunityComplete = useCallback((communityId: string) => {
     preloadCommunity(communityId);
@@ -68,6 +89,7 @@ export function useUnifiedPreloader() {
     preloadChannelMessages,
     preloadCommunity,
     preloadSpaces,
+    preloadSpaceContent,
     
     // Combined preloaders
     preloadCommunityComplete,
