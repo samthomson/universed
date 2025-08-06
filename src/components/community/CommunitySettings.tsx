@@ -70,7 +70,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
-  const { data: joinRequests } = useJoinRequests(communityId);
+  const { data: joinRequests, isRefetching: isRefetchingRequests } = useJoinRequests(communityId);
   const { data: moderationLogs } = useModerationLogs(communityId || '');
   const moderationStats = useModerationStats(communityId || '');
   const { data: reports } = useReports(communityId);
@@ -585,7 +585,12 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {joinRequests && joinRequests.length > 0 ? (
+                    {isRefetchingRequests ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                        <p>Updating...</p>
+                      </div>
+                    ) : joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
                         <JoinRequestItem 
                           key={request.event.id} 
