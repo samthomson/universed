@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -67,9 +66,6 @@ export function UserPanel() {
 
         {/* Controls */}
         <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
-          {/* Notification Center */}
-          <NotificationCenter />
-
           {/* Voice Controls - Hide some on mobile to save space */}
           {!isMobile && (
             <>

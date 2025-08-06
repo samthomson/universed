@@ -1,4 +1,4 @@
-import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useHoverPreloader } from "@/hooks/useHoverPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useState } from "react";
 
 interface AppSidebarProps {
@@ -21,8 +22,19 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full">
-        {/* Fixed top section - Direct Messages */}
+        {/* Fixed top section - Notifications and Direct Messages */}
         <div className="flex flex-col items-center pt-3 pb-2 space-y-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative">
+                <NotificationCenter />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Notifications</p>
+            </TooltipContent>
+          </Tooltip>
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
