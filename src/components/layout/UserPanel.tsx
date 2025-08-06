@@ -1,10 +1,11 @@
-import { Settings, Mic, MicOff, Headphones, HeadphonesIcon, ExternalLink } from "lucide-react";
+import { Settings, Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { ProfileModal } from "@/components/user/ProfileModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus } from "@/hooks/useUserStatus";
@@ -26,6 +27,7 @@ export function UserPanel() {
   const [isDeafened, setIsDeafened] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (!user) return null;
 
@@ -37,13 +39,17 @@ export function UserPanel() {
     navigate(`/profile/${npub}`);
   };
 
+  const handleOpenProfileModal = () => {
+    setShowProfileModal(true);
+  };
+
   return (
     <>
       <div className={`${isMobile ? 'h-14' : 'h-16'} bg-gray-800 border-t border-gray-600 flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
         {/* User Info */}
         <div
           className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch`}
-          onClick={() => setShowStatusDialog(true)}
+          onClick={handleOpenProfileModal}
         >
           <div className="relative">
             <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
@@ -69,17 +75,6 @@ export function UserPanel() {
 
         {/* Controls */}
         <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
-          {/* View Profile Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 mobile-touch`}
-            title="View Profile"
-            onClick={handleViewProfile}
-          >
-            <ExternalLink className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-          </Button>
-
           {/* Notification Center */}
           <NotificationCenter />
 
@@ -119,6 +114,14 @@ export function UserPanel() {
           </Button>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        open={showProfileModal}
+        onOpenChange={setShowProfileModal}
+        onNavigateToProfile={handleViewProfile}
+        onOpenSettings={() => setShowSettingsDialog(true)}
+      />
 
       {/* Status Dialog */}
       <UserStatusDialog
