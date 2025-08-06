@@ -65,6 +65,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
   const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
+  const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
+  const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
@@ -74,6 +76,38 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { data: reports } = useReports(communityId);
 
   const community = communities?.find(c => c.id === communityId);
+
+  // Simple handlers that track which member is being processed
+  const handleApprove = (memberPubkey: string) => {
+    if (!community) return;
+    setApprovingMembers(prev => new Set([...prev, memberPubkey]));
+    addMember({ 
+      communityId: community.id, 
+      memberPubkey,
+    });
+  };
+
+  const handleDecline = (memberPubkey: string) => {
+    if (!community) return;
+    setDecliningMembers(prev => new Set([...prev, memberPubkey]));
+    declineMember({ 
+      communityId: community.id, 
+      memberPubkey,
+    });
+  };
+
+  // Clear individual member states when global operations complete
+  useEffect(() => {
+    if (!isAddingMember) {
+      setApprovingMembers(new Set());
+    }
+  }, [isAddingMember]);
+
+  useEffect(() => {
+    if (!isDecliningMember) {
+      setDecliningMembers(new Set());
+    }
+  }, [isDecliningMember]);
 
   // Initialize form data when community changes
   useEffect(() => {
@@ -127,52 +161,6 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     setFormData(prev => ({ ...prev, image: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
-    }
-  };
-
-  // Handle join request approval
-  const handleApproveRequest = async (requesterPubkey: string) => {
-    if (!community) return;
-    
-    try {
-      addMember({ 
-        communityId: community.id, 
-        memberPubkey: requesterPubkey 
-      });
-      toast({
-        title: "Success",
-        description: "Join request approved successfully!",
-      });
-    } catch (error) {
-      console.error("Failed to approve join request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve join request",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle join request decline
-  const handleDeclineRequest = async (requesterPubkey: string) => {
-    if (!community) return;
-    
-    try {
-      declineMember({ 
-        communityId: community.id, 
-        memberPubkey: requesterPubkey 
-      });
-      toast({
-        title: "Success", 
-        description: "Join request declined successfully!",
-      });
-    } catch (error) {
-      console.error("Failed to decline join request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to decline join request",
-        variant: "destructive",
-      });
     }
   };
 
@@ -602,10 +590,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <JoinRequestItem 
                           key={request.event.id} 
                           request={request} 
-                          onApprove={() => handleApproveRequest(request.requesterPubkey)}
-                          onDecline={() => handleDeclineRequest(request.requesterPubkey)}
-                          isApproving={isAddingMember}
-                          isDeclining={isDecliningMember}
+                          onApprove={() => handleApprove(request.requesterPubkey)}
+                          onDecline={() => handleDecline(request.requesterPubkey)}
+                          isApproving={approvingMembers.has(request.requesterPubkey)}
+                          isDeclining={decliningMembers.has(request.requesterPubkey)}
                         />
                       ))
                     ) : (
