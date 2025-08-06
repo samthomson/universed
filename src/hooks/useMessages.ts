@@ -4,7 +4,8 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCanAccessChannel } from './useChannelPermissions';
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
-import type { NostrEvent, NostrFilter, NPool } from '@nostrify/nostrify';
+import type { NostrFilter, NPool } from '@nostrify/nostrify';
+import type { NostrEvent } from '@/types/nostr';
 
 function buildFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
   const filters: NostrFilter[] = [];
@@ -88,8 +89,27 @@ export function useMessages(communityId: string, channelId: string) {
 
     queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
       if (!oldMessages) return [event];
-      if (oldMessages.some(msg => msg.id === event.id)) return oldMessages;
+      // Skip if we already have this real message (not optimistic)
+      if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
       
+      // Check if this real message should replace an optimistic message
+      // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
+      const optimisticMessageIndex = oldMessages.findIndex(msg => 
+        msg.isSending && 
+        msg.pubkey === event.pubkey &&
+        msg.content === event.content &&
+        Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
+      );
+
+      if (optimisticMessageIndex !== -1) {
+        // Replace the optimistic message with the real one
+        const updatedMessages = [...oldMessages];
+        updatedMessages[optimisticMessageIndex] = event;
+        logger.log(`[Messages] Replaced optimistic message with real message: ${event.id}`);
+        return updatedMessages.sort((a, b) => a.created_at - b.created_at);
+      }
+      
+      // No optimistic message to replace, add as new message
       return [...oldMessages, event].sort((a, b) => a.created_at - b.created_at);
     });
 

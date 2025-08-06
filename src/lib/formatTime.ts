@@ -17,6 +17,7 @@ export function formatDistanceToNowShort(
   return result
     .replace(/about\s+/g, "about ") // Keep "about" for approximate times
     .replace(/less than a minute ago/, "just now")
+    .replace(/less than /, "<")
     .replace(/(\d+)\s+minutes?/g, "$1m")
     .replace(/(\d+)\s+hours?/g, "$1h")
     .replace(/(\d+)\s+days?/g, "$1d")

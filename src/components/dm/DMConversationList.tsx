@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useDMDecrypt } from "@/hooks/useDMDecrypt";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { DMConversation } from "@/hooks/useDirectMessages";
@@ -31,10 +32,24 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
+  // Only decrypt if there's a last message
+  const { data: decryptedContent, isLoading: isDecrypting, error: decryptError } = useDMDecrypt(
+    conversation.lastMessage
+  );
+
+  // Get the display content
+  const getDisplayContent = () => {
+    if (!conversation.lastMessage) return "";
+    if (isDecrypting) return "Decrypting...";
+    if (decryptError) return "Unable to decrypt message";
+    if (decryptedContent) return decryptedContent;
+    return "";
+  };
+
   return (
     <Button
       variant="ghost"
-      className={`w-full justify-start p-3 h-auto text-left hover:bg-gray-800/60 ${
+      className={`flex w-full justify-start p-3 h-auto text-left hover:bg-gray-800/60 ${
         isSelected ? 'bg-gray-900/80' : ''
       }`}
       onClick={onSelect}
@@ -53,7 +68,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-white truncate">
+            <span className="font-medium text-white truncate max-w-full">
               {displayName}
             </span>
             <div className="flex items-center space-x-1">
@@ -69,11 +84,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
           </div>
 
           <div className="text-sm text-gray-400 truncate mt-0.5">
-            {conversation.lastMessage ? (
-              <span>Last message...</span> // TODO: Decrypt and show preview
-            ) : (
-              <span>No messages yet</span>
-            )}
+            {getDisplayContent()}
           </div>
         </div>
       </div>
@@ -119,11 +130,31 @@ export function DMConversationList({
   const filteredConversations = conversations.filter(conversation => {
     if (!searchQuery) return true;
 
-    // TODO: Search by display name when we have author data
-    return conversation.pubkey.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase();
+    
+    // Search by pubkey
+    if (conversation.pubkey.toLowerCase().includes(query)) {
+      return true;
+    }
+
+    // Search by display name (we need to get the author data for this)
+    // Since we can't use hooks inside filter, we'll need to handle this differently
+    // For now, we'll rely on the ConversationItem to have the author data
+    // This is a limitation of the current architecture
+    return true; // We'll filter in the ConversationItem instead
   });
 
-  if (filteredConversations.length === 0) {
+  // If we have a search query, we need to filter by display name at the item level
+  // This is not ideal but necessary due to the hook rules
+  const conversationsToRender = searchQuery 
+    ? filteredConversations.filter(() => {
+        // This filter will be applied after the ConversationItem has author data
+        // We'll handle the actual display name filtering in a memoized component
+        return true;
+      })
+    : filteredConversations;
+
+  if (conversationsToRender.length === 0) {
     return (
       <div className="p-4 text-center text-gray-400">
         {searchQuery ? (
@@ -140,14 +171,47 @@ export function DMConversationList({
 
   return (
     <div className="space-y-1 p-2">
-      {filteredConversations.map((conversation) => (
-        <ConversationItem
+      {conversationsToRender.map((conversation) => (
+        <SearchableConversationItem
           key={conversation.id}
           conversation={conversation}
-          isSelected={selectedConversation === conversation.id}
-          onSelect={() => onSelectConversation(conversation.id)}
+          selectedConversation={selectedConversation}
+          onSelectConversation={onSelectConversation}
+          searchQuery={searchQuery}
         />
       ))}
     </div>
+  );
+}
+
+// Separate component to handle search filtering with author data
+interface SearchableConversationItemProps {
+  conversation: DMConversation;
+  selectedConversation: string | null;
+  onSelectConversation: (conversationId: string) => void;
+  searchQuery: string;
+}
+
+function SearchableConversationItem({
+  conversation,
+  selectedConversation,
+  onSelectConversation,
+  searchQuery
+}: SearchableConversationItemProps) {
+  const author = useAuthor(conversation.pubkey);
+  const metadata = author.data?.metadata;
+  const displayName = metadata?.name || genUserName(conversation.pubkey);
+
+  // Filter by display name if search query exists
+  if (searchQuery && !displayName.toLowerCase().includes(searchQuery.toLowerCase())) {
+    return null;
+  }
+
+  return (
+    <ConversationItem
+      conversation={conversation}
+      isSelected={selectedConversation === conversation.id}
+      onSelect={() => onSelectConversation(conversation.id)}
+    />
   );
 }

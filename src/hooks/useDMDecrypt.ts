@@ -2,14 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import type { NostrEvent } from '@nostrify/nostrify';
 
-export function useDMDecrypt(message: NostrEvent) {
+export function useDMDecrypt(message: NostrEvent | undefined) {
   const { user } = useCurrentUser();
 
   return useQuery({
-    queryKey: ['dm-decrypt', message.id],
+    queryKey: ['dm-decrypt', message?.id],
     queryFn: async () => {
-      if (!user?.signer) {
-        throw new Error('No signer available');
+      if (!user?.signer || !message) {
+        throw new Error('No signer available or no message');
       }
 
       // Determine the other party's pubkey
