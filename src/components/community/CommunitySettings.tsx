@@ -68,7 +68,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
-  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
+  const { addMember, declineMember } = useManageMembers();
+  const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
+  const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
@@ -147,6 +149,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         communityId: community.id,
         memberPubkey: requesterPubkey
       });
+      setApprovingMembers(prev => new Set([...prev, requesterPubkey]));
       toast({
         title: "Success",
         description: "Join request approved successfully!",
@@ -170,6 +173,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         communityId: community.id,
         memberPubkey: requesterPubkey
       });
+      setDecliningMembers(prev => new Set([...prev, requesterPubkey]));
       toast({
         title: "Success",
         description: "Join request declined successfully!",
@@ -590,13 +594,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </div>
                     ) : joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
-                        <JoinRequestItem
-                          key={request.event.id}
-                          request={request}
+                        <JoinRequestItem 
+                          key={request.event.id} 
+                          request={request} 
                           onApprove={() => handleApproveRequest(request.requesterPubkey)}
                           onDecline={() => handleDeclineRequest(request.requesterPubkey)}
-                          isApproving={isAddingMember}
-                          isDeclining={isDecliningMember}
+                          isApproving={approvingMembers.has(request.requesterPubkey)}
+                          isDeclining={decliningMembers.has(request.requesterPubkey)}
                         />
                       ))
                     ) : (

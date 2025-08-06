@@ -14,9 +14,12 @@ import {
 import { NoteContent } from "@/components/NoteContent";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { MessageReactions } from "@/components/chat/MessageReactions";
 
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAddReaction } from "@/hooks/useAddReaction";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
@@ -53,9 +56,11 @@ function BaseMessageItemComponent({
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
+  const { mutate: addReaction } = useAddReaction();
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
 
@@ -70,6 +75,16 @@ function BaseMessageItemComponent({
       setShowProfileDialog(true);
     }
   }, [user?.pubkey, message.pubkey]);
+
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    addReaction({ targetEvent: message, emoji });
+    setIsEmojiPickerOpen(false);
+    setIsHovered(false); // Hide message actions after emoji selection
+  }, [addReaction, message]);
+
+  const handleEmojiPickerOpenChange = useCallback((open: boolean) => {
+    setIsEmojiPickerOpen(open);
+  }, []);
 
   return (
     <div
@@ -106,7 +121,7 @@ function BaseMessageItemComponent({
             )
             : (
               <div className="h-5 flex items-center justify-center w-10">
-                {isHovered && (
+                {(isHovered || isEmojiPickerOpen) && (
                   <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -154,11 +169,20 @@ function BaseMessageItemComponent({
               )}
             </div>
           </div>
-          {/* Reactions and thread replies will be added here based on config */}
+
+          {/* Message Reactions */}
+          {config.showReactions && (
+            <MessageReactions message={message} />
+          )}
         </div>
 
         {isHovered && (
-          <div className="absolute bg-background border rounded-md shadow-lg flex items-center -top-2 right-4">
+          <div className={cn(
+            "absolute bg-background border rounded-md shadow-lg flex items-center right-4 z-10",
+            showAvatar
+              ? "-top-2"
+              : "top-1/2 -translate-y-1/2"
+          )}>
             {config.showThreadReply && (
               <Button
                 variant="ghost"
@@ -169,6 +193,24 @@ function BaseMessageItemComponent({
               >
                 <Reply className="w-4 h-4" />
               </Button>
+            )}
+            {config.showReactions && (
+              <EmojiPickerComponent
+                onEmojiSelect={handleEmojiSelect}
+                onOpenChange={handleEmojiPickerOpenChange}
+                side="top"
+                align="center"
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 rounded-none"
+                    title="Add Reaction"
+                  >
+                    😊
+                  </Button>
+                }
+              />
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
