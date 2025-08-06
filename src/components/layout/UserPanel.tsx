@@ -1,4 +1,4 @@
-import { Settings, Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
+import { Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
@@ -94,16 +94,6 @@ export function UserPanel() {
               </Button>
             </>
           )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 mobile-touch`}
-            title="User Settings"
-            onClick={() => setShowSettingsDialog(true)}
-          >
-            <Settings className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-          </Button>
         </div>
       </div>
 

@@ -27,7 +27,8 @@ import {
   Clock,
   XCircle,
   Circle,
-  Copy
+  Copy,
+  ChevronDown
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { nip19 } from "nostr-tools";
@@ -132,42 +133,18 @@ export function ProfileModal({
                 <div>
                   <div className="flex items-center justify-center space-x-2">
                     <h2 className="text-xl font-bold text-white">{displayName}</h2>
-                    <div className="relative">
-                      <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 hover:bg-gray-700"
-                          >
-                            <UserStatusIndicator pubkey={user.pubkey} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-gray-700 border-gray-600">
-                          {statusOptions.map((option) => {
-                            const Icon = option.icon;
-                            return (
-                              <DropdownMenuItem
-                                key={option.value}
-                                onClick={() => handleStatusChange(option.value)}
-                                className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
-                              >
-                                <Icon className={`w-4 h-4 mr-2 ${option.color}`} />
-                                {option.label}
-                              </DropdownMenuItem>
-                            );
-                          })}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => setStatusDropdownOpen(false)}
-                            className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Custom Status
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        onOpenSettings();
+                        onOpenChange(false);
+                      }}
+                      className="h-6 w-6 hover:bg-gray-700 text-gray-400 hover:text-white"
+                      title="Settings"
+                    >
+                      <Settings className="w-4 h-4" />
+                    </Button>
                   </div>
                   <div className="flex items-center justify-center space-x-2 mt-1">
                     <p className="text-gray-400 text-sm">@{npub.slice(0, 16)}...</p>
@@ -215,26 +192,53 @@ export function ProfileModal({
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-center space-x-2 pt-2">
+                  <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 h-8 px-3"
+                      >
+                        <UserStatusIndicator pubkey={user.pubkey} />
+                        <span className="text-xs">
+                          {statusOptions.find(opt => opt.value === userStatus?.status)?.label || 'Online'}
+                        </span>
+                        <ChevronDown className="w-3 h-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-gray-700 border-gray-600">
+                      {statusOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <DropdownMenuItem
+                            key={option.value}
+                            onClick={() => handleStatusChange(option.value)}
+                            className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
+                          >
+                            <Icon className={`w-4 h-4 mr-2 ${option.color}`} />
+                            {option.label}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => setStatusDropdownOpen(false)}
+                        className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Custom Status
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   <Button
                     variant="default"
                     size="sm"
                     onClick={handleEditProfile}
-                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700"
+                    className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 h-8 px-3"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit Profile</span>
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      onOpenSettings();
-                      onOpenChange(false);
-                    }}
-                    className="flex items-center space-x-2 text-gray-400 hover:text-white"
-                  >
-                    <Settings className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
