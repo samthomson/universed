@@ -9,6 +9,34 @@ import { UserProfileDialog } from '@/components/profile/UserProfileDialog';
 import { InlineEvent } from '@/components/InlineEvent';
 import { cn } from '@/lib/utils';
 
+// Helper function to check if a URL is an image
+function isImageURL(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const pathname = parsedUrl.pathname.toLowerCase();
+    const searchParams = parsedUrl.search.toLowerCase();
+
+    // Check file extension
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.tiff', '.ico'];
+    if (imageExtensions.some(ext => pathname.endsWith(ext))) {
+      return true;
+    }
+
+    // Check query parameters that might indicate images
+    if (searchParams.includes('format=jpg') ||
+        searchParams.includes('format=jpeg') ||
+        searchParams.includes('format=png') ||
+        searchParams.includes('format=gif') ||
+        searchParams.includes('format=webp')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 interface NoteContentProps {
   event: NostrEvent;
   className?: string;
@@ -77,18 +105,46 @@ export function NoteContent({
       }
 
       if (url) {
-        // Handle URLs
-        parts.push(
-          <a
-            key={`url-${keyCounter++}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {url}
-          </a>
-        );
+        // Check if URL is an image
+        const isImageUrl = isImageURL(url);
+
+        if (isImageUrl) {
+          // Render image URLs as actual images
+          parts.push(
+            <div key={`image-${keyCounter++}`} className="my-2 inline-block">
+              <img
+                src={url}
+                alt="Shared image"
+                className="rounded-lg max-h-64 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(url, '_blank')}
+                loading="lazy"
+                onError={(e) => {
+                  // If image fails to load, fall back to link
+                  const fallbackLink = document.createElement('a');
+                  fallbackLink.href = url;
+                  fallbackLink.target = '_blank';
+                  fallbackLink.rel = 'noopener noreferrer';
+                  fallbackLink.className = 'text-blue-500 hover:underline';
+                  fallbackLink.textContent = url;
+                  e.currentTarget.parentNode?.replaceChild(fallbackLink, e.currentTarget);
+                }}
+              />
+            </div>
+          );
+        } else {
+          // Handle non-image URLs as regular links
+          parts.push(
+            <a
+              key={`url-${keyCounter++}`}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              {url}
+            </a>
+          );
+        }
       } else if (nostrPrefix && nostrData) {
         // Handle Nostr references
         try {

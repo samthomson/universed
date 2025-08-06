@@ -188,4 +188,76 @@ describe('NoteContent', () => {
     expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub
     expect(linkText).toEqual("@Swift Falcon");
   });
+
+  it('renders image URLs as images instead of links', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this image: https://example.com/image.jpg and this one: https://picsum.photos/200/300.png',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should find images instead of links
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(2);
+
+    // Check that the images have the correct attributes
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/image.jpg');
+    expect(images[0]).toHaveAttribute('alt', 'Shared image');
+    expect(images[0]).toHaveClass('rounded-lg');
+
+    expect(images[1]).toHaveAttribute('src', 'https://picsum.photos/200/300.png');
+    expect(images[1]).toHaveAttribute('alt', 'Shared image');
+    expect(images[1]).toHaveClass('rounded-lg');
+
+    // Should not have any links for the image URLs
+    const links = screen.queryAllByRole('link');
+    const imageLinks = links.filter(link =>
+      link.getAttribute('href') === 'https://example.com/image.jpg' ||
+      link.getAttribute('href') === 'https://picsum.photos/200/300.png'
+    );
+    expect(imageLinks).toHaveLength(0);
+  });
+
+  it('renders non-image URLs as links', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this video: https://example.com/video.mp4 and this page: https://example.com/page.html',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should find links for non-image URLs
+    const videoLink = screen.getByRole('link', { name: 'https://example.com/video.mp4' });
+    const pageLink = screen.getByRole('link', { name: 'https://example.com/page.html' });
+
+    expect(videoLink).toBeInTheDocument();
+    expect(videoLink).toHaveAttribute('href', 'https://example.com/video.mp4');
+    expect(videoLink).toHaveAttribute('target', '_blank');
+
+    expect(pageLink).toBeInTheDocument();
+    expect(pageLink).toHaveAttribute('href', 'https://example.com/page.html');
+    expect(pageLink).toHaveAttribute('target', '_blank');
+
+    // Should not have any images
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
 });
