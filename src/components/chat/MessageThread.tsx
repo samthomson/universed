@@ -1,4 +1,4 @@
-import { MessageSquare, X } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -11,7 +11,6 @@ import { groupMessageItemConfig } from "@/components/messaging/configs/groupConf
 import { ThreadReplyInput } from "./ThreadReplyInput";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
 import type { NostrEvent } from "@nostrify/nostrify";
-import { Button } from "../ui/button";
 
 interface MessageThreadProps {
   rootMessage: NostrEvent;
@@ -33,20 +32,10 @@ export function MessageThread(
         className="w-[480px] sm:w-[540px] bg-background border-l flex flex-col h-full"
       >
         <SheetHeader className="border-b pb-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="flex items-center space-x-2">
-              <MessageSquare className="w-5 h-5" />
-              <span>Thread</span>
-            </SheetTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onOpenChange(false)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <SheetTitle className="flex items-center space-x-2">
+            <MessageSquare className="w-5 h-5" />
+            <span>Thread</span>
+          </SheetTitle>
           <div className="text-sm text-muted-foreground">
             {replyCount} {replyCount === 1 ? "reply" : "replies"}
           </div>
