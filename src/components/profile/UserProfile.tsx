@@ -10,7 +10,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUserPosts } from "@/hooks/useUserPosts";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { nip19 } from "nostr-tools";
 import { MessageItem } from "@/components/chat/MessageItem";
 import { NewDMDialog } from "@/components/dm/NewDMDialog";
@@ -166,7 +166,7 @@ export function UserProfile({ pubkey }: UserProfileProps) {
               {joinDate && (
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>Joined {formatDistanceToNow(joinDate, { addSuffix: true })}</span>
+                  <span>Joined {formatDistanceToNowShort(joinDate, { addSuffix: true })}</span>
                 </div>
               )}
             </div>

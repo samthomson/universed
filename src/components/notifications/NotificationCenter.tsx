@@ -13,7 +13,7 @@ import { useNotifications, useMarkNotificationsRead, useUnreadNotificationCount,
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { genUserName } from '@/lib/genUserName';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowShort } from '@/lib/formatTime';
 
 function NotificationItem({ notification, onMarkRead }: {
   notification: Notification;
@@ -69,7 +69,7 @@ function NotificationItem({ notification, onMarkRead }: {
             <p className="text-sm font-medium truncate">{notification.title}</p>
             <p className="text-xs text-muted-foreground">
               {notification.fromPubkey && `${displayName} • `}
-              {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+              {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
           {!notification.read && (

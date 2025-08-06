@@ -10,7 +10,7 @@ import { CommunityDiscovery } from "../discovery/CommunityDiscovery";
 import { useGlobalMessageSearch } from "@/hooks/useGlobalMessageSearch";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface GlobalSearchProps {
@@ -58,7 +58,7 @@ function MessageResult({ message, onSelect }: MessageResultProps) {
                 </Badge>
               )}
               <span className="text-xs text-gray-500">
-                {formatDistanceToNow(timestamp, { addSuffix: true })}
+                {formatDistanceToNowShort(timestamp, { addSuffix: true })}
               </span>
             </div>
 

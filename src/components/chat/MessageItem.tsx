@@ -28,7 +28,7 @@ import { useModerationActions } from "@/hooks/useModerationActions";
 import { DeletionConfirmDialog } from "@/components/moderation/DeletionConfirmDialog";
 import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -285,7 +285,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                   </Badge>
                 )}
                 <span className="text-xs text-gray-500">
-                  {formatDistanceToNow(timestamp, { addSuffix: true })}
+                  {formatDistanceToNowShort(timestamp, { addSuffix: true })}
                 </span>
               </div>
             )}
