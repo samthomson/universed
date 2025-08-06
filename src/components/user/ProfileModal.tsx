@@ -11,7 +11,7 @@ import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { EditProfileDialog } from "@/components/EditProfileDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useUserStatus } from "@/hooks/useUserStatus";
+import { getTraditionalStatusText, useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { 
   Edit, 
@@ -136,6 +136,19 @@ export function ProfileModal({
                         )}
                       </Button>
                     </div>
+                    <div className="flex justify-center w-100 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowStatusDialog(true)}
+                        className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 h-8 px-3"
+                      >
+                        <UserStatusIndicator pubkey={user.pubkey} />
+                        <span>
+                          {userStatus?.emoji ? 'Custom Status' : (getTraditionalStatusText(userStatus?.status) || 'Set Status')}
+                        </span>
+                      </Button>
+                    </div>
                     {nip05 && (
                       <Badge variant="secondary" className="mt-2 text-xs">
                         ✓ {nip05}
@@ -166,18 +179,6 @@ export function ProfileModal({
 
                   {/* Action Buttons */}
                   <div className="flex items-center justify-center space-x-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowStatusDialog(true)}
-                      className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 h-8 px-3"
-                    >
-                      <UserStatusIndicator pubkey={user.pubkey} />
-                      <span className="text-xs">
-                        {userStatus?.emoji ? 'Custom Status' : (userStatus?.message || 'Set Status')}
-                      </span>
-                    </Button>
-
                     <Button
                       variant="default"
                       size="sm"

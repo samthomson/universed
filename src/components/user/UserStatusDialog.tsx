@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useUserStatus, useUpdateUserStatus, useClearUserStatus, TraditionalStatus } from '@/hooks/useUserStatus';
+import { useUserStatus, useUpdateUserStatus, useClearUserStatus, TraditionalStatus, getTraditionalStatusText } from '@/hooks/useUserStatus';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface UserStatusDialogProps {
@@ -92,11 +92,25 @@ export function UserStatusDialog({ open, onOpenChange }: UserStatusDialogProps) 
       customMessage !== (currentStatus?.message || '') ||
       customEmoji !== '';
 
+  // Generate dialog title based on current status
+  const getDialogTitle = () => {
+    if (currentStatus?.message) {
+      return `Set Status - ${currentStatus.message}`;
+    }
+    if (currentStatus?.emoji) {
+      return `Set Status - Custom`;
+    }
+    if (currentStatus?.status) {
+      return `Set Status - ${getTraditionalStatusText(currentStatus.status)}`;
+    }
+    return 'Set Status';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Status</DialogTitle>
+          <DialogTitle>{getDialogTitle()}</DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'traditional' | 'custom')}>

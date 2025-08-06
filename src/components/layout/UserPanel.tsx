@@ -7,7 +7,7 @@ import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useUserStatus } from "@/hooks/useUserStatus";
+import { useUserStatus, getTraditionalStatusText } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useVoiceMuteState, useVoiceDeafenState, useVoiceConnectionState } from "@/contexts/VoiceContext";
@@ -62,7 +62,7 @@ export function UserPanel() {
               {displayName}
             </div>
             <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-400 truncate`}>
-              {userStatus?.message || (userStatus?.emoji ? 'Set status' : 'Click to set status')}
+              {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
             </div>
           </div>
         </div>
