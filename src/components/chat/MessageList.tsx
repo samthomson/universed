@@ -188,6 +188,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs, onCloseCo
       />
       <Virtuoso
         className={`flex-1 ${isMobile ? 'px-3' : 'px-4'} channel-scroll`}
+        style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
         data={regularMessages}
         itemContent={(messageIndex, message) => {
           const previousMessage = messageIndex > 0 ? regularMessages[messageIndex - 1] : null;
@@ -195,7 +196,7 @@ export function MessageList({ communityId, channelId, onNavigateToDMs, onCloseCo
             previousMessage.pubkey !== message.pubkey ||
             (message.created_at - previousMessage.created_at) > 300; // 5 minutes
           return (
-            <div className="message-item">
+            <div className="message-item w-full max-w-full overflow-hidden">
               <MessageItem
                 message={message}
                 showAvatar={showAvatar}
