@@ -7,6 +7,10 @@ import { logger } from '@/lib/logger';
 import type { NostrFilter, NPool } from '@nostrify/nostrify';
 import type { NostrEvent } from '@/types/nostr';
 
+// Consider messages "recent" if they're less than 10 seconds old
+// This accounts for network delays while avoiding animating truly old messages
+const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
+
 function buildFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
   const filters: NostrFilter[] = [];
 
@@ -88,10 +92,13 @@ export function useMessages(communityId: string, channelId: string) {
     cacheEvents([event]);
 
     queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
+      const now = Date.now();
+      const eventAge = now - (event.created_at * 1000); // Convert to milliseconds
+      const isRecentMessage = eventAge < RECENT_MESSAGE_THRESHOLD;
+      
       if (!oldMessages) {
-        // First message - mark for animation since it's from subscription
-        const eventWithAnimation = { ...event, clientFirstSeen: Date.now() };
-        return [eventWithAnimation];
+        // First message - only animate if it's recent
+        return [{ ...event, clientFirstSeen: isRecentMessage ? now : undefined }];
       }
       
       // Skip if we already have this real message (not optimistic)
@@ -118,9 +125,8 @@ export function useMessages(communityId: string, channelId: string) {
         return updatedMessages.sort((a, b) => a.created_at - b.created_at);
       }
       
-      // No optimistic message to replace, add as new message with animation
-      const eventWithAnimation = { ...event, clientFirstSeen: Date.now() };
-      return [...oldMessages, eventWithAnimation].sort((a, b) => a.created_at - b.created_at);
+      // No optimistic message to replace, add as new message (only animate if recent)
+      return [...oldMessages, { ...event, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at);
     });
 
     logger.log(`[Messages] New message: ${event.id}`);
