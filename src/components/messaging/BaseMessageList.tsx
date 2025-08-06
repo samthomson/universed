@@ -3,7 +3,7 @@ import { Virtuoso } from "react-virtuoso";
 import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
-import type { NostrEvent } from "@/types/nostr";
+import type { NostrEvent } from "@nostrify/nostrify";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
