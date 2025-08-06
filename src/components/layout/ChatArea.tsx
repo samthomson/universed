@@ -1,11 +1,14 @@
 import {
-  Copy,
-  Hash,
   HelpCircle,
-  Search,
-  Settings,
-  Users,
-  Volume2,
+  Hash, 
+  Users, 
+  Search, 
+  Volume2, 
+  Settings, 
+  Eye, 
+  UserPlus, 
+  Copy, 
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";

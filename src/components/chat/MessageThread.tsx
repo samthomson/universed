@@ -1,5 +1,4 @@
 import { MessageSquare, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -12,6 +11,7 @@ import { groupMessageItemConfig } from "@/components/messaging/configs/groupConf
 import { ThreadReplyInput } from "./ThreadReplyInput";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
 import type { NostrEvent } from "@nostrify/nostrify";
+import { Button } from "../ui/button";
 
 interface MessageThreadProps {
   rootMessage: NostrEvent;
