@@ -21,6 +21,7 @@ import type { NostrEvent } from "@nostrify/nostrify";
 import { useState } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
+import { MessageThread } from "@/components/chat/MessageThread";
 
 import {
   DropdownMenu,
@@ -158,6 +159,8 @@ function CommunityChat(
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
+  const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
+  const [isThreadOpen, setIsThreadOpen] = useState(false);
 
   const channel = channels?.find((c) => c.id === channelId);
 
@@ -193,6 +196,11 @@ function CommunityChat(
     }
   };
 
+  const handleReply = (message: NostrEvent) => {
+    setThreadRootMessage(message);
+    setIsThreadOpen(true);
+  };
+
   if (isVoiceChannel) {
     return (
       <div className="flex flex-col h-full chat-container">
@@ -209,31 +217,44 @@ function CommunityChat(
   }
 
   return (
-    <BaseChatArea
-      messages={messages || []}
-      isLoading={isLoading}
-      onSendMessage={handleSendMessage}
-      onPin={handlePinMessage}
-      header={
-        <CommunityChatHeader
-          communityId={communityId}
-          channelId={channelId}
-          onToggleMemberList={onToggleMemberList}
+    <>
+      <BaseChatArea
+        messages={messages || []}
+        isLoading={isLoading}
+        onSendMessage={handleSendMessage}
+        queryKey={['messages', communityId, channelId]}
+        onPin={handlePinMessage}
+        onReply={handleReply}
+        header={
+          <CommunityChatHeader
+            communityId={communityId}
+            channelId={channelId}
+            onToggleMemberList={onToggleMemberList}
+          />
+        }
+        messageListConfig={groupMessageListConfig}
+        messageItemConfig={groupMessageItemConfig}
+        messageInputConfig={groupMessageInputConfig}
+        inputPlaceholder={`Message #${channelName}`}
+        onNavigateToDMs={onNavigateToDMs}
+        communityId={communityId}
+        channelId={channelId}
+        additionalContent={
+          <div className="flex-shrink-0">
+            <TypingIndicator channelId={channelId} />
+          </div>
+        }
+      />
+      
+      {threadRootMessage && (
+        <MessageThread
+          rootMessage={threadRootMessage}
+          open={isThreadOpen}
+          onOpenChange={setIsThreadOpen}
+          onNavigateToDMs={onNavigateToDMs}
         />
-      }
-      messageListConfig={groupMessageListConfig}
-      messageItemConfig={groupMessageItemConfig}
-      messageInputConfig={groupMessageInputConfig}
-      inputPlaceholder={`Message #${channelName}`}
-      onNavigateToDMs={onNavigateToDMs}
-      communityId={communityId}
-      channelId={channelId}
-      additionalContent={
-        <div className="flex-shrink-0">
-          <TypingIndicator channelId={channelId} />
-        </div>
-      }
-    />
+      )}
+    </>
   );
 }
 

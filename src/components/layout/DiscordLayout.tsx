@@ -23,7 +23,11 @@ import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 
-export function DiscordLayout() {
+interface DiscordLayoutProps {
+  initialDMTargetPubkey?: string | null;
+}
+
+export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}) {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -76,6 +80,19 @@ export function DiscordLayout() {
       setMobileView("chat");
     }
   };
+
+  // Handle initial DM target pubkey from URL
+  useEffect(() => {
+    if (initialDMTargetPubkey !== undefined) {
+      setSelectedCommunity(null);
+      setSelectedChannel(null);
+      setSelectedSpace(null);
+      setDmTargetPubkey(initialDMTargetPubkey);
+      if (isMobile) {
+        setMobileView("chat");
+      }
+    }
+  }, [initialDMTargetPubkey, isMobile]);
 
   useEffect(() => {
     if (!hasInitialized && !urlCommunityId && userCommunities !== undefined) {

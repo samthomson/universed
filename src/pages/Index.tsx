@@ -5,14 +5,31 @@ import { DiscordLayout } from "@/components/layout/DiscordLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Users, MessageCircle, Globe } from "lucide-react";
+import { useEffect } from "react";
+import { nip19 } from "nostr-tools";
 
-const Index = () => {
+interface IndexProps {
+  dmTargetPubkey?: string;
+}
+
+const Index = ({ dmTargetPubkey }: IndexProps) => {
   const { user } = useCurrentUser();
 
   useSeoMeta({
     title: 'Universes - Discover Communities on Nostr',
     description: 'Explore infinite universes of communities, conversations, and connections on the decentralized Nostr protocol.',
   });
+
+  // If dmTargetPubkey is provided, ensure user is logged in and handle URL updates
+  useEffect(() => {
+    if (dmTargetPubkey && user) {
+      // Update URL to remove the npub parameter after handling
+      // This prevents the parameter from persisting in the URL unnecessarily
+      const url = new URL(window.location.href);
+      url.pathname = '/dm';
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [dmTargetPubkey, user]);
 
   if (!user) {
     return (
@@ -108,6 +125,30 @@ const Index = () => {
         </div>
       </div>
     );
+  }
+
+  // Check if we're in DM mode
+  if (dmTargetPubkey !== undefined) {
+    // We're in DM mode - either /dm or /dm/:npub was accessed
+    let targetHexPubkey: string | null = null;
+    
+    if (dmTargetPubkey) {
+      try {
+        // Try to decode the npub to get the hex pubkey
+        const decoded = nip19.decode(dmTargetPubkey);
+        if (decoded.type === 'npub') {
+          targetHexPubkey = decoded.data;
+        }
+      } catch (error) {
+        console.error('Invalid npub format:', error);
+        // Fallback: treat as hex pubkey if it's 64 hex characters
+        if (dmTargetPubkey.match(/^[a-f0-9]{64}$/i)) {
+          targetHexPubkey = dmTargetPubkey;
+        }
+      }
+    }
+
+    return <DiscordLayout initialDMTargetPubkey={targetHexPubkey} />;
   }
 
   return <DiscordLayout />;

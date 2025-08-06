@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 import Index from "./pages/Index";
@@ -10,6 +10,12 @@ import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
 import NotFound from "./pages/NotFound";
+
+// Wrapper component to extract npub parameter and pass it to Index
+function DMWrapper() {
+  const { npub } = useParams<{ npub?: string }>();
+  return <Index dmTargetPubkey={npub} />;
+}
 
 export function AppRouter() {
   return (
@@ -28,6 +34,11 @@ export function AppRouter() {
         <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
+        
+        {/* DM Routes */}
+        <Route path="/dm" element={<Index dmTargetPubkey={undefined} />} />
+        <Route path="/dm/:npub" element={<DMWrapper />} />
+        
         {/* Catch-all route for naddr and other patterns */}
         <Route path="/:identifier" element={<Index />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
