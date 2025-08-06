@@ -168,12 +168,13 @@ function CommunityChat(
   const channelName = channel?.name || channelId;
   const isVoiceChannel = channel?.type === "voice";
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, additionalTags: string[][] = []) => {
     const [kind, pubkey, identifier] = communityId.split(":");
 
     const tags = [
       ["t", channelId],
       ["a", `${kind}:${pubkey}:${identifier}`],
+      ...additionalTags, // Add any additional tags (like imeta for files)
     ];
 
     await createEvent({
