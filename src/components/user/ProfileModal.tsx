@@ -26,10 +26,12 @@ import {
   Check,
   Clock,
   XCircle,
-  Circle
+  Circle,
+  Copy
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { nip19 } from "nostr-tools";
+import { toast } from "sonner";
 
 interface ProfileModalProps {
   open: boolean;
@@ -57,6 +59,7 @@ export function ProfileModal({
   const navigate = useNavigate();
 
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!user) return null;
 
@@ -79,6 +82,17 @@ export function ProfileModal({
   const handleEditProfile = () => {
     navigate(`/profile/${npub}/edit`);
     onOpenChange(false);
+  };
+
+  const handleCopyNpub = async () => {
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopied(true);
+      toast.success("Copied npub to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy npub");
+    }
   };
 
   return (
@@ -155,7 +169,22 @@ export function ProfileModal({
                       </DropdownMenu>
                     </div>
                   </div>
-                  <p className="text-gray-400 text-sm mt-1">@{npub.slice(0, 16)}...</p>
+                  <div className="flex items-center justify-center space-x-2 mt-1">
+                    <p className="text-gray-400 text-sm">@{npub.slice(0, 16)}...</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleCopyNpub}
+                      className="h-6 w-6 hover:bg-gray-700"
+                      title="Copy npub"
+                    >
+                      {copied ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <Copy className="h-3 w-3 text-gray-400" />
+                      )}
+                    </Button>
+                  </div>
                   {nip05 && (
                     <Badge variant="secondary" className="mt-2 text-xs">
                       ✓ {nip05}
