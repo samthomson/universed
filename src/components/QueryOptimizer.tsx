@@ -32,6 +32,10 @@ export const reactQueryConfigs = {
     staleTime: 60 * 1000, // 1 minute - similar to messages
     gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
   },
+  'pinned-messages-events': {
+    staleTime: 60 * 1000, // 1 minute - similar to messages
+    gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages
+  },
   'thread-replies': {
     staleTime: 60 * 1000, // 1 minute - similar to messages
     gcTime: 10 * 60 * 1000, // 10 minutes - similar to messages

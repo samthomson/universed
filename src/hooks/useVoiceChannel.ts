@@ -15,7 +15,6 @@ export interface VoiceChannelMember {
   muted: boolean;
   deafened: boolean;
   speaking: boolean;
-  joinedAt: number;
 }
 
 export interface VoiceChannelState {
@@ -179,7 +178,7 @@ export function useVoiceChannel(channelId?: string) {
         }
         return;
       } catch (error) {
-        logger.error(`Failed to send signaling message to ${message.to} (attempt ${attempt + 1}):`, error);
+        logger.error(`Failed to send signaling (${message.type}) to ${message.to} (attempt ${attempt + 1}):`, error);
 
         if (attempt < retries - 1) {
           // Wait before retry with exponential backoff
@@ -188,7 +187,7 @@ export function useVoiceChannel(channelId?: string) {
       }
     }
 
-    logger.error(`Failed to send signaling message to ${message.to} after ${retries} attempts`);
+    logger.error(`Failed to send signaling (${message.type}) to ${message.to} after ${retries} attempts`);
   }, [user?.pubkey, channelId, publishEvent]);
 
   // Heartbeat mechanism to maintain presence
@@ -725,41 +724,37 @@ export function useVoiceChannel(channelId?: string) {
       const memberLastSeen = new Map<string, number>();
 
       sortedEvents.forEach(event => {
-        const action = event.tags.find(([name]) => name === 'action')?.[1];
-        const mutedTag = event.tags.find(([name]) => name === 'muted')?.[1];
-        const deafenedTag = event.tags.find(([name]) => name === 'deafened')?.[1];
-        const speakingTag = event.tags.find(([name]) => name === 'speaking')?.[1];
+        const { pubkey, created_at, tags } = event;
+        const action = tags.find(([name]) => name === 'action')?.[1];
+        const muted = !!tags.find(([name]) => name === 'muted')?.[1];
+        const deafened = !!tags.find(([name]) => name === 'deafened')?.[1];
+        const speaking = !!tags.find(([name]) => name === 'speaking')?.[1];
 
         // Track when we last saw activity from this member
-        memberLastSeen.set(event.pubkey, event.created_at * 1000);
+        memberLastSeen.set(pubkey, created_at * 1000);
 
-        if (action === 'join' || action === 'heartbeat') {
-          memberMap.set(event.pubkey, {
-            pubkey: event.pubkey,
-            muted: mutedTag === 'true',
-            deafened: deafenedTag === 'true',
-            speaking: speakingTag === 'true',
-            joinedAt: action === 'join' ? event.created_at * 1000 : (memberMap.get(event.pubkey)?.joinedAt || event.created_at * 1000),
-          });
-        } else if (action === 'leave') {
-          memberMap.delete(event.pubkey);
-          memberLastSeen.delete(event.pubkey);
-        } else if (action === 'update') {
-          const existing = memberMap.get(event.pubkey);
-          if (existing) {
-            memberMap.set(event.pubkey, {
-              ...existing,
-              muted: mutedTag === 'true',
-              deafened: deafenedTag === 'true',
-              speaking: speakingTag === 'true',
+        // either the user is still around (joining, updating, or idle) or they left
+        switch (action) {
+          case 'join':
+          case 'heartbeat':
+          case 'update':
+            memberMap.set(pubkey, {
+              pubkey,
+              muted,
+              deafened,
+              speaking,
             });
-          }
+            break;
+          case 'leave':
+            memberMap.delete(pubkey);
+            memberLastSeen.delete(pubkey);
+            break;
         }
       });
 
       // Remove members who haven't been seen in the last 3 minutes (likely disconnected)
       const now = Date.now();
-      const staleThreshold = 3 * 60 * 1000; // 3 minutes (increased for stability)
+      const staleThreshold = 3 * 60 * 1000; // 3 minutes
 
       for (const [pubkey, lastSeen] of memberLastSeen.entries()) {
         if (now - lastSeen > staleThreshold) {

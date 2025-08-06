@@ -31,6 +31,8 @@ export function usePinnedMessages(communityId: string, channelId: string) {
         .map(([, eventId]) => eventId);
     },
     enabled: !!communityId && !!channelId,
+    // this tells react-query to ensure we clear messages when changing community/channel
+    placeholderData: undefined
   });
 }
 
@@ -130,5 +132,6 @@ export function usePinnedMessageEvents(communityId: string, channelId: string) {
       return sortedEvents;
     },
     enabled: !!communityId && !!channelId && !!pinnedMessageIds && pinnedMessageIds.length > 0,
+    placeholderData: undefined, // Force loading state when switching channels
   });
 }
