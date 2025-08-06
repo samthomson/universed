@@ -530,7 +530,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     Automatically moderate content based on rules
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pb-0">
                   <div className="flex items-center space-x-2">
                     <Switch id="auto-delete-spam" />
                     <Label htmlFor="auto-delete-spam">Auto-delete spam messages</Label>
@@ -852,6 +852,48 @@ function CommunityShareContent({ community }: { community: Community }) {
 
   return (
     <div className="space-y-4">
+      {/* Join Link */}
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="join-url" className="text-base font-medium">
+            Join Link
+          </Label>
+          <p className="text-sm text-muted-foreground mb-2">
+            Direct link for people to request to join your community
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id="join-url"
+            value={joinUrl}
+            readOnly
+            className="font-mono text-sm"
+          />
+          <CopyButton text={joinUrl} field="join-url" />
+        </div>
+      </div>
+
+      {/* Nostr Address */}
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="naddr" className="text-base font-medium">
+            Nostr Address (naddr)
+          </Label>
+          <p className="text-sm text-muted-foreground mb-2">
+            Technical identifier for Nostr clients and developers
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id="naddr"
+            value={naddr}
+            readOnly
+            className="font-mono text-sm"
+          />
+          <CopyButton text={naddr} field="naddr" />
+        </div>
+      </div>
+
       {/* QR Code Section */}
       <Card>
         <CardHeader>
@@ -896,48 +938,6 @@ function CommunityShareContent({ community }: { community: Community }) {
           )}
         </CardContent>
       </Card>
-
-      {/* Join Link */}
-      <div className="space-y-3">
-        <div>
-          <Label htmlFor="join-url" className="text-base font-medium">
-            Join Link
-          </Label>
-          <p className="text-sm text-muted-foreground mb-2">
-            Direct link for people to request to join your community
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            id="join-url"
-            value={joinUrl}
-            readOnly
-            className="font-mono text-sm"
-          />
-          <CopyButton text={joinUrl} field="join-url" />
-        </div>
-      </div>
-
-      {/* Nostr Address */}
-      <div className="space-y-3">
-        <div>
-          <Label htmlFor="naddr" className="text-base font-medium">
-            Nostr Address (naddr)
-          </Label>
-          <p className="text-sm text-muted-foreground mb-2">
-            Technical identifier for Nostr clients and developers
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Input
-            id="naddr"
-            value={naddr}
-            readOnly
-            className="font-mono text-sm"
-          />
-          <CopyButton text={naddr} field="naddr" />
-        </div>
-      </div>
     </div>
   );
 }
