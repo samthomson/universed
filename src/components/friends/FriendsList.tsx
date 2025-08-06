@@ -115,7 +115,7 @@ export function FriendsList({ mutualFriends: propMutualFriends, isLoading: propI
   return (
     <div className="p-4">
       <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
-      <div className="space-y-1">
+      <div className="space-y-1 scrollbar-thin overflow-y-auto max-h-[calc(100vh-200px)]">
         {mutualFriends.map((friend) => (
           <FriendItem
             key={friend.pubkey}
