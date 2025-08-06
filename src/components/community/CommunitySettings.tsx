@@ -173,7 +173,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         communityId: community.id,
         memberPubkey: requesterPubkey
       });
-      setDecliningMembers(prev => new Set([...prev, memberPubkey]));
+      setDecliningMembers(prev => new Set([...prev, requesterPubkey]));
       toast({
         title: "Success",
         description: "Join request declined successfully!",
