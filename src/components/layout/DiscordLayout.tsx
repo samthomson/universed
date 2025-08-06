@@ -27,6 +27,7 @@ export function DiscordLayout() {
   const [showMemberList, setShowMemberList] = useState(true);
   const [dmTargetPubkey, setDmTargetPubkey] = useState<string | null>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showCommunitySelectionDialog, setShowCommunitySelectionDialog] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
 
@@ -107,8 +108,11 @@ export function DiscordLayout() {
           // Immediately preload channels and spaces for the URL community
           preloadChannelsImmediately(urlCommunityId);
           preloadSpacesImmediately(urlCommunityId);
+        } else if (membershipStatus === 'pending') {
+          // User has a pending request, don't show join dialog - just clear navigation
+          clearNavigation();
         } else {
-          // User is not a member, show join dialog
+          // User is not a member and has no pending request, show join dialog
           setShowJoinDialog(true);
         }
       }
@@ -168,6 +172,10 @@ export function DiscordLayout() {
   const handleJoinDialogClose = () => {
     setShowJoinDialog(false);
     clearNavigation();
+  };
+
+  const handleCloseCommunitySelectionDialog = () => {
+    setShowCommunitySelectionDialog(false);
   };
 
   // Mobile navigation handlers
@@ -270,6 +278,8 @@ export function DiscordLayout() {
                   <SheetContent side="left" className="w-20 p-0 bg-gray-900">
                     <AppSidebar
                       selectedCommunity={selectedCommunity}
+                      showCommunitySelectionDialog={showCommunitySelectionDialog}
+                      onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
                       onSelectCommunity={handleCommunitySelect}
                     />
                   </SheetContent>
@@ -356,6 +366,7 @@ export function DiscordLayout() {
                     channelId={selectedChannel}
                     onToggleMemberList={() => setMobileView('members')}
                     onNavigateToDMs={handleNavigateToDMs}
+                    onCloseCommunitySelectionDialog={handleCloseCommunitySelectionDialog}
                   />
                 )}
               </div>
@@ -392,6 +403,8 @@ export function DiscordLayout() {
         <div className="w-16 bg-gray-900 flex flex-col h-full">
           <AppSidebar
             selectedCommunity={selectedCommunity}
+            showCommunitySelectionDialog={showCommunitySelectionDialog}
+            onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
             onSelectCommunity={(communityId) => {
               setSelectedCommunity(communityId);
               setIsAutoSelected(false);
@@ -449,6 +462,7 @@ export function DiscordLayout() {
                   channelId={selectedChannel}
                   onToggleMemberList={() => setShowMemberList(!showMemberList)}
                   onNavigateToDMs={handleNavigateToDMs}
+                  onCloseCommunitySelectionDialog={handleCloseCommunitySelectionDialog}
                 />
               )}
             </div>

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { MessageItem } from "./MessageItem";
 import { PinnedMessages } from "./PinnedMessages";
@@ -8,20 +8,26 @@ import { useChannels } from "@/hooks/useChannels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
-import { Lock, Radio } from "lucide-react";
+import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
+import { Lock, Radio, UserPlus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 
 interface MessageListProps {
   communityId: string;
   channelId: string;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  onCloseCommunitySelectionDialog?: () => void;
 }
 
-export function MessageList({ communityId, channelId, onNavigateToDMs }: MessageListProps) {
+export function MessageList({ communityId, channelId, onNavigateToDMs, onCloseCommunitySelectionDialog }: MessageListProps) {
   const isMobile = useIsMobile();
   const { data: messages, isLoading, isSubscribed } = useMessages(communityId, channelId);
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const { data: channels } = useChannels(communityId);
   const { canAccess: canRead, reason } = useCanAccessChannel(communityId, channelId, 'read');
+  const { data: membershipStatus } = useUserCommunityMembership(communityId);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   // Get the channel name from the channels data
   const channel = channels?.find(c => c.id === channelId);
@@ -36,6 +42,9 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
 
   // If user doesn't have read access, show access denied message
   if (!canRead) {
+    const isMemberOnlyAccess = reason?.includes('Only community members can access this channel');
+    const isAlreadyMember = membershipStatus === 'owner' || membershipStatus === 'moderator' || membershipStatus === 'approved';
+
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 px-4">
@@ -44,11 +53,62 @@ export function MessageList({ communityId, channelId, onNavigateToDMs }: Message
             <h3 className="text-xl font-semibold text-white mb-2">
               Private Channel
             </h3>
-            <p className="text-gray-400 max-w-md">
+            <p className="text-gray-400 max-w-md mb-6">
               {reason || "You don't have permission to view this channel"}
             </p>
+
+            {isMemberOnlyAccess && !isAlreadyMember && (
+              <Button
+                onClick={() => setShowJoinDialog(true)}
+                className="flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Join Community
+              </Button>
+            )}
+
+            {isMemberOnlyAccess && isAlreadyMember && (
+              <div className="space-y-4">
+                <p className="text-sm text-yellow-400">
+                  You're already a member of this community, but there might be a sync issue with channel permissions.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      window.location.reload();
+                      onCloseCommunitySelectionDialog?.();
+                    }}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Refresh Page
+                  </Button>
+                  <Button
+                    onClick={() => onCloseCommunitySelectionDialog?.()}
+                    variant="default"
+                    className="flex items-center gap-2"
+                  >
+                    Close Browse Modal
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Join Community Dialog - only show if user is not already a member */}
+        {!isAlreadyMember && (
+          <JoinRequestDialog
+            communityId={communityId}
+            open={showJoinDialog}
+            onOpenChange={setShowJoinDialog}
+            onJoinSuccess={() => {
+              // After successful join, the component will re-render and check permissions again
+              setShowJoinDialog(false);
+            }}
+          />
+        )}
       </div>
     );
   }

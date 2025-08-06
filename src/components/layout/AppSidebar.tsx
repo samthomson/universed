@@ -7,17 +7,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
-import { useState } from "react";
 
 interface AppSidebarProps {
   selectedCommunity: string | null;
+  showCommunitySelectionDialog: boolean;
+  onShowCommunitySelectionDialogChange: (open: boolean) => void;
   onSelectCommunity: (communityId: string | null) => void;
 }
 
-export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
+export function AppSidebar({
+  selectedCommunity,
+  showCommunitySelectionDialog,
+  onShowCommunitySelectionDialogChange,
+  onSelectCommunity
+}: AppSidebarProps) {
   const { data: communities, isLoading } = useUserCommunities();
   const { preloadCommunity } = useUnifiedPreloader();
-  const [showSelectionDialog, setShowSelectionDialog] = useState(false);
 
   return (
     <TooltipProvider>
@@ -120,7 +125,7 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                 variant="ghost"
                 size="icon"
                 className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-green-500 text-green-500"
-                onClick={() => setShowSelectionDialog(true)}
+                onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
               </Button>
@@ -132,8 +137,8 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
         </div>
 
         <CommunitySelectionDialog
-          open={showSelectionDialog}
-          onOpenChange={setShowSelectionDialog}
+          open={showCommunitySelectionDialog}
+          onOpenChange={onShowCommunitySelectionDialogChange}
           onCommunitySelect={onSelectCommunity}
         />
       </div>

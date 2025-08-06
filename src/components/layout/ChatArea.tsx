@@ -26,9 +26,10 @@ interface ChatAreaProps {
   channelId: string | null;
   onToggleMemberList: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  onCloseCommunitySelectionDialog?: () => void;
 }
 
-export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs }: ChatAreaProps) {
+export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs, onCloseCommunitySelectionDialog }: ChatAreaProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data: communities } = useCommunities();
@@ -174,6 +175,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
               communityId={communityId}
               channelId={channelId}
               onNavigateToDMs={onNavigateToDMs}
+              onCloseCommunitySelectionDialog={onCloseCommunitySelectionDialog}
             />
 
             {/* Fixed bottom section */}
