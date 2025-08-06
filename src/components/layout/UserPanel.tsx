@@ -1,4 +1,4 @@
-import { Settings, Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
+import { Settings, Mic, MicOff, Headphones, HeadphonesIcon, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
@@ -11,9 +11,12 @@ import { useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { nip19 } from "nostr-tools";
 
 export function UserPanel() {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
@@ -28,6 +31,11 @@ export function UserPanel() {
 
   const displayName = metadata?.name || genUserName(user.pubkey);
   const profileImage = metadata?.picture;
+  const npub = nip19.npubEncode(user.pubkey);
+
+  const handleViewProfile = () => {
+    navigate(`/profile/${npub}`);
+  };
 
   return (
     <>
@@ -61,6 +69,17 @@ export function UserPanel() {
 
         {/* Controls */}
         <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
+          {/* View Profile Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} text-gray-400 hover:text-gray-300 mobile-touch`}
+            title="View Profile"
+            onClick={handleViewProfile}
+          >
+            <ExternalLink className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
+          </Button>
+
           {/* Notification Center */}
           <NotificationCenter />
 
