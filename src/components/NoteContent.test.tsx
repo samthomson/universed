@@ -260,4 +260,241 @@ describe('NoteContent', () => {
     // Should not have any images
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
+
+  it('renders markdown content correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '**Bold text** and *italic text* and `code`',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Check that bold text is rendered
+    const boldText = screen.getByText('Bold text');
+    expect(boldText).toBeInTheDocument();
+    expect(boldText.tagName).toBe('STRONG');
+
+    // Check that italic text is rendered
+    const italicText = screen.getByText('italic text');
+    expect(italicText).toBeInTheDocument();
+    expect(italicText.tagName).toBe('EM');
+
+    // Check that code is rendered
+    const codeText = screen.getByText('code');
+    expect(codeText).toBeInTheDocument();
+    expect(codeText.tagName).toBe('CODE');
+  });
+
+  it('renders markdown headings correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '# Heading 1\n## Heading 2\n### Heading 3\n#### Heading 4\n##### Heading 5\n###### Heading 6',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Check that all headings are rendered with correct tags and classes
+    const h1 = screen.getByText('Heading 1');
+    expect(h1).toBeInTheDocument();
+    expect(h1.tagName).toBe('H1');
+    expect(h1).toHaveClass('text-2xl', 'font-bold');
+
+    const h2 = screen.getByText('Heading 2');
+    expect(h2).toBeInTheDocument();
+    expect(h2.tagName).toBe('H2');
+    expect(h2).toHaveClass('text-xl', 'font-semibold');
+
+    const h3 = screen.getByText('Heading 3');
+    expect(h3).toBeInTheDocument();
+    expect(h3.tagName).toBe('H3');
+    expect(h3).toHaveClass('text-lg', 'font-medium');
+
+    const h4 = screen.getByText('Heading 4');
+    expect(h4).toBeInTheDocument();
+    expect(h4.tagName).toBe('H4');
+    expect(h4).toHaveClass('text-base', 'font-medium');
+
+    const h5 = screen.getByText('Heading 5');
+    expect(h5).toBeInTheDocument();
+    expect(h5.tagName).toBe('H5');
+    expect(h5).toHaveClass('text-sm', 'font-medium');
+
+    const h6 = screen.getByText('Heading 6');
+    expect(h6).toBeInTheDocument();
+    expect(h6.tagName).toBe('H6');
+    expect(h6).toHaveClass('text-sm', 'font-medium');
+  });
+
+  it('renders unordered lists (bullet points) correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '- First item\n- Second item\n- Third item',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Check that the list is rendered
+    const list = screen.getByRole('list');
+    expect(list).toBeInTheDocument();
+    expect(list.tagName).toBe('UL');
+    expect(list).toHaveClass('list-disc', 'list-inside', 'space-y-0.5', 'my-0.5', 'pl-2');
+
+    // Check that list items are rendered
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+
+    expect(items[0]).toBeInTheDocument();
+    expect(items[0].tagName).toBe('LI');
+    expect(items[0]).toHaveClass('pl-1');
+    expect(items[0]).toHaveTextContent('First item');
+
+    expect(items[1]).toBeInTheDocument();
+    expect(items[1].tagName).toBe('LI');
+    expect(items[1]).toHaveClass('pl-1');
+    expect(items[1]).toHaveTextContent('Second item');
+
+    expect(items[2]).toBeInTheDocument();
+    expect(items[2].tagName).toBe('LI');
+    expect(items[2]).toHaveClass('pl-1');
+    expect(items[2]).toHaveTextContent('Third item');
+  });
+
+  it('renders ordered lists (numbered) correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '1. First step\n2. Second step\n3. Third step',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Check that the ordered list is rendered
+    const list = screen.getByRole('list');
+    expect(list).toBeInTheDocument();
+    expect(list.tagName).toBe('OL');
+    expect(list).toHaveClass('list-decimal', 'list-inside', 'space-y-0.5', 'my-0.5', 'pl-4');
+
+    // Check that list items are rendered
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+
+    expect(items[0]).toBeInTheDocument();
+    expect(items[0].tagName).toBe('LI');
+    expect(items[0]).toHaveClass('pl-1');
+    expect(items[0]).toHaveTextContent('First step');
+
+    expect(items[1]).toBeInTheDocument();
+    expect(items[1].tagName).toBe('LI');
+    expect(items[1]).toHaveClass('pl-1');
+    expect(items[1]).toHaveTextContent('Second step');
+
+    expect(items[2]).toBeInTheDocument();
+    expect(items[2].tagName).toBe('LI');
+    expect(items[2]).toHaveClass('pl-1');
+    expect(items[2]).toHaveTextContent('Third step');
+  });
+
+  it('renders mixed list formats correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '* Bullet item 1\n* Bullet item 2\n+ Another bullet\n1. Numbered item 1\n2. Numbered item 2',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should have multiple lists (different bullet types create separate lists)
+    const lists = screen.getAllByRole('list');
+    expect(lists.length).toBeGreaterThan(1);
+
+    // Check that we have both unordered and ordered lists
+    const unorderedLists = lists.filter(list => list.tagName === 'UL');
+    const orderedLists = lists.filter(list => list.tagName === 'OL');
+
+    expect(unorderedLists.length).toBeGreaterThan(0);
+    expect(orderedLists.length).toBe(1);
+
+    // Check that unordered lists have the correct classes
+    unorderedLists.forEach(list => {
+      expect(list).toHaveClass('list-disc', 'list-inside');
+    });
+
+    // Check that ordered list has the correct classes
+    expect(orderedLists[0]).toHaveClass('list-decimal', 'list-inside', 'space-y-0.5', 'my-0.5', 'pl-4');
+
+    // Check total number of list items
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(5);
+  });
+
+  it('renders ordered lists with inline styling', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: '1. First item\n2. Second item\n3. Third item',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Check that the ordered list has the correct styling classes
+    const orderedList = screen.getByRole('list');
+    expect(orderedList).toBeInTheDocument();
+    expect(orderedList.tagName).toBe('OL');
+    expect(orderedList).toHaveClass('list-decimal', 'list-inside', 'space-y-0.5', 'my-0.5', 'pl-4');
+
+    // Check that list items exist
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+  });
 });
