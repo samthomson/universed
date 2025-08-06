@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNostr } from "@nostrify/react";
 import { useCurrentUser } from "./useCurrentUser";
-import type { NostrEvent } from "@nostrify/nostrify";
+import type { NostrEvent } from "@/types/nostr";
 
 interface DecryptedMessage {
   id: string;

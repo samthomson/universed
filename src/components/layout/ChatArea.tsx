@@ -17,6 +17,8 @@ import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { logger } from "@/lib/logger";
 
 import {
   DropdownMenu,
@@ -35,6 +37,7 @@ import {
   groupMessageItemConfig,
   groupMessageListConfig,
 } from "@/components/messaging/configs/groupConfig";
+import type { NostrEvent } from "@/types/nostr";
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -53,12 +56,70 @@ function CommunityChat(
   const { data: channels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const queryClient = useQueryClient();
 
   const { user } = useCurrentUser();
   const { data: messages, isLoading } = useMessages(communityId, channelId);
-  const { mutateAsync: createEvent, isPending: isSending } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
 
   const channel = channels?.find((c) => c.id === channelId);
+
+  // Optimistic message sending mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content, tags }: { content: string; tags: string[][] }) => {
+      const event = await createEvent({
+        kind: 9411,
+        content,
+        tags,
+      });
+      return event;
+    },
+    onMutate: async ({ content, tags }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', communityId, channelId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(['messages', communityId, channelId]);
+
+      // Create optimistic message
+      const optimisticMessage: NostrEvent = {
+        id: `optimistic-${Date.now()}`,
+        pubkey: user!.pubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 9411,
+        tags: tags || [],
+        content,
+        sig: '', // Will be filled by the actual event
+        isSending: true, // Mark as sending state for optimistic UI
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['messages', communityId, channelId], old => {
+        const oldMessages = Array.isArray(old) ? old : [];
+        // Don't add the optimistic message if it has e-tags (it's a reply)
+        const eTags = optimisticMessage.tags.filter(([name]) => name === 'e');
+        if (eTags.length > 0) {
+          console.warn('[ChatArea] Attempted to add reply to channel messages:', optimisticMessage);
+          return oldMessages;
+        }
+        return [...oldMessages, optimisticMessage];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', communityId, channelId], context.previousMessages);
+      }
+      logger.error('Failed to send message:', err);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to make sure we're in sync
+      queryClient.invalidateQueries({ queryKey: ['messages', communityId, channelId] });
+    },
+  });
 
   if (!channel) {
     // This should theoretically not happen if channelId is guaranteed to be valid
@@ -85,8 +146,7 @@ function CommunityChat(
       ...mentions,
     ];
 
-    await createEvent({
-      kind: 9411,
+    sendMessageMutation.mutate({
       content,
       tags,
     });
@@ -176,7 +236,7 @@ function CommunityChat(
                     onSendMessage={handleSendMessage}
                     config={groupMessageInputConfig}
                     placeholder={`Message #${channelName}`}
-                    isSending={isSending}
+                    isSending={sendMessageMutation.isPending}
                   />
                 </div>
               </div>

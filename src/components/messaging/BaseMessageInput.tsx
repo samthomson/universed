@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
-import type { NostrEvent } from "@nostrify/nostrify";
+import type { NostrEvent } from "@/types/nostr";
 
 interface MessageInputConfig {
   allowMentions: boolean;

@@ -5,8 +5,10 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDMMessages } from "@/hooks/useDMMessages";
-import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { useSendDM } from "@/hooks/useSendDM";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { logger } from "@/lib/logger";
 
 import { BaseMessageList } from "@/components/messaging/BaseMessageList";
 import { BaseMessageInput } from "@/components/messaging/BaseMessageInput";
@@ -15,6 +17,7 @@ import {
   dmMessageItemConfig,
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
+import type { NostrEvent } from "@/types/nostr";
 
 interface DMChatAreaProps {
   conversationId: string; // The other person's pubkey
@@ -29,19 +32,70 @@ export function DMChatArea(
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
 
   const { data: messages, isLoading } = useDMMessages(conversationId);
-  const { mutateAsync: createEvent, isPending: isSending } = useNostrPublish();
+  const { mutate: sendDM } = useSendDM();
 
   const displayName = metadata?.name || genUserName(conversationId);
   const profileImage = metadata?.picture;
 
+  // Optimistic message sending mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ content }: { content: string }) => {
+      // Use the proper encrypted DM sending
+      const event = await sendDM({
+        recipientPubkey: conversationId,
+        content,
+      });
+      return event;
+    },
+    onMutate: async ({ content }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['dm-messages', user?.pubkey, conversationId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(['dm-messages', user?.pubkey, conversationId]);
+
+      // Create optimistic message
+      const optimisticMessage: NostrEvent = {
+        id: `optimistic-${Date.now()}`,
+        pubkey: user!.pubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 4, // This will be updated by the actual event
+        tags: [["p", conversationId]],
+        content, // Show the plaintext content optimistically
+        sig: '', // Will be filled by the actual event
+        isSending: true, // Mark as sending state for optimistic UI
+      };
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['dm-messages', user?.pubkey, conversationId], old => {
+        const oldMessages = Array.isArray(old) ? old : [];
+        return [...oldMessages, optimisticMessage];
+      });
+
+      // Return a context object with the snapshotted value
+      return { previousMessages, optimisticMessage };
+    },
+    onError: (err, variables, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['dm-messages', user?.pubkey, conversationId], context.previousMessages);
+      }
+      logger.error('Failed to send DM:', err);
+    },
+    onSettled: () => {
+      // Always refetch after error or success to make sure we're in sync
+      queryClient.invalidateQueries({ queryKey: ['dm-messages', user?.pubkey, conversationId] });
+    },
+  });
+
   const handleSendMessage = async (content: string) => {
     if (!user) return;
-    await createEvent({
-      kind: 4,
+    
+    sendMessageMutation.mutate({
       content,
-      tags: [["p", conversationId]],
     });
   };
 
@@ -99,7 +153,7 @@ export function DMChatArea(
             onSendMessage={handleSendMessage}
             config={dmMessageInputConfig}
             placeholder={`Message ${displayName}`}
-            isSending={isSending}
+            isSending={sendMessageMutation.isPending}
           />
         </div>
       </div>

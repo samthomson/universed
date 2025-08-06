@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Ban, MoreHorizontal, Pin, Reply, Trash2 } from "lucide-react";
+import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -19,7 +19,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import type { NostrEvent } from "@nostrify/nostrify";
+import type { NostrEvent } from "@/types/nostr";
 
 export interface MessageItemConfig {
   showContextMenu: boolean;
@@ -57,6 +57,7 @@ function BaseMessageItemComponent({
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const metadata = author.data?.metadata;
+  const isSending = message.isSending;
 
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
@@ -76,6 +77,7 @@ function BaseMessageItemComponent({
         "group relative hover:bg-secondary/50 transition-all duration-200 w-full px-4 py-1",
         {
           "mt-4": showAvatar,
+          "opacity-50": isSending,
         },
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -132,11 +134,25 @@ function BaseMessageItemComponent({
               </UserContextMenu>
               <span className="text-xs text-muted-foreground">
                 {formatDistanceToNowShort(timestamp, { addSuffix: true })}
+                {isSending && (
+                  <div className="flex items-center space-x-1 inline-flex ml-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span className="text-xs">Sending...</span>
+                  </div>
+                )}
               </span>
             </div>
           )}
           <div className="text-foreground break-words">
-            <NoteContent event={message} className="text-sm leading-relaxed" />
+            <div className="flex items-center gap-2">
+              <NoteContent event={message} className="text-sm leading-relaxed" />
+              {isSending && !showAvatar && (
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span className="text-xs">Sending...</span>
+                </div>
+              )}
+            </div>
           </div>
           {/* Reactions and thread replies will be added here based on config */}
         </div>
