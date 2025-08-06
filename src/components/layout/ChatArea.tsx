@@ -4,11 +4,8 @@ import {
   Users, 
   Search, 
   Volume2, 
-  Settings, 
-  Eye, 
-  UserPlus, 
-  Copy, 
-  Trash2
+  Settings,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
