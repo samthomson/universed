@@ -27,9 +27,10 @@ interface ChatAreaProps {
   onToggleMemberList: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
   onCloseCommunitySelectionDialog?: () => void;
+  preloadedMessages?: import("@nostrify/nostrify").NostrEvent[];
 }
 
-export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs, onCloseCommunitySelectionDialog }: ChatAreaProps) {
+export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigateToDMs, onCloseCommunitySelectionDialog, preloadedMessages }: ChatAreaProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { data: communities } = useCommunities();
@@ -176,6 +177,7 @@ export function ChatArea({ communityId, channelId, onToggleMemberList, onNavigat
               channelId={channelId}
               onNavigateToDMs={onNavigateToDMs}
               onCloseCommunitySelectionDialog={onCloseCommunitySelectionDialog}
+              preloadedMessages={preloadedMessages}
             />
 
             {/* Fixed bottom section */}

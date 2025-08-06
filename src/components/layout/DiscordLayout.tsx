@@ -13,6 +13,7 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
+import { useBackgroundMessagePreloader } from "@/hooks/useBackgroundMessagePreloader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Menu, Users } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -30,8 +31,10 @@ export function DiscordLayout() {
   const [showCommunitySelectionDialog, setShowCommunitySelectionDialog] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
+  const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<string | null>(null);
 
   const { setActiveCommunity } = useMessageSystem();
+  const { getPreloadedMessages } = useBackgroundMessagePreloader(selectedCommunity, selectedChannel);
   // Enable performance monitoring (strategic background loading disabled - using LRU instead)
   useEnablePerformanceMonitoring();
   // Sync active community with selected community automatically
@@ -97,27 +100,38 @@ export function DiscordLayout() {
     if (urlCommunityId) {
       if (isJoinRequest) {
         // Show join dialog for join requests
+        // Store the current community state before showing dialog
+        setCommunityBeforeJoinDialog(selectedCommunity);
         setShowJoinDialog(true);
       } else {
-        // For direct community links, check membership and navigate accordingly
-        if (membershipStatus === 'owner' || membershipStatus === 'moderator' || membershipStatus === 'approved') {
-          // User is a member, select the community
-          setSelectedCommunity(urlCommunityId);
-          clearNavigation();
+        // Always select the community for preview, regardless of membership status
+        setSelectedCommunity(urlCommunityId);
 
-          // Immediately preload channels and spaces for the URL community
-          preloadChannelsImmediately(urlCommunityId);
-          preloadSpacesImmediately(urlCommunityId);
+        // For non-members who are not pending, show join dialog after a short delay
+        if (membershipStatus !== 'owner' && membershipStatus !== 'moderator' &&
+            membershipStatus !== 'approved' && membershipStatus !== 'pending') {
+          // User is not a member and has no pending request, show join dialog after community loads
+          setTimeout(() => {
+            // Store the current community state before showing dialog
+            setCommunityBeforeJoinDialog(selectedCommunity);
+            setShowJoinDialog(true);
+          }, 500);
         } else if (membershipStatus === 'pending') {
-          // User has a pending request, don't show join dialog - just clear navigation
-          clearNavigation();
+          // User has a pending request, clear navigation but don't show dialog
+          setTimeout(() => {
+            clearNavigation();
+          }, 500);
         } else {
-          // User is not a member and has no pending request, show join dialog
-          setShowJoinDialog(true);
+          // User is a member, clear navigation immediately
+          clearNavigation();
         }
+
+        // Immediately preload channels and spaces for the URL community
+        preloadChannelsImmediately(urlCommunityId);
+        preloadSpacesImmediately(urlCommunityId);
       }
     }
-  }, [urlCommunityId, isJoinRequest, membershipStatus, clearNavigation, preloadChannelsImmediately, preloadSpacesImmediately]);
+  }, [urlCommunityId, isJoinRequest, membershipStatus, clearNavigation, preloadChannelsImmediately, preloadSpacesImmediately, selectedCommunity]);
 
   // Auto-select general channel when community is selected (and no space is selected)
   useEffect(() => {
@@ -163,6 +177,8 @@ export function DiscordLayout() {
     // After successful join, select the community
     setSelectedCommunity(communityId);
     clearNavigation();
+    // Clear the community tracking state
+    setCommunityBeforeJoinDialog(null);
 
     // Immediately preload channels and spaces for the joined community
     preloadChannelsImmediately(communityId);
@@ -172,6 +188,15 @@ export function DiscordLayout() {
   const handleJoinDialogClose = () => {
     setShowJoinDialog(false);
     clearNavigation();
+    // Only clear the selected community if it was selected specifically for this join dialog
+    // and the user wasn't already viewing a community before
+    if (communityBeforeJoinDialog === null && selectedCommunity) {
+      setSelectedCommunity(null);
+    } else if (communityBeforeJoinDialog !== null) {
+      // Restore the previous community selection
+      setSelectedCommunity(communityBeforeJoinDialog);
+      setCommunityBeforeJoinDialog(null);
+    }
   };
 
   const handleCloseCommunitySelectionDialog = () => {
@@ -367,6 +392,7 @@ export function DiscordLayout() {
                     onToggleMemberList={() => setMobileView('members')}
                     onNavigateToDMs={handleNavigateToDMs}
                     onCloseCommunitySelectionDialog={handleCloseCommunitySelectionDialog}
+                    preloadedMessages={selectedCommunity && selectedChannel ? getPreloadedMessages(selectedCommunity, selectedChannel) : undefined}
                   />
                 )}
               </div>
@@ -463,6 +489,7 @@ export function DiscordLayout() {
                   onToggleMemberList={() => setShowMemberList(!showMemberList)}
                   onNavigateToDMs={handleNavigateToDMs}
                   onCloseCommunitySelectionDialog={handleCloseCommunitySelectionDialog}
+                  preloadedMessages={selectedCommunity && selectedChannel ? getPreloadedMessages(selectedCommunity, selectedChannel) : undefined}
                 />
               )}
             </div>

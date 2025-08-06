@@ -12,6 +12,7 @@ import { useUserMembership } from "@/hooks/useUserMembership";
 import { useJoinCommunity } from "@/hooks/useJoinCommunity";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useBackgroundMessagePreloader } from "@/hooks/useBackgroundMessagePreloader";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
 import { generateCommunityNaddr } from "@/lib/utils";
@@ -35,6 +36,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const { user } = useCurrentUser();
   const { mutate: joinCommunity, isPending: isJoining } = useJoinCommunity();
   const { toast } = useToast();
+  const { preloadMessages } = useBackgroundMessagePreloader(null, null);
 
   const creatorName = metadata?.name || genUserName(community.creator);
   const memberCount = community.moderators.length + 1; // Creator + moderators (simplified)
@@ -126,24 +128,32 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   };
 
   const handleCardClick = () => {
-    // If user is already a member (approved, owner, or moderator), select the community directly
+    // Always preload messages in the background for preview, regardless of membership status
+    // Preload the general channel messages
+    preloadMessages(community.id, 'general').catch((error) => {
+      // Silently fail background preloading - it's not critical for the main flow
+      console.warn('Background message preloading failed:', error);
+    });
+
+    // Navigate to the main app with the community selected for preview
+    const naddr = generateCommunityNaddr(community.event);
+
+    // If user is already a member (approved, owner, or moderator), navigate directly
     if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
-      _onSelect?.(community.id);
+      navigate(`/${naddr}`);
     } else if (membershipStatus === 'pending') {
-      // For pending requests, show a toast or handle appropriately
-      // Don't navigate or open modal - just inform user
-      toast({
-        title: 'Request Pending',
-        description: `Your join request for ${community.name} is still being reviewed.`,
-        variant: 'default',
-      });
-    } else {
-      // For non-members (not-member, declined, banned), generate naddr and navigate to it (triggers join flow)
-      const naddr = generateCommunityNaddr(community.event);
-      // Use a small timeout to ensure the callback is processed before navigation
+      // For pending requests, navigate to show the community but inform user
+      navigate(`/${naddr}`);
       setTimeout(() => {
-        navigate(`/${naddr}`);
-      }, 50);
+        toast({
+          title: 'Request Pending',
+          description: `Your join request for ${community.name} is still being reviewed.`,
+          variant: 'default',
+        });
+      }, 500);
+    } else {
+      // For non-members (not-member, declined, banned), navigate to show preview and trigger join flow
+      navigate(`/${naddr}`);
     }
   };
 
