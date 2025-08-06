@@ -34,6 +34,8 @@ interface BaseChatAreaProps {
   onDelete?: (message: NostrEvent, reason?: string) => void;
   onBan?: (pubkey: string, reason?: string) => void;
   additionalContent?: React.ReactNode;
+  communityId?: string;
+  channelId?: string;
 }
 
 export function BaseChatArea({
@@ -51,6 +53,8 @@ export function BaseChatArea({
   onDelete,
   onBan,
   additionalContent,
+  communityId,
+  channelId,
 }: BaseChatAreaProps) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -104,7 +108,7 @@ export function BaseChatArea({
 
   const handleSendMessage = async (content: string, _tags: string[][]) => {
     if (!user) return;
-    
+
     sendMessageMutation.mutate({
       content,
     });
@@ -119,6 +123,8 @@ export function BaseChatArea({
           messages={messages}
           isLoading={isLoading}
           config={messageListConfig}
+          communityId={communityId}
+          channelId={channelId}
           messageItemProps={{
             config: messageItemConfig,
             onNavigateToDMs,

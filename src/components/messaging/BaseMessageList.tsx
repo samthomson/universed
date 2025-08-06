@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
+import { PinnedMessages } from "@/components/chat/PinnedMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import type { NostrEvent } from "@nostrify/nostrify";
@@ -16,6 +17,8 @@ interface BaseMessageListProps {
     showAvatars: boolean;
   };
   messageItemProps: Omit<BaseMessageItemProps, "message" | "showAvatar">;
+  communityId?: string;
+  channelId?: string;
 }
 
 export function BaseMessageList({
@@ -24,13 +27,11 @@ export function BaseMessageList({
   isLoading,
   config,
   messageItemProps,
+  communityId,
+  channelId,
 }: BaseMessageListProps) {
   const regularMessages = useMemo(() => {
     return messages.filter((message) => !pinnedMessageIds.includes(message.id));
-  }, [messages, pinnedMessageIds]);
-
-  const pinnedMessages = useMemo(() => {
-    return messages.filter((message) => pinnedMessageIds.includes(message.id));
   }, [messages, pinnedMessageIds]);
 
   if (isLoading && messages.length === 0) {
@@ -68,22 +69,12 @@ export function BaseMessageList({
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {config.showPinnedMessages && pinnedMessages.length > 0 && (
-        <div className="border-b">
-          {/* This might need to be a more generic component later */}
-          {/* For now, this is a placeholder */}
-          <div className="p-2 text-center text-sm bg-secondary">
-            Pinned Messages
-          </div>
-          {pinnedMessages.map((message) => (
-            <BaseMessageItem
-              key={message.id}
-              message={message}
-              showAvatar={true}
-              {...messageItemProps}
-            />
-          ))}
-        </div>
+      {config.showPinnedMessages && communityId && channelId && (
+        <PinnedMessages
+          communityId={communityId}
+          channelId={channelId}
+          onNavigateToDMs={messageItemProps.onNavigateToDMs}
+        />
       )}
       <Virtuoso
         className={`flex-1 px-4 channel-scroll scrollbar-thin`}
@@ -104,6 +95,8 @@ export function BaseMessageList({
               <BaseMessageItem
                 message={message}
                 showAvatar={showAvatar}
+                communityId={communityId}
+                channelId={channelId}
                 {...messageItemProps}
               />
             </div>
