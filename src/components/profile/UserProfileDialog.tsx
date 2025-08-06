@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useUserStatus } from "@/hooks/useUserStatus";
+import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { nip19 } from "nostr-tools";
@@ -21,6 +23,7 @@ interface UserProfileDialogProps {
 export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: UserProfileDialogProps) {
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey || "");
+  const { data: userStatus } = useUserStatus(pubkey ?? undefined);
   const metadata = author.data?.metadata;
   const [copied, setCopied] = useState(false);
 
@@ -89,6 +92,14 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
               <div className="space-y-3 w-full">
                 <div>
                   <h2 className="text-xl font-bold text-white">{displayName}</h2>
+                  
+                  {/* Status Display */}
+                  {(userStatus?.emoji || userStatus?.status || userStatus?.message) && (
+                    <div className="flex items-center justify-center space-x-2 mt-2">
+                      <UserStatusIndicator pubkey={pubkey} showText={true} />
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-center space-x-2 mt-1">
                     <p className="text-gray-400 text-sm">@{npub.slice(0, 16)}...</p>
                     <Button
