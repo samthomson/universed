@@ -5,7 +5,6 @@ import { PinnedMessages } from "./PinnedMessages";
 import { useMessages } from "@/hooks/useMessages";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useChannels } from "@/hooks/useChannels";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
@@ -230,36 +229,9 @@ export function MessageList({ communityId, channelId, onNavigateToDMs, onCloseCo
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex flex-col min-h-0">
-        <PinnedMessages
-          communityId={communityId}
-          channelId={channelId}
-          onNavigateToDMs={onNavigateToDMs}
-        />
-        <div className="flex-1 px-4">
-          <div className="space-y-4 py-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex space-x-3">
-                <Skeleton className="w-10 h-10 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Skeleton className="w-20 h-4" />
-                    <Skeleton className="w-16 h-3" />
-                  </div>
-                  <Skeleton className="w-full h-4" />
-                  <Skeleton className="w-3/4 h-4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const hasMessages = messages && messages.length > 0;
 
-  if (!messages || messages.length === 0) {
+  if (isLoading || !hasMessages) {
     return (
       <div className="flex-1 flex flex-col min-h-0">
         <PinnedMessages
