@@ -10,6 +10,7 @@ import { UserPanel } from "@/components/layout/UserPanel";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { nip19 } from "nostr-tools";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -36,6 +37,31 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
       onTargetHandled?.();
     }
   }, [targetPubkey, onTargetHandled]);
+
+  // Update URL when a conversation is selected (only for manual selections, not initial ones)
+  useEffect(() => {
+    if (selectedConversation && !targetPubkey && user) {
+      // Only update URL if this is a manual selection (not from initial targetPubkey)
+      try {
+        // Convert hex pubkey to npub for URL
+        const npub = nip19.npubEncode(selectedConversation);
+        const url = new URL(window.location.href);
+        url.pathname = `/dm/${npub}`;
+        window.history.replaceState({}, '', url.toString());
+      } catch (error) {
+        console.error('Failed to encode pubkey:', error);
+      }
+    }
+  }, [selectedConversation, targetPubkey, user]);
+
+  // Update URL when no conversation is selected
+  useEffect(() => {
+    if (!selectedConversation && !targetPubkey) {
+      const url = new URL(window.location.href);
+      url.pathname = '/dm';
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [selectedConversation, targetPubkey]);
 
   if (!user) {
     return (
