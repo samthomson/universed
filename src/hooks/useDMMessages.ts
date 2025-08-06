@@ -10,6 +10,7 @@ interface DecryptedMessage {
   content: string; // decrypted content
   kind: number;
   tags: NostrEvent["tags"];
+  sig: string; // signature from original event
   direction: "sent" | "received";
 }
 
@@ -131,6 +132,7 @@ export function useDMMessages(conversationId: string) {
               content: decryptedContent,
               kind: message.kind,
               tags: message.tags,
+              sig: message.sig, // Include the signature
               direction: message.pubkey === user.pubkey
                 ? "sent"
                 : "received" as const,

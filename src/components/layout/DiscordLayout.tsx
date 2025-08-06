@@ -369,7 +369,7 @@ export function DiscordLayout() {
               </div>
 
               <div className="w-60 bg-secondary/30 flex flex-col justify-end">
-                <UserPanel />
+                {/* TODO: user friends list */}
               </div>
             </>
           )}

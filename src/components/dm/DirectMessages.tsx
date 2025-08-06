@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
+import { UserPanel } from "@/components/layout/UserPanel";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -159,6 +160,9 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
             />
           </ScrollArea>
         </div>
+
+        {/* User Panel at the bottom */}
+        <UserPanel />
       </div>
 
       {/* Chat Area */}
