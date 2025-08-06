@@ -6,6 +6,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { MediaAttachment } from '@/components/chat/MediaAttachment';
 import { UserProfileDialog } from '@/components/profile/UserProfileDialog';
+import { InlineEvent } from '@/components/InlineEvent';
 import { cn } from '@/lib/utils';
 
 interface NoteContentProps {
@@ -59,7 +60,7 @@ export function NoteContent({
     });
 
     // Regex to find URLs, Nostr references, user mentions, and hashtags
-    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
+    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1|naddr1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
 
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
@@ -105,6 +106,17 @@ export function NoteContent({
                   setShowProfileDialog(true);
                 }}
               />
+            );
+          } else if (decoded.type === 'note' || decoded.type === 'nevent' || decoded.type === 'naddr') {
+            // Render inline event for note, nevent, and naddr
+            parts.push(
+              <div key={`inline-event-${keyCounter++}`} className="my-3">
+                <InlineEvent
+                  eventId={nostrId}
+                  showHeader={true}
+                  maxContentLength={250}
+                />
+              </div>
             );
           } else {
             // For other types, just show as a link
