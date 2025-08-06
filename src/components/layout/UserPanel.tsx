@@ -12,12 +12,9 @@ import { useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { nip19 } from "nostr-tools";
 
 export function UserPanel() {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
@@ -33,11 +30,6 @@ export function UserPanel() {
 
   const displayName = metadata?.name || genUserName(user.pubkey);
   const profileImage = metadata?.picture;
-  const npub = nip19.npubEncode(user.pubkey);
-
-  const handleViewProfile = () => {
-    navigate(`/profile/${npub}`);
-  };
 
   const handleOpenProfileModal = () => {
     setShowProfileModal(true);
@@ -119,7 +111,6 @@ export function UserPanel() {
       <ProfileModal
         open={showProfileModal}
         onOpenChange={setShowProfileModal}
-        onNavigateToProfile={handleViewProfile}
         onOpenSettings={() => setShowSettingsDialog(true)}
       />
 

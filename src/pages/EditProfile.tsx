@@ -99,11 +99,11 @@ const EditProfile = () => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(`/profile/${npub}`)}
+              onClick={() => navigate(`/`)}
               className="text-gray-400 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Profile
+              Back to Chat
             </Button>
           </div>
 
