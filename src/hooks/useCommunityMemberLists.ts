@@ -76,6 +76,5 @@ export function useCommunityMemberLists(communityId: string | null) {
       return members;
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

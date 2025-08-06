@@ -45,6 +45,5 @@ export function useGlobalMessageSearch(query: string) {
         .slice(0, 50); // Limit to 50 results
     },
     enabled: !!query.trim(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }

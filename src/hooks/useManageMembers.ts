@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 
 export interface AddMemberParams {
   communityId: string;
@@ -35,10 +36,10 @@ export function useManageMembers() {
 
   const addMember = useMutation({
     mutationFn: async ({ communityId, memberPubkey }: AddMemberParams) => {
-      console.log('addMember mutationFn called with:', { communityId, memberPubkey, user: user?.pubkey });
+      logger.log('addMember mutationFn called with:', { communityId, memberPubkey, user: user?.pubkey });
 
       if (!user) {
-        console.log('No user logged in');
+        logger.log('No user logged in');
         throw new Error('User must be logged in to manage members');
       }
 
@@ -76,7 +77,7 @@ export function useManageMembers() {
         ...Array.from(currentMembers).map(pubkey => ['p', pubkey])
       ];
 
-      console.log('Creating event with tags:', tags);
+      logger.log('Creating event with tags:', tags);
 
       return new Promise<void>((resolve, reject) => {
         createEvent(
@@ -87,11 +88,11 @@ export function useManageMembers() {
           },
           {
             onSuccess: () => {
-              console.log('createEvent success');
+              logger.log('createEvent success');
               resolve();
             },
             onError: (error) => {
-              console.log('createEvent error:', error);
+              logger.error('createEvent error:', error);
               reject(error);
             },
           }

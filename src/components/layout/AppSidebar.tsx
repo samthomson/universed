@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
-import { useHoverPreloader } from "@/hooks/useHoverPreloader";
+import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { useState } from "react";
 
@@ -14,8 +15,8 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
-  const { data: communities } = useUserCommunities();
-  const { onCommunityHover, onCommunityHoverEnd } = useHoverPreloader();
+  const { data: communities, isLoading } = useUserCommunities();
+  const { preloadCommunity } = useUnifiedPreloader();
   const [showSelectionDialog, setShowSelectionDialog] = useState(false);
 
   return (
@@ -48,14 +49,10 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
         {/* Scrollable communities section */}
         <ScrollArea className="flex-1 px-2">
           <div className="flex flex-col items-center space-y-2 pb-2">
-            {communities?.map((community) => (
+            {!isLoading && communities ? communities.map((community) => (
               <Tooltip key={community.id}>
                 <TooltipTrigger asChild>
-                  <div
-                    className="relative"
-                    onMouseEnter={() => onCommunityHover(community.id)}
-                    onMouseLeave={() => onCommunityHoverEnd(community.id)}
-                  >
+                  <div className="relative">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -63,6 +60,7 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                         selectedCommunity === community.id ? 'bg-gray-900/80' : ''
                       }`}
                       onClick={() => onSelectCommunity(community.id)}
+                      onMouseDown={() => preloadCommunity(community.id)}
                     >
                       {community.image ? (
                         <Avatar className="w-12 h-12">
@@ -100,7 +98,17 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                   </div>
                 </TooltipContent>
               </Tooltip>
-            ))}
+            )) : isLoading ? (
+              // Skeleton loading for communities
+              Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
+              ))
+            ) : (
+              // No communities found
+              <div className="text-xs text-muted-foreground text-center px-2">
+                No communities
+              </div>
+            )}
           </div>
         </ScrollArea>
 

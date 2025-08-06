@@ -89,7 +89,7 @@ export function useDirectMessages() {
         .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
     },
     enabled: !!user,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+
     refetchInterval: 1000 * 30, // Refetch every 30 seconds
   });
 }

@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { useUserCommunities } from './useUserCommunities';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 import type { Channel } from './useChannels';
 
@@ -72,7 +73,7 @@ export function useHighPriorityChannelPreloader() {
     if (isPreloadingRef.current || communityIds.length === 0) return;
 
     isPreloadingRef.current = true;
-    console.log('🚀 HIGH PRIORITY: Preloading channels for', communityIds.length, 'communities');
+    logger.log('🚀 HIGH PRIORITY: Preloading channels for', communityIds.length, 'communities');
 
     try {
       // Create aggressive filters for immediate channel loading
@@ -151,10 +152,10 @@ export function useHighPriorityChannelPreloader() {
           }
         }
 
-        console.log(`✅ HIGH PRIORITY: Cached channels for ${communitiesProcessed.size} communities (${events.length} events)`);
+        logger.log(`✅ HIGH PRIORITY: Cached channels for ${communitiesProcessed.size} communities (${events.length} events)`);
       }
     } catch (error) {
-      console.warn('High priority channel preload failed:', error);
+      logger.warn('High priority channel preload failed:', error);
     } finally {
       isPreloadingRef.current = false;
     }

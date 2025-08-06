@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useUserCommunities } from './useUserCommunities';
 import { useChannelPreloader } from './useChannelPreloader';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 
 const INITIAL_PRELOAD_DELAY = 3000; // Wait 3 seconds after app loads
 const BATCH_DELAY = 1000; // 1 second between batches
@@ -56,7 +57,7 @@ export function useUserCommunitiesChannelPreloader() {
         const batch = prioritizedIds.slice(startIndex, startIndex + COMMUNITIES_PER_BATCH);
         
         if (batch.length > 0) {
-          console.log(`Preloading channels for communities batch ${Math.floor(startIndex / COMMUNITIES_PER_BATCH) + 1}:`, batch);
+          logger.log(`Preloading channels for communities batch ${Math.floor(startIndex / COMMUNITIES_PER_BATCH) + 1}:`, batch);
           preloadMultiple(batch);
           
           // Schedule next batch
@@ -66,11 +67,11 @@ export function useUserCommunitiesChannelPreloader() {
           } else {
             // All batches completed
             hasPreloadedRef.current = true;
-            console.log('Completed preloading channels for all user communities');
+            logger.log('Completed preloading channels for all user communities');
             
             // Log stats
             const stats = getPreloadStats();
-            console.log('Channel preload stats:', stats);
+            logger.log('Channel preload stats:', stats);
           }
         }
       };

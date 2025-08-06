@@ -131,7 +131,5 @@ export function useCommunityMembers(communityId: string | null) {
       });
     },
     enabled: !!communityId && !!communities,
-    staleTime: 5 * 60 * 1000, // 5 minutes - Member lists change infrequently
-    gcTime: 30 * 60 * 1000, // 30 minutes - Keep member data cached
   });
 }

@@ -2,6 +2,7 @@ import { useSeoMeta } from '@unhead/react';
 import { GlobalSearch } from '@/components/search/GlobalSearch';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
+import { logger } from '@/lib/logger';
 
 const Search = () => {
   const { user } = useCurrentUser();
@@ -38,15 +39,15 @@ const Search = () => {
         <GlobalSearch
           onUserSelect={(pubkey) => {
             // TODO: Navigate to user profile or start DM
-            console.log('Selected user:', pubkey);
+            logger.log('Selected user:', pubkey);
           }}
           onCommunitySelect={(communityId) => {
             // TODO: Navigate to community
-            console.log('Selected community:', communityId);
+            logger.log('Selected community:', communityId);
           }}
           onMessageSelect={(message) => {
             // TODO: Navigate to message thread
-            console.log('Selected message:', message);
+            logger.log('Selected message:', message);
           }}
         />
       </div>

@@ -23,7 +23,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SpaceManagementDialog } from './SpaceManagementDialog';
 import { useSpaces, type Space } from '@/hooks/useSpaces';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
-import { useHoverPreloader } from '@/hooks/useHoverPreloader';
+import { useUnifiedPreloader } from '@/hooks/useUnifiedPreloader';
 
 interface SpacesNavigatorProps {
   communityId: string;
@@ -54,7 +54,7 @@ export function SpacesNavigator({
   onSelectSpace
 }: SpacesNavigatorProps) {
   const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
-  const { onSpaceHover, onSpaceHoverEnd } = useHoverPreloader();
+  const { preloadSpaces } = useUnifiedPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = isLoadingSpaces && !spaces;
@@ -110,8 +110,7 @@ export function SpacesNavigator({
               onSelect={() => onSelectSpace(space.id)}
               getIconComponent={getIconComponent}
               communityId={communityId}
-              onSpaceHover={onSpaceHover}
-              onSpaceHoverEnd={onSpaceHoverEnd}
+              onSpacePreload={preloadSpaces}
             />
           ))}
         </CollapsibleContent>
@@ -158,24 +157,21 @@ function SpaceItem({
   onSelect,
   getIconComponent,
   communityId,
-  onSpaceHover,
-  onSpaceHoverEnd,
+  onSpacePreload,
 }: {
   space: Space;
   isSelected: boolean;
   onSelect: () => void;
   getIconComponent: (iconName: string) => React.ComponentType<{ className?: string }>;
   communityId: string;
-  onSpaceHover?: (communityId: string, spaceId: string) => void;
-  onSpaceHoverEnd?: (communityId: string, spaceId: string) => void;
+  onSpacePreload?: (communityId: string) => void;
 }) {
   const IconComponent = getIconComponent(space.icon);
 
   return (
     <div
       className="ml-4"
-      onMouseEnter={() => onSpaceHover?.(communityId, space.id)}
-      onMouseLeave={() => onSpaceHoverEnd?.(communityId, space.id)}
+      onMouseDown={() => onSpacePreload?.(communityId)}
     >
       <Button
         variant="ghost"
