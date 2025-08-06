@@ -55,6 +55,7 @@ function BaseMessageItemComponent({
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
@@ -76,7 +77,12 @@ function BaseMessageItemComponent({
 
   const handleEmojiSelect = useCallback((emoji: string) => {
     addReaction({ targetEvent: message, emoji });
+    setIsEmojiPickerOpen(false);
   }, [addReaction, message]);
+
+  const handleEmojiPickerOpenChange = useCallback((open: boolean) => {
+    setIsEmojiPickerOpen(open);
+  }, []);
 
   return (
     <div
@@ -113,7 +119,7 @@ function BaseMessageItemComponent({
             )
             : (
               <div className="h-5 flex items-center justify-center w-10">
-                {isHovered && (
+                {(isHovered || isEmojiPickerOpen) && (
                   <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -185,6 +191,7 @@ function BaseMessageItemComponent({
             {config.showReactions && (
               <EmojiPickerComponent
                 onEmojiSelect={handleEmojiSelect}
+                onOpenChange={handleEmojiPickerOpenChange}
                 side="top"
                 align="center"
                 trigger={
