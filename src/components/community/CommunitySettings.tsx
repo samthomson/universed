@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useCommunities, type Community } from "@/hooks/useCommunities";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -40,7 +41,8 @@ import { useManageMembers } from "@/hooks/useManageMembers";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from 'nostr-tools';
-import { Copy, Check, QrCode } from 'lucide-react';
+import { Copy, Check, QrCode, Download } from 'lucide-react';
+import QRCode from 'qrcode';
 
 interface CommunitySettingsProps {
   communityId: string;
@@ -330,7 +332,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -395,7 +397,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </div>
           )}
 
-          <ScrollArea className="h-[60vh] mt-4">
+          <ScrollArea className="h-[70vh] mt-4">
             <TabsContent value="overview" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -404,7 +406,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     Basic settings for your community
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="community-icon">Community Icon</Label>
                     <div className="flex items-center gap-4">
@@ -749,6 +751,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 // Component for sharing content (extracted from CommunityShareDialog)
 function CommunityShareContent({ community }: { community: Community }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isGeneratingQR, setIsGeneratingQR] = useState(true);
   const { toast } = useToast();
 
   // Parse community ID to get the components for naddr
@@ -765,6 +769,35 @@ function CommunityShareContent({ community }: { community: Community }) {
   // Generate shareable URLs
   const baseUrl = window.location.origin;
   const joinUrl = `${baseUrl}/join/${naddr}`;
+
+  // Auto-generate QR code when component mounts
+  useEffect(() => {
+    const generateQRCode = async () => {
+      try {
+        setIsGeneratingQR(true);
+        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
+        setQrCodeDataUrl(qrDataUrl);
+      } catch (error) {
+        console.error('Failed to generate QR code:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to generate QR code',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsGeneratingQR(false);
+      }
+    };
+
+    generateQRCode();
+  }, [joinUrl, toast]);
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -784,6 +817,24 @@ function CommunityShareContent({ community }: { community: Community }) {
     }
   };
 
+
+
+  const downloadQRCode = () => {
+    if (!qrCodeDataUrl) return;
+
+    const link = document.createElement('a');
+    link.download = `${community.name}-join-qr.png`;
+    link.href = qrCodeDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: 'Downloaded',
+      description: 'QR code has been downloaded',
+    });
+  };
+
   const CopyButton = ({ text, field, className = '' }: { text: string; field: string; className?: string }) => (
     <Button
       variant="outline"
@@ -800,9 +851,54 @@ function CommunityShareContent({ community }: { community: Community }) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* QR Code Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <QrCode className="h-5 w-5" />
+            QR Code
+          </CardTitle>
+          <CardDescription>
+            Scan this QR code to join the community
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-center">
+            <div className="p-3 bg-white rounded-lg border">
+              {isGeneratingQR ? (
+                <Skeleton className="w-64 h-64" />
+              ) : qrCodeDataUrl ? (
+                <img
+                  src={qrCodeDataUrl}
+                  alt={`QR code for ${community.name}`}
+                  className="w-64 h-64"
+                />
+              ) : (
+                <div className="w-64 h-64 flex items-center justify-center text-muted-foreground">
+                  Failed to generate QR code
+                </div>
+              )}
+            </div>
+          </div>
+          {qrCodeDataUrl && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadQRCode}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download QR Code
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Join Link */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <Label htmlFor="join-url" className="text-base font-medium">
             Join Link
@@ -823,7 +919,7 @@ function CommunityShareContent({ community }: { community: Community }) {
       </div>
 
       {/* Nostr Address */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div>
           <Label htmlFor="naddr" className="text-base font-medium">
             Nostr Address (naddr)
@@ -842,28 +938,6 @@ function CommunityShareContent({ community }: { community: Community }) {
           <CopyButton text={naddr} field="naddr" />
         </div>
       </div>
-
-      <Separator />
-
-      {/* Additional Options */}
-      <div className="grid grid-cols-1 gap-4">
-        <Button variant="outline" className="flex items-center gap-2" disabled>
-          <QrCode className="h-4 w-4" />
-          QR Code
-          <span className="text-xs text-muted-foreground ml-auto">Soon</span>
-        </Button>
-      </div>
-
-      {/* Tips */}
-      <Card className="bg-muted/50">
-        <CardContent className="pt-4">
-          <h4 className="font-medium mb-2">Sharing Tips</h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Use the <strong>Join Link</strong> to invite new members</li>
-            <li>• The <strong>naddr</strong> works in any Nostr client that supports communities</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }
