@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { useUserStatus, getTraditionalStatusColor, getTraditionalStatusText } from '@/hooks/useUserStatus';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface UserStatusIndicatorProps {
   pubkey: string;
@@ -39,7 +40,18 @@ export function UserStatusIndicator({ pubkey, className, showText = false }: Use
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      {display.element}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-help">
+              {display.element}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{display.text}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       {showText && (
         <span className="text-sm text-muted-foreground">
           {display.text}
