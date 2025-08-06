@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
-import { useHoverPreloader } from "@/hooks/useHoverPreloader";
+import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { useState } from "react";
 
@@ -15,7 +15,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarProps) {
   const { data: communities } = useUserCommunities();
-  const { onCommunityHover, onCommunityHoverEnd } = useHoverPreloader();
+  const { preloadCommunity } = useUnifiedPreloader();
   const [showSelectionDialog, setShowSelectionDialog] = useState(false);
 
   return (
@@ -51,11 +51,7 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
             {communities?.map((community) => (
               <Tooltip key={community.id}>
                 <TooltipTrigger asChild>
-                  <div
-                    className="relative"
-                    onMouseEnter={() => onCommunityHover(community.id)}
-                    onMouseLeave={() => onCommunityHoverEnd(community.id)}
-                  >
+                  <div className="relative">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -63,6 +59,7 @@ export function AppSidebar({ selectedCommunity, onSelectCommunity }: AppSidebarP
                         selectedCommunity === community.id ? 'bg-gray-900/80' : ''
                       }`}
                       onClick={() => onSelectCommunity(community.id)}
+                      onMouseDown={() => preloadCommunity(community.id)}
                     >
                       {community.image ? (
                         <Avatar className="w-12 h-12">

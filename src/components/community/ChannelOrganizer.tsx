@@ -35,7 +35,7 @@ import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
 import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 
-import { useHoverPreloader } from "@/hooks/useHoverPreloader";
+import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 
 interface ChannelOrganizerProps {
   communityId: string;
@@ -56,7 +56,7 @@ export function ChannelOrganizer({
 }: ChannelOrganizerProps) {
   const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
   const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
-  const { onChannelHover } = useHoverPreloader();
+  const { preloadChannelMessages } = useUnifiedPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = (isLoadingChannels && !channels) || (isLoadingFolders && !folders);
@@ -128,7 +128,7 @@ export function ChannelOrganizer({
           canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
-          onChannelHover={onChannelHover}
+          onChannelPreload={preloadChannelMessages}
         />
       ))}
 
@@ -153,7 +153,7 @@ export function ChannelOrganizer({
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
               communityId={communityId}
-              onChannelHover={onChannelHover}
+              onChannelPreload={preloadChannelMessages}
             />
           ))}
         </CategorySection>
@@ -180,6 +180,7 @@ export function ChannelOrganizer({
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
               communityId={communityId}
+              onChannelPreload={preloadChannelMessages}
             />
           ))}
         </CategorySection>
@@ -300,7 +301,7 @@ function FolderSection({
   canModerate,
   communityId,
   onChannelCreated,
-  onChannelHover
+  onChannelPreload
 }: {
   folder: ChannelFolder;
   textChannels: Channel[];
@@ -314,7 +315,7 @@ function FolderSection({
   canModerate: boolean;
   communityId: string;
   onChannelCreated: () => void;
-  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
   const allChannels = [...textChannels, ...voiceChannels];
 
@@ -390,7 +391,7 @@ function FolderSection({
                   canModerate={canModerate}
                   inFolder={true}
                   communityId={communityId}
-                  onChannelHover={onChannelHover}
+                  onChannelPreload={onChannelPreload}
                 />
               ))}
             </CollapsibleContent>
@@ -487,7 +488,7 @@ function ChannelItemWithPermissionCheck(props: {
   canModerate: boolean;
   inFolder?: boolean;
   communityId: string;
-  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
   const { canAccess } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
 
@@ -510,7 +511,7 @@ function ChannelItem({
   inFolder = false,
   communityId,
   hasAccess = true,
-  onChannelHover
+  onChannelPreload
 }: {
   channel: Channel;
   isSelected: boolean;
@@ -521,7 +522,7 @@ function ChannelItem({
   inFolder?: boolean;
   communityId?: string;
   hasAccess?: boolean;
-  onChannelHover?: (communityId: string, channelId: string) => void;
+  onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
   const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
 
@@ -564,7 +565,7 @@ function ChannelItem({
         <ContextMenuTrigger>
           <div
             className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative overflow-hidden"
-            onMouseDown={() => communityId && onChannelHover?.(communityId, channel.id)}
+            onMouseDown={() => communityId && onChannelPreload?.(communityId, channel.id)}
           >
             {/* Selected indicator */}
             {isSelected && (

@@ -45,6 +45,28 @@ export function validateMessageEvent(event: NostrEvent, expectedChannelId: strin
   );
 }
 
+// Export the queryFn for explicit reuse in preloaders
+export async function fetchMessages(
+  communityId: string, 
+  channelId: string, 
+  nostr: any, 
+  cacheEvents: (events: NostrEvent[]) => void,
+  signal?: AbortSignal
+): Promise<NostrEvent[]> {
+  const [kind, pubkey, identifier] = communityId.split(':');
+  if (!kind || !pubkey || !identifier) return [];
+
+  const filters = buildFilters(kind, pubkey, identifier, channelId);
+  const events = await nostr.query(filters, { signal });
+
+  if (events.length > 0) {
+    cacheEvents(events);
+  }
+
+  const validEvents = events.filter(event => validateMessageEvent(event, channelId));
+  return validEvents.sort((a, b) => a.created_at - b.created_at);
+}
+
 /**
  * Hook for loading messages from a community channel.
  * Provides message history + real-time updates as new messages arrive.
@@ -137,22 +159,9 @@ export function useMessages(communityId: string, channelId: string) {
     queryKey,
     queryFn: async (c) => {
       if (!canRead) return [];
-
-      const [kind, pubkey, identifier] = communityId.split(':');
-      if (!kind || !pubkey || !identifier) return [];
-
-      // Load recent message history for context (Slack-like experience)
-      const filters = buildFilters(kind, pubkey, identifier, channelId);
-
+      
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      const events = await nostr.query(filters, { signal });
-
-      if (events.length > 0) {
-        cacheEvents(events);
-      }
-
-      const validEvents = events.filter(event => validateMessageEvent(event, channelId));
-      return validEvents.sort((a, b) => a.created_at - b.created_at);
+      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal);
     },
     enabled: !!communityId && !!channelId && canRead,
   });

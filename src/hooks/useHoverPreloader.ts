@@ -86,46 +86,8 @@ export function useHoverPreloader() {
     cancelSpacesPreload(communityId);
   }, [cancelChannelPreload, cancelSpacesPreload]);
 
-  // Handle channel hover
-  const onChannelHover = useCallback((communityId: string, channelId: string) => {
-    const key = `channel:${communityId}:${channelId}`;
-
-    // Clear existing timeout
-    const existingTimeout = hoverTimeouts.current.get(key);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
-
-    // Set hover intent detection timeout
-    const timeout = setTimeout(() => {
-      // Check if channel messages are fresh
-      const isChannelFresh = isDataFresh(['messages', communityId, channelId]);
-
-      if (!isChannelFresh) {
-        // Prefetch channel messages
-        queryClient.prefetchQuery({
-          queryKey: ['messages', communityId, channelId],
-          staleTime: 5 * 60 * 1000, // 5 minutes
-        });
-      }
-
-      // Clean up timeout reference
-      hoverTimeouts.current.delete(key);
-    }, HOVER_INTENT_DELAY);
-
-    hoverTimeouts.current.set(key, timeout);
-  }, [queryClient, isDataFresh]);
-
-  // Handle channel hover end
-  const onChannelHoverEnd = useCallback((communityId: string, channelId: string) => {
-    const key = `channel:${communityId}:${channelId}`;
-
-    const timeout = hoverTimeouts.current.get(key);
-    if (timeout) {
-      clearTimeout(timeout);
-      hoverTimeouts.current.delete(key);
-    }
-  }, []);
+  // Note: Channel message preloading moved to useMessagePreloader (mousedown-based)
+  // This provides better UX than hover-based preloading
 
   // Handle space hover
   const onSpaceHover = useCallback((communityId: string, spaceId: string) => {
@@ -180,8 +142,6 @@ export function useHoverPreloader() {
   return {
     onCommunityHover,
     onCommunityHoverEnd,
-    onChannelHover,
-    onChannelHoverEnd,
     onSpaceHover,
     onSpaceHoverEnd,
     cleanup,
