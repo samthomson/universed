@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCanAccessChannel } from './useChannelPermissions';
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
-import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
+import type { NostrEvent, NostrFilter, NPool } from '@nostrify/nostrify';
 
 function buildFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
   const filters: NostrFilter[] = [];
@@ -49,7 +49,7 @@ export function validateMessageEvent(event: NostrEvent, expectedChannelId: strin
 export async function fetchMessages(
   communityId: string, 
   channelId: string, 
-  nostr: any, 
+  nostr: NPool, 
   cacheEvents: (events: NostrEvent[]) => void,
   signal?: AbortSignal
 ): Promise<NostrEvent[]> {
