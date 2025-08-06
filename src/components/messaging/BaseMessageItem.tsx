@@ -21,6 +21,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
+import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
@@ -43,6 +44,8 @@ export interface BaseMessageItemProps {
   onDelete?: (message: NostrEvent, reason?: string) => void;
   onBan?: (pubkey: string, reason?: string) => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  communityId?: string;
+  channelId?: string;
 }
 
 function BaseMessageItemComponent({
@@ -54,21 +57,30 @@ function BaseMessageItemComponent({
   onDelete,
   onBan,
   onNavigateToDMs,
+  communityId,
+  channelId,
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
+  const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
   const isNew = isNewMessage(message);
 
+  const isPinned = pinnedMessageIds?.includes(message.id) || false;
+
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
+
+  // Keep actions visible if any interactive element is open
+  const shouldShowActions = isHovered || isEmojiPickerOpen || isDropdownOpen;
 
   const handleProfileClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -81,11 +93,15 @@ function BaseMessageItemComponent({
   const handleEmojiSelect = useCallback((emoji: string) => {
     addReaction({ targetEvent: message, emoji });
     setIsEmojiPickerOpen(false);
-    setIsHovered(false); // Hide message actions after emoji selection
+    setIsHovered(false); // Hide actions after selecting emoji
   }, [addReaction, message]);
 
   const handleEmojiPickerOpenChange = useCallback((open: boolean) => {
     setIsEmojiPickerOpen(open);
+  }, []);
+
+  const handleDropdownOpenChange = useCallback((open: boolean) => {
+    setIsDropdownOpen(open);
   }, []);
 
   return (
@@ -124,7 +140,7 @@ function BaseMessageItemComponent({
             )
             : (
               <div className="h-5 flex items-center justify-center w-10">
-                {(isHovered || isEmojiPickerOpen) && (
+                {shouldShowActions && (
                   <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -175,11 +191,14 @@ function BaseMessageItemComponent({
 
           {/* Message Reactions */}
           {config.showReactions && (
-            <MessageReactions message={message} />
+            <MessageReactions
+              message={message}
+              onReactionClick={() => setIsHovered(false)}
+            />
           )}
         </div>
 
-        {isHovered && (
+        {shouldShowActions && (
           <div className={cn(
             "absolute bg-background border rounded-md shadow-lg flex items-center right-4 z-10",
             showAvatar
@@ -215,7 +234,7 @@ function BaseMessageItemComponent({
                 }
               />
             )}
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={handleDropdownOpenChange}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
@@ -228,7 +247,8 @@ function BaseMessageItemComponent({
               <DropdownMenuContent align="end">
                 {config.showPin && (
                   <DropdownMenuItem onClick={() => onPin?.(message)}>
-                    <Pin className="mr-2 h-4 w-4" />Pin Message
+                    <Pin className="mr-2 h-4 w-4" />
+                    {isPinned ? 'Unpin Message' : 'Pin Message'}
                   </DropdownMenuItem>
                 )}
                 {config.showDelete && (

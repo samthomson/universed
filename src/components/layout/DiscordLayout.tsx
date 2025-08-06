@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { AppSidebar } from "./AppSidebar";
 import { CommunityPanel } from "./CommunityPanel";
 import { ChatArea } from "./ChatArea";
@@ -6,7 +7,7 @@ import { MemberList } from "./MemberList";
 import { UserPanel } from "./UserPanel";
 import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
-import { FriendsList } from "@/components/friends/FriendsList";
+import { FriendItem } from "@/components/friends/FriendsList";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
@@ -14,6 +15,8 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
+import { useMutualFriends } from "@/hooks/useFollowers";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
@@ -59,6 +62,8 @@ export function DiscordLayout() {
   const { communityId: urlCommunityId, isJoinRequest, clearNavigation } =
     useUrlNavigation();
   const { data: membershipStatus } = useUserCommunityMembership(urlCommunityId);
+  const { data: mutualFriends } = useMutualFriends();
+  const navigate = useNavigate();
 
   const handleNavigateToDMs = (targetPubkey?: string) => {
     setSelectedCommunity(null);
@@ -370,7 +375,35 @@ export function DiscordLayout() {
               </div>
 
               <div className="w-60 bg-secondary/30 flex flex-col">
-                <FriendsList />
+                <Virtuoso
+                  data={mutualFriends || []}
+                  itemContent={(index, friend) => (
+                    <div className="p-4 pt-0">
+                      <FriendItem
+                        friend={friend}
+                        onMessage={(pubkey) => navigate(`/dm/${pubkey}`)}
+                      />
+                    </div>
+                  )}
+                  components={{
+                    Header: () => (
+                      <div className="p-4">
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
+                      </div>
+                    ),
+                    EmptyPlaceholder: () => (
+                      <div className="p-4">
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
+                        <p className="text-sm text-muted-foreground">No mutual friends yet</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Friends appear when you follow each other
+                        </p>
+                      </div>
+                    ),
+                    Footer: () => <div className="h-2" />,
+                  }}
+                  className="flex-1 scrollbar-thin"
+                />
               </div>
             </>
           )}

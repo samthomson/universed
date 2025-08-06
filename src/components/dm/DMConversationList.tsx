@@ -14,6 +14,7 @@ interface DMConversationListProps {
   onSelectConversation: (conversationId: string) => void;
   searchQuery: string;
   isLoading?: boolean;
+  isVirtualized?: boolean;
 }
 
 interface ConversationItemProps {
@@ -114,7 +115,8 @@ export function DMConversationList({
   selectedConversation,
   onSelectConversation,
   searchQuery,
-  isLoading = false
+  isLoading = false,
+  isVirtualized = false
 }: DMConversationListProps) {
   if (isLoading) {
     return (
@@ -123,6 +125,20 @@ export function DMConversationList({
           <ConversationSkeleton key={i} />
         ))}
       </div>
+    );
+  }
+
+  // For virtualized mode, we only render the first conversation
+  if (isVirtualized && conversations.length === 1) {
+    const conversation = conversations[0];
+    return (
+      <SearchableConversationItem
+        key={conversation.id}
+        conversation={conversation}
+        selectedConversation={selectedConversation}
+        onSelectConversation={onSelectConversation}
+        searchQuery={searchQuery}
+      />
     );
   }
 
@@ -170,7 +186,7 @@ export function DMConversationList({
   }
 
   return (
-    <div className="space-y-1 p-2">
+    <div className="space-y-1 p-2 overflow-y-auto max-h-[calc(100vh-200px)]">
       {conversationsToRender.map((conversation) => (
         <SearchableConversationItem
           key={conversation.id}

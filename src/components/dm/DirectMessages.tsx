@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Virtuoso } from "react-virtuoso";
 import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
@@ -87,31 +87,37 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
 
             {/* Conversation List */}
             <div className="flex-1 overflow-hidden bg-gray-700">
-              <ScrollArea className="h-full mobile-scroll">
-                <DMConversationList
-                  conversations={conversations || []}
-                  selectedConversation={selectedConversation}
-                  onSelectConversation={setSelectedConversation}
-                  searchQuery={searchQuery}
-                  isLoading={isLoading}
-                />
-              </ScrollArea>
+              <Virtuoso
+                data={conversations || []}
+                itemContent={(index, conversation) => (
+                  <DMConversationList
+                    conversations={[conversation]}
+                    selectedConversation={selectedConversation}
+                    onSelectConversation={setSelectedConversation}
+                    searchQuery={searchQuery}
+                    isLoading={isLoading}
+                    isVirtualized={true}
+                  />
+                )}
+                components={{
+                  EmptyPlaceholder: () => (
+                    <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
+                      <div className="text-center text-gray-400">
+                        <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                        <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+                        <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
+                        <Button onClick={() => setShowNewDM(true)} className="mobile-touch">
+                          <Plus className="w-4 h-4 mr-2" />
+                          Start New Conversation
+                        </Button>
+                      </div>
+                    </div>
+                  ),
+                  Footer: () => <div className="h-2" />,
+                }}
+                className="h-full scrollbar-thin"
+              />
             </div>
-
-            {/* Empty State */}
-            {(!conversations || conversations.length === 0) && (
-              <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
-                <div className="text-center text-gray-400">
-                  <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-                  <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
-                  <Button onClick={() => setShowNewDM(true)} className="mobile-touch">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Start New Conversation
-                  </Button>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -151,14 +157,36 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
 
         {/* Conversation List */}
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
-            <DMConversationList
-              conversations={conversations || []}
-              selectedConversation={selectedConversation}
-              onSelectConversation={setSelectedConversation}
-              searchQuery={searchQuery}
-            />
-          </ScrollArea>
+          <Virtuoso
+            data={conversations || []}
+            itemContent={(index, conversation) => (
+              <DMConversationList
+                conversations={[conversation]}
+                selectedConversation={selectedConversation}
+                onSelectConversation={setSelectedConversation}
+                searchQuery={searchQuery}
+                isLoading={isLoading}
+                isVirtualized={true}
+              />
+            )}
+            components={{
+              EmptyPlaceholder: () => (
+                <div className="flex items-center justify-center p-8">
+                  <div className="text-center text-gray-400">
+                    <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
+                    <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
+                    <Button onClick={() => setShowNewDM(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Start New Conversation
+                    </Button>
+                  </div>
+                </div>
+              ),
+              Footer: () => <div className="h-2" />,
+            }}
+            className="h-full scrollbar-thin"
+          />
         </div>
 
         {/* User Panel at the bottom */}

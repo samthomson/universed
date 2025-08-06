@@ -928,6 +928,20 @@ When users specify color schemes:
 - Implement responsive design with Tailwind breakpoints
 - Add hover and focus states for interactive elements
 
+### Custom Scrollbar Utilities
+
+The project includes custom scrollbar utilities for better user experience:
+
+- **`.scrollbar-thin`**: Applies `scrollbar-width: thin` for modern browsers, creating thinner scrollbars that take up less space
+- **Usage**: Combine with `overflow-y-auto` and appropriate height constraints:
+  ```tsx
+  <div className="scrollbar-thin overflow-y-auto max-h-[calc(100vh-200px)]">
+    {/* Scrollable content */}
+  </div>
+  ```
+- **Browser Support**: Works best in Firefox; for WebKit browsers (Chrome, Safari, Edge), additional `-webkit-scrollbar` styling may be needed
+- **Current Usage**: Applied to `DMConversationList` and `FriendsList` components for better space utilization in sidebar layouts
+
 ## Writing Tests vs Running Tests
 
 There is an important distinction between **writing new tests** and **running existing tests**:

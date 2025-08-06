@@ -8,9 +8,10 @@ import type { NostrEvent } from "@/types/nostr";
 
 interface MessageReactionsProps {
   message: NostrEvent;
+  onReactionClick?: () => void;
 }
 
-export function MessageReactions({ message }: MessageReactionsProps) {
+export function MessageReactions({ message, onReactionClick }: MessageReactionsProps) {
   const { data: reactions } = useReactions(message.id);
   const { mutate: addReaction } = useAddReaction();
   const { user } = useCurrentUser();
@@ -46,6 +47,9 @@ export function MessageReactions({ message }: MessageReactionsProps) {
       targetEvent: message,
       emoji,
     });
+
+    // Hide hover actions after clicking a reaction
+    onReactionClick?.();
   };
 
   const hasUserReacted = (emoji: string) => {

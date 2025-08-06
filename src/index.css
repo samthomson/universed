@@ -3,6 +3,33 @@
 @tailwind utilities;
 
 @layer utilities {
+
+  /* Thin scrollbar utility */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.8);
+  }
+
   .bg-gray-750 {
     background-color: rgb(55 65 81 / 0.8);
   }
@@ -88,6 +115,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -222,7 +250,8 @@
 
   /* Mobile-optimized text sizes */
   .mobile-text-base {
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px;
+    /* Prevents zoom on iOS */
   }
 
   /* Discord-like mobile animations */
@@ -234,6 +263,7 @@
     from {
       transform: translateX(100%);
     }
+
     to {
       transform: translateX(0);
     }
@@ -247,6 +277,7 @@
     from {
       transform: translateX(0);
     }
+
     to {
       transform: translateX(-100%);
     }
@@ -274,7 +305,8 @@
   /* Mobile viewport fixes */
   .mobile-viewport {
     height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for mobile browsers */
+    height: 100dvh;
+    /* Dynamic viewport height for mobile browsers */
   }
 
   /* Prevent text selection on mobile UI elements */
@@ -287,7 +319,8 @@
 
   /* Mobile-optimized button sizes */
   .mobile-button {
-    min-height: 44px; /* iOS recommended minimum touch target */
+    min-height: 44px;
+    /* iOS recommended minimum touch target */
     min-width: 44px;
   }
 
@@ -315,7 +348,8 @@
 
   /* Mobile-friendly form inputs */
   .mobile-input {
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px;
+    /* Prevents zoom on iOS */
     padding: 0.75rem;
     border-radius: 0.5rem;
   }
@@ -341,6 +375,7 @@
     background: linear-gradient(45deg, #22c55e, #16a34a, #22c55e, #10b981);
     background-size: 200% 200%;
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0;
@@ -348,13 +383,16 @@
   }
 
   @keyframes voicePulse {
-    0%, 100% {
+
+    0%,
+    100% {
       box-shadow:
         0 0 0 0 rgba(34, 197, 94, 0.4),
         0 0 30px rgba(34, 197, 94, 0.3),
         0 0 60px rgba(34, 197, 94, 0.2),
         inset 0 0 30px rgba(34, 197, 94, 0.15);
     }
+
     50% {
       box-shadow:
         0 0 0 20px rgba(34, 197, 94, 0),
@@ -365,10 +403,13 @@
   }
 
   @keyframes voiceGlow {
-    0%, 100% {
+
+    0%,
+    100% {
       opacity: 0;
       transform: scale(1);
     }
+
     50% {
       opacity: 1;
       transform: scale(1.03);
@@ -376,9 +417,12 @@
   }
 
   @keyframes voiceGradient {
-    0%, 100% {
+
+    0%,
+    100% {
       background-position: 0% 50%;
     }
+
     50% {
       background-position: 100% 50%;
     }
@@ -477,6 +521,21 @@
     box-sizing: border-box;
   }
 
+  /* Ordered list inline styling */
+  .ordered-list-inline {
+    list-style-position: inside;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    padding-left: 0;
+  }
+
+  .ordered-list-inline li {
+    display: inline-flex;
+    align-items: baseline;
+    margin: 0;
+  }
+
   /* Mobile communities list - force containment */
   .mobile-communities-container {
     width: 100%;
@@ -510,14 +569,14 @@
     height: 1px;
     background: transparent;
     box-shadow:
-      200px 300px rgba(255,255,255,0.8), 800px 150px rgba(255,255,255,0.6),
-      1200px 400px rgba(255,255,255,0.9), 400px 600px rgba(255,255,255,0.7),
-      1600px 200px rgba(255,255,255,0.5), 600px 800px rgba(255,255,255,0.8),
-      1000px 100px rgba(255,255,255,0.6), 300px 500px rgba(255,255,255,0.9),
-      1400px 700px rgba(255,255,255,0.7), 700px 350px rgba(255,255,255,0.5),
-      100px 750px rgba(255,255,255,0.8), 1500px 450px rgba(255,255,255,0.6),
-      500px 250px rgba(255,255,255,0.9), 900px 650px rgba(255,255,255,0.7),
-      1300px 550px rgba(255,255,255,0.5), 250px 850px rgba(255,255,255,0.8);
+      200px 300px rgba(255, 255, 255, 0.8), 800px 150px rgba(255, 255, 255, 0.6),
+      1200px 400px rgba(255, 255, 255, 0.9), 400px 600px rgba(255, 255, 255, 0.7),
+      1600px 200px rgba(255, 255, 255, 0.5), 600px 800px rgba(255, 255, 255, 0.8),
+      1000px 100px rgba(255, 255, 255, 0.6), 300px 500px rgba(255, 255, 255, 0.9),
+      1400px 700px rgba(255, 255, 255, 0.7), 700px 350px rgba(255, 255, 255, 0.5),
+      100px 750px rgba(255, 255, 255, 0.8), 1500px 450px rgba(255, 255, 255, 0.6),
+      500px 250px rgba(255, 255, 255, 0.9), 900px 650px rgba(255, 255, 255, 0.7),
+      1300px 550px rgba(255, 255, 255, 0.5), 250px 850px rgba(255, 255, 255, 0.8);
     animation: twinkle 4s ease-in-out infinite alternate;
   }
 
@@ -526,11 +585,11 @@
     height: 2px;
     background: transparent;
     box-shadow:
-      300px 200px rgba(147,51,234,0.6), 1100px 500px rgba(147,51,234,0.4),
-      700px 700px rgba(147,51,234,0.8), 1500px 300px rgba(147,51,234,0.5),
-      500px 900px rgba(147,51,234,0.7), 1300px 100px rgba(147,51,234,0.6),
-      900px 400px rgba(147,51,234,0.4), 200px 600px rgba(147,51,234,0.8),
-      1400px 800px rgba(147,51,234,0.5), 600px 150px rgba(147,51,234,0.7);
+      300px 200px rgba(147, 51, 234, 0.6), 1100px 500px rgba(147, 51, 234, 0.4),
+      700px 700px rgba(147, 51, 234, 0.8), 1500px 300px rgba(147, 51, 234, 0.5),
+      500px 900px rgba(147, 51, 234, 0.7), 1300px 100px rgba(147, 51, 234, 0.6),
+      900px 400px rgba(147, 51, 234, 0.4), 200px 600px rgba(147, 51, 234, 0.8),
+      1400px 800px rgba(147, 51, 234, 0.5), 600px 150px rgba(147, 51, 234, 0.7);
     animation: twinkle 6s ease-in-out infinite alternate;
   }
 
@@ -539,10 +598,10 @@
     height: 3px;
     background: transparent;
     box-shadow:
-      400px 400px rgba(59,130,246,0.5), 1200px 200px rgba(59,130,246,0.7),
-      800px 600px rgba(59,130,246,0.6), 200px 800px rgba(59,130,246,0.4),
-      1600px 500px rgba(59,130,246,0.8), 1000px 300px rgba(59,130,246,0.5),
-      600px 700px rgba(59,130,246,0.7), 1400px 600px rgba(59,130,246,0.6);
+      400px 400px rgba(59, 130, 246, 0.5), 1200px 200px rgba(59, 130, 246, 0.7),
+      800px 600px rgba(59, 130, 246, 0.6), 200px 800px rgba(59, 130, 246, 0.4),
+      1600px 500px rgba(59, 130, 246, 0.8), 1000px 300px rgba(59, 130, 246, 0.5),
+      600px 700px rgba(59, 130, 246, 0.7), 1400px 600px rgba(59, 130, 246, 0.6);
     animation: twinkle 8s ease-in-out infinite alternate;
   }
 
@@ -550,9 +609,11 @@
     0% {
       opacity: 0.3;
     }
+
     50% {
       opacity: 1;
     }
+
     100% {
       opacity: 0.3;
     }
