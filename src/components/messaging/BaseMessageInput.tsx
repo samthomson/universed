@@ -49,18 +49,14 @@ export function BaseMessageInput({
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
-  // Close autocomplete when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showEmojiAutocomplete && textareaRef.current && !textareaRef.current.contains(event.target as Node)) {
-        setShowEmojiAutocomplete(false);
-        setShortcodeContext(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showEmojiAutocomplete]);
+  // Close autocomplete on blur
+  const handleTextareaBlur = () => {
+    // Small delay to allow emoji selection clicks to register
+    setTimeout(() => {
+      setShowEmojiAutocomplete(false);
+      setShortcodeContext(null);
+    }, 150);
+  };
 
   const handleSubmit = async () => {
     if (!user || !message.trim() || isSending) return;
@@ -218,6 +214,7 @@ export function BaseMessageInput({
           onKeyDown={handleKeyDown}
           onSelect={handleSelectionChange}
           onClick={handleSelectionChange}
+          onBlur={handleTextareaBlur}
           placeholder={placeholder || "Type a message..."}
           className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 text-foreground placeholder:text-muted-foreground p-0"
           disabled={isSending}

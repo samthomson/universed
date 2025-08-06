@@ -1,166 +1,20 @@
-// Common emojis with Bitcoin/Nostr additions
-const commonEmojis = [
-  // Faces and emotions
-  { emoji: '😀', shortcodes: ['grinning', 'smile'] },
-  { emoji: '😃', shortcodes: ['smiley', 'happy'] },
-  { emoji: '😄', shortcodes: ['smile', 'joy'] },
-  { emoji: '😁', shortcodes: ['grin'] },
-  { emoji: '😆', shortcodes: ['laughing', 'satisfied'] },
-  { emoji: '😅', shortcodes: ['sweat_smile'] },
-  { emoji: '🤣', shortcodes: ['rofl', 'rolling'] },
-  { emoji: '😂', shortcodes: ['joy', 'tears'] },
-  { emoji: '🙂', shortcodes: ['slightly_smiling'] },
-  { emoji: '🙃', shortcodes: ['upside_down'] },
-  { emoji: '😉', shortcodes: ['wink'] },
-  { emoji: '😊', shortcodes: ['blush'] },
-  { emoji: '😇', shortcodes: ['innocent'] },
-  { emoji: '🥰', shortcodes: ['heart_eyes', 'love'] },
-  { emoji: '😍', shortcodes: ['heart_eyes'] },
-  { emoji: '🤩', shortcodes: ['star_struck'] },
-  { emoji: '😘', shortcodes: ['kissing_heart'] },
-  { emoji: '😗', shortcodes: ['kissing'] },
-  { emoji: '😚', shortcodes: ['kissing_closed_eyes'] },
-  { emoji: '😙', shortcodes: ['kissing_smiling_eyes'] },
-  { emoji: '😋', shortcodes: ['yum'] },
-  { emoji: '😛', shortcodes: ['stuck_out_tongue'] },
-  { emoji: '😜', shortcodes: ['stuck_out_tongue_winking_eye'] },
-  { emoji: '🤪', shortcodes: ['zany'] },
-  { emoji: '😝', shortcodes: ['stuck_out_tongue_closed_eyes'] },
-  { emoji: '🤑', shortcodes: ['money_mouth'] },
-  { emoji: '🤗', shortcodes: ['hugging'] },
-  { emoji: '🤭', shortcodes: ['hand_over_mouth'] },
-  { emoji: '🤫', shortcodes: ['shush'] },
-  { emoji: '🤔', shortcodes: ['thinking'] },
-  { emoji: '🤐', shortcodes: ['zipper_mouth'] },
-  { emoji: '🤨', shortcodes: ['raised_eyebrow'] },
-  { emoji: '😐', shortcodes: ['neutral'] },
-  { emoji: '😑', shortcodes: ['expressionless'] },
-  { emoji: '😶', shortcodes: ['no_mouth'] },
-  { emoji: '😏', shortcodes: ['smirk'] },
-  { emoji: '😒', shortcodes: ['unamused'] },
-  { emoji: '🙄', shortcodes: ['eye_roll'] },
-  { emoji: '😬', shortcodes: ['grimacing'] },
-  { emoji: '🤥', shortcodes: ['lying'] },
-  { emoji: '😔', shortcodes: ['pensive'] },
-  { emoji: '😪', shortcodes: ['sleepy'] },
-  { emoji: '🤤', shortcodes: ['drooling'] },
-  { emoji: '😴', shortcodes: ['sleeping'] },
-  { emoji: '😷', shortcodes: ['mask'] },
-  { emoji: '🤒', shortcodes: ['sick'] },
-  { emoji: '🤕', shortcodes: ['injured'] },
-  { emoji: '🤢', shortcodes: ['nauseated'] },
-  { emoji: '🤮', shortcodes: ['vomiting'] },
-  { emoji: '🤧', shortcodes: ['sneezing'] },
-  { emoji: '🥵', shortcodes: ['hot'] },
-  { emoji: '🥶', shortcodes: ['cold'] },
-  { emoji: '🥴', shortcodes: ['woozy'] },
-  { emoji: '😵', shortcodes: ['dizzy'] },
-  { emoji: '🤯', shortcodes: ['exploding_head'] },
-  { emoji: '🤠', shortcodes: ['cowboy'] },
-  { emoji: '🥳', shortcodes: ['party'] },
-  { emoji: '😎', shortcodes: ['sunglasses', 'cool'] },
-  { emoji: '🤓', shortcodes: ['nerd'] },
-  { emoji: '🧐', shortcodes: ['monocle'] },
-  
-  // Negative emotions
-  { emoji: '😕', shortcodes: ['confused'] },
-  { emoji: '😟', shortcodes: ['worried'] },
-  { emoji: '🙁', shortcodes: ['frowning'] },
-  { emoji: '☹️', shortcodes: ['frowning2'] },
-  { emoji: '😮', shortcodes: ['open_mouth'] },
-  { emoji: '😯', shortcodes: ['hushed'] },
-  { emoji: '😲', shortcodes: ['astonished'] },
-  { emoji: '😳', shortcodes: ['flushed'] },
-  { emoji: '🥺', shortcodes: ['pleading'] },
-  { emoji: '😦', shortcodes: ['frowning_open'] },
-  { emoji: '😧', shortcodes: ['anguished'] },
-  { emoji: '😨', shortcodes: ['fearful'] },
-  { emoji: '😰', shortcodes: ['cold_sweat'] },
-  { emoji: '😥', shortcodes: ['disappointed_relieved'] },
-  { emoji: '😢', shortcodes: ['cry'] },
-  { emoji: '😭', shortcodes: ['sob'] },
-  { emoji: '😱', shortcodes: ['scream'] },
-  { emoji: '😖', shortcodes: ['confounded'] },
-  { emoji: '😣', shortcodes: ['persevere'] },
-  { emoji: '😞', shortcodes: ['disappointed'] },
-  { emoji: '😓', shortcodes: ['sweat'] },
-  { emoji: '😩', shortcodes: ['weary'] },
-  { emoji: '😫', shortcodes: ['tired'] },
-  { emoji: '🥱', shortcodes: ['yawning'] },
-  { emoji: '😤', shortcodes: ['triumph'] },
-  { emoji: '😡', shortcodes: ['rage'] },
-  { emoji: '😠', shortcodes: ['angry'] },
-  { emoji: '🤬', shortcodes: ['swearing'] },
+import emojilib from 'emojilib';
 
-  // Hearts and love
-  { emoji: '❤️', shortcodes: ['heart', 'love'] },
-  { emoji: '🧡', shortcodes: ['orange_heart'] },
-  { emoji: '💛', shortcodes: ['yellow_heart'] },
-  { emoji: '💚', shortcodes: ['green_heart'] },
-  { emoji: '💙', shortcodes: ['blue_heart'] },
-  { emoji: '💜', shortcodes: ['purple_heart'] },
-  { emoji: '🖤', shortcodes: ['black_heart'] },
-  { emoji: '🤍', shortcodes: ['white_heart'] },
-  { emoji: '🤎', shortcodes: ['brown_heart'] },
-  { emoji: '💔', shortcodes: ['broken_heart'] },
-  { emoji: '❣️', shortcodes: ['heart_exclamation'] },
-  { emoji: '💕', shortcodes: ['two_hearts'] },
-  { emoji: '💞', shortcodes: ['revolving_hearts'] },
-  { emoji: '💓', shortcodes: ['heartbeat'] },
-  { emoji: '💗', shortcodes: ['growing_heart'] },
-  { emoji: '💖', shortcodes: ['sparkling_heart'] },
-  { emoji: '💘', shortcodes: ['cupid'] },
-  { emoji: '💝', shortcodes: ['gift_heart'] },
-  { emoji: '💟', shortcodes: ['heart_decoration'] },
+// Create emoji data from the standard library
+const standardEmojis = Object.entries(emojilib).map(([emoji, keywords]) => ({
+  emoji,
+  shortcodes: Array.isArray(keywords) ? keywords : [keywords]
+}));
 
-  // Hand gestures
-  { emoji: '👍', shortcodes: ['thumbsup', 'like', 'yes'] },
-  { emoji: '👎', shortcodes: ['thumbsdown', 'dislike', 'no'] },
-  { emoji: '👌', shortcodes: ['ok_hand'] },
-  { emoji: '✌️', shortcodes: ['peace_sign', 'v'] },
-  { emoji: '🤞', shortcodes: ['fingers_crossed'] },
-  { emoji: '🤟', shortcodes: ['love_you'] },
-  { emoji: '🤘', shortcodes: ['rock', 'metal'] },
-  { emoji: '🤙', shortcodes: ['call_me'] },
-  { emoji: '👈', shortcodes: ['point_left'] },
-  { emoji: '👉', shortcodes: ['point_right'] },
-  { emoji: '👆', shortcodes: ['point_up'] },
-  { emoji: '🖕', shortcodes: ['middle_finger', 'fu'] },
-  { emoji: '👇', shortcodes: ['point_down'] },
-  { emoji: '☝️', shortcodes: ['point_up_2'] },
-  { emoji: '👏', shortcodes: ['clap'] },
-  { emoji: '🙌', shortcodes: ['raised_hands'] },
-  { emoji: '👐', shortcodes: ['open_hands'] },
-  { emoji: '🤲', shortcodes: ['palms_up'] },
-  { emoji: '🤝', shortcodes: ['handshake'] },
-  { emoji: '🙏', shortcodes: ['pray', 'thanks'] },
-  { emoji: '✍️', shortcodes: ['writing'] },
-  { emoji: '💅', shortcodes: ['nail_care'] },
-  { emoji: '🤳', shortcodes: ['selfie'] },
-  { emoji: '💪', shortcodes: ['muscle', 'strong'] },
-
-  // Popular symbols and objects
-  { emoji: '🔥', shortcodes: ['fire', 'lit'] },
-  { emoji: '💯', shortcodes: ['100', 'hundred'] },
-  { emoji: '✨', shortcodes: ['sparkles'] },
-  { emoji: '⭐', shortcodes: ['star'] },
-  { emoji: '🌟', shortcodes: ['star2'] },
-  { emoji: '💫', shortcodes: ['dizzy_star'] },
-  { emoji: '☄️', shortcodes: ['comet'] },
-  { emoji: '💥', shortcodes: ['boom'] },
-
-  // Bitcoin and Nostr emojis
+// Add Bitcoin and Nostr specific emojis
+const customEmojis = [
   { emoji: '₿', shortcodes: ['bitcoin', 'btc'] },
   { emoji: '⚡', shortcodes: ['lightning', 'ln', 'zap'] },
   { emoji: '🟣', shortcodes: ['nostr', 'decentralized'] },
-  { emoji: '🔑', shortcodes: ['key', 'private_key', 'keys'] },
-  { emoji: '🛡️', shortcodes: ['shield', 'security', 'privacy'] },
-  { emoji: '🌐', shortcodes: ['globe', 'internet', 'web'] },
-  { emoji: '📡', shortcodes: ['satellite', 'relay', 'broadcast'] },
-  { emoji: '🔗', shortcodes: ['link', 'chain', 'blockchain'] },
-  { emoji: '💎', shortcodes: ['diamond', 'diamond_hands', 'hodl'] },
-  { emoji: '🚀', shortcodes: ['rocket', 'moon', 'to_the_moon'] },
 ];
+
+// Combine standard emojis with custom ones
+const allEmojis = [...standardEmojis, ...customEmojis];
 
 export interface EmojiData {
   emoji: string;
@@ -169,7 +23,7 @@ export interface EmojiData {
 
 // Create a searchable map from our emoji data
 const allShortcodes = new Map<string, EmojiData>();
-commonEmojis.forEach(emojiData => {
+allEmojis.forEach(emojiData => {
   emojiData.shortcodes.forEach(shortcode => {
     allShortcodes.set(shortcode, emojiData);
   });

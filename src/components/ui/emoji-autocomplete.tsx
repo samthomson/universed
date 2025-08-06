@@ -6,7 +6,6 @@ interface EmojiAutocompleteProps {
   query: string;
   selectedIndex: number;
   onSelect: (emoji: EmojiData) => void;
-  onClose: () => void;
   className?: string;
 }
 
@@ -14,7 +13,6 @@ export function EmojiAutocomplete({
   query,
   selectedIndex,
   onSelect,
-  onClose: _onClose,
   className,
 }: EmojiAutocompleteProps) {
   const [emojis, setEmojis] = useState<EmojiData[]>([]);
@@ -40,17 +38,7 @@ export function EmojiAutocomplete({
     }
   }, [selectedIndex, emojis]);
 
-  // Expose current selection to parent
-  useEffect(() => {
-    if (emojis.length > 0 && selectedIndex < emojis.length) {
-      // Parent can access the selected emoji through onNavigate or by calling onSelect
-    }
-  }, [selectedIndex, emojis]);
-
   if (emojis.length === 0) return null;
-
-  // Helper to get current emoji for parent (currently unused)
-  const _getCurrentEmoji = () => emojis[selectedIndex] || null;
 
   return (
     <div
