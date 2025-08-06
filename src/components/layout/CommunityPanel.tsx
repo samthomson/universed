@@ -289,7 +289,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-4">
+        <div className="absolute p-2 space-y-4 w-full">
           {/* Spaces Navigator */}
           <SpacesNavigator
             communityId={communityId}
