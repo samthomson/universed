@@ -6,6 +6,7 @@ import { MemberList } from "./MemberList";
 import { UserPanel } from "./UserPanel";
 import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
+import { FriendsList } from "@/components/friends/FriendsList";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
@@ -368,8 +369,8 @@ export function DiscordLayout() {
                 />
               </div>
 
-              <div className="w-60 bg-secondary/30 flex flex-col justify-end">
-                {/* TODO: user friends list */}
+              <div className="w-60 bg-secondary/30 flex flex-col">
+                <FriendsList />
               </div>
             </>
           )}
