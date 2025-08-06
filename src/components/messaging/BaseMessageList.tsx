@@ -86,7 +86,7 @@ export function BaseMessageList({
         </div>
       )}
       <Virtuoso
-        className={`flex-1 px-4 channel-scroll`}
+        className={`flex-1 px-4 channel-scroll scrollbar-thin`}
         style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}
         data={regularMessages}
         itemContent={(index, message) => {

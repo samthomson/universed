@@ -402,7 +402,7 @@ export function DiscordLayout() {
                     ),
                     Footer: () => <div className="h-2" />,
                   }}
-                  className="flex-1"
+                  className="flex-1 scrollbar-thin"
                 />
               </div>
             </>

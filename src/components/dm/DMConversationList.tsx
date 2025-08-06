@@ -186,7 +186,7 @@ export function DMConversationList({
   }
 
   return (
-    <div className="space-y-1 p-2 scrollbar-thin overflow-y-auto max-h-[calc(100vh-200px)]">
+    <div className="space-y-1 p-2 overflow-y-auto max-h-[calc(100vh-200px)]">
       {conversationsToRender.map((conversation) => (
         <SearchableConversationItem
           key={conversation.id}

@@ -115,7 +115,7 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
                   ),
                   Footer: () => <div className="h-2" />,
                 }}
-                className="h-full"
+                className="h-full scrollbar-thin"
               />
             </div>
           </>
@@ -185,7 +185,7 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
               ),
               Footer: () => <div className="h-2" />,
             }}
-            className="h-full"
+            className="h-full scrollbar-thin"
           />
         </div>
 
