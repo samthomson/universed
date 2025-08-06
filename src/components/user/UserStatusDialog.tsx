@@ -3,135 +3,276 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { useUserStatus, useUpdateUserStatus, type UserStatus } from '@/hooks/useUserStatus';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUserStatus, useUpdateUserStatus, useClearUserStatus, TraditionalStatus } from '@/hooks/useUserStatus';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { cn } from '@/lib/utils';
 
 interface UserStatusDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const statusOptions = [
-  { value: 'online', label: 'Online', color: 'bg-green-500', description: 'Available to chat' },
-  { value: 'away', label: 'Away', color: 'bg-yellow-500', description: 'Temporarily unavailable' },
-  { value: 'busy', label: 'Busy', color: 'bg-red-500', description: 'Do not disturb' },
-  { value: 'offline', label: 'Offline', color: 'bg-gray-500', description: 'Appear offline' },
-] as const;
+// Common emoji suggestions for status
+const emojiSuggestions = [
+  '😊', '😎', '🎯', '💼', '🏠', '✈️', '🎮', '📚', 
+  '🎨', '🎵', '🏃', '🧘', '☕', '🍕', '🎉', '💻',
+  '🔥', '⭐', '🌟', '✨', '🚀', '💪', '🎭', '🎪'
+];
+
+const traditionalStatuses: { value: TraditionalStatus; label: string; color: string }[] = [
+  { value: 'online', label: 'Online', color: 'bg-green-500' },
+  { value: 'busy', label: 'Busy', color: 'bg-red-500' },
+  { value: 'away', label: 'Away', color: 'bg-yellow-500' },
+  { value: 'offline', label: 'Offline', color: 'bg-gray-500' },
+];
 
 export function UserStatusDialog({ open, onOpenChange }: UserStatusDialogProps) {
   const { user } = useCurrentUser();
   const { data: currentStatus } = useUserStatus(user?.pubkey);
-  const { mutate: updateStatus, isPending } = useUpdateUserStatus();
+  const { mutate: updateStatus, isPending: isUpdating } = useUpdateUserStatus();
+  const { mutate: clearStatus, isPending: isClearing } = useClearUserStatus();
 
-  const [selectedStatus, setSelectedStatus] = useState<UserStatus['status']>(
-    currentStatus?.status || 'online'
+  const [activeTab, setActiveTab] = useState<'traditional' | 'custom'>(
+    currentStatus?.emoji ? 'custom' : 'traditional'
   );
-  const [customMessage, setCustomMessage] = useState(currentStatus?.customMessage || '');
+  
+  // Traditional status state
+  const [selectedTraditionalStatus, setSelectedTraditionalStatus] = useState<TraditionalStatus | undefined>(
+    currentStatus?.status
+  );
+  
+  // Custom status state
+  const [selectedEmoji, setSelectedEmoji] = useState(currentStatus?.emoji || '');
+  const [customMessage, setCustomMessage] = useState(currentStatus?.message || '');
+  const [customEmoji, setCustomEmoji] = useState('');
 
   const handleSave = () => {
-    updateStatus({
-      status: selectedStatus,
-      customMessage: customMessage.trim() || undefined,
-    });
+    if (activeTab === 'traditional') {
+      updateStatus({
+        status: selectedTraditionalStatus,
+        message: customMessage.trim() || undefined,
+      });
+    } else {
+      const emoji = selectedEmoji || customEmoji;
+      updateStatus({
+        emoji: emoji || undefined,
+        message: customMessage.trim() || undefined,
+      });
+    }
     onOpenChange(false);
   };
 
-  const handleClearMessage = () => {
+  const handleClear = () => {
+    clearStatus();
+    setSelectedTraditionalStatus(undefined);
+    setSelectedEmoji('');
+    setCustomEmoji('');
     setCustomMessage('');
+    onOpenChange(false);
   };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setSelectedEmoji(emoji);
+    setCustomEmoji('');
+  };
+
+  const handleCustomEmojiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCustomEmoji(value);
+    if (value) {
+      setSelectedEmoji('');
+    }
+  };
+
+  const isPending = isUpdating || isClearing;
+  const hasChanges = activeTab === 'traditional' 
+    ? selectedTraditionalStatus !== currentStatus?.status || 
+      customMessage !== (currentStatus?.message || '')
+    : selectedEmoji !== (currentStatus?.emoji || '') || 
+      customMessage !== (currentStatus?.message || '') ||
+      customEmoji !== '';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Set Your Status</DialogTitle>
+          <DialogTitle>Set Status</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Status Selection */}
-          <div className="space-y-3">
-            <Label>Status</Label>
-            <RadioGroup
-              value={selectedStatus}
-              onValueChange={(value) => setSelectedStatus(value as UserStatus['status'])}
-              className="space-y-2"
-            >
-              {statusOptions.map((option) => (
-                <div key={option.value} className="flex items-center space-x-3">
-                  <RadioGroupItem value={option.value} id={option.value} />
-                  <div className="flex items-center space-x-3 flex-1">
-                    <div className={cn('w-3 h-3 rounded-full', option.color)} />
-                    <div className="flex-1">
-                      <Label htmlFor={option.value} className="font-medium cursor-pointer">
-                        {option.label}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        {option.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </RadioGroup>
-          </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'traditional' | 'custom')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="traditional">Traditional</TabsTrigger>
+            <TabsTrigger value="custom">Custom</TabsTrigger>
+          </TabsList>
 
-          {/* Custom Message */}
-          <div className="space-y-2">
-            <Label htmlFor="message">Custom Message (optional)</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="message"
-                placeholder="What's on your mind?"
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                maxLength={100}
-              />
-              {customMessage && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearMessage}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {customMessage.length}/100 characters
-            </p>
-          </div>
-
-          {/* Current Status Preview */}
-          {(selectedStatus !== currentStatus?.status || customMessage !== (currentStatus?.customMessage || '')) && (
-            <div className="p-3 bg-muted rounded-lg">
-              <p className="text-sm font-medium mb-2">Preview:</p>
-              <div className="flex items-center space-x-2">
-                <div className={cn(
-                  'w-3 h-3 rounded-full',
-                  statusOptions.find(opt => opt.value === selectedStatus)?.color
-                )} />
-                <span className="text-sm">
-                  {customMessage || statusOptions.find(opt => opt.value === selectedStatus)?.label}
-                </span>
+          <TabsContent value="traditional" className="space-y-6">
+            <div className="space-y-3">
+              <Label>Status</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {traditionalStatuses.map((status) => (
+                  <Button
+                    key={status.value}
+                    type="button"
+                    variant={selectedTraditionalStatus === status.value ? "default" : "outline"}
+                    onClick={() => setSelectedTraditionalStatus(status.value)}
+                    className="flex items-center space-x-2 justify-start"
+                  >
+                    <div className={`w-3 h-3 rounded-full ${status.color}`} />
+                    <span>{status.label}</span>
+                  </Button>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-2">
+            {/* Custom Message (optional for traditional status) */}
+            <div className="space-y-2">
+              <Label htmlFor="traditional-message">Status Message (optional)</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="traditional-message"
+                  placeholder="Add a custom message..."
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  maxLength={100}
+                />
+                {customMessage && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomMessage('')}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {customMessage.length}/100 characters
+              </p>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="custom" className="space-y-6">
+            {/* Emoji Selection */}
+            <div className="space-y-3">
+              <Label>Status Emoji</Label>
+              
+              {/* Custom Emoji Input */}
+              <div className="space-y-2">
+                <Input
+                  placeholder="Or type your own emoji..."
+                  value={customEmoji}
+                  onChange={handleCustomEmojiChange}
+                  maxLength={2}
+                  className="text-center text-lg"
+                />
+              </div>
+
+              {/* Emoji Suggestions */}
+              <div className="grid grid-cols-8 gap-2">
+                {emojiSuggestions.map((emoji) => (
+                  <Button
+                    key={emoji}
+                    type="button"
+                    variant={selectedEmoji === emoji ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleEmojiSelect(emoji)}
+                    className="text-lg p-2 h-10 w-10"
+                  >
+                    {emoji}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Message */}
+            <div className="space-y-2">
+              <Label htmlFor="custom-message">Status Message (optional)</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="custom-message"
+                  placeholder="What's on your mind?"
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  maxLength={100}
+                />
+                {customMessage && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCustomMessage('')}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {customMessage.length}/100 characters
+              </p>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Current Status Preview */}
+        {(hasChanges || currentStatus?.status || currentStatus?.emoji || currentStatus?.message) && (
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="text-sm font-medium mb-2">Preview:</p>
+            <div className="flex items-center space-x-2">
+              {activeTab === 'traditional' ? (
+                <>
+                  {selectedTraditionalStatus ? (
+                    <div className={`w-3 h-3 rounded-full ${
+                      traditionalStatuses.find(s => s.value === selectedTraditionalStatus)?.color || 'bg-gray-500'
+                    }`} />
+                  ) : (
+                    <span className="text-lg">●</span>
+                  )}
+                  <span className="text-sm">
+                    {selectedTraditionalStatus 
+                      ? traditionalStatuses.find(s => s.value === selectedTraditionalStatus)?.label
+                      : 'No status'
+                    }
+                    {customMessage && ` - ${customMessage}`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-lg">
+                    {(selectedEmoji || customEmoji) || currentStatus?.emoji || '●'}
+                  </span>
+                  <span className="text-sm">
+                    {customMessage || currentStatus?.message || 'Custom status'}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-between space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClear}
+            disabled={isPending || (!currentStatus?.status && !currentStatus?.emoji && !currentStatus?.message)}
+          >
+            Clear Status
+          </Button>
+          <div className="flex space-x-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={isPending}
             >
               Cancel
             </Button>
             <Button
               onClick={handleSave}
-              disabled={isPending}
+              disabled={isPending || (!hasChanges && activeTab === 'traditional' && !selectedTraditionalStatus) || 
+                        (!hasChanges && activeTab === 'custom' && !selectedEmoji && !customEmoji && !customMessage)}
             >
               {isPending ? 'Saving...' : 'Save Status'}
             </Button>

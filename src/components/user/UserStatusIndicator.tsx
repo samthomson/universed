@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { useUserStatus } from '@/hooks/useUserStatus';
+import { useUserStatus, getTraditionalStatusColor, getTraditionalStatusText } from '@/hooks/useUserStatus';
 
 interface UserStatusIndicatorProps {
   pubkey: string;
@@ -12,33 +12,37 @@ export function UserStatusIndicator({ pubkey, className, showText = false }: Use
 
   if (!status) return null;
 
-  const getStatusColor = () => {
-    switch (status.status) {
-      case 'online':
-        return 'bg-green-500';
-      case 'away':
-        return 'bg-yellow-500';
-      case 'busy':
-        return 'bg-red-500';
-      case 'offline':
-      default:
-        return 'bg-gray-500';
+  const getStatusDisplay = () => {
+    // Priority: Custom emoji status > Traditional status > Default
+    if (status.emoji) {
+      return {
+        element: <span className="text-lg leading-none">{status.emoji}</span>,
+        text: status.message || 'Custom status'
+      };
     }
+
+    if (status.status) {
+      return {
+        element: <div className={cn('w-3 h-3 rounded-full', getTraditionalStatusColor(status.status))} />,
+        text: status.message || getTraditionalStatusText(status.status)
+      };
+    }
+
+    // Fallback to available status
+    return {
+      element: <div className={cn('w-3 h-3 rounded-full', 'bg-gray-500')} />,
+      text: status.message || 'Available'
+    };
   };
 
-  const getStatusText = () => {
-    if (status.customMessage) {
-      return status.customMessage;
-    }
-    return status.status.charAt(0).toUpperCase() + status.status.slice(1);
-  };
+  const display = getStatusDisplay();
 
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <div className={cn('w-3 h-3 rounded-full', getStatusColor())} />
+      {display.element}
       {showText && (
         <span className="text-sm text-muted-foreground">
-          {getStatusText()}
+          {display.text}
         </span>
       )}
     </div>

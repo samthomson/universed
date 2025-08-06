@@ -7,29 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
+import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { EditProfileDialog } from "@/components/EditProfileDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useUserStatus, useUpdateUserStatus } from "@/hooks/useUserStatus";
+import { useUserStatus } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator 
-} from "@/components/ui/dropdown-menu";
 import { 
   Edit, 
   Settings, 
-  MoreHorizontal,
+  X,
   Globe,
   Check,
-  Clock,
-  XCircle,
-  Circle,
-  Copy,
-  ChevronDown
+  Copy
 } from "lucide-react";
 import { nip19 } from "nostr-tools";
 import { toast } from "sonner";
@@ -40,13 +30,6 @@ interface ProfileModalProps {
   onOpenSettings: () => void;
 }
 
-const statusOptions = [
-  { value: 'online', label: 'Online', icon: Check, color: 'text-green-500' },
-  { value: 'away', label: 'Away', icon: Clock, color: 'text-yellow-500' },
-  { value: 'busy', label: 'Busy', icon: XCircle, color: 'text-red-500' },
-  { value: 'offline', label: 'Offline', icon: Circle, color: 'text-gray-500' },
-];
-
 export function ProfileModal({ 
   open, 
   onOpenChange,
@@ -56,11 +39,10 @@ export function ProfileModal({
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
-  const updateUserStatus = useUpdateUserStatus();
 
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
 
   if (!user) return null;
 
@@ -71,14 +53,6 @@ export function ProfileModal({
   const website = metadata?.website;
   const nip05 = metadata?.nip05;
   const npub = nip19.npubEncode(user.pubkey);
-
-  const handleStatusChange = (status: string) => {
-    updateUserStatus.mutate({
-      status: status as 'online' | 'away' | 'busy' | 'offline',
-      customMessage: userStatus?.customMessage || ''
-    });
-    setStatusDropdownOpen(false);
-  };
 
   const handleEditProfile = () => {
     setShowEditProfileDialog(true);
@@ -116,7 +90,7 @@ export function ProfileModal({
                 className="absolute top-2 right-2 w-8 h-8 bg-black/50 hover:bg-black/70 text-white"
                 onClick={() => onOpenChange(false)}
               >
-                <MoreHorizontal className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </Button>
 
               {/* Avatar */}
@@ -192,44 +166,17 @@ export function ProfileModal({
 
                   {/* Action Buttons */}
                   <div className="flex items-center justify-center space-x-2 pt-2">
-                    <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 h-8 px-3"
-                        >
-                          <UserStatusIndicator pubkey={user.pubkey} />
-                          <span className="text-xs">
-                            {statusOptions.find(opt => opt.value === userStatus?.status)?.label || 'Online'}
-                          </span>
-                          <ChevronDown className="w-3 h-3 ml-1" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-gray-700 border-gray-600">
-                        {statusOptions.map((option) => {
-                          const Icon = option.icon;
-                          return (
-                            <DropdownMenuItem
-                              key={option.value}
-                              onClick={() => handleStatusChange(option.value)}
-                              className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
-                            >
-                              <Icon className={`w-4 h-4 mr-2 ${option.color}`} />
-                              {option.label}
-                            </DropdownMenuItem>
-                          );
-                        })}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          onClick={() => setStatusDropdownOpen(false)}
-                          className="text-gray-300 hover:bg-gray-600 hover:text-white cursor-pointer"
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Custom Status
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowStatusDialog(true)}
+                      className="flex items-center space-x-2 border-gray-600 text-gray-300 hover:bg-gray-700 h-8 px-3"
+                    >
+                      <UserStatusIndicator pubkey={user.pubkey} />
+                      <span className="text-xs">
+                        {userStatus?.emoji ? 'Custom Status' : (userStatus?.message || 'Set Status')}
+                      </span>
+                    </Button>
 
                     <Button
                       variant="default"
@@ -247,6 +194,12 @@ export function ProfileModal({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Status Dialog */}
+      <UserStatusDialog
+        open={showStatusDialog}
+        onOpenChange={setShowStatusDialog}
+      />
 
       {/* Edit Profile Dialog */}
       <EditProfileDialog

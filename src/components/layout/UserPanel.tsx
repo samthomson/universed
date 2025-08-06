@@ -62,7 +62,7 @@ export function UserPanel() {
               {displayName}
             </div>
             <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-400 truncate`}>
-              {userStatus?.customMessage || userStatus?.status || 'Click to set status'}
+              {userStatus?.message || (userStatus?.emoji ? 'Set status' : 'Click to set status')}
             </div>
           </div>
         </div>
