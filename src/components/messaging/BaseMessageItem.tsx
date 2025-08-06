@@ -20,6 +20,7 @@ import { MessageReactions } from "@/components/chat/MessageReactions";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
+import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
@@ -63,6 +64,7 @@ function BaseMessageItemComponent({
   const { mutate: addReaction } = useAddReaction();
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
+  const isNew = isNewMessage(message);
 
   const displayName = metadata?.name || genUserName(message.pubkey);
   const profileImage = metadata?.picture;
@@ -93,6 +95,7 @@ function BaseMessageItemComponent({
         {
           "mt-4": showAvatar,
           "opacity-50": isSending,
+          "new-message-animation": isNew && !isSending,
         },
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -263,6 +266,8 @@ export const BaseMessageItem = memo(
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.content === nextProps.message.content &&
+      prevProps.message.isSending === nextProps.message.isSending &&
+      prevProps.message.clientFirstSeen === nextProps.message.clientFirstSeen &&
       prevProps.showAvatar === nextProps.showAvatar
     );
   },

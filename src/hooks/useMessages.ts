@@ -88,7 +88,12 @@ export function useMessages(communityId: string, channelId: string) {
     cacheEvents([event]);
 
     queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
-      if (!oldMessages) return [event];
+      if (!oldMessages) {
+        // First message - mark for animation since it's from subscription
+        const eventWithAnimation = { ...event, clientFirstSeen: Date.now() };
+        return [eventWithAnimation];
+      }
+      
       // Skip if we already have this real message (not optimistic)
       if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
       
@@ -102,15 +107,20 @@ export function useMessages(communityId: string, channelId: string) {
       );
 
       if (optimisticMessageIndex !== -1) {
-        // Replace the optimistic message with the real one
+        // Replace the optimistic message with the real one (keep existing animation timestamp)
         const updatedMessages = [...oldMessages];
-        updatedMessages[optimisticMessageIndex] = event;
+        const existingMessage = updatedMessages[optimisticMessageIndex];
+        updatedMessages[optimisticMessageIndex] = { 
+          ...event, 
+          clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+        };
         logger.log(`[Messages] Replaced optimistic message with real message: ${event.id}`);
         return updatedMessages.sort((a, b) => a.created_at - b.created_at);
       }
       
-      // No optimistic message to replace, add as new message
-      return [...oldMessages, event].sort((a, b) => a.created_at - b.created_at);
+      // No optimistic message to replace, add as new message with animation
+      const eventWithAnimation = { ...event, clientFirstSeen: Date.now() };
+      return [...oldMessages, eventWithAnimation].sort((a, b) => a.created_at - b.created_at);
     });
 
     logger.log(`[Messages] New message: ${event.id}`);

@@ -70,15 +70,17 @@ export function BaseChatArea({
       const previousMessages = messages;
 
       // Create optimistic message
+      const now = Date.now();
       const optimisticMessage: NostrEvent = {
-        id: `optimistic-${Date.now()}`,
+        id: `optimistic-${now}`,
         pubkey: user!.pubkey,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: Math.floor(now / 1000),
         kind: 1, // Default kind, will be overridden by actual implementation
         tags: [],
         content,
         sig: '', // Will be filled by the actual event
         isSending: true, // Mark as sending state for optimistic UI
+        clientFirstSeen: now, // Mark for animation
       };
 
       // Optimistically update to the new value for this specific chat context
