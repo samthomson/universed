@@ -201,8 +201,8 @@ export function useMessages(communityId: string, channelId: string) {
     },
     enabled: !!communityId && !!channelId && canRead,
     refetchInterval: false,
-    // this tells react-query to clear messages when changing community/channel
-    placeholderData: undefined
+    // IMPORTANT: Clear messages when switching channels - don't show stale data
+    placeholderData: undefined,
   });
 
   // Manage subscription lifecycle
