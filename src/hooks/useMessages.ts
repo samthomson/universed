@@ -7,6 +7,10 @@ import { logger } from '@/lib/logger';
 import type { NostrFilter, NPool } from '@nostrify/nostrify';
 import type { NostrEvent } from '@/types/nostr';
 
+// Consider messages "recent" if they're less than 10 seconds old
+// This accounts for network delays while avoiding animating truly old messages
+const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
+
 function buildFilters(kind: string, pubkey: string, identifier: string, channelId: string): NostrFilter[] {
   const filters: NostrFilter[] = [];
 
@@ -88,7 +92,15 @@ export function useMessages(communityId: string, channelId: string) {
     cacheEvents([event]);
 
     queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
-      if (!oldMessages) return [event];
+      const now = Date.now();
+      const eventAge = now - (event.created_at * 1000); // Convert to milliseconds
+      const isRecentMessage = eventAge < RECENT_MESSAGE_THRESHOLD;
+      
+      if (!oldMessages) {
+        // First message - only animate if it's recent
+        return [{ ...event, clientFirstSeen: isRecentMessage ? now : undefined }];
+      }
+      
       // Skip if we already have this real message (not optimistic)
       if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
       
@@ -102,15 +114,19 @@ export function useMessages(communityId: string, channelId: string) {
       );
 
       if (optimisticMessageIndex !== -1) {
-        // Replace the optimistic message with the real one
+        // Replace the optimistic message with the real one (keep existing animation timestamp)
         const updatedMessages = [...oldMessages];
-        updatedMessages[optimisticMessageIndex] = event;
+        const existingMessage = updatedMessages[optimisticMessageIndex];
+        updatedMessages[optimisticMessageIndex] = { 
+          ...event, 
+          clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+        };
         logger.log(`[Messages] Replaced optimistic message with real message: ${event.id}`);
         return updatedMessages.sort((a, b) => a.created_at - b.created_at);
       }
       
-      // No optimistic message to replace, add as new message
-      return [...oldMessages, event].sort((a, b) => a.created_at - b.created_at);
+      // No optimistic message to replace, add as new message (only animate if recent)
+      return [...oldMessages, { ...event, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at);
     });
 
     logger.log(`[Messages] New message: ${event.id}`);
@@ -185,8 +201,8 @@ export function useMessages(communityId: string, channelId: string) {
     },
     enabled: !!communityId && !!channelId && canRead,
     refetchInterval: false,
-    // this tells react-query to clear messages when changing community/channel
-    placeholderData: undefined
+    // IMPORTANT: Clear messages when switching channels - don't show stale data
+    placeholderData: undefined,
   });
 
   // Manage subscription lifecycle

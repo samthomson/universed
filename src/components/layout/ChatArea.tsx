@@ -213,6 +213,7 @@ function CommunityChat(
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
+      queryKey={['messages', communityId, channelId]}
       onPin={handlePinMessage}
       header={
         <CommunityChatHeader

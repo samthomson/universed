@@ -153,5 +153,7 @@ export function useDMMessages(conversationId: string) {
     },
     enabled: !!user && !!conversationId && !!user.signer,
     refetchInterval: 15 * 1000, // 15 seconds - Balanced for DM responsiveness
+    // IMPORTANT: Clear messages when switching conversations
+    placeholderData: undefined,
   });
 }
