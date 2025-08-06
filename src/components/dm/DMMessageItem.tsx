@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useDMDecrypt } from "@/hooks/useDMDecrypt";
 import { useEmojiReactions } from "@/hooks/useEmojiReactions";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface DMMessageItemProps {
@@ -101,7 +101,7 @@ export function DMMessageItem({ message, showAvatar, onNavigateToDMs }: DMMessag
                 {isOwnMessage ? 'You' : displayName}
               </span>
               <span className="text-xs text-gray-500">
-                {formatDistanceToNow(timestamp, { addSuffix: true })}
+                {formatDistanceToNowShort(timestamp, { addSuffix: true })}
               </span>
             </div>
           )}

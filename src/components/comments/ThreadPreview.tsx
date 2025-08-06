@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { MessageSquare, ChevronDown, ChevronRight, Reply } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 import { Comment } from './Comment';
@@ -33,7 +33,7 @@ export function ThreadPreview({ root, parentComment: _parentComment, replies, on
   const latestReply = replies[replies.length - 1];
   const latestReplyAuthor = useAuthor(latestReply?.pubkey);
   const latestReplyName = latestReplyAuthor.data?.metadata?.name ?? genUserName(latestReply?.pubkey || '');
-  const latestReplyTime = latestReply ? formatDistanceToNow(new Date(latestReply.created_at * 1000), { addSuffix: true }) : '';
+  const latestReplyTime = latestReply ? formatDistanceToNowShort(new Date(latestReply.created_at * 1000), { addSuffix: true }) : '';
 
   return (
     <div className="ml-4 space-y-2">

@@ -5,7 +5,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Users } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +35,7 @@ export function ReplyPreview({ replies, onShowReplies, showReplies, className }:
 
   const latestMetadata = latestAuthor.data?.metadata;
   const latestDisplayName = latestMetadata?.name ?? genUserName(latestReply.pubkey);
-  const timeAgo = formatDistanceToNow(new Date(latestReply.created_at * 1000), { addSuffix: true });
+  const timeAgo = formatDistanceToNowShort(new Date(latestReply.created_at * 1000), { addSuffix: true });
 
   // Truncate content for preview
   const previewContent = latestReply.content.length > 80
