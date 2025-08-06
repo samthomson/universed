@@ -69,8 +69,6 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
   const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
-  const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
-  const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
@@ -81,37 +79,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   const community = communities?.find(c => c.id === communityId);
 
-  // Simple handlers that track which member is being processed
-  const handleApprove = (memberPubkey: string) => {
-    if (!community) return;
-    setApprovingMembers(prev => new Set([...prev, memberPubkey]));
-    addMember({ 
-      communityId: community.id, 
-      memberPubkey,
-    });
-  };
 
-  const handleDecline = (memberPubkey: string) => {
-    if (!community) return;
-    setDecliningMembers(prev => new Set([...prev, memberPubkey]));
-    declineMember({ 
-      communityId: community.id, 
-      memberPubkey,
-    });
-  };
 
-  // Clear individual member states when global operations complete
-  useEffect(() => {
-    if (!isAddingMember) {
-      setApprovingMembers(new Set());
-    }
-  }, [isAddingMember]);
-
-  useEffect(() => {
-    if (!isDecliningMember) {
-      setDecliningMembers(new Set());
-    }
-  }, [isDecliningMember]);
+  
 
   // Initialize form data when community changes
   useEffect(() => {
