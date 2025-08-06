@@ -6,6 +6,7 @@ import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { VoiceProvider } from '@/contexts/VoiceContext';
+import { NWCProvider } from '@/contexts/NWCContext';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -33,9 +34,11 @@ export function TestApp({ children }: TestAppProps) {
           <NostrLoginProvider storageKey='test-login'>
             <NostrProvider>
               <VoiceProvider>
-                <BrowserRouter>
-                  {children}
-                </BrowserRouter>
+                <NWCProvider>
+                  <BrowserRouter>
+                    {children}
+                  </BrowserRouter>
+                </NWCProvider>
               </VoiceProvider>
             </NostrProvider>
           </NostrLoginProvider>
