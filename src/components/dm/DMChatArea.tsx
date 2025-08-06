@@ -2,6 +2,7 @@ import { ArrowLeft, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDMMessages } from "@/hooks/useDMMessages";
@@ -91,11 +92,14 @@ export function DMChatArea(
     });
   };
 
+  const { user } = useCurrentUser();
+
   return (
     <BaseChatArea
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
+      queryKey={['dm-messages', user?.pubkey || '', conversationId]}
       header={
         <DMChatHeader 
           conversationId={conversationId} 

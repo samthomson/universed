@@ -9,6 +9,7 @@ interface BaseChatAreaProps {
   messages: NostrEvent[];
   isLoading: boolean;
   onSendMessage: (content: string) => Promise<void>;
+  queryKey: string[]; // Specific query key for this chat context
   header: React.ReactNode;
   messageListConfig: {
     showPinnedMessages: boolean;
@@ -40,6 +41,7 @@ export function BaseChatArea({
   messages,
   isLoading,
   onSendMessage,
+  queryKey,
   header,
   messageListConfig,
   messageItemConfig,
@@ -61,8 +63,8 @@ export function BaseChatArea({
       await onSendMessage(content);
     },
     onMutate: async ({ content }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['messages'] });
+      // Cancel any outgoing refetches for this specific chat
+      await queryClient.cancelQueries({ queryKey });
 
       // Snapshot the previous value
       const previousMessages = messages;
@@ -79,9 +81,8 @@ export function BaseChatArea({
         isSending: true, // Mark as sending state for optimistic UI
       };
 
-      // Optimistically update to the new value
-      // Note: The query key should be more specific in implementations
-      queryClient.setQueriesData({ queryKey: ['messages'] }, old => {
+      // Optimistically update to the new value for this specific chat context
+      queryClient.setQueryData(queryKey, old => {
         const oldMessages = Array.isArray(old) ? old : [];
         return [...oldMessages, optimisticMessage];
       });
@@ -92,13 +93,13 @@ export function BaseChatArea({
     onError: (err, variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousMessages) {
-        queryClient.setQueriesData({ queryKey: ['messages'] }, context.previousMessages);
+        queryClient.setQueryData(queryKey, context.previousMessages);
       }
       logger.error('Failed to send message:', err);
     },
     onSettled: () => {
       // Always refetch after error or success to make sure we're in sync
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 
