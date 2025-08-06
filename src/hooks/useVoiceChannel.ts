@@ -1168,38 +1168,44 @@ export function useVoiceChannel(channelId?: string) {
 
   // Cleanup on unmount
   useEffect(() => {
+    // Copy ref values to local variables to avoid stale closure issues
+    const reconnectTimeouts = reconnectTimeoutsRef.current;
+    const peerConnections = peerConnectionsRef.current;
+    const voiceDetection = voiceDetectionRef.current;
+    const heartbeat = heartbeatRef.current;
+    const localStream = localStreamRef.current;
+    const audioContext = audioContextRef.current;
+
     return () => {
       logger.log('Cleaning up voice channel hook');
 
       // Stop voice detection
-      if (voiceDetectionRef.current) {
-        cancelAnimationFrame(voiceDetectionRef.current);
+      if (voiceDetection) {
+        cancelAnimationFrame(voiceDetection);
       }
 
       // Stop heartbeat
-      if (heartbeatRef.current) {
-        clearInterval(heartbeatRef.current);
+      if (heartbeat) {
+        clearInterval(heartbeat);
       }
 
-      // Clear all reconnection timeouts - copy ref to avoid stale closure
-      const reconnectTimeouts = reconnectTimeoutsRef.current;
+      // Clear all reconnection timeouts
       reconnectTimeouts.forEach(timeoutId => {
         clearTimeout(timeoutId);
       });
       reconnectTimeouts.clear();
 
       // Stop local stream
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
       }
 
       // Close audio context
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+      if (audioContext) {
+        audioContext.close();
       }
 
-      // Close peer connections and stop remote audio - copy ref to avoid stale closure
-      const peerConnections = peerConnectionsRef.current;
+      // Close peer connections and stop remote audio
       peerConnections.forEach(({ connection, remoteAudio }) => {
         connection.close();
         remoteAudio.srcObject = null;
