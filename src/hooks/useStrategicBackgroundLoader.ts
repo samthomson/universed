@@ -4,6 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { useUserCommunities } from './useUserCommunities';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import type { NostrFilter, NostrEvent } from '@nostrify/nostrify';
 
 interface LoadingPriority {
@@ -219,17 +220,17 @@ export function useStrategicBackgroundLoader() {
         // properly filtered data from useMessages.
 
         // Just mark the channel as loaded - don't update the query cache
-        console.log(`[StrategicBackgroundLoader] Cached ${validEvents.length} events for channel ${channelId}, but NOT updating message query cache`);
+        logger.log(`[StrategicBackgroundLoader] Cached ${validEvents.length} events for channel ${channelId}, but NOT updating message query cache`);
 
         // Mark channel as loaded
         stateRef.current.loadedChannels.set(`${communityId}:${channelId}`, Date.now());
       }
     } catch (error) {
       if (!signal.aborted) {
-        console.warn(`Failed to load channel ${channelId} for community ${communityId}:`, error);
+        logger.warn(`Failed to load channel ${channelId} for community ${communityId}:`, error);
       }
     }
-  }, [nostr, cacheEvents, queryClient, isCacheValid]);
+  }, [nostr, cacheEvents, isCacheValid]);
 
   // Load all data for a community
   const loadCommunityData = useCallback(async (
@@ -431,7 +432,7 @@ export function useStrategicBackgroundLoader() {
 
     } catch (error) {
       if (!signal.aborted) {
-        console.warn(`Failed to load community data for ${communityId}:`, error);
+        logger.warn(`Failed to load community data for ${communityId}:`, error);
       }
     }
   }, [nostr, cacheEvents, queryClient, isCacheValid, loadChannelEvents]);
@@ -515,7 +516,7 @@ export function useStrategicBackgroundLoader() {
       }
     } catch (error) {
       if (!signal.aborted) {
-        console.warn('Strategic loading error:', error);
+        logger.warn('Strategic loading error:', error);
       }
     } finally {
       stateRef.current.isLoading = false;
@@ -633,7 +634,7 @@ export function useStrategicBackgroundLoader() {
     try {
       await loadCommunityData(communityId, abortController.signal);
     } catch (error) {
-      console.warn(`Failed to force load community ${communityId}:`, error);
+      logger.warn(`Failed to force load community ${communityId}:`, error);
     }
   }, [loadCommunityData]);
 

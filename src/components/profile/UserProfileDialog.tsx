@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { nip19 } from "nostr-tools";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -135,7 +135,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                   {joinDate && (
                     <div className="flex items-center justify-center space-x-1">
                       <Calendar className="w-3 h-3" />
-                      <span>Joined {formatDistanceToNow(joinDate, { addSuffix: true })}</span>
+                      <span>Joined {formatDistanceToNowShort(joinDate, { addSuffix: true })}</span>
                     </div>
                   )}
                 </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MessageCircle, UserPlus, MoreHorizontal, Calendar, Link as LinkIcon, Copy, Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MessageCircle, UserPlus, MoreHorizontal, Calendar, Link as LinkIcon, Copy, Check, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,11 +10,12 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUserPosts } from "@/hooks/useUserPosts";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { nip19 } from "nostr-tools";
 import { MessageItem } from "@/components/chat/MessageItem";
 import { NewDMDialog } from "@/components/dm/NewDMDialog";
 import { toast } from "sonner";
+import { logger } from '@/lib/logger';
 
 interface UserProfileProps {
   pubkey: string;
@@ -22,6 +24,7 @@ interface UserProfileProps {
 export function UserProfile({ pubkey }: UserProfileProps) {
   const [showNewDM, setShowNewDM] = useState(false);
   const [copied, setCopied] = useState(false);
+  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey);
   const metadata = author.data?.metadata;
@@ -73,7 +76,21 @@ export function UserProfile({ pubkey }: UserProfileProps) {
             </Avatar>
 
             {/* Action Buttons */}
-            {!isOwnProfile && (
+            {isOwnProfile ? (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    navigate(`/profile/${npub}/edit`);
+                  }}
+                  className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit Profile</span>
+                </Button>
+              </div>
+            ) : (
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
@@ -149,7 +166,7 @@ export function UserProfile({ pubkey }: UserProfileProps) {
               {joinDate && (
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>Joined {formatDistanceToNow(joinDate, { addSuffix: true })}</span>
+                  <span>Joined {formatDistanceToNowShort(joinDate, { addSuffix: true })}</span>
                 </div>
               )}
             </div>
@@ -246,7 +263,7 @@ export function UserProfile({ pubkey }: UserProfileProps) {
         onOpenChange={setShowNewDM}
         onConversationCreated={() => {
           // TODO: Navigate to DM conversation
-          console.log('Started DM with:', pubkey);
+          logger.log('Started DM with:', pubkey);
         }}
       />
     </div>

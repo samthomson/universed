@@ -143,8 +143,6 @@ export function useCommunities() {
 
       const validEvents = events.filter(validateCommunityEvent);
       return validEvents.map(parseCommunityEvent);
-    },
-    staleTime: 30 * 60 * 1000, // 30 minutes - Communities change infrequently
-    gcTime: 2 * 60 * 60 * 1000, // 2 hours - Keep community data cached longer
+    }
   });
 }

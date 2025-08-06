@@ -13,7 +13,7 @@ import { useNotifications, useMarkNotificationsRead, useUnreadNotificationCount,
 import { useAuthor } from '@/hooks/useAuthor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { genUserName } from '@/lib/genUserName';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowShort } from '@/lib/formatTime';
 
 function NotificationItem({ notification, onMarkRead }: {
   notification: Notification;
@@ -69,7 +69,7 @@ function NotificationItem({ notification, onMarkRead }: {
             <p className="text-sm font-medium truncate">{notification.title}</p>
             <p className="text-xs text-muted-foreground">
               {notification.fromPubkey && `${displayName} • `}
-              {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+              {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
           {!notification.read && (
@@ -175,8 +175,8 @@ export function NotificationCenter() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200">
+          <Bell className="h-6 w-6" />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
@@ -188,7 +188,7 @@ export function NotificationCenter() {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0 ml-2" align="start" side="right">
         {showSettings ? (
           <div>
             <div className="flex items-center justify-between p-4 border-b">

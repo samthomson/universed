@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent, useEffect } from "react";
+import { useState, useRef, KeyboardEvent, useEffect, ClipboardEvent } from "react";
 import { Send, Plus, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import { useUserMentions } from "@/hooks/useUserMentions";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanAccessChannel } from "@/hooks/useChannelPermissions";
+import { useUploadFile } from "@/hooks/useUploadFile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface MessageInputProps {
@@ -40,6 +41,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
+  const { mutateAsync: uploadFile } = useUploadFile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { startTyping, stopTyping } = useTypingManager(channelId);
@@ -267,6 +269,62 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
     }
   };
 
+  const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+
+    if (imageItems.length > 0) {
+      e.preventDefault(); // Prevent default paste behavior for images
+
+      const files = await Promise.all(
+        imageItems.map(item => new Promise<File | null>((resolve) => {
+          const file = item.getAsFile();
+          resolve(file);
+        }))
+      );
+
+      const validFiles = files.filter((file): file is File => file !== null);
+
+      if (validFiles.length > 0) {
+        try {
+          // Upload each image file
+          for (const file of validFiles) {
+            const tags = await uploadFile(file);
+            
+            // Extract URL from tags (first tag should contain the URL)
+            const url = tags[0]?.[1];
+            if (!url) {
+              throw new Error('No URL returned from upload');
+            }
+
+            const attachedFile: AttachedFile = {
+              url,
+              mimeType: file.type,
+              size: file.size,
+              name: file.name || `pasted-image-${Date.now()}`,
+              tags,
+            };
+
+            setAttachedFiles(prev => [...prev, attachedFile]);
+          }
+
+          toast({
+            title: 'Image uploaded',
+            description: `${validFiles.length} image${validFiles.length > 1 ? 's' : ''} uploaded successfully.`,
+          });
+        } catch (error) {
+          console.error('Paste upload failed:', error);
+          toast({
+            title: 'Upload failed',
+            description: 'Failed to upload pasted image. Please try again.',
+            variant: 'destructive',
+          });
+        }
+      }
+    }
+    // If no images, let the default paste behavior handle text
+  };
+
   useEffect(() => {
     return () => {
       stopTyping();
@@ -289,7 +347,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   }
 
   return (
-    <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'}`}>
+    <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'} w-full max-w-full overflow-hidden`}>
       {/* Attached Files Preview */}
       {attachedFiles.length > 0 && (
         <div className={`${isMobile ? 'mb-2' : 'mb-3'} space-y-2`}>
@@ -327,6 +385,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
             value={message}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onBlur={stopTyping}
             onSelect={(e) => {
               // Update mentions when cursor position changes
@@ -384,7 +443,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
       </div>
 
       <div className="mt-1 text-xs text-gray-500">
-        Press Enter to send, Shift+Enter for new line
+        Press Enter to send, Shift+Enter for new line. Paste images to upload them as attachments.
       </div>
 
       {/* File Upload Dialog */}

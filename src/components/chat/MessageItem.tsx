@@ -1,4 +1,6 @@
-import { useState, memo } from "react";
+import { useState, memo, useCallback } from "react";
+import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 import { MoreHorizontal, Reply, Smile, Pin, PinOff, Trash2, VolumeX, Ban } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,7 +28,7 @@ import { useModerationActions } from "@/hooks/useModerationActions";
 import { DeletionConfirmDialog } from "@/components/moderation/DeletionConfirmDialog";
 import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -40,13 +42,15 @@ interface MessageItemProps {
 
 function MessageItemComponent({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const isMobile = useIsMobile();
-  const [isHovered, setIsHovered] = useState(false);
+
+  // UI states
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Dialog states
   const [showThread, setShowThread] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showBanDialog, setShowBanDialog] = useState(false);
-  const [showMuteDialog, setShowMuteDialog] = useState(false);
+  const [activeModerationDialog, setActiveModerationDialog] = useState<'delete' | 'ban' | 'mute' | null>(null);
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const { addReaction } = useEmojiReactions();
@@ -68,23 +72,16 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
   const profileImage = metadata?.picture;
   const timestamp = new Date(message.created_at * 1000);
 
-  // Don't render blocked messages
-  if (isBlocked) {
-    return null;
-  }
-
-  // Show muted messages with reduced opacity
-  const messageOpacity = isMuted ? 'opacity-50' : '';
-
-  const handleEmojiSelect = (emoji: string) => {
+  // Memoize handlers to prevent unnecessary recreations
+  const handleEmojiSelect = useCallback((emoji: string) => {
     if (!user) return;
     addReaction({
       targetEvent: message,
       emoji,
     });
-  };
+  }, [user, message, addReaction]);
 
-  const handleTogglePin = () => {
+  const handleTogglePin = useCallback(() => {
     if (!communityId || !messageChannelId) return;
 
     if (isPinned) {
@@ -92,9 +89,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
     } else {
       pinMessage({ communityId, channelId: messageChannelId, messageId: message.id });
     }
-  };
+  }, [communityId, messageChannelId, message.id, isPinned, pinMessage, unpinMessage]);
 
-  const handleDeleteMessage = (reason?: string) => {
+  const handleDeleteMessage = useCallback((reason?: string) => {
     deleteMessage(
       { messageEvent: message, reason },
       {
@@ -105,7 +102,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to delete message:', error);
+          logger.error('Failed to delete message:', error);
           toast({
             title: "Failed to delete message",
             description: "There was an error deleting the message. Please try again.",
@@ -114,9 +111,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [message, deleteMessage, toast]);
 
-  const handleBanUser = (reason?: string) => {
+  const handleBanUser = useCallback((reason?: string) => {
     moderationActions.banUser.mutate(
       {
         communityId: communityId || '',
@@ -131,7 +128,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to ban user:', error);
+          logger.error('Failed to ban user:', error);
           toast({
             title: "Failed to ban user",
             description: "There was an error banning the user. Please try again.",
@@ -140,9 +137,9 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [communityId, message.pubkey, moderationActions.banUser, toast]);
 
-  const handleMuteUser = (reason?: string) => {
+  const handleMuteUser = useCallback((reason?: string) => {
     moderationActions.muteUser.mutate(
       {
         communityId: communityId || '',
@@ -157,7 +154,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           });
         },
         onError: (error) => {
-          console.error('Failed to mute user:', error);
+          logger.error('Failed to mute user:', error);
           toast({
             title: "Failed to mute user",
             description: "There was an error muting the user. Please try again.",
@@ -166,22 +163,30 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         }
       }
     );
-  };
+  }, [communityId, message.pubkey, moderationActions.muteUser, toast]);
 
-  const replyCount = replies?.length || 0;
-
-  const handleProfileClick = (e: React.MouseEvent) => {
+  const handleProfileClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (user?.pubkey !== message.pubkey) {
       setShowProfileDialog(true);
     }
-  };
+  }, [user?.pubkey, message.pubkey]);
 
-  const handleStartDM = (pubkey: string) => {
+  const handleStartDM = useCallback((pubkey: string) => {
     onNavigateToDMs?.(pubkey);
     setShowProfileDialog(false);
-  };
+  }, [onNavigateToDMs]);
+
+  // Don't render blocked messages
+  if (isBlocked) {
+    return null;
+  }
+
+  // Show muted messages with reduced opacity
+  const messageOpacity = isMuted ? 'opacity-50' : '';
+
+  const replyCount = replies?.length || 0;
 
   return (
     <MessageContextMenu
@@ -190,9 +195,15 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
       communityId={communityId}
     >
       <div
-        className={`group relative ${isMobile ? 'px-3 py-2' : 'px-4 py-1'} hover:bg-gray-800/30 transition-all duration-200 ${
-          showAvatar ? (isMobile ? 'mt-3' : 'mt-4') : ''
-        } ${messageOpacity} ${isMobile ? 'mobile-touch' : ''} ${isHovered && !isMobile ? 'bg-gray-800/20' : ''}`}
+        className={cn({
+          "group relative hover:bg-gray-800/30 transition-all duration-200 w-full": true,
+          "px-3 py-2": isMobile,
+          "px-4 py-1": !isMobile,
+          "mt-3": showAvatar && isMobile,
+          "mt-4": showAvatar && !isMobile,
+          [messageOpacity]: true,
+          "mobile-touch": isMobile,
+        })}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && !isDropdownOpen && setIsHovered(false)}
         onClick={() => isMobile && setIsHovered(!isHovered)}
@@ -205,15 +216,31 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
           </div>
         )}
 
-        <div className={`flex ${isMobile ? 'space-x-2' : 'space-x-3'}`}>
+        <div className={cn({
+          "flex": true,
+          "space-x-2": isMobile,
+          "space-x-3": !isMobile,
+        })}>
           {/* Avatar */}
-          <div className={`${isMobile ? 'w-8' : 'w-10'} flex-shrink-0`}>
+          <div className={cn({
+            "flex-shrink-0": true,
+            "w-8": isMobile,
+            "w-10": !isMobile,
+          })}>
             {showAvatar ? (
               <UserContextMenu pubkey={message.pubkey} displayName={displayName}>
                 <div className="relative cursor-pointer" onClick={handleProfileClick}>
-                  <Avatar className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} hover:opacity-80 transition-opacity`}>
+                  <Avatar className={cn({
+                    "hover:opacity-80 transition-opacity": true,
+                    "w-8 h-8": isMobile,
+                    "w-10 h-10": !isMobile,
+                  })}>
                     <AvatarImage src={profileImage} alt={displayName} />
-                    <AvatarFallback className={`bg-indigo-600 text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    <AvatarFallback className={cn({
+                      "bg-indigo-600 text-white": true,
+                      "text-xs": isMobile,
+                      "text-sm": !isMobile,
+                    })}>
                       {displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -223,7 +250,11 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                 </div>
               </UserContextMenu>
             ) : (
-              <div className={`${isMobile ? 'w-8' : 'w-10'} h-5 flex items-center justify-center`}>
+              <div className={cn({
+                "h-5 flex items-center justify-center": true,
+                "w-8": isMobile,
+                "w-10": !isMobile,
+              })}>
                 {isHovered && !isMobile && (
                   <span className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
@@ -254,7 +285,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                   </Badge>
                 )}
                 <span className="text-xs text-gray-500">
-                  {formatDistanceToNow(timestamp, { addSuffix: true })}
+                  {formatDistanceToNowShort(timestamp, { addSuffix: true })}
                 </span>
               </div>
             )}
@@ -281,18 +312,29 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
           {/* Message Actions - Same for both Desktop and Mobile */}
           {isHovered && (
-            <div className={`absolute ${isMobile ? '-top-1 right-2' : '-top-2 right-4'} bg-gray-700 border border-gray-600 rounded-md shadow-lg flex items-center divide-x divide-gray-600`}>
+            <div className={cn({
+              "absolute bg-gray-700 border border-gray-600 rounded-md shadow-lg flex items-center divide-x divide-gray-600": true,
+              "-top-1 right-2": isMobile,
+              "-top-2 right-4": !isMobile,
+            })}>
               {/* Quick Actions Group */}
               <div className="flex items-center">
                 {/* Quick Reply Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-l-md rounded-r-none`}
+                  className={cn({
+                    "hover:bg-gray-600 rounded-l-md rounded-r-none": true,
+                    "w-9 h-9": isMobile,
+                    "w-8 h-8": !isMobile,
+                  })}
                   onClick={() => setShowThread(true)}
                   title="Reply"
                 >
-                  <Reply className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                  <Reply className={cn({
+                    "w-5 h-5": isMobile,
+                    "w-4 h-4": !isMobile,
+                  })} />
                 </Button>
 
                 {/* Quick React Button */}
@@ -302,10 +344,17 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-none`}
+                      className={cn({
+                        "hover:bg-gray-600 rounded-none": true,
+                        "w-9 h-9": isMobile,
+                        "w-8 h-8": !isMobile,
+                      })}
                       title="Add reaction"
                     >
-                      <Smile className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                      <Smile className={cn({
+                        "w-5 h-5": isMobile,
+                        "w-4 h-4": !isMobile,
+                      })} />
                     </Button>
                   }
                   side="top"
@@ -315,21 +364,22 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
               {/* More Actions Group */}
               <div className="flex items-center">
-                <DropdownMenu onOpenChange={(open) => {
-                  setIsDropdownOpen(open);
-                  // Reset hover state when dropdown closes on desktop
-                  if (!open && !isMobile) {
-                    setIsHovered(false);
-                  }
-                }}>
+                <DropdownMenu onOpenChange={setIsDropdownOpen}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`${isMobile ? 'w-9 h-9' : 'w-8 h-8'} hover:bg-gray-600 rounded-r-md rounded-l-none`}
+                      className={cn({
+                        "hover:bg-gray-600 rounded-r-md rounded-l-none": true,
+                        "w-9 h-9": isMobile,
+                        "w-8 h-8": !isMobile,
+                      })}
                       title="More actions"
                     >
-                      <MoreHorizontal className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                      <MoreHorizontal className={cn({
+                          "w-5 h-5": isMobile,
+                          "w-4 h-4": !isMobile,
+                        })} />
                     </Button>
                   </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -352,18 +402,18 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
                   {canModerate && user?.pubkey !== message.pubkey && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowDeleteDialog(true)}>
+                      <DropdownMenuItem onClick={() => setActiveModerationDialog('delete')}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete Message
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => setShowMuteDialog(true)}>
+                      <DropdownMenuItem onClick={() => setActiveModerationDialog('mute')}>
                         <VolumeX className="mr-2 h-4 w-4" />
                         Mute User
                       </DropdownMenuItem>
 
                       <DropdownMenuItem
-                        onClick={() => setShowBanDialog(true)}
+                        onClick={() => setActiveModerationDialog('ban')}
                         className="text-red-600 focus:text-red-600"
                       >
                         <Ban className="mr-2 h-4 w-4" />
@@ -396,8 +446,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 
         {/* Moderation Dialogs */}
         <DeletionConfirmDialog
-          open={showDeleteDialog}
-          onOpenChange={setShowDeleteDialog}
+          open={activeModerationDialog === 'delete'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'delete' : null)}
           title="Delete Message (Moderator)"
           description="You are about to delete another user's message as a moderator."
           itemName="this message"
@@ -408,8 +458,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         />
 
         <DeletionConfirmDialog
-          open={showBanDialog}
-          onOpenChange={setShowBanDialog}
+          open={activeModerationDialog === 'ban'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'ban' : null)}
           title="Ban User"
           description="You are about to ban this user from the community."
           itemName="this user"
@@ -422,8 +472,8 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
         />
 
         <DeletionConfirmDialog
-          open={showMuteDialog}
-          onOpenChange={setShowMuteDialog}
+          open={activeModerationDialog === 'mute'}
+          onOpenChange={(open) => setActiveModerationDialog(open ? 'mute' : null)}
           title="Mute User"
           description="You are about to mute this user in the community."
           itemName="this user"
@@ -441,6 +491,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
 export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => {
   return (
     prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
     prevProps.showAvatar === nextProps.showAvatar &&
     prevProps.communityId === nextProps.communityId &&
     prevProps.channelId === nextProps.channelId

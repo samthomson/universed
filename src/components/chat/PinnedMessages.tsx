@@ -6,21 +6,31 @@ import { NoteContent } from "@/components/NoteContent";
 import { usePinnedMessageEvents } from "@/hooks/usePinnedMessages";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface PinnedMessagesProps {
   communityId: string;
   channelId: string;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  messages?: NostrEvent[];
+  messageIds?: string[];
 }
 
-export function PinnedMessages({ communityId, channelId, onNavigateToDMs }: PinnedMessagesProps) {
+export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messages, messageIds }: PinnedMessagesProps) {
   const { data: pinnedMessages, isLoading } = usePinnedMessageEvents(communityId, channelId);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  // Use passed messages if available, otherwise use fetched pinned messages
+  const displayMessages = useMemo(() => {
+    if (messages && messageIds) {
+      return messages.filter(message => messageIds.includes(message.id));
+    }
+    return pinnedMessages || [];
+  }, [messages, messageIds, pinnedMessages]);
+
   // Don't render anything if there are no pinned messages
-  if (!isLoading && (!pinnedMessages || pinnedMessages.length === 0)) {
+  if (!isLoading && displayMessages.length === 0) {
     return null;
   }
 
@@ -38,7 +48,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs }: Pinn
     );
   }
 
-  const firstMessage = pinnedMessages?.[0];
+  const firstMessage = displayMessages[0];
 
   return (
     <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50">
@@ -67,7 +77,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs }: Pinn
 
         {isExpanded && (
           <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-            {pinnedMessages?.map((message) => (
+            {displayMessages.map((message) => (
               <PinnedMessageItem
                 key={message.id}
                 message={message}

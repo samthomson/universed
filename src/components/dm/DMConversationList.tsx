@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { DMConversation } from "@/hooks/useDirectMessages";
 
 interface DMConversationListProps {
@@ -63,7 +63,7 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
                 </Badge>
               )}
               <span className="text-xs text-gray-400">
-                {formatDistanceToNow(lastMessageTime, { addSuffix: false })}
+                {formatDistanceToNowShort(lastMessageTime, { addSuffix: false })}
               </span>
             </div>
           </div>

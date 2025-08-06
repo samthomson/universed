@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Users, Hash, Plus, Clock, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,8 +12,10 @@ import { useUserMembership } from "@/hooks/useUserMembership";
 import { useJoinCommunity } from "@/hooks/useJoinCommunity";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useBackgroundMessagePreloader } from "@/hooks/useBackgroundMessagePreloader";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
+import { generateCommunityNaddr } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import type { MembershipStatus } from "@/hooks/useUserMembership";
 
@@ -26,18 +29,21 @@ interface CommunityCardProps {
   onSelect?: (communityId: string) => void;
 }
 
-function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardProps) {
+function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: CommunityCardProps) {
+  const navigate = useNavigate();
   const author = useAuthor(community.creator);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { mutate: joinCommunity, isPending: isJoining } = useJoinCommunity();
   const { toast } = useToast();
+  const { preloadMessages } = useBackgroundMessagePreloader(null, null);
 
   const creatorName = metadata?.name || genUserName(community.creator);
   const memberCount = community.moderators.length + 1; // Creator + moderators (simplified)
 
   const handleJoinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
 
     if (!user) {
       toast({
@@ -121,8 +127,38 @@ function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardP
     }
   };
 
+  const handleCardClick = () => {
+    // Always preload messages in the background for preview, regardless of membership status
+    // Preload the general channel messages
+    preloadMessages(community.id, 'general').catch((error) => {
+      // Silently fail background preloading - it's not critical for the main flow
+      console.warn('Background message preloading failed:', error);
+    });
+
+    // Navigate to the main app with the community selected for preview
+    const naddr = generateCommunityNaddr(community.event);
+
+    // If user is already a member (approved, owner, or moderator), navigate directly
+    if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
+      navigate(`/${naddr}`);
+    } else if (membershipStatus === 'pending') {
+      // For pending requests, navigate to show the community but inform user
+      navigate(`/${naddr}`);
+      setTimeout(() => {
+        toast({
+          title: 'Request Pending',
+          description: `Your join request for ${community.name} is still being reviewed.`,
+          variant: 'default',
+        });
+      }, 500);
+    } else {
+      // For non-members (not-member, declined, banned), navigate to show preview and trigger join flow
+      navigate(`/${naddr}`);
+    }
+  };
+
   return (
-    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={() => onSelect?.(community.id)}>
+    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={handleCardClick}>
       <CardHeader className="pb-3 overflow-hidden">
         <div className="flex items-start justify-between min-w-0">
           <div className="flex items-center space-x-3 min-w-0 flex-1">

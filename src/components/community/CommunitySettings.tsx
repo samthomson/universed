@@ -24,8 +24,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCommunities } from "@/hooks/useCommunities";
+import { useCommunities, type Community } from "@/hooks/useCommunities";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCommunityMembers } from "@/hooks/useCommunityMembers";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
@@ -36,8 +37,12 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useManageMembers } from "@/hooks/useManageMembers";
 import { genUserName } from "@/lib/genUserName";
-import { CommunityShareDialog } from "./CommunityShareDialog";
+
+import { nip19 } from 'nostr-tools';
+import { Copy, Check, QrCode, Download } from 'lucide-react';
+import QRCode from 'qrcode';
 
 interface CommunitySettingsProps {
   communityId: string;
@@ -63,15 +68,20 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
+  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
-  const { data: joinRequests } = useJoinRequests(communityId);
+  const { data: joinRequests, isRefetching: isRefetchingRequests } = useJoinRequests(communityId);
   const { data: moderationLogs } = useModerationLogs(communityId || '');
   const moderationStats = useModerationStats(communityId || '');
   const { data: reports } = useReports(communityId);
 
   const community = communities?.find(c => c.id === communityId);
+
+
+
+  
 
   // Initialize form data when community changes
   useEffect(() => {
@@ -125,6 +135,52 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     setFormData(prev => ({ ...prev, image: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle join request approval
+  const handleApproveRequest = async (requesterPubkey: string) => {
+    if (!community) return;
+
+    try {
+      addMember({
+        communityId: community.id,
+        memberPubkey: requesterPubkey
+      });
+      toast({
+        title: "Success",
+        description: "Join request approved successfully!",
+      });
+    } catch (error) {
+      console.error("Failed to approve join request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve join request",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle join request decline
+  const handleDeclineRequest = async (requesterPubkey: string) => {
+    if (!community) return;
+
+    try {
+      declineMember({
+        communityId: community.id,
+        memberPubkey: requesterPubkey
+      });
+      toast({
+        title: "Success",
+        description: "Join request declined successfully!",
+      });
+    } catch (error) {
+      console.error("Failed to decline join request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to decline join request",
+        variant: "destructive",
+      });
     }
   };
 
@@ -246,7 +302,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -311,7 +367,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </div>
           )}
 
-          <ScrollArea className="h-[60vh] mt-4">
+          <ScrollArea className="h-[70vh] mt-4">
             <TabsContent value="overview" className="space-y-6">
               <Card>
                 <CardHeader>
@@ -320,7 +376,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     Basic settings for your community
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   <div className="space-y-2">
                     <Label htmlFor="community-icon">Community Icon</Label>
                     <div className="flex items-center gap-4">
@@ -433,29 +489,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </TabsContent>
 
             <TabsContent value="sharing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Share Your Community</CardTitle>
-                  <CardDescription>
-                    Generate shareable links to invite new members to your community
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center py-8">
-                    <Share2 className="h-16 w-16 mx-auto text-muted-foreground opacity-50 mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Invite New Members</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Share your community with others using shareable links
-                    </p>
-                    <CommunityShareDialog community={community}>
-                      <Button size="lg">
-                        <Share2 className="h-4 w-4 mr-2" />
-                        Generate Share Links
-                      </Button>
-                    </CommunityShareDialog>
-                  </div>
-                </CardContent>
-              </Card>
+              <CommunityShareContent community={community} />
             </TabsContent>
 
             <TabsContent value="moderation" className="space-y-6">
@@ -466,7 +500,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     Automatically moderate content based on rules
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 pb-0">
                   <div className="flex items-center space-x-2">
                     <Switch id="auto-delete-spam" />
                     <Label htmlFor="auto-delete-spam">Auto-delete spam messages</Label>
@@ -549,9 +583,21 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {joinRequests && joinRequests.length > 0 ? (
+                    {isRefetchingRequests ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
+                        <p>Updating...</p>
+                      </div>
+                    ) : joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
-                        <JoinRequestItem key={request.event.id} request={request} />
+                        <JoinRequestItem
+                          key={request.event.id}
+                          request={request}
+                          onApprove={() => handleApproveRequest(request.requesterPubkey)}
+                          onDecline={() => handleDeclineRequest(request.requesterPubkey)}
+                          isApproving={isAddingMember}
+                          isDeclining={isDecliningMember}
+                        />
                       ))
                     ) : (
                       <div className="text-center py-6 text-muted-foreground">
@@ -672,6 +718,200 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   );
 }
 
+// Component for sharing content (extracted from CommunityShareDialog)
+function CommunityShareContent({ community }: { community: Community }) {
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
+  const [isGeneratingQR, setIsGeneratingQR] = useState(true);
+  const { toast } = useToast();
+
+  // Parse community ID to get the components for naddr
+  const [kind, pubkey, identifier] = community.id.split(':');
+
+  // Generate naddr for the community
+  const naddr = nip19.naddrEncode({
+    kind: parseInt(kind),
+    pubkey,
+    identifier,
+    relays: community.relays.length > 0 ? community.relays : undefined,
+  });
+
+  // Generate shareable URLs
+  const baseUrl = window.location.origin;
+  const joinUrl = `${baseUrl}/join/${naddr}`;
+
+  // Auto-generate QR code when component mounts
+  useEffect(() => {
+    const generateQRCode = async () => {
+      try {
+        setIsGeneratingQR(true);
+        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+          width: 256,
+          margin: 2,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF',
+          },
+        });
+        setQrCodeDataUrl(qrDataUrl);
+      } catch (error) {
+        console.error('Failed to generate QR code:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to generate QR code',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsGeneratingQR(false);
+      }
+    };
+
+    generateQRCode();
+  }, [joinUrl, toast]);
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({
+        title: 'Copied to clipboard',
+        description: 'The link has been copied to your clipboard.',
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast({
+        title: 'Failed to copy',
+        description: 'Could not copy to clipboard. Please copy manually.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+
+
+  const downloadQRCode = () => {
+    if (!qrCodeDataUrl) return;
+
+    const link = document.createElement('a');
+    link.download = `${community.name}-join-qr.png`;
+    link.href = qrCodeDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: 'Downloaded',
+      description: 'QR code has been downloaded',
+    });
+  };
+
+  const CopyButton = ({ text, field, className = '' }: { text: string; field: string; className?: string }) => (
+    <Button
+      variant="outline"
+      size="sm"
+      className={className}
+      onClick={() => copyToClipboard(text, field)}
+    >
+      {copiedField === field ? (
+        <Check className="h-4 w-4" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+    </Button>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Join Link */}
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="join-url" className="text-base font-medium">
+            Join Link
+          </Label>
+          <p className="text-sm text-muted-foreground mb-2">
+            Direct link for people to request to join your community
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id="join-url"
+            value={joinUrl}
+            readOnly
+            className="font-mono text-sm"
+          />
+          <CopyButton text={joinUrl} field="join-url" />
+        </div>
+      </div>
+
+      {/* Nostr Address */}
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="naddr" className="text-base font-medium">
+            Nostr Address (naddr)
+          </Label>
+          <p className="text-sm text-muted-foreground mb-2">
+            Technical identifier for Nostr clients and developers
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id="naddr"
+            value={naddr}
+            readOnly
+            className="font-mono text-sm"
+          />
+          <CopyButton text={naddr} field="naddr" />
+        </div>
+      </div>
+
+      {/* QR Code Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <QrCode className="h-5 w-5" />
+            QR Code
+          </CardTitle>
+          <CardDescription>
+            Scan this QR code to join the community
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-center">
+            <div className="p-3 bg-white rounded-lg border">
+              {isGeneratingQR ? (
+                <Skeleton className="w-64 h-64" />
+              ) : qrCodeDataUrl ? (
+                <img
+                  src={qrCodeDataUrl}
+                  alt={`QR code for ${community.name}`}
+                  className="w-64 h-64"
+                />
+              ) : (
+                <div className="w-64 h-64 flex items-center justify-center text-muted-foreground">
+                  Failed to generate QR code
+                </div>
+              )}
+            </div>
+          </div>
+          {qrCodeDataUrl && (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadQRCode}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download QR Code
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // Helper component for displaying member items
 function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'moderator' | 'member'; isOnline: boolean } }) {
   const author = useAuthor(member.pubkey);
@@ -731,7 +971,19 @@ function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'mod
 }
 
 // Helper component for displaying join requests
-function JoinRequestItem({ request }: { request: { requesterPubkey: string; message: string; createdAt: number } }) {
+function JoinRequestItem({
+  request,
+  onApprove,
+  onDecline,
+  isApproving,
+  isDeclining
+}: {
+  request: { requesterPubkey: string; message: string; createdAt: number };
+  onApprove: () => void;
+  onDecline: () => void;
+  isApproving: boolean;
+  isDeclining: boolean;
+}) {
   const author = useAuthor(request.requesterPubkey);
   const displayName = author.data?.metadata?.name || genUserName(request.requesterPubkey);
   const avatar = author.data?.metadata?.picture;
@@ -757,8 +1009,22 @@ function JoinRequestItem({ request }: { request: { requesterPubkey: string; mess
         </div>
       </div>
       <div className="flex gap-2">
-        <Button size="sm" variant="outline">Accept</Button>
-        <Button size="sm" variant="destructive">Decline</Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onApprove}
+          disabled={isApproving || isDeclining}
+        >
+          {isApproving ? "Approving..." : "Accept"}
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={onDecline}
+          disabled={isApproving || isDeclining}
+        >
+          {isDeclining ? "Declining..." : "Decline"}
+        </Button>
       </div>
     </div>
   );

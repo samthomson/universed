@@ -14,7 +14,7 @@ import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useHoverPreloader } from "@/hooks/useHoverPreloader";
+import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -35,7 +35,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
-  const { onCommunityHover, onCommunityHoverEnd } = useHoverPreloader();
+  const { preloadCommunity } = useUnifiedPreloader();
   const isMobile = useIsMobile();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
@@ -79,8 +79,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                   <button
                     key={community.id}
                     onClick={() => onSelectCommunity?.(community.id)}
-                    onMouseEnter={() => onCommunityHover(community.id)}
-                    onMouseLeave={() => onCommunityHoverEnd(community.id)}
+                    onMouseDown={() => preloadCommunity(community.id)}
                     className="w-full flex flex-col p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors text-left mobile-touch mobile-button overflow-hidden"
                   >
                     {/* Icon/Avatar at the top */}

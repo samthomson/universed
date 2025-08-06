@@ -4,6 +4,7 @@ import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
 import { useCommunityMembers } from './useCommunityMembers';
+import { useUserCommunityMembership } from './useUserCommunityMembership';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export interface ChannelPermissions {
@@ -212,6 +213,7 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
   const { data: permissions, isLoading: permissionsLoading } = useChannelPermissions(communityId, channelId);
   const { canModerate } = useCanModerate(communityId);
   const { data: members, isLoading: membersLoading } = useCommunityMembers(communityId);
+  const { data: membershipStatus, isLoading: membershipLoading } = useUserCommunityMembership(communityId);
 
   // If user is not logged in, deny access
   if (!user) {
@@ -219,9 +221,12 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
   }
 
   // If permissions are still loading, deny access temporarily (security-first approach)
-  if (permissionsLoading) {
+  if (permissionsLoading || membershipLoading) {
     return { canAccess: false, reason: 'Loading permissions...' };
   }
+
+  // Check if user is already a member (owner, moderator, or approved member)
+  const isApprovedMember = membershipStatus === 'owner' || membershipStatus === 'moderator' || membershipStatus === 'approved';
 
   // If no permissions found, use default permissions
   if (!permissions) {
@@ -234,7 +239,7 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
         return { canAccess: false, reason: 'Loading member list...' };
       }
 
-      const isMember = canModerate || (members && members.some(member => member.pubkey === user.pubkey));
+      const isMember = canModerate || isApprovedMember || (members && members.some(member => member.pubkey === user.pubkey));
       return {
         canAccess: !!isMember,
         reason: isMember ? 'Default write access for members' : 'Default: only members can write'
@@ -267,8 +272,8 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
         return { canAccess: false, reason: 'Loading member list...' };
       }
 
-      // Check if user is a community member
-      const isMember = members?.some(member => member.pubkey === userPubkey);
+      // Check if user is a community member (including approved members from membership status)
+      const isMember = isApprovedMember || members?.some(member => member.pubkey === userPubkey);
       return {
         canAccess: !!isMember,
         reason: isMember ? 'User is a community member' : 'Only community members can access this channel'

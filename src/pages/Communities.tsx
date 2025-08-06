@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,10 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { LoginArea } from "@/components/auth/LoginArea";
 import { CommunityShareDialog } from "@/components/community/CommunityShareDialog";
+import { generateCommunityNaddr } from "@/lib/utils";
 
 export function Communities() {
+  const navigate = useNavigate();
   const { data: userCommunities, isLoading } = useUserCommunities();
   const { mutate: leaveCommunity } = useLeaveCommunity();
   const { user } = useCurrentUser();
@@ -163,7 +165,15 @@ export function Communities() {
                         </div>
 
                         <div className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto min-w-0">
-                          <Button variant="outline" size="sm" className="text-xs sm:text-sm whitespace-nowrap shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs sm:text-sm whitespace-nowrap shrink-0"
+                            onClick={() => {
+                              const naddr = generateCommunityNaddr(community.event);
+                              navigate(`/${naddr}`);
+                            }}
+                          >
                             <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                             View
                           </Button>

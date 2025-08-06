@@ -4,6 +4,7 @@ import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
 import { useEventCache } from './useEventCache';
+import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 export interface Channel {
@@ -205,7 +206,7 @@ export function useChannels(communityId: string | null) {
           return a.name.localeCompare(b.name);
         });
       } catch (error) {
-        console.warn('Failed to fetch channels quickly, returning default:', error);
+        logger.warn('Failed to fetch channels quickly, returning default:', error);
 
         // PRIORITY 3: On error or timeout, return default channels immediately
         const defaultChannels: Channel[] = [
@@ -230,8 +231,6 @@ export function useChannels(communityId: string | null) {
       }
     },
     enabled: !!communityId,
-    staleTime: 1000 * 60 * 15, // 15 minutes - very long cache since we prioritize cached data
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory very long
     refetchOnMount: false, // Don't refetch on mount, use cached data
     refetchOnWindowFocus: false, // Don't refetch on focus, use cached data
     refetchOnReconnect: false, // Don't refetch on reconnect, use cached data
@@ -257,10 +256,10 @@ async function refreshChannelsInBackground(
 
     if (events.length > 0) {
       cacheEvents(events);
-      console.log(`Background refreshed ${events.length} channel events for ${communityId}`);
+      logger.log(`Background refreshed ${events.length} channel events for ${communityId}`);
     }
   } catch (error) {
-    console.warn('Background channel refresh failed:', error);
+    logger.warn('Background channel refresh failed:', error);
   }
 }
 

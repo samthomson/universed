@@ -4,6 +4,7 @@ import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
 import { useCanModerate } from './useCommunityRoles';
 import { useEventCache } from './useEventCache';
+import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 export interface Space {
@@ -193,7 +194,7 @@ export function useSpaces(communityId: string | null) {
 
         return processSpaces(events);
       } catch (error) {
-        console.warn('Failed to fetch spaces quickly, returning defaults:', error);
+        logger.warn('Failed to fetch spaces quickly, returning defaults:', error);
 
         // PRIORITY 3: On error or timeout, return default spaces immediately
         const defaultSpaces: Space[] = DEFAULT_SPACES.map(space => ({
@@ -239,10 +240,10 @@ async function refreshSpacesInBackground(
 
     if (events.length > 0) {
       cacheEvents(events);
-      console.log(`Background refreshed ${events.length} space events for ${communityId}`);
+      logger.log(`Background refreshed ${events.length} space events for ${communityId}`);
     }
   } catch (error) {
-    console.warn('Background space refresh failed:', error);
+    logger.warn('Background space refresh failed:', error);
   }
 }
 

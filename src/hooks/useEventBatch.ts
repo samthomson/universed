@@ -74,8 +74,6 @@ export function useEventBatch(
       return sortedEvents;
     },
     enabled,
-    staleTime: options.staleTime || 2 * 60 * 1000, // 2 minutes default
-    gcTime: 10 * 60 * 1000, // 10 minutes - Keep in memory longer
     refetchInterval: options.refetchInterval,
     retry: 1, // Reduced retries
     // Use cached data immediately
@@ -115,7 +113,6 @@ export function useMessageRelatedEvents(
       kinds: [1, 9411, 7, 1111], // Messages, reactions, comments
       tags,
       limit: 150, // Higher limit to capture all related events
-      staleTime: 30 * 1000, // 30 seconds for real-time feel
       refetchInterval: 15 * 1000, // 15 seconds
       ...options,
     },
@@ -134,7 +131,7 @@ export function useUserRelatedEvents(
       kinds: [0, 1, 7, 9411], // Profile, posts, reactions, channel messages
       authors: [pubkey],
       limit: 100,
-      staleTime: 2 * 60 * 1000, // 2 minutes
+
       ...options,
     },
     !!pubkey
