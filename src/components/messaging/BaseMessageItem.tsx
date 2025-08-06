@@ -251,7 +251,7 @@ function BaseMessageItemComponent({
                     {isPinned ? 'Unpin Message' : 'Pin Message'}
                   </DropdownMenuItem>
                 )}
-                {config.showDelete && (
+                {config.showDelete && user?.pubkey === message.pubkey && (
                   <DropdownMenuItem onClick={() => onDelete?.(message)}>
                     <Trash2 className="mr-2 h-4 w-4" />Delete
                   </DropdownMenuItem>
