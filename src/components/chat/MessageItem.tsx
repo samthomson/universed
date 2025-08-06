@@ -42,7 +42,7 @@ interface MessageItemProps {
 
 function MessageItemComponent({ message, showAvatar, communityId, channelId, onNavigateToDMs }: MessageItemProps) {
   const isMobile = useIsMobile();
-  
+
   // UI states
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -196,7 +196,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
     >
       <div
         className={cn({
-          "group relative hover:bg-gray-800/30 transition-all duration-200": true,
+          "group relative hover:bg-gray-800/30 transition-all duration-200 w-full": true,
           "px-3 py-2": isMobile,
           "px-4 py-1": !isMobile,
           "mt-3": showAvatar && isMobile,
@@ -301,7 +301,7 @@ function MessageItemComponent({ message, showAvatar, communityId, channelId, onN
             {replyCount > 0 && (
               <Button
                 variant="ghost"
-                size="sm" 
+                size="sm"
                 className="mt-1 h-6 px-2 text-xs text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20"
                 onClick={() => setShowThread(true)}
               >

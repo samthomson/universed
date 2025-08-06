@@ -289,7 +289,7 @@ export function MessageInput({ communityId, channelId, placeholder }: MessageInp
   }
 
   return (
-    <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'}`}>
+    <div className={`bg-gray-600 rounded-lg ${isMobile ? 'p-2' : 'p-3'} w-full max-w-full overflow-hidden`}>
       {/* Attached Files Preview */}
       {attachedFiles.length > 0 && (
         <div className={`${isMobile ? 'mb-2' : 'mb-3'} space-y-2`}>
