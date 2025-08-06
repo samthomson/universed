@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
+import { CalendarEventCard } from '@/components/CalendarEventCard';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useEventById } from '@/hooks/useEventById';
 import { genUserName } from '@/lib/genUserName';
@@ -57,6 +58,20 @@ export function InlineEvent({
           </div>
         </CardContent>
       </Card>
+    );
+  }
+
+  // Check if this is a NIP-52 calendar event
+  const isCalendarEvent = event.kind === 31922 || event.kind === 31923;
+
+  // If it's a calendar event, use the specialized CalendarEventCard
+  if (isCalendarEvent) {
+    return (
+      <CalendarEventCard 
+        event={event} 
+        className={className}
+        compact={true}
+      />
     );
   }
 
