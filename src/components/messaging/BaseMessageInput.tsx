@@ -1,16 +1,13 @@
 import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
-import { Plus, Send, Smile } from "lucide-react";
+import { Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { MessageAttachmentMenu } from "@/components/messaging/MessageAttachmentMenu";
-import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
-import { FileUploadDialog } from "@/components/chat/FileUploadDialog";
-import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
@@ -55,7 +52,6 @@ export function BaseMessageInput({
     endIndex: number;
   } | null>(null);
   
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
