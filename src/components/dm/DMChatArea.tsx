@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDMMessages } from "@/hooks/useDMMessages";
@@ -13,6 +14,8 @@ import {
   dmMessageItemConfig,
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
+import type { NostrEvent } from "@nostrify/nostrify";
+import { useToast } from "@/hooks/useToast";
 
 
 interface DMChatAreaProps {
@@ -80,8 +83,11 @@ export function DMChatArea(
 ) {
   const { data: messages, isLoading } = useDMMessages(conversationId);
   const { mutate: sendDM } = useSendDM();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
+  const { user } = useCurrentUser();
+  const { toast } = useToast();
 
   const displayName = metadata?.name || genUserName(conversationId);
 
@@ -92,13 +98,46 @@ export function DMChatArea(
     });
   };
 
-  const { user } = useCurrentUser();
+  const handleDeleteMessage = async (message: NostrEvent) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to delete messages",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Create deletion event
+      await createEvent({
+        kind: 5, // Deletion event kind
+        content: "Message deleted",
+        tags: [
+          ['e', message.id],
+          ['k', message.kind.toString()],
+        ],
+      });
+
+      toast({
+        title: "Message deleted",
+        description: "Your message has been deleted",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to delete message. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <BaseChatArea
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
+      onDelete={handleDeleteMessage}
       queryKey={['dm-messages', user?.pubkey || '', conversationId]}
       header={
         <DMChatHeader 
