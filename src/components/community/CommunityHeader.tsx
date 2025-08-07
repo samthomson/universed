@@ -24,9 +24,6 @@ function RadioTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange:
     { id: "resources", label: "Resources", icon: FolderOpen, shortLabel: "Files" },
   ];
 
-  const getTabIndex = (tabId: string) => tabs.findIndex(tab => tab.id === tabId);
-  const activeIndex = getTabIndex(activeTab);
-
   return (
     <div className="relative">
       {/* Hidden radio inputs for tab control */}
@@ -49,7 +46,7 @@ function RadioTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange:
           const isActive = activeTab === tab.id;
 
           return (
-            <li key={tab.id} className="flex-1 text-center">
+            <li key={tab.id} className="flex-1 text-center relative">
               <label
                 htmlFor={`tab-${tab.id}`}
                 className={cn(
@@ -66,19 +63,15 @@ function RadioTabs({ activeTab, onTabChange }: { activeTab: string; onTabChange:
                   <span className="sm:hidden text-xs">{tab.shortLabel}</span>
                 </div>
               </label>
+
+              {/* Individual tab indicator for precise positioning */}
+              {isActive && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full transition-all duration-300 ease-in-out z-20" />
+              )}
             </li>
           );
         })}
       </ul>
-
-      {/* Animated slider indicator */}
-      <div
-        className="absolute bottom-0 left-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full transition-all duration-300 ease-in-out z-20"
-        style={{
-          width: `${100 / tabs.length}%`,
-          transform: `translateX(${activeIndex * 100}%)`,
-        }}
-      />
     </div>
   );
 }

@@ -39,7 +39,7 @@ export function UserPanel() {
 
   return (
     <>
-      <div className={`${isMobile ? 'h-14' : 'h-16'} bg-gray-800 border-t border-gray-600 flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
+      <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
         {/* User Info */}
         <div
           className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch`}
@@ -65,34 +65,6 @@ export function UserPanel() {
               {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
             </div>
           </div>
-        </div>
-
-        {/* Controls */}
-        <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-1'}`}>
-          {/* Voice Controls - Hide some on mobile to save space */}
-          {!isMobile && (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`w-8 h-8 ${isMuted ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-                onClick={toggleMute}
-                title={isMuted ? "Unmute" : "Mute"}
-              >
-                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`w-8 h-8 ${isDeafened ? 'text-red-400 bg-red-400/20' : 'text-gray-400 hover:text-gray-300'}`}
-                onClick={toggleDeafen}
-                title={isDeafened ? "Undeafen" : "Deafen"}
-              >
-                {isDeafened ? <HeadphonesIcon className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
-              </Button>
-            </>
-          )}
         </div>
       </div>
 

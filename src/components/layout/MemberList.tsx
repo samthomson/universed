@@ -190,7 +190,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-600 flex-shrink-0">
+      <div className="p-4 border-b border-gray-600 flex-shrink-0 h-12">
         <div className="flex items-center space-x-2">
           <Users className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-semibold text-gray-300">
