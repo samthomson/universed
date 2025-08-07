@@ -49,7 +49,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
     // On mobile, show communities list instead of Direct Messages
     if (isMobile) {
       return (
-        <div className="h-full w-full flex flex-col bg-gray-800 mobile-communities-container">
+        <div className="h-full w-full flex flex-col bg-gray-800 mobile-communities-container min-h-0">
           <div className="p-4 border-b border-gray-700 shrink-0 mobile-communities-item">
             <h2 className="text-lg font-semibold text-white mobile-communities-text">
               Your Communities
@@ -59,7 +59,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
             </p>
           </div>
 
-          <ScrollArea className="flex-1 mobile-communities-container">
+          <ScrollArea className="flex-1 mobile-communities-container min-h-0">
             <div className="p-4 space-y-3 mobile-communities-container">
               {isLoadingUserCommunities ? (
                 // Loading skeleton
@@ -166,11 +166,11 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
 
   if (!community) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         <div className="p-4 border-b border-gray-600">
           <Skeleton className="h-6 w-full" />
         </div>
-        <div className="flex-1 p-4">
+        <div className="flex-1 min-h-0 p-4">
           <div className="space-y-2">
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-3/4" />
@@ -181,7 +181,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Community header for mobile channels view */}
       {isMobile && (
         <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
@@ -212,7 +212,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
         </div>
       )}
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-4 w-full">
           {/* Channel Organizer */}
           <ChannelOrganizer

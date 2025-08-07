@@ -188,7 +188,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
 
   // Show members list (same for all users, regardless of management capabilities)
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-600 flex-shrink-0 h-12">
         <div className="flex items-center space-x-2">
@@ -200,7 +200,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
       </div>
 
       {/* Member List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="p-2">
           {isLoading || isLoadingAuthors ? (
             <div className="space-y-2">
