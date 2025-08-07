@@ -36,7 +36,6 @@ export function searchEmojis(query: string, limit = 8): EmojiData[] {
   if (!query) return [];
   
   const normalizedQuery = query.toLowerCase();
-  const results: EmojiData[] = [];
   const seen = new Set<string>();
   
   // Collect all matches first
