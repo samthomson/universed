@@ -48,6 +48,24 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
     return "";
   };
 
+  // Helper function to highlight matching text
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text;
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span key={index} className="bg-yellow-400 text-black px-0.5 rounded">
+          {part}
+        </span>
+      ) : (
+        part
+      )
+    );
+  };
+
   return (
     <Button
       variant="ghost"
@@ -72,9 +90,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
           <div className="flex items-center justify-between">
             <span className="font-medium text-white truncate max-w-full">
               {searchQuery && displayName.toLowerCase().includes(searchQuery.toLowerCase()) ? (
-                <span className="text-yellow-400">
-                  {displayName}
-                </span>
+                highlightText(displayName, searchQuery)
               ) : (
                 displayName
               )}
@@ -93,9 +109,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
 
             <div className="text-sm text-gray-400 truncate mt-0.5">
               {searchQuery && decryptedContent && decryptedContent.toLowerCase().includes(searchQuery.toLowerCase()) ? (
-                <span className="text-yellow-400">
-                  {getDisplayContent()}
-                </span>
+                highlightText(getDisplayContent(), searchQuery)
               ) : (
                 getDisplayContent()
               )}
