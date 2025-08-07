@@ -1,5 +1,4 @@
-import { KeyboardEvent, useRef, useState, useEffect } from "react";
-import { KeyboardEvent, useRef, useState, ClipboardEvent } from "react";
+import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
 import { Plus, Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,8 +9,6 @@ import { useToast } from "@/hooks/useToast";
 import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
 import { FileUploadDialog } from "@/components/chat/FileUploadDialog";
 import { MediaAttachment } from "@/components/chat/MediaAttachment";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useToast } from "@/hooks/useToast";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
@@ -208,7 +205,6 @@ export function BaseMessageInput({
     }
   };
 
-
   const handleEmojiAutocompleteSelect = (emoji: EmojiData) => {
     if (!shortcodeContext || !textareaRef.current) {
       return;
@@ -266,11 +262,6 @@ export function BaseMessageInput({
 
     updateAutocomplete(message, textarea.selectionStart);
   };
-
-
-
-
-
 
   const handleFilesUploaded = (files: AttachedFile[]) => {
     setAttachedFiles(prev => [...prev, ...files]);
@@ -334,6 +325,7 @@ export function BaseMessageInput({
       }
     }
     // If no images, let the default paste behavior handle text
+  }
 
   if (disabled) {
     return (
@@ -425,7 +417,7 @@ export function BaseMessageInput({
           query={autocompleteQuery}
           selectedIndex={selectedEmojiIndex}
           onSelect={handleEmojiAutocompleteSelect}
-          onClose={() => setShowEmojiAutocomplete(false)}
+          // onClose={() => setShowEmojiAutocomplete(false)}
         />
       )}
 
