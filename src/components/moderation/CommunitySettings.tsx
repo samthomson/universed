@@ -337,60 +337,10 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
           <Separator />
 
           <div className="space-y-4">
-            <h4 className="font-medium">Auto-Moderation</h4>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label>Enable Auto-Moderation</Label>
-                <p className="text-sm text-muted-foreground">
-                  Automatically detect and handle problematic content
-                </p>
-              </div>
-              <Switch
-                checked={settings.autoModeration.enabled}
-                onCheckedChange={(checked) => setSettings(prev => ({
-                  ...prev,
-                  autoModeration: { ...prev.autoModeration, enabled: checked }
-                }))}
-              />
-            </div>
-
-            {settings.autoModeration.enabled && (
-              <div className="ml-4 space-y-3 border-l-2 border-muted pl-4">
-                <div className="flex items-center justify-between">
-                  <Label>Spam Detection</Label>
-                  <Switch
-                    checked={settings.autoModeration.spamDetection}
-                    onCheckedChange={(checked) => setSettings(prev => ({
-                      ...prev,
-                      autoModeration: { ...prev.autoModeration, spamDetection: checked }
-                    }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label>Profanity Filter</Label>
-                  <Switch
-                    checked={settings.autoModeration.profanityFilter}
-                    onCheckedChange={(checked) => setSettings(prev => ({
-                      ...prev,
-                      autoModeration: { ...prev.autoModeration, profanityFilter: checked }
-                    }))}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label>Link Validation</Label>
-                  <Switch
-                    checked={settings.autoModeration.linkValidation}
-                    onCheckedChange={(checked) => setSettings(prev => ({
-                      ...prev,
-                      autoModeration: { ...prev.autoModeration, linkValidation: checked }
-                    }))}
-                  />
-                </div>
-              </div>
-            )}
+            <h4 className="font-medium">Moderation Queue</h4>
+            <p className="text-sm text-muted-foreground">
+              Review flagged content and user reports manually
+            </p>
           </div>
         </CardContent>
       </Card>
