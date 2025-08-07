@@ -49,6 +49,13 @@ export function BaseMessageInput({
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
+  // Refocus textarea after sending a message
+  useEffect(() => {
+    if (!isSending && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isSending]);
+
   // Close autocomplete on blur
   const handleTextareaBlur = () => {
     // Small delay to allow emoji selection clicks to register
@@ -77,6 +84,7 @@ export function BaseMessageInput({
     setMessage("");
     setShowEmojiAutocomplete(false);
     setShortcodeContext(null);
+    textareaRef.current?.focus();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
