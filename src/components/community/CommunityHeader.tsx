@@ -8,7 +8,7 @@ import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { CommunitySettings } from "./CommunitySettings";
-import { nip19 } from "nostr-tools";
+import { handleInviteMembers } from "@/lib/communityUtils";
 import { cn } from "@/lib/utils";
 
 interface CommunityHeaderProps {
@@ -117,37 +117,10 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
     );
   };
 
-  const handleInviteMembers = async () => {
+  const handleDesktopInviteMembers = async () => {
     if (!community) return;
 
-    try {
-      // Parse community ID to get the components for naddr
-      const [kind, pubkey, identifier] = community.id.split(':');
-
-      // Generate naddr for the community
-      const naddr = nip19.naddrEncode({
-        kind: parseInt(kind),
-        pubkey,
-        identifier,
-        relays: community.relays.length > 0 ? community.relays : undefined,
-      });
-
-      // Generate shareable join URL
-      const baseUrl = window.location.origin;
-      const joinUrl = `${baseUrl}/join/${naddr}`;
-
-      await navigator.clipboard.writeText(joinUrl);
-      toast({
-        title: "Invite link copied",
-        description: "The community invite link has been copied to your clipboard.",
-      });
-    } catch {
-      toast({
-        title: "Failed to copy link",
-        description: "Could not copy invite link to clipboard.",
-        variant: "destructive",
-      });
-    }
+    await handleInviteMembers(community.id, community.relays);
   };
 
   if (!community) {
@@ -215,7 +188,7 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem onClick={handleInviteMembers}>
+              <DropdownMenuItem onClick={handleDesktopInviteMembers}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Invite Members
               </DropdownMenuItem>
