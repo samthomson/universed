@@ -21,9 +21,10 @@ interface ConversationItemProps {
   conversation: DMConversation;
   isSelected: boolean;
   onSelect: () => void;
+  searchQuery?: string;
 }
 
-function ConversationItem({ conversation, isSelected, onSelect }: ConversationItemProps) {
+function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: ConversationItemProps) {
   const author = useAuthor(conversation.pubkey);
   const metadata = author.data?.metadata;
 
@@ -45,6 +46,24 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
     if (decryptError) return "Unable to decrypt message";
     if (decryptedContent) return decryptedContent;
     return "";
+  };
+
+  // Helper function to highlight matching text
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm || !text) return text;
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span key={index} className="bg-yellow-400 text-black px-0.5 rounded">
+          {part}
+        </span>
+      ) : (
+        part
+      )
+    );
   };
 
   return (
@@ -70,7 +89,11 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="font-medium text-white truncate max-w-full">
-              {displayName}
+              {searchQuery && displayName.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+                highlightText(displayName, searchQuery)
+              ) : (
+                displayName
+              )}
             </span>
             <div className="flex items-center space-x-1">
               {conversation.unreadCount > 0 && (
@@ -84,10 +107,14 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
             </div>
           </div>
 
-          <div className="text-sm text-gray-400 truncate mt-0.5">
-            {getDisplayContent()}
+            <div className="text-sm text-gray-400 truncate mt-0.5">
+              {searchQuery && decryptedContent && decryptedContent.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+                highlightText(getDisplayContent(), searchQuery)
+              ) : (
+                getDisplayContent()
+              )}
+            </div>
           </div>
-        </div>
       </div>
     </Button>
   );
@@ -142,52 +169,9 @@ export function DMConversationList({
     );
   }
 
-  // Filter conversations based on search query
-  const filteredConversations = conversations.filter(conversation => {
-    if (!searchQuery) return true;
-
-    const query = searchQuery.toLowerCase();
-    
-    // Search by pubkey
-    if (conversation.pubkey.toLowerCase().includes(query)) {
-      return true;
-    }
-
-    // Search by display name (we need to get the author data for this)
-    // Since we can't use hooks inside filter, we'll need to handle this differently
-    // For now, we'll rely on the ConversationItem to have the author data
-    // This is a limitation of the current architecture
-    return true; // We'll filter in the ConversationItem instead
-  });
-
-  // If we have a search query, we need to filter by display name at the item level
-  // This is not ideal but necessary due to the hook rules
-  const conversationsToRender = searchQuery 
-    ? filteredConversations.filter(() => {
-        // This filter will be applied after the ConversationItem has author data
-        // We'll handle the actual display name filtering in a memoized component
-        return true;
-      })
-    : filteredConversations;
-
-  if (conversationsToRender.length === 0) {
-    return (
-      <div className="p-4 text-center text-gray-400">
-        {searchQuery ? (
-          <p className="text-sm">No conversations found</p>
-        ) : (
-          <div>
-            <p className="text-sm mb-2">No conversations yet</p>
-            <p className="text-xs">Start a new conversation!</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-1 p-2 overflow-y-auto max-h-[calc(100vh-200px)]">
-      {conversationsToRender.map((conversation) => (
+      {conversations.map((conversation) => (
         <SearchableConversationItem
           key={conversation.id}
           conversation={conversation}
@@ -218,9 +202,25 @@ function SearchableConversationItem({
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(conversation.pubkey);
 
+  // Get decrypted content for search
+  const { data: decryptedContent } = useDMDecrypt(
+    conversation.lastMessage
+  );
+
   // Filter by display name if search query exists
-  if (searchQuery && !displayName.toLowerCase().includes(searchQuery.toLowerCase())) {
-    return null;
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    
+    // Check if display name matches
+    const nameMatches = displayName.toLowerCase().includes(query);
+    
+    // Check if decrypted content matches (only if we have decrypted content)
+    const contentMatches = decryptedContent && decryptedContent.toLowerCase().includes(query);
+    
+    // If neither name nor content matches, don't show this conversation
+    if (!nameMatches && !contentMatches) {
+      return null;
+    }
   }
 
   return (
@@ -228,6 +228,7 @@ function SearchableConversationItem({
       conversation={conversation}
       isSelected={selectedConversation === conversation.id}
       onSelect={() => onSelectConversation(conversation.id)}
+      searchQuery={searchQuery}
     />
   );
 }
