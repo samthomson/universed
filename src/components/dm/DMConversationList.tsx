@@ -21,9 +21,10 @@ interface ConversationItemProps {
   conversation: DMConversation;
   isSelected: boolean;
   onSelect: () => void;
+  searchQuery?: string;
 }
 
-function ConversationItem({ conversation, isSelected, onSelect }: ConversationItemProps) {
+function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: ConversationItemProps) {
   const author = useAuthor(conversation.pubkey);
   const metadata = author.data?.metadata;
 
@@ -70,7 +71,13 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className="font-medium text-white truncate max-w-full">
-              {displayName}
+              {searchQuery && displayName.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+                <span className="text-yellow-400">
+                  {displayName}
+                </span>
+              ) : (
+                displayName
+              )}
             </span>
             <div className="flex items-center space-x-1">
               {conversation.unreadCount > 0 && (
@@ -84,10 +91,16 @@ function ConversationItem({ conversation, isSelected, onSelect }: ConversationIt
             </div>
           </div>
 
-          <div className="text-sm text-gray-400 truncate mt-0.5">
-            {getDisplayContent()}
+            <div className="text-sm text-gray-400 truncate mt-0.5">
+              {searchQuery && decryptedContent && decryptedContent.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+                <span className="text-yellow-400">
+                  {getDisplayContent()}
+                </span>
+              ) : (
+                getDisplayContent()
+              )}
+            </div>
           </div>
-        </div>
       </div>
     </Button>
   );
@@ -218,9 +231,25 @@ function SearchableConversationItem({
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(conversation.pubkey);
 
+  // Get decrypted content for search
+  const { data: decryptedContent } = useDMDecrypt(
+    conversation.lastMessage
+  );
+
   // Filter by display name if search query exists
-  if (searchQuery && !displayName.toLowerCase().includes(searchQuery.toLowerCase())) {
-    return null;
+  if (searchQuery) {
+    const query = searchQuery.toLowerCase();
+    
+    // Check if display name matches
+    const nameMatches = displayName.toLowerCase().includes(query);
+    
+    // Check if decrypted content matches (only if we have decrypted content)
+    const contentMatches = decryptedContent && decryptedContent.toLowerCase().includes(query);
+    
+    // If neither name nor content matches, don't show this conversation
+    if (!nameMatches && !contentMatches) {
+      return null;
+    }
   }
 
   return (
@@ -228,6 +257,7 @@ function SearchableConversationItem({
       conversation={conversation}
       isSelected={selectedConversation === conversation.id}
       onSelect={() => onSelectConversation(conversation.id)}
+      searchQuery={searchQuery}
     />
   );
 }
