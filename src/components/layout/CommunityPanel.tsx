@@ -1,10 +1,7 @@
-import { Settings, MoreHorizontal, FolderPlus, Users, Crown, Shield, MessageCircle, UserPlus, LogOut } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Users, Crown, Shield, MessageCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DirectMessages } from "@/components/dm/DirectMessages";
-import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
 import { useCommunities } from "@/hooks/useCommunities";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
@@ -15,11 +12,8 @@ import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
-import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
-import { useToast } from "@/hooks/useToast";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { nip19 } from "nostr-tools";
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -33,15 +27,13 @@ interface CommunityPanelProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
   const { preloadCommunity } = useUnifiedPreloader();
   const isMobile = useIsMobile();
-  const { mutate: leaveCommunity, isPending: isLeavingCommunity } = useLeaveCommunity();
-  const { toast } = useToast();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<Channel | null>(null);
@@ -50,63 +42,6 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
     refetchChannels();
   };
 
-  const handleLeaveCommunity = () => {
-    if (!communityId) return;
-
-    leaveCommunity(
-      { communityId },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Left Space",
-            description: `You have left ${community?.name}`,
-          });
-          // Navigate away from the community after leaving
-          onSelectCommunity?.(null);
-        },
-        onError: (error) => {
-          toast({
-            title: "Failed to leave community",
-            description: error.message || "An error occurred while leaving the community",
-            variant: "destructive",
-          });
-        },
-      }
-    );
-  };
-
-  const handleInviteMembers = async () => {
-    if (!community) return;
-
-    try {
-      // Parse community ID to get the components for naddr
-      const [kind, pubkey, identifier] = community.id.split(':');
-
-      // Generate naddr for the community
-      const naddr = nip19.naddrEncode({
-        kind: parseInt(kind),
-        pubkey,
-        identifier,
-        relays: community.relays.length > 0 ? community.relays : undefined,
-      });
-
-      // Generate shareable join URL
-      const baseUrl = window.location.origin;
-      const joinUrl = `${baseUrl}/join/${naddr}`;
-
-      await navigator.clipboard.writeText(joinUrl);
-      toast({
-        title: "Invite link copied",
-        description: "The community invite link has been copied to your clipboard.",
-      });
-    } catch {
-      toast({
-        title: "Failed to copy link",
-        description: "Could not copy invite link to clipboard.",
-        variant: "destructive",
-      });
-    }
-  };
 
   const community = communities?.find(c => c.id === communityId);
 
@@ -247,55 +182,9 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
 
   return (
     <div className="flex flex-col h-full">
-      {/* Community Header */}
-      <div className="p-4 border-b border-gray-600 flex items-center justify-between">
-        <h2 className="font-semibold text-white truncate">{community.name}</h2>
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="w-6 h-6 hover:bg-gray-600/40 transition-colors">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canModerate && (
-                <>
-                  <DropdownMenuItem onClick={() => setShowFolderManagement(true)}>
-                    <FolderPlus className="w-4 h-4 mr-2" />
-                    Manage Folders
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowSettings(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Community Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem onClick={handleInviteMembers}>
-                <UserPlus className="w-4 h-4 mr-2" />
-                Invite Members
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleLeaveCommunity}
-                disabled={isLeavingCommunity}
-                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Leave Space
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
 
       <ScrollArea className="flex-1">
         <div className="absolute p-2 space-y-4 w-full">
-          {/* Spaces Navigator */}
-          <SpacesNavigator
-            communityId={communityId}
-            selectedSpace={selectedSpace || null}
-            onSelectSpace={onSelectSpace || (() => {})}
-          />
 
           {/* Channel Organizer */}
           <ChannelOrganizer

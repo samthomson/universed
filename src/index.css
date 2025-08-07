@@ -563,6 +563,90 @@
     max-width: 100%;
   }
 
+  /* Rocket launch animation for community icons */
+  .animate-rocket-launch {
+    animation: rocketLaunch 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  @keyframes rocketLaunch {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(-12px) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-20px) scale(1.05);
+      opacity: 0;
+    }
+  }
+
+  /* Flame emoji animation for launch phase */
+  .animate-flame-emoji {
+    animation: flameEmoji 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  @keyframes flameEmoji {
+    0% {
+      transform: translateY(0) scale(0.8) rotate(0deg);
+      opacity: 0;
+    }
+    15% {
+      transform: translateY(-4px) scale(1.4) rotate(3deg);
+      opacity: 0.7;
+    }
+    35% {
+      transform: translateY(-10px) scale(2.2) rotate(8deg);
+      opacity: 0.9;
+    }
+    60% {
+      transform: translateY(-16px) scale(3.0) rotate(12deg);
+      opacity: 0.8;
+    }
+    85% {
+      transform: translateY(-19px) scale(3.5) rotate(16deg);
+      opacity: 0.6;
+    }
+    100% {
+      transform: translateY(-20px) scale(4) rotate(20deg);
+      opacity: 0;
+    }
+  }
+
+  /* Rocket landing animation for community icons */
+  .animate-rocket-landing {
+    animation: rocketLanding 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes rocketLanding {
+    0% {
+      transform: translateY(-30px) scale(1.1);
+      opacity: 0;
+    }
+    20% {
+      transform: translateY(-20px) scale(1.08);
+      opacity: 0.8;
+    }
+    40% {
+      transform: translateY(-10px) scale(1.05);
+      opacity: 1;
+    }
+    60% {
+      transform: translateY(-5px) scale(1.02);
+      opacity: 1;
+    }
+    80% {
+      transform: translateY(-2px) scale(1.01);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+  }
+
   /* Animated stars background */
   .stars {
     width: 1px;
