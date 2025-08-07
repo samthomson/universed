@@ -5,10 +5,10 @@ import { MemberList } from "./MemberList";
 import { useChannels } from "@/hooks/useChannels";
 import { useCommunityMembers } from "@/hooks/useCommunityMembers";
 import { useCommunities } from "@/hooks/useCommunities";
+import { useToast } from "@/hooks/useToast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 
 interface MobileChannelHeaderProps {
   communityId: string;
@@ -20,6 +20,7 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
   const { data: channels } = useChannels(communityId);
   const { data: members } = useCommunityMembers(communityId);
   const { data: communities } = useCommunities();
+  const { toast } = useToast();
 
   const channel = channels?.find((c) => c.id === channelId);
   const community = communities?.find((c) => c.id === communityId);
@@ -34,31 +35,37 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
   const copyChannelLink = () => {
     const channelLink = `${window.location.origin}/communities/${communityId}/channels/${channelId}`;
     navigator.clipboard.writeText(channelLink);
-    toast.success("Channel link copied to clipboard!");
+    toast({
+      title: "Channel link copied",
+      description: "The channel link has been copied to your clipboard.",
+    });
   };
+
+
 
   const onlineMembersCount = members?.filter(m => m.isOnline).length || 0;
   const totalMembersCount = members?.length || 0;
 
   return (
-    <Drawer>
-      <DrawerTrigger asChild>
-        <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
-          <div className="flex flex-col items-center min-w-0">
-            <div className="flex items-center space-x-1">
-              {isVoiceChannel ? (
-                <Hash className="w-4 h-4 text-green-500 flex-shrink-0" />
-              ) : (
-                <Hash className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-              )}
-              <span className="font-semibold text-lg truncate">{channelName}</span>
+    <div className="flex items-center justify-between w-full">
+      <Drawer>
+        <DrawerTrigger asChild>
+          <Button variant="ghost" className="h-auto p-0 hover:bg-transparent flex-1 justify-center">
+            <div className="flex flex-col items-center min-w-0">
+              <div className="flex items-center space-x-1">
+                {isVoiceChannel ? (
+                  <Hash className="w-4 h-4 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Hash className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                )}
+                <span className="font-semibold text-lg truncate">{channelName}</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {onlineMembersCount} online • {totalMembersCount} members
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {onlineMembersCount} online • {totalMembersCount} members
-            </div>
-          </div>
-        </Button>
-      </DrawerTrigger>
+          </Button>
+        </DrawerTrigger>
 
       <DrawerContent className="h-[85vh]">
         <div className="flex flex-col h-full">
@@ -163,5 +170,7 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
         </div>
       </DrawerContent>
     </Drawer>
+
+    </div>
   );
 }

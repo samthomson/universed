@@ -21,11 +21,16 @@ import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Store, FolderOpen } from "lucide-react";
+import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useCommunities } from "@/hooks/useCommunities";
+import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
+import { useToast } from "@/hooks/useToast";
+import { nip19 } from "nostr-tools";
 
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
@@ -61,6 +66,11 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   const { preloadImmediately: preloadSpacesImmediately } = useSpacesPreloader();
 
   const { recordCommunityVisit, recordChannelVisit } = useVisitHistory();
+
+  // Hooks for mobile channel menu
+  const { data: communities } = useCommunities();
+  const { mutate: leaveCommunity, isPending: isLeavingCommunity } = useLeaveCommunity();
+  const { toast } = useToast();
 
   const isMobile = useIsMobile();
   const [mobileView, setMobileView] = useState<
@@ -307,6 +317,71 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     }
   };
 
+  // Mobile channel menu functions
+  const handleInviteMembers = async () => {
+    if (!selectedCommunity) return;
+
+    const community = communities?.find((c) => c.id === selectedCommunity);
+    if (!community) return;
+
+    try {
+      // Parse community ID to get the components for naddr
+      const [kind, pubkey, identifier] = community.id.split(':');
+
+      // Generate naddr for the community
+      const naddr = nip19.naddrEncode({
+        kind: parseInt(kind),
+        pubkey,
+        identifier,
+        relays: community.relays.length > 0 ? community.relays : undefined,
+      });
+
+      // Generate shareable join URL
+      const baseUrl = window.location.origin;
+      const joinUrl = `${baseUrl}/join/${naddr}`;
+
+      await navigator.clipboard.writeText(joinUrl);
+      toast({
+        title: "Invite link copied",
+        description: "The community invite link has been copied to your clipboard.",
+      });
+    } catch {
+      toast({
+        title: "Failed to copy link",
+        description: "Could not copy invite link to clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLeaveCommunity = () => {
+    if (!selectedCommunity) return;
+
+    const community = communities?.find((c) => c.id === selectedCommunity);
+    if (!community) return;
+
+    leaveCommunity(
+      { communityId: selectedCommunity },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Left community",
+            description: `You have left ${community.name}`,
+          });
+          // Navigate away from the community after leaving
+          window.location.href = '/communities';
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to leave community",
+            description: error.message || "An error occurred while leaving the community",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
   if (isMobile) {
     // Show sidebar when:
     // 1. In channels view with a community selected, OR
@@ -354,7 +429,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                 {/* Center content - Minimal titles, no title for DM conversations */}
                 <div className="flex-1 text-center min-w-0">
                   {mobileView === "chat" && selectedCommunity && (
-                    <div className="flex flex-col items-center min-w-0">
+                    <>
                       {activeTab === "channels" ? (
                         <MobileChannelHeader
                           communityId={selectedCommunity}
@@ -367,15 +442,39 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                            activeTab === "resources" ? "Files" : "Chat"}
                         </h2>
                       )}
-                    </div>
+                    </>
                   )}
                   {mobileView === "members" && (
                     <h2 className="font-semibold text-lg truncate">Members</h2>
                   )}
                 </div>
 
-                {/* Right spacer for balance */}
-                <div className="flex-shrink-0 w-9"></div>
+                {/* Triple Dot Menu - only show for community chat with channels tab */}
+                {mobileView === "chat" && selectedCommunity && activeTab === "channels" ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="flex-shrink-0">
+                        <MoreHorizontal className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={handleInviteMembers}>
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Invite Members
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleLeaveCommunity}
+                        disabled={isLeavingCommunity}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Leave Community
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <div className="flex-shrink-0 w-9"></div>
+                )}
               </div>
             )}
 
