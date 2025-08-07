@@ -1,11 +1,16 @@
-import { KeyboardEvent, useRef, useState, ClipboardEvent } from "react";
-import { Send, Smile } from "lucide-react";
+import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
+import { Plus, Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { MessageAttachmentMenu } from "@/components/messaging/MessageAttachmentMenu";
+import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
+import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
+import { FileUploadDialog } from "@/components/chat/FileUploadDialog";
+import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
@@ -41,6 +46,16 @@ export function BaseMessageInput({
   channelId,
 }: BaseMessageInputProps) {
   const [message, setMessage] = useState("");
+  const [showEmojiAutocomplete, setShowEmojiAutocomplete] = useState(false);
+  const [autocompleteQuery, setAutocompleteQuery] = useState("");
+  const [selectedEmojiIndex, setSelectedEmojiIndex] = useState(0);
+  const [shortcodeContext, setShortcodeContext] = useState<{
+    query: string;
+    startIndex: number;
+    endIndex: number;
+  } | null>(null);
+  
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -64,6 +79,23 @@ export function BaseMessageInput({
     }
   };
 
+  // Refocus textarea after sending a message
+  useEffect(() => {
+    if (!isSending && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isSending]);
+
+  // Close autocomplete on blur
+  const handleTextareaBlur = () => {
+    setIsFocused(false)
+    // Small delay to allow emoji selection clicks to register
+    setTimeout(() => {
+      setShowEmojiAutocomplete(false);
+      setShortcodeContext(null);
+    }, 150);
+  };
+
   const handleSubmit = async () => {
     if (!user || (!message.trim() && attachedFiles.length === 0) || isSending) return;
 
@@ -76,6 +108,10 @@ export function BaseMessageInput({
       });
       return;
     }
+
+    // Store original values in case we need to restore on error
+    const originalMessage = message.trim();
+    const originalFiles = [...attachedFiles];
 
     try {
       const tags: string[][] = [];
@@ -98,7 +134,7 @@ export function BaseMessageInput({
       });
 
       // Process shortcodes before sending
-      let content = message.trim();
+      let content = originalMessage;
       if (content) {
         content = replaceShortcodes(content);
       }
@@ -109,11 +145,23 @@ export function BaseMessageInput({
         content = content ? `${content}\n\n${fileUrls}` : fileUrls;
       }
 
-      await onSendMessage(content, tags);
+      // Clear form immediately for responsive UX
       setMessage("");
       setAttachedFiles([]);
+      setShowEmojiAutocomplete(false);
+      setShortcodeContext(null);
+      textareaRef.current?.focus();
+
+      // Send the message in the background
+      await onSendMessage(content, tags);
     } catch (error) {
       console.error("Failed to send message:", error);
+      
+      // Restore form state on error
+      setMessage(originalMessage);
+      setAttachedFiles(originalFiles);
+      textareaRef.current?.focus();
+      
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -123,6 +171,33 @@ export function BaseMessageInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // If autocomplete is open, handle navigation keys here
+    if (showEmojiAutocomplete) {
+      const emojis = searchEmojis(autocompleteQuery, 8);
+      
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedEmojiIndex((prev) => (prev + 1) % emojis.length);
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedEmojiIndex((prev) => (prev - 1 + emojis.length) % emojis.length);
+          return;
+        case 'Enter':
+          e.preventDefault();
+          if (emojis[selectedEmojiIndex]) {
+            handleEmojiAutocompleteSelect(emojis[selectedEmojiIndex]);
+          }
+          return;
+        case 'Escape':
+          e.preventDefault();
+          setShowEmojiAutocomplete(false);
+          setShortcodeContext(null);
+          return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -145,6 +220,64 @@ export function BaseMessageInput({
 
       adjustTextareaHeight();
     }
+  };
+
+  const handleEmojiAutocompleteSelect = (emoji: EmojiData) => {
+    if (!shortcodeContext || !textareaRef.current) {
+      return;
+    }
+
+    const textarea = textareaRef.current;
+    
+    // Save the context before clearing it
+    const { startIndex, endIndex } = shortcodeContext;
+    
+    const newMessage = 
+      message.slice(0, startIndex) + 
+      emoji.emoji + 
+      message.slice(endIndex);
+    
+    setMessage(newMessage);
+    setShowEmojiAutocomplete(false);
+    setShortcodeContext(null);
+
+    // Position cursor after the inserted emoji
+    setTimeout(() => {
+      const newCursorPos = startIndex + emoji.emoji.length;
+      textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+      textarea.focus();
+    }, 0);
+  };
+
+  const updateAutocomplete = (newMessage: string, cursorPosition: number) => {
+    const context = extractShortcodeContext(newMessage, cursorPosition);
+    
+    if (context && context.query.length > 0) {
+      setShortcodeContext(context);
+      setAutocompleteQuery(context.query);
+      setSelectedEmojiIndex(0); // Reset selection on new query
+      setShowEmojiAutocomplete(true);
+    } else {
+      setShowEmojiAutocomplete(false);
+      setShortcodeContext(null);
+      setSelectedEmojiIndex(0);
+    }
+  };
+
+  const handleMessageChange = (newMessage: string) => {
+    setMessage(newMessage);
+    
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    updateAutocomplete(newMessage, textarea.selectionStart);
+  };
+
+  const handleSelectionChange = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    updateAutocomplete(message, textarea.selectionStart);
   };
 
   const handleFilesUploaded = (files: AttachedFile[]) => {
@@ -209,7 +342,7 @@ export function BaseMessageInput({
       }
     }
     // If no images, let the default paste behavior handle text
-  };
+  }
 
   if (disabled) {
     return (
@@ -222,7 +355,7 @@ export function BaseMessageInput({
   }
 
   return (
-    <div className={`p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
+    <div className={`relative p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
       isFocused ? 'border-2 border-blueviolet' : 'border border-border'
     }`}>
       {/* Attached Files Preview */}
@@ -257,14 +390,17 @@ export function BaseMessageInput({
         <textarea
           ref={textareaRef}
           value={message}
-          onChange={(e) => {
-            setMessage(e.target.value);
-            adjustTextareaHeight();
-          }}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
+          onClick={handleSelectionChange}
+          onBlur={handleTextareaBlur}
+
           onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onSelect={handleSelectionChange}
+          onChange={(e) => {
+            handleMessageChange(e.target.value)
+            adjustTextareaHeight();
+          }}
           placeholder={placeholder || "Type a message..."}
           className="min-h-[40px] w-full max-h-[200px] resize-none bg-transparent ring-transparent border
           -0 focus-within:ring-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:ring-none text-foreground focus-within:appearance-none placeholder:text-muted-foreground p-0"
@@ -293,6 +429,14 @@ export function BaseMessageInput({
           <Send className="w-4 h-4" />
         </Button>
       </div>
+      
+      {showEmojiAutocomplete && (
+        <EmojiAutocomplete
+          query={autocompleteQuery}
+          selectedIndex={selectedEmojiIndex}
+          onSelect={handleEmojiAutocompleteSelect}
+        />
+      )}
 
     </div>
   );
