@@ -1,4 +1,4 @@
-import { MessageCircle, Calendar, Link as LinkIcon, X, Copy, Check } from "lucide-react";
+import { MessageCircle, Link as LinkIcon, X, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,7 +8,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUserStatus } from "@/hooks/useUserStatus";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { genUserName } from "@/lib/genUserName";
-import { formatDistanceToNowShort } from "@/lib/formatTime";
+
 import { nip19 } from "nostr-tools";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,6 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
   const npub = nip19.npubEncode(pubkey);
 
   const isOwnProfile = user?.pubkey === pubkey;
-  const joinDate = author.data?.event ? new Date(author.data.event.created_at * 1000) : null;
 
   const handleStartDM = () => {
     onStartDM?.(pubkey);
@@ -92,7 +91,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
               <div className="space-y-3 w-full">
                 <div>
                   <h2 className="text-xl font-bold text-white">{displayName}</h2>
-                  
+
                   {/* Status Display */}
                   {(userStatus?.emoji || userStatus?.status || userStatus?.message) && (
                     <div className="flex items-center justify-center space-x-2 mt-2">
@@ -143,12 +142,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                     </div>
                   )}
 
-                  {joinDate && (
-                    <div className="flex items-center justify-center space-x-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>Joined {formatDistanceToNowShort(joinDate, { addSuffix: true })}</span>
-                    </div>
-                  )}
+
                 </div>
 
                 {/* Action Buttons */}
