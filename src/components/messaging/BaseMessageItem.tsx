@@ -214,14 +214,16 @@ function BaseMessageItemComponent({
                     )}
                   </div>
                 )}
-              {/* Emoji Reactions */}
-                <div className="flex items-center h-6">
-                  <MessageReactions
-                    message={message}
-                    onReactionClick={() => setIsHovered(false)}
-                    reactionGroups={reactionsAndZaps.reactionGroups}
-                  />
-                </div>
+              {/* Emoji Reactions - Only render wrapper if there are reactions */}
+                {reactionsAndZaps.reactionGroups && Object.keys(reactionsAndZaps.reactionGroups).length > 0 && (
+                  <div className="flex items-center h-6">
+                    <MessageReactions
+                      message={message}
+                      onReactionClick={() => setIsHovered(false)}
+                      reactionGroups={reactionsAndZaps.reactionGroups}
+                    />
+                  </div>
+                )}
             </div>
           )}
         </div>
