@@ -1,12 +1,5 @@
-import { createContext, useContext, ReactNode } from 'react';
-
-interface CommunityContextType {
-  currentCommunityId: string | null;
-}
-
-const CommunityContext = createContext<CommunityContextType>({
-  currentCommunityId: null,
-});
+import { ReactNode } from 'react';
+import { CommunityContext } from './CommunityContext';
 
 interface CommunityProviderProps {
   children: ReactNode;
@@ -21,6 +14,4 @@ export function CommunityProvider({ children, currentCommunityId }: CommunityPro
   );
 }
 
-export function useCommunityContext() {
-  return useContext(CommunityContext);
-}
+

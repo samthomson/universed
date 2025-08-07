@@ -4,7 +4,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
 import { useToast } from './useToast';
-import { useVoiceContext } from '@/contexts/VoiceContext';
+import { useVoiceContext } from '@/contexts/voiceHooks';
 import { useVoiceSoundEffects } from './useVoiceSoundEffects';
 import { logger } from '@/lib/logger';
 

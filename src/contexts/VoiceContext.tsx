@@ -1,38 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
+import React, { useState, useCallback, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-
-interface VoiceState {
-  isMuted: boolean;
-  isDeafened: boolean;
-  isSpeaking: boolean;
-}
-
-interface VoiceContextType {
-  // State
-  voiceState: VoiceState;
-
-  // Actions
-  toggleMute: () => void;
-  toggleDeafen: () => void;
-  setMuted: (muted: boolean) => void;
-  setDeafened: (deafened: boolean) => void;
-  setSpeaking: (speaking: boolean) => void;
-
-  // Actual audio control functions (to be registered by useVoiceChannel)
-  registerAudioControls: (controls: {
-    toggleMute: () => Promise<void>;
-    toggleDeafen: () => Promise<void>;
-    setMuted: (muted: boolean) => Promise<void>;
-    setDeafened: (deafened: boolean) => Promise<void>;
-  }) => void;
-  unregisterAudioControls: () => void;
-
-  // Voice channel connection state
-  isConnectedToVoice: boolean;
-  setIsConnectedToVoice: (connected: boolean) => void;
-}
-
-const VoiceContext = createContext<VoiceContextType | undefined>(undefined);
+import { VoiceContext, VoiceState, VoiceContextType } from './VoiceContext';
 
 interface VoiceProviderProps {
   children: ReactNode;
@@ -201,45 +169,3 @@ export function VoiceProvider({ children }: VoiceProviderProps) {
   );
 }
 
-export function useVoiceContext() {
-  const context = useContext(VoiceContext);
-  if (context === undefined) {
-    throw new Error('useVoiceContext must be used within a VoiceProvider');
-  }
-  return context;
-}
-
-// Custom hooks for specific state access
-export function useVoiceMuteState() {
-  const { voiceState, toggleMute, setMuted } = useVoiceContext();
-  return {
-    isMuted: voiceState.isMuted,
-    toggleMute,
-    setMuted,
-  };
-}
-
-export function useVoiceDeafenState() {
-  const { voiceState, toggleDeafen, setDeafened } = useVoiceContext();
-  return {
-    isDeafened: voiceState.isDeafened,
-    toggleDeafen,
-    setDeafened,
-  };
-}
-
-export function useVoiceSpeakingState() {
-  const { voiceState, setSpeaking } = useVoiceContext();
-  return {
-    isSpeaking: voiceState.isSpeaking,
-    setSpeaking,
-  };
-}
-
-export function useVoiceConnectionState() {
-  const { isConnectedToVoice, setIsConnectedToVoice } = useVoiceContext();
-  return {
-    isConnectedToVoice,
-    setIsConnectedToVoice,
-  };
-}

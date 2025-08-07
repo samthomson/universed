@@ -17,7 +17,7 @@ import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
-import { useCommunityContext } from "@/contexts/CommunityContext";
+import { useCommunityContext } from "@/contexts/communityHooks";
 import { useUserRole } from "@/hooks/useCommunityRoles";
 
 import { useAuthor } from "@/hooks/useAuthor";
@@ -77,7 +77,7 @@ function BaseMessageItemComponent({
   const { currentCommunityId } = useCommunityContext();
   const { role } = useUserRole(currentCommunityId || '');
   const isAdmin = role === 'owner' || role === 'admin';
-  
+
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
   const isNew = isNewMessage(message);

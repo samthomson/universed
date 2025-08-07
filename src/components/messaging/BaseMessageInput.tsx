@@ -1,13 +1,13 @@
 import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
-import { Plus, Send, Smile } from "lucide-react";
+import { Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { MediaAttachment } from "@/components/chat/MediaAttachment";
+import { MessageAttachmentMenu } from "@/components/messaging/MessageAttachmentMenu";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
-import { FileUploadDialog } from "@/components/chat/FileUploadDialog";
-import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
@@ -28,6 +28,8 @@ interface BaseMessageInputProps {
   isSending: boolean;
   disabled?: boolean;
   disabledReason?: string;
+  communityId?: string;
+  channelId?: string;
 }
 
 export function BaseMessageInput({
@@ -37,6 +39,8 @@ export function BaseMessageInput({
   isSending,
   disabled,
   disabledReason,
+  communityId,
+  channelId,
 }: BaseMessageInputProps) {
   const [message, setMessage] = useState("");
   const [showEmojiAutocomplete, setShowEmojiAutocomplete] = useState(false);
@@ -48,7 +52,6 @@ export function BaseMessageInput({
     endIndex: number;
   } | null>(null);
   
-  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -374,14 +377,11 @@ export function BaseMessageInput({
 
       <div className="flex items-end space-x-3">
         {config.allowFileUpload && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-8 h-8 text-muted-foreground hover:text-foreground"
-            onClick={() => setShowUploadDialog(true)}
-          >
-            <Plus className="w-5 h-5" />
-          </Button>
+          <MessageAttachmentMenu 
+            onFilesUploaded={handleFilesUploaded}
+            communityId={communityId}
+            channelId={channelId}
+          />
         )}
         <textarea
           ref={textareaRef}
@@ -434,12 +434,6 @@ export function BaseMessageInput({
         />
       )}
 
-      {/* File Upload Dialog */}
-      <FileUploadDialog
-        open={showUploadDialog}
-        onOpenChange={setShowUploadDialog}
-        onFilesUploaded={handleFilesUploaded}
-      />
     </div>
   );
 }
