@@ -31,14 +31,14 @@ export function useReactionsAndZaps(eventId: string) {
   return useQuery({
     queryKey: ['reactions-and-zaps', eventId],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // Reduced timeout
 
       // Batch query for both reactions (kind 7) and zaps (kind 9735)
       const events = await nostr.query([
         {
           kinds: [7, 9735], // Reaction events and Zap receipts
           '#e': [eventId],
-          limit: 200,
+          limit: 100, // Reduced limit for faster response
         }
       ], { signal });
 
@@ -119,6 +119,6 @@ export function useReactionsAndZaps(eventId: string) {
       return result;
     },
     enabled: !!eventId,
-    refetchInterval: 30 * 1000, // 30 seconds
+    refetchInterval: 2 * 60 * 1000, // 2 minutes instead of 30 seconds to reduce load
   });
 }

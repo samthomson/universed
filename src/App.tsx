@@ -22,6 +22,7 @@ import { NWCProvider } from '@/contexts/NWCContext';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
+import { useEnableOptimizedQueryTiers } from '@/hooks/useOptimizedQueryTiers';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 import { StarBackground } from '@/components/ui/StarBackground';
 
@@ -39,15 +40,15 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       refetchOnMount: true, // Allow refetch on mount but rely on staleTime
       refetchOnReconnect: 'always',
-      staleTime: 5 * 60 * 1000, // 5 minutes - Balanced for real-time feel
-      gcTime: 30 * 60 * 1000, // 30 minutes - Keep data in memory
+      staleTime: 10 * 60 * 1000, // 10 minutes - More aggressive caching (increased from 5)
+      gcTime: 60 * 60 * 1000, // 1 hour - Keep data longer in memory (increased from 30)
       retry: (failureCount, error) => {
-        if (failureCount >= 2) return false;
+        if (failureCount >= 1) return false; // Fail faster on first retry
         if (error instanceof Error && error.message.includes('timeout')) return false;
         if (error instanceof Error && error.message.includes('AbortError')) return false;
         return true;
       },
-      retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 5000),
+      retryDelay: (attemptIndex) => Math.min(300 * 2 ** attemptIndex, 3000), // Faster retry delays
       refetchInterval: false,
       // This is key for cache hits - keep previous data while fetching
       placeholderData: (previousData) => previousData,
@@ -55,7 +56,7 @@ const queryClient = new QueryClient({
     },
     mutations: {
       retry: 1,
-      retryDelay: 1000,
+      retryDelay: 500, // Faster retry for mutations
     },
   },
 });
@@ -80,6 +81,7 @@ function AppContent() {
   // Enable performance optimizations
   useEnableSmartPrefetch();
   useEnablePerformanceMonitoring();
+  useEnableOptimizedQueryTiers(); // OPTIMIZED: Tiered query execution (DMs + Communities first)
   useHighPriorityChannelPreloader(); // HIGH PRIORITY: Load channels immediately
   useHighPrioritySpacesPreloader(); // HIGH PRIORITY: Load spaces immediately
   useUserCommunitiesChannelPreloader(); // BACKGROUND: Continue background loading

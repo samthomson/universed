@@ -27,7 +27,7 @@ export function useUserStatus(pubkey?: string) {
     queryFn: async (c) => {
       if (!targetPubkey) return null;
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1500)]); // Reduced timeout for faster failover
       const events = await nostr.query([{
         kinds: [USER_STATUS_KIND],
         authors: [targetPubkey],
@@ -53,7 +53,7 @@ export function useUserStatus(pubkey?: string) {
       };
     },
     enabled: !!targetPubkey,
-    refetchInterval: 60000,
+    refetchInterval: 5 * 60 * 1000, // 5 minutes instead of 1 minute to reduce load
   });
 }
 

@@ -97,7 +97,7 @@ export function useChannelPermissions(communityId: string | null, channelId: str
     queryFn: async (c) => {
       if (!communityId || !channelId) return null;
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // Reduced timeout for faster response
 
       try {
         const events = await nostr.query([
@@ -132,8 +132,8 @@ export function useChannelPermissions(communityId: string | null, channelId: str
       }
     },
     enabled: !!communityId && !!channelId,
-    staleTime: 1000 * 5, // 5 seconds - shorter for security and faster updates
-    refetchInterval: 1000 * 30, // Refetch every 30 seconds to catch permission changes
+    staleTime: 1000 * 30, // 30 seconds - increased to reduce refetches
+    refetchInterval: 1000 * 60, // Refetch every minute instead of 30 seconds
   });
 }
 
