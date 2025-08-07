@@ -22,6 +22,7 @@ import { NWCProvider } from '@/contexts/NWCContext';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
+import { useEnableOptimizedQueryTiers } from '@/hooks/useOptimizedQueryTiers';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 import { StarBackground } from '@/components/ui/StarBackground';
 
@@ -80,6 +81,7 @@ function AppContent() {
   // Enable performance optimizations
   useEnableSmartPrefetch();
   useEnablePerformanceMonitoring();
+  useEnableOptimizedQueryTiers(); // OPTIMIZED: Tiered query execution (DMs + Communities first)
   useHighPriorityChannelPreloader(); // HIGH PRIORITY: Load channels immediately
   useHighPrioritySpacesPreloader(); // HIGH PRIORITY: Load spaces immediately
   useUserCommunitiesChannelPreloader(); // BACKGROUND: Continue background loading
