@@ -14,6 +14,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ProfileModal } from "@/components/user/ProfileModal";
+import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
 import { useState, useEffect, useCallback } from "react";
 
 interface AppSidebarProps {
@@ -37,6 +38,7 @@ export function AppSidebar({
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -288,7 +290,16 @@ export function AppSidebar({
         <ProfileModal
           open={showProfileModal}
           onOpenChange={setShowProfileModal}
-          onOpenSettings={() => {}}
+          onOpenSettings={() => {
+            setShowProfileModal(false);
+            setShowSettingsDialog(true);
+          }}
+        />
+
+        {/* Settings Dialog */}
+        <UserSettingsDialog
+          open={showSettingsDialog}
+          onOpenChange={setShowSettingsDialog}
         />
       </div>
     </TooltipProvider>
