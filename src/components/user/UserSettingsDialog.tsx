@@ -1,4 +1,4 @@
-import { LogOut, Wifi, Activity } from "lucide-react";
+import { LogOut, Wifi, Activity, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { RelaySelector } from "@/components/RelaySelector";
+import { WalletConfigDialog } from "@/components/WalletConfigDialog";
 import { useLoginActions } from "@/hooks/useLoginActions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -64,6 +65,20 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               Choose which relay to connect to for sending and receiving messages.
             </p>
             <RelaySelector className="w-full" />
+          </div>
+
+          <Separator />
+
+          {/* Wallet Configuration */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              <h3 className="text-sm font-medium">Wallet Configuration</h3>
+            </div>
+            <WalletConfigDialog />
+            <p className="text-xs text-muted-foreground">
+              Configure your Lightning wallet connections for Nostr Wallet Connect (NWC) payments.
+            </p>
           </div>
 
           <Separator />
