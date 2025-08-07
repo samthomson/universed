@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNavigate } from 'react-router-dom';
@@ -109,9 +109,9 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('newest');
 
-  // Query marketplace items (NIP-15 products)
-  const { data: items, isLoading } = useQuery({
-    queryKey: ['marketplace-items', communityId, searchQuery, selectedCategory, sortBy],
+  // Query marketplace items (NIP-15 products) - fetch once for the community
+  const { data: allItems, isLoading } = useQuery({
+    queryKey: ['marketplace-items', communityId],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
@@ -127,7 +127,6 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
         {
           kinds: [30018], // NIP-15 product events
           '#a': [`${kind}:${pubkey}:${identifier}`], // Filter by community
-          '#t': selectedCategory === 'all' ? undefined : [selectedCategory],
           limit: 100,
         }
       ], { signal });
@@ -137,39 +136,55 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
         .map(parseMarketplaceEvent)
         .filter((item): item is MarketplaceItem => item !== null);
 
-      // Filter by search query
-      let filteredItems = items;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredItems = items.filter(item =>
-          item.name.toLowerCase().includes(query) ||
-          item.description.toLowerCase().includes(query) ||
-          item.category.toLowerCase().includes(query)
-        );
-      }
-
-      // Sort items
-      filteredItems.sort((a, b) => {
-        switch (sortBy) {
-          case 'price-low':
-            return a.price - b.price;
-          case 'price-high':
-            return b.price - a.price;
-          case 'oldest':
-            return a.createdAt - b.createdAt;
-          case 'newest':
-          default:
-            return b.createdAt - a.createdAt;
-        }
-      });
-
-      return filteredItems;
+      return items;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
-  // Get unique categories from items
-  const categories = Array.from(new Set(items?.map(item => item.category) || []));
+  // Filter and sort items locally based on search and filters
+  const items = useMemo(() => {
+    if (!allItems) return [];
+
+    let filteredItems = allItems;
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filteredItems = filteredItems.filter(item => item.category === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredItems = filteredItems.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort items
+    filteredItems.sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'oldest':
+          return a.createdAt - b.createdAt;
+        case 'newest':
+        default:
+          return b.createdAt - a.createdAt;
+      }
+    });
+
+    return filteredItems;
+  }, [allItems, selectedCategory, searchQuery, sortBy]);
+
+  // Get unique categories from all items
+  const categories = useMemo(() =>
+    Array.from(new Set(allItems?.map(item => item.category) || [])),
+    [allItems]
+  );
 
   const formatPrice = (price: number, currency: string) => {
     if (currency === 'sats') {
