@@ -3,6 +3,8 @@ import { cn } from "@/lib/utils";
 import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Flag, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { CompactMarketplaceItemCard } from "./CompactMarketplaceItemCard";
+import { parseMarketplaceItemMessage, extractHumanReadableMessage } from "@/lib/marketplaceDM";
 
 import {
   DropdownMenu,
@@ -191,7 +193,27 @@ function BaseMessageItemComponent({
           )}
           <div className="text-foreground break-words">
             <div className="flex items-center gap-2">
-              <NoteContent event={message} className="text-sm leading-relaxed" />
+              {(() => {
+                // Check if this is a marketplace item message
+                const marketplaceItem = parseMarketplaceItemMessage(message.content);
+                if (marketplaceItem) {
+                  return (
+                    <div className="w-full">
+                      <CompactMarketplaceItemCard
+                        item={marketplaceItem}
+                        className="mb-2"
+                      />
+                      <div className="text-xs text-gray-500 italic">
+                        {extractHumanReadableMessage(message.content)}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <NoteContent event={message} className="text-sm leading-relaxed" />
+                );
+              })()}
               {isSending && !showAvatar && (
                 <div className="flex items-center space-x-1 flex-shrink-0">
                   <Loader2 className="w-3 h-3 animate-spin" />

@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
+import { useMarketplaceContext } from '@/contexts/MarketplaceContext';
+// import { createMarketplaceItemMessage } from '@/lib/marketplaceDM';
 import {
   ShoppingBag,
   Plus,
@@ -34,10 +36,10 @@ import type { NostrEvent } from '@nostrify/nostrify';
 
 interface MarketplaceSpaceProps {
   communityId: string;
-  onNavigateToDMs?: (targetPubkey?: string) => void;
+  onNavigateToDMs?: (targetPubkey?: string, item?: MarketplaceItem) => void;
 }
 
-interface MarketplaceItem {
+export interface MarketplaceItem {
   id: string;
   name: string;
   description: string;
@@ -50,6 +52,7 @@ interface MarketplaceItem {
   condition: 'new' | 'used' | 'refurbished';
   createdAt: number;
   event: NostrEvent;
+  communityId: string;
 }
 
 // Validate NIP-15 marketplace events
@@ -80,6 +83,7 @@ function parseMarketplaceEvent(event: NostrEvent): MarketplaceItem | null {
     const content = JSON.parse(event.content);
     const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
     const category = event.tags.find(([name]) => name === 't')?.[1] || 'general';
+    const communityTag = event.tags.find(([name]) => name === 'a')?.[1] || '';
 
     return {
       id: d,
@@ -94,6 +98,7 @@ function parseMarketplaceEvent(event: NostrEvent): MarketplaceItem | null {
       condition: content.condition || 'used',
       createdAt: event.created_at,
       event,
+      communityId: communityTag,
     };
   } catch {
     return null;
@@ -104,6 +109,31 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const navigate = useNavigate();
+  const { highlightedItemId, clearHighlight } = useMarketplaceContext();
+  const highlightedItemRef = useRef<HTMLDivElement>(null);
+
+  // Effect to scroll to highlighted item
+  useEffect(() => {
+    if (highlightedItemId && highlightedItemRef.current) {
+      // Scroll the highlighted item into view
+      highlightedItemRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+
+      // Add a highlight animation
+      const element = highlightedItemRef.current;
+      element.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
+
+      // Remove the highlight after 3 seconds
+      const timer = setTimeout(() => {
+        element.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
+        clearHighlight();
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedItemId, clearHighlight]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -350,23 +380,29 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
               : 'space-y-3'
           } style={{ willChange: 'scroll-position' }}>
             {items?.map((item) => (
-              <MarketplaceItemCard
+              <div
                 key={item.id}
-                item={item}
-                viewMode={viewMode}
-                formatPrice={formatPrice}
-                getCurrencyIcon={getCurrencyIcon}
-                onStartDM={(pubkey) => {
-                  if (onNavigateToDMs) {
-                    // Use the proper navigation function that clears community state
-                    onNavigateToDMs(pubkey);
-                  } else {
-                    // Fallback to direct navigation
-                    const npub = nip19.npubEncode(pubkey);
-                    navigate(`/dm/${npub}`);
-                  }
-                }}
-              />
+                ref={item.id === highlightedItemId ? highlightedItemRef : null}
+                className={item.id === highlightedItemId ? 'scroll-mt-24' : ''}
+              >
+                <MarketplaceItemCard
+                  item={item}
+                  viewMode={viewMode}
+                  formatPrice={formatPrice}
+                  getCurrencyIcon={getCurrencyIcon}
+                  isHighlighted={item.id === highlightedItemId}
+                  onStartDM={(pubkey, item) => {
+                    if (onNavigateToDMs) {
+                      // Use the proper navigation function that clears community state and includes item data
+                      onNavigateToDMs(pubkey, item);
+                    } else {
+                      // Fallback to direct navigation
+                      const npub = nip19.npubEncode(pubkey);
+                      navigate(`/dm/${npub}`);
+                    }
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -381,13 +417,15 @@ function MarketplaceItemCard({
   viewMode,
   formatPrice,
   getCurrencyIcon,
+  isHighlighted,
   onStartDM
 }: {
   item: MarketplaceItem;
   viewMode: 'grid' | 'list';
   formatPrice: (price: number, currency: string) => string;
   getCurrencyIcon: (currency: string) => React.ReactNode;
-  onStartDM: (pubkey: string) => void;
+  isHighlighted?: boolean;
+  onStartDM: (pubkey: string, item: MarketplaceItem) => void;
 }) {
   const [copiedNpub, setCopiedNpub] = useState(false);
   const { toast } = useToast();
@@ -423,7 +461,7 @@ function MarketplaceItemCard({
 
   if (viewMode === 'list') {
     return (
-      <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
+      <Card className={`bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-blue-500 ring-opacity-75' : ''}`}>
         <CardContent className="p-4">
           <div className="flex space-x-4">
             <div className="w-20 h-20 bg-gray-600 rounded-lg flex items-center justify-center">
@@ -502,7 +540,7 @@ function MarketplaceItemCard({
                     className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onStartDM(item.seller);
+                      onStartDM(item.seller, item);
                     }}
                   >
                     <MessageCircle className="w-3 h-3 mr-1" />
@@ -518,7 +556,7 @@ function MarketplaceItemCard({
   }
 
   return (
-    <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer">
+    <Card className={`bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-blue-500 ring-opacity-75' : ''}`}>
       <CardHeader className="p-0">
         <div className="aspect-square bg-gray-600 rounded-t-lg flex items-center justify-center">
           {item.images.length > 0 ? (
@@ -597,7 +635,7 @@ function MarketplaceItemCard({
             className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600 flex-shrink-0 ml-2"
             onClick={(e) => {
               e.stopPropagation();
-              onStartDM(item.seller);
+              onStartDM(item.seller, item);
             }}
           >
             <MessageCircle className="w-3 h-3 mr-1" />
