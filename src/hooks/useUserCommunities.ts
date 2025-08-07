@@ -10,15 +10,16 @@ export interface UserCommunity extends Community {
 /**
  * Hook that returns only the communities where the current user is a member.
  * This includes communities where the user is:
- * - The creator (owner)
- * - A moderator
- * - An approved member
- * 
+ * - The creator (owner) AND hasn't left
+ * - A moderator AND hasn't left
+ * - An approved member AND hasn't left
+ *
  * Excludes communities where the user is:
  * - Banned
  * - Declined
  * - Has pending join request
  * - Not a member
+ * - Has sent a leave request more recently than any join request (including owners/moderators)
  */
 export function useUserCommunities() {
   const { data: allCommunities, ...communityQuery } = useCommunities();
@@ -39,17 +40,28 @@ export function useUserCommunities() {
     allCommunities.forEach(community => {
       let membershipStatus: MembershipStatus = 'not-member';
 
+      // Check membership status from membership events first (this includes leave request logic)
+      const eventBasedStatus = membershipMap.get(community.id);
+
       // Check if user is the community creator (owner)
       if (community.creator === user.pubkey) {
+        // Even if user is owner, check if they've left
+        if (eventBasedStatus === 'not-member') {
+          return; // Owner has left - skip this community entirely
+        }
         membershipStatus = 'owner';
       }
       // Check if user is a moderator
       else if (community.moderators.includes(user.pubkey)) {
+        // Even if user is moderator, check if they've left
+        if (eventBasedStatus === 'not-member') {
+          return; // Moderator has left - skip this community entirely
+        }
         membershipStatus = 'moderator';
       }
-      // Check membership status from membership events
+      // Check membership status from membership events for regular members
       else {
-        membershipStatus = membershipMap.get(community.id) || 'not-member';
+        membershipStatus = eventBasedStatus || 'not-member';
       }
 
       // Only include communities where user is a member

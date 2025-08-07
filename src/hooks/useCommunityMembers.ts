@@ -38,8 +38,8 @@ export function useCommunityMembers(communityId: string | null) {
         return [];
       }
 
-      // Query for approved members list (Kind 34551) and recent activity
-      const [membershipEvents, activityEvents] = await Promise.all([
+      // Query for approved members list, recent activity, join requests, and leave requests
+      const [membershipEvents, activityEvents, joinRequestEvents, leaveRequestEvents] = await Promise.all([
         // Get approved members list
         nostr.query([
           {
@@ -56,6 +56,24 @@ export function useCommunityMembers(communityId: string | null) {
             '#a': [communityId],
             limit: 200,
             since: Math.floor(Date.now() / 1000) - (30 * 60), // Last 30 minutes for "online" status
+          }
+        ], { signal }),
+
+        // Get join requests for this community
+        nostr.query([
+          {
+            kinds: [4552], // Join requests
+            '#a': [communityId],
+            limit: 500,
+          }
+        ], { signal }),
+
+        // Get leave requests for this community
+        nostr.query([
+          {
+            kinds: [4553], // Leave requests
+            '#a': [communityId],
+            limit: 500,
           }
         ], { signal })
       ]);
@@ -79,22 +97,57 @@ export function useCommunityMembers(communityId: string | null) {
       // Get recently active members for online status
       const recentlyActive = new Set(activityEvents.map(e => e.pubkey));
 
+      // Process leave requests to get the most recent leave request per user
+      const leaveRequestsByUser = new Map<string, NostrEvent>();
+      leaveRequestEvents.forEach(event => {
+        const existingLeave = leaveRequestsByUser.get(event.pubkey);
+        if (!existingLeave || event.created_at > existingLeave.created_at) {
+          leaveRequestsByUser.set(event.pubkey, event);
+        }
+      });
+
+      // Process join requests to get the most recent join request per user
+      const joinRequestsByUser = new Map<string, NostrEvent>();
+      joinRequestEvents.forEach(event => {
+        const existingJoin = joinRequestsByUser.get(event.pubkey);
+        if (!existingJoin || event.created_at > existingJoin.created_at) {
+          joinRequestsByUser.set(event.pubkey, event);
+        }
+      });
+
       // Build member list
       const members: CommunityMember[] = [];
       const addedMembers = new Set<string>();
 
-      // Add community creator as owner
-      members.push({
-        pubkey: community.creator,
-        role: 'owner',
-        isOnline: recentlyActive.has(community.creator),
-        joinedAt: community.event.created_at,
-      });
-      addedMembers.add(community.creator);
+      // Helper function to check if user has left the space
+      const hasUserLeft = (userPubkey: string): boolean => {
+        const leaveRequest = leaveRequestsByUser.get(userPubkey);
+        if (!leaveRequest) return false;
 
-      // Add moderators
+        const joinRequest = joinRequestsByUser.get(userPubkey);
+
+        // If there's no join request, user has left
+        if (!joinRequest) return true;
+
+        // If leave request is more recent than join request, user has left
+        // If join request is more recent than leave request, user has rejoined
+        return leaveRequest.created_at > joinRequest.created_at;
+      };
+
+      // Add community creator as owner (unless they've left)
+      if (!hasUserLeft(community.creator)) {
+        members.push({
+          pubkey: community.creator,
+          role: 'owner',
+          isOnline: recentlyActive.has(community.creator),
+          joinedAt: community.event.created_at,
+        });
+        addedMembers.add(community.creator);
+      }
+
+      // Add moderators (unless they've left)
       community.moderators.forEach(modPubkey => {
-        if (!addedMembers.has(modPubkey)) {
+        if (!addedMembers.has(modPubkey) && !hasUserLeft(modPubkey)) {
           members.push({
             pubkey: modPubkey,
             role: 'moderator',
@@ -104,9 +157,9 @@ export function useCommunityMembers(communityId: string | null) {
         }
       });
 
-      // Add approved members
+      // Add approved members (unless they've left)
       approvedMembers.forEach(memberPubkey => {
-        if (!addedMembers.has(memberPubkey)) {
+        if (!addedMembers.has(memberPubkey) && !hasUserLeft(memberPubkey)) {
           members.push({
             pubkey: memberPubkey,
             role: 'member',

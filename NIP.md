@@ -2,9 +2,82 @@
 
 This document describes custom event kinds and protocol extensions used by this Nostr client application.
 
+## Space Leave Request (Kind 4553)
+
+**Kind:** 4553 (Regular Event)
+**Purpose:** Request to leave a community/space
+
+### Description
+
+Space leave request events allow users to formally request to leave a community or space. When a user sends a leave request, they will be hidden from the community members list and their own community/spaces list if the leave request is more recent than any join request.
+
+### Event Structure
+
+```json
+{
+  "kind": 4553,
+  "content": "<optional-message>",
+  "tags": [
+    ["a", "<community-id>"],
+    ["alt", "Leave request for <community-id>"]
+  ]
+}
+```
+
+### Tags
+
+- **`a`** (required): Reference to the community (kind 34550 event) being left
+- **`alt`** (required): Human-readable description per NIP-31
+
+### Content
+
+The content field contains an optional message from the user explaining why they are leaving the space.
+
+### Behavior
+
+When processing leave requests:
+
+1. **Membership Status**: Users with a leave request more recent than any join request are considered to have left the space
+2. **UI Filtering**: Users who have left are hidden from:
+   - Community members list
+   - User's personal community/spaces list
+3. **Timing Logic**: Leave requests override join requests when `leave_request.created_at > join_request.created_at`
+
+### Usage Example
+
+```json
+{
+  "kind": 4553,
+  "content": "I need to focus on other projects right now",
+  "tags": [
+    ["a", "34550:pubkey1:community-id"],
+    ["alt", "Leave request for community-id"]
+  ]
+}
+```
+
+### Client Implementation
+
+Clients SHOULD:
+1. Query for kind 4553 events when determining membership status
+2. Compare timestamps of join (kind 4552) and leave (kind 4553) requests
+3. Hide users from UI lists if they have a more recent leave request
+4. Allow users to rejoin after leaving by sending a new join request
+
+Clients MAY:
+1. Show leave requests to moderators for administrative purposes
+2. Provide a grace period before fully removing users from lists
+3. Send notifications to moderators when users leave
+
+### Related Kinds
+
+- **Kind 4552**: Join request events
+- **Kind 34550**: Community definition events
+- **Kind 34551**: Approved members list
+
 ## Channel Permissions (Kind 30143)
 
-**Kind:** 30143 (Addressable Event)  
+**Kind:** 30143 (Addressable Event)
 **Purpose:** Define read and write permissions for community channels
 
 ### Description
