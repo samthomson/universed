@@ -130,6 +130,33 @@ describe('NoteContent', () => {
     expect(bobButton).toHaveClass('cursor-pointer');
   });
 
+  it('does not duplicate @ symbol in user mentions', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Hello @[Alice](1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef)!',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    const aliceButton = screen.getByRole('button', { name: '@Alice' });
+
+    // Check that the button contains exactly "@Alice" (not "@@Alice")
+    expect(aliceButton).toBeInTheDocument();
+    expect(aliceButton.textContent).toBe('@Alice');
+
+    // Verify there's no double @ symbol by checking the rendered HTML
+    expect(aliceButton.innerHTML).not.toContain('@@');
+  });
+
   it('opens profile dialog when mention is clicked', async () => {
     const event: NostrEvent = {
       id: 'test-id',
