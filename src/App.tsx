@@ -23,7 +23,7 @@ import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesCh
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
-
+import { StarBackground } from '@/components/ui/StarBackground';
 
 import AppRouter from './AppRouter';
 
@@ -93,6 +93,7 @@ function AppContent() {
 
   return (
     <MessageSystemProvider>
+      <StarBackground />
       <TooltipProvider>
         <QueryOptimizer />
         <Toaster />
