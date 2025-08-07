@@ -39,7 +39,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const { preloadMessages } = useBackgroundMessagePreloader(null, null);
 
   const creatorName = metadata?.name || genUserName(community.creator);
-  const memberCount = community.moderators.length + 1; // Creator + moderators (simplified)
+  const memberCount = community.moderators.length;
 
   const handleJoinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
