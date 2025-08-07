@@ -14,11 +14,13 @@ import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useChannels } from "@/hooks/useChannels";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
+import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
+import { useModerationActions } from "@/hooks/useModerationActions";
 import type { NostrEvent } from "@nostrify/nostrify";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
 import { MessageThread } from "@/components/chat/MessageThread";
@@ -159,8 +161,18 @@ function CommunityChat(
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
+  const { role } = useUserRole(communityId);
+  const { banUser } = useModerationActions();
   const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
+
+  const isAdmin = role === 'owner' || role === 'admin';
+
+  // Create dynamic message item config based on user role
+  const dynamicMessageItemConfig = useMemo(() => ({
+    ...groupMessageItemConfig,
+    showBan: isAdmin, // Enable ban option for admin users
+  }), [isAdmin]);
 
   const channel = channels?.find((c) => c.id === channelId);
 
@@ -171,12 +183,13 @@ function CommunityChat(
   const channelName = channel?.name || channelId;
   const isVoiceChannel = channel?.type === "voice";
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, additionalTags: string[][] = []) => {
     const [kind, pubkey, identifier] = communityId.split(":");
 
     const tags = [
       ["t", channelId],
       ["a", `${kind}:${pubkey}:${identifier}`],
+      ...additionalTags, // Add any additional tags (like imeta for files)
     ];
 
     await createEvent({
@@ -199,6 +212,14 @@ function CommunityChat(
   const handleReply = (message: NostrEvent) => {
     setThreadRootMessage(message);
     setIsThreadOpen(true);
+  };
+
+  const handleBanUser = (pubkey: string, reason?: string) => {
+    banUser.mutate({
+      communityId,
+      userPubkey: pubkey,
+      reason: reason?.trim() || 'Banned by admin from chat'
+    });
   };
 
   if (isVoiceChannel) {
@@ -225,6 +246,7 @@ function CommunityChat(
         queryKey={['messages', communityId, channelId]}
         onPin={handlePinMessage}
         onReply={handleReply}
+        onBan={handleBanUser}
         header={
           <CommunityChatHeader
             communityId={communityId}
@@ -233,7 +255,7 @@ function CommunityChat(
           />
         }
         messageListConfig={groupMessageListConfig}
-        messageItemConfig={groupMessageItemConfig}
+        messageItemConfig={dynamicMessageItemConfig}
         messageInputConfig={groupMessageInputConfig}
         inputPlaceholder={`Message #${channelName}`}
         onNavigateToDMs={onNavigateToDMs}

@@ -1035,32 +1035,93 @@ function JoinRequestItem({
 }
 
 // Helper component for displaying reports
-function ReportItem({ report }: { report: { targetPubkey: string; reportType: string; reason: string; createdAt: number; targetEventId?: string } }) {
-  const author = useAuthor(report.targetPubkey);
-  const displayName = author.data?.metadata?.name || genUserName(report.targetPubkey);
+function ReportItem({ report }: { report: { targetPubkey: string; reporterPubkey: string; reportType: string; reason: string; createdAt: number; targetEventId?: string } }) {
+  const targetAuthor = useAuthor(report.targetPubkey);
+  const reporterAuthor = useAuthor(report.reporterPubkey);
+  const targetDisplayName = targetAuthor.data?.metadata?.name || genUserName(report.targetPubkey);
+  const reporterDisplayName = reporterAuthor.data?.metadata?.name || genUserName(report.reporterPubkey);
+
+  const targetNpub = nip19.npubEncode(report.targetPubkey);
+  const reporterNpub = nip19.npubEncode(report.reporterPubkey);
+
+  const { toast } = useToast();
+
+  const handleCopyNpub = (npub: string, userType: string) => {
+    navigator.clipboard.writeText(npub);
+    toast({
+      title: 'Copied to clipboard',
+      description: `${userType} npub copied to clipboard`,
+    });
+  };
 
   const timeAgo = new Date(report.createdAt * 1000).toLocaleString();
 
   return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div>
+    <div className="p-3 border rounded-lg">
+      <div className="space-y-3">
+        {/* Reported User */}
+        <div className="space-y-1">
+          <div className="font-medium flex items-center gap-2">
+            <span className="text-red-600">Reported User:</span>
+            {targetDisplayName}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => handleCopyNpub(targetNpub, 'Target user')}
+              title="Copy target user npub"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground font-mono break-all">
+            {targetNpub}
+          </div>
+        </div>
+
+        {/* Reporting User */}
+        <div className="space-y-1">
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
+            <span className="text-blue-600">Reported by:</span>
+            {reporterDisplayName}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5"
+              onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
+              title="Copy reporter npub"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground font-mono break-all">
+            {reporterNpub}
+          </div>
+        </div>
+
+        {/* Report Details */}
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-orange-500" />
-          <p className="font-medium">
-            {report.targetEventId ? 'Content reported' : 'User reported'}: {displayName}
+          <p className="text-sm font-medium">
+            {report.targetEventId ? 'Content reported' : 'User reported'}
           </p>
+          <Badge variant="outline" className="text-xs">
+            {report.reportType}
+          </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Type: {report.reportType} • {timeAgo}
+        
+        <p className="text-xs text-muted-foreground">
+          {timeAgo}
         </p>
+        
         {report.reason && (
-          <p className="text-xs text-muted-foreground mt-1 italic">"{report.reason}"</p>
+          <p className="text-xs text-muted-foreground italic">"{report.reason}"</p>
         )}
       </div>
-      <div className="flex gap-2">
-        <Button size="sm" variant="outline">Review</Button>
+      
+      <div className="flex gap-2 mt-3">
         <Button size="sm" variant="destructive">
-          {report.targetEventId ? 'Delete' : 'Ban User'}
+          {report.targetEventId ? 'Delete Content' : 'Ban User'}
         </Button>
       </div>
     </div>

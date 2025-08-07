@@ -1,12 +1,13 @@
 import type { MessageItemConfig } from "../BaseMessageItem";
 
 export const dmMessageItemConfig: MessageItemConfig = {
-  showContextMenu: false,
-  showReactions: false,
+  showContextMenu: true,
+  showReactions: true,
   showThreadReply: false,
   showPin: false,
-  showDelete: false,
+  showDelete: true,
   showBan: false,
+  showReport: true,
 };
 
 export const dmMessageListConfig = {

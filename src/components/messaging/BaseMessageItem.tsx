@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Zap } from "lucide-react";
+import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Flag, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +17,9 @@ import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
 import { ZapButton } from "@/components/ZapButton";
+import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
+import { useCommunityContext } from "@/contexts/CommunityContext";
+import { useUserRole } from "@/hooks/useCommunityRoles";
 
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -35,6 +38,7 @@ export interface MessageItemConfig {
   showPin: boolean;
   showDelete: boolean;
   showBan: boolean;
+  showReport: boolean;
 }
 
 export interface BaseMessageItemProps {
@@ -66,12 +70,17 @@ function BaseMessageItemComponent({
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
+  const { currentCommunityId } = useCommunityContext();
+  const { role } = useUserRole(currentCommunityId || '');
+  const isAdmin = role === 'owner' || role === 'admin';
+  
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
   const isNew = isNewMessage(message);
@@ -274,17 +283,25 @@ function BaseMessageItemComponent({
                     {isPinned ? 'Unpin Message' : 'Pin Message'}
                   </DropdownMenuItem>
                 )}
-                {config.showDelete && (
+                {config.showDelete && user?.pubkey === message.pubkey && (
                   <DropdownMenuItem onClick={() => onDelete?.(message)}>
                     <Trash2 className="mr-2 h-4 w-4" />Delete
                   </DropdownMenuItem>
                 )}
-                {config.showBan && (
+                {config.showBan && isAdmin && (
                   <DropdownMenuItem
                     onClick={() => onBan?.(message.pubkey)}
                     className="text-destructive"
                   >
                     <Ban className="mr-2 h-4 w-4" />Ban User
+                  </DropdownMenuItem>
+                )}
+                {config.showReport && user?.pubkey !== message.pubkey && (
+                  <DropdownMenuItem
+                    onClick={() => setShowReportDialog(true)}
+                    className="text-destructive"
+                  >
+                    <Flag className="mr-2 h-4 w-4" />Report User
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -298,6 +315,15 @@ function BaseMessageItemComponent({
         open={showProfileDialog}
         onOpenChange={setShowProfileDialog}
         onStartDM={onNavigateToDMs}
+      />
+
+      {/* Report User Dialog */}
+      <ReportUserDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        targetPubkey={message.pubkey}
+        targetDisplayName={displayName}
+        communityId={currentCommunityId || undefined}
       />
     </div>
   );
