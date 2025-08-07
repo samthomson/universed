@@ -7,7 +7,7 @@ import type { NostrEvent } from '@nostrify/nostrify';
 const DELETION_KIND = 5;
 
 export function useDeleteMessage(communityId?: string) {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { canModerate } = useCanModerate(communityId || '');
@@ -39,7 +39,7 @@ export function useDeleteMessage(communityId?: string) {
         }
       }
 
-      createEvent({
+      await createEvent({
         kind: DELETION_KIND,
         content: reason || (isOwnMessage ? 'Message deleted' : 'Message deleted by moderator'),
         tags,
@@ -53,7 +53,7 @@ export function useDeleteMessage(communityId?: string) {
 }
 
 export function useEditMessage() {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
 
@@ -68,7 +68,7 @@ export function useEditMessage() {
           ['t', 'a', 'e', 'p'].includes(name)
         );
 
-        createEvent({
+        await createEvent({
           kind: 9411,
           content: newContent,
           tags: [
@@ -91,7 +91,7 @@ export interface BulkDeleteMessagesParams {
 }
 
 export function useBulkDeleteMessages(communityId?: string) {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { canModerate } = useCanModerate(communityId || '');
@@ -120,7 +120,7 @@ export function useBulkDeleteMessages(communityId?: string) {
         }
       }
 
-      createEvent({
+      await createEvent({
         kind: DELETION_KIND,
         content: reason || `Bulk deletion of ${messageEvents.length} messages by moderator`,
         tags,
