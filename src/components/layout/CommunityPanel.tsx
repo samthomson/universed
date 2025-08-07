@@ -58,7 +58,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
       {
         onSuccess: () => {
           toast({
-            title: "Left community",
+            title: "Left Space",
             description: `You have left ${community?.name}`,
           });
           // Navigate away from the community after leaving
@@ -281,7 +281,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                 className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Leave Community
+                Leave Space
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
