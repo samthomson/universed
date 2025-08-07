@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
+import { logger } from '@/lib/logger';
 
 export interface Notification {
   id: string;
@@ -12,6 +13,8 @@ export interface Notification {
   fromPubkey?: string;
   timestamp: number;
   read: boolean;
+  communityId?: string;
+  channelId?: string;
 }
 
 /**
@@ -33,7 +36,7 @@ export function useNotifications() {
       // Optimized parallel queries for mentions and user events
       const since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // Last 7 days
 
-      const [mentionEvents, userEvents] = await Promise.all([
+      const [mentionEvents, userEvents, mentionNotifications] = await Promise.all([
         // Get mentions (events that tag the current user)
         nostr.query([{
           kinds: [1, 1111], // Text notes and channel messages
@@ -47,6 +50,14 @@ export function useNotifications() {
           kinds: [1, 1111],
           authors: [user.pubkey],
           limit: 20,
+          since,
+        }], { signal }),
+
+        // Get explicit mention notifications (kind 9734)
+        nostr.query([{
+          kinds: [9734], // Mention notifications
+          '#p': [user.pubkey],
+          limit: 50,
           since,
         }], { signal })
       ]);
@@ -63,7 +74,37 @@ export function useNotifications() {
       // Convert to notifications
       const notifications: Notification[] = [];
 
-      // Process mentions
+      // Process explicit mention notifications (kind 9734)
+      mentionNotifications.forEach(event => {
+        // Skip if it's from the user themselves
+        if (event.pubkey === user.pubkey) return;
+
+        try {
+          const notificationData = JSON.parse(event.content);
+
+          // Extract community and channel context from tags
+          const communityTag = event.tags.find(([name]) => name === 'a')?.[1];
+          const channelTag = event.tags.find(([name]) => name === 't')?.[1];
+          const originalEventId = event.tags.find(([name]) => name === 'e')?.[1];
+
+          notifications.push({
+            id: `${event.id}-mention-notification`,
+            type: 'mention',
+            title: 'You were mentioned',
+            message: notificationData.message || 'Someone mentioned you in a message',
+            eventId: originalEventId,
+            fromPubkey: event.pubkey,
+            timestamp: event.created_at * 1000,
+            read: readNotifications.includes(`${event.id}-mention-notification`),
+            communityId: communityTag,
+            channelId: channelTag,
+          });
+        } catch (error) {
+          logger.warn('Failed to parse mention notification:', error);
+        }
+      });
+
+      // Process legacy mentions (from p tags in regular messages)
       mentionEvents.forEach(event => {
         // Skip if it's from the user themselves
         if (event.pubkey === user.pubkey) return;
