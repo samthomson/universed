@@ -180,64 +180,12 @@ export function useReports(communityId?: string) {
         return validReports;
       }
 
-      // Filter reports to only include those related to the community
-      const communityReports: Report[] = [];
-
-      for (const report of validReports) {
-        let isCommunityRelated = false;
-
-        // First, check if the report itself has the community a tag (newer reports)
-        const hasCommunityTagInReport = report.event.tags.some(
+      // Filter reports to only include those with the community a tag
+      const communityReports = validReports.filter(report => {
+        return report.event.tags.some(
           ([name, value]) => name === 'a' && value === communityId
         );
-        
-        if (hasCommunityTagInReport) {
-          isCommunityRelated = true;
-        } 
-        // For user reports (no targetEventId), check if the user has posted in the community
-        else if (!report.targetEventId) {
-          // Fetch user's posts to see if they've posted in this community
-          try {
-            const userPosts = await nostr.query([
-              { kinds: [1111], authors: [report.targetPubkey], '#a': [communityId], limit: 1 }
-            ], { signal: AbortSignal.timeout(2000) });
-            
-            if (userPosts.length > 0) {
-              isCommunityRelated = true;
-            }
-          } catch {
-            // If query fails, assume not related to avoid including unrelated reports
-            continue;
-          }
-        } 
-        // For post reports, check if the reported event belongs to the community
-        else {
-          try {
-            const reportedEvents = await nostr.query([
-              { ids: [report.targetEventId], limit: 1 }
-            ], { signal: AbortSignal.timeout(2000) });
-
-            if (reportedEvents.length > 0) {
-              const reportedEvent = reportedEvents[0];
-              // Check if the event has the community's a tag
-              const hasCommunityTag = reportedEvent.tags.some(
-                ([name, value]) => name === 'a' && value === communityId
-              );
-              
-              if (hasCommunityTag) {
-                isCommunityRelated = true;
-              }
-            }
-          } catch {
-            // If query fails, assume not related to avoid including unrelated reports
-            continue;
-          }
-        }
-
-        if (isCommunityRelated) {
-          communityReports.push(report);
-        }
-      }
+      });
 
       return communityReports;
     },

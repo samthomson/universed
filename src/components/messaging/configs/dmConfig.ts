@@ -7,6 +7,7 @@ export const dmMessageItemConfig: MessageItemConfig = {
   showPin: false,
   showDelete: true,
   showBan: false,
+  showReport: true,
 };
 
 export const dmMessageListConfig = {

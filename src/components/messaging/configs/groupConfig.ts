@@ -6,7 +6,8 @@ export const groupMessageItemConfig: MessageItemConfig = {
   showThreadReply: true,
   showPin: true,
   showDelete: true,
-  showBan: true,
+  showBan: false, // Will be controlled by role-based logic
+  showReport: true, // Add report option
 };
 
 export const groupMessageListConfig = {
