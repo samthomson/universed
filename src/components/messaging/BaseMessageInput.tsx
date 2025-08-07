@@ -348,7 +348,7 @@ export function BaseMessageInput({
   }
 
   return (
-    <div className={`p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
+    <div className={`relative p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
       isFocused ? 'border-2 border-blueviolet' : 'border border-border'
     }`}>
       {/* Attached Files Preview */}
