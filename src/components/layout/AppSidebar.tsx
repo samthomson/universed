@@ -9,6 +9,11 @@ import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAuthor } from "@/hooks/useAuthor";
+import { genUserName } from "@/lib/genUserName";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { ProfileModal } from "@/components/user/ProfileModal";
 import { useState, useEffect, useCallback } from "react";
 
 interface AppSidebarProps {
@@ -27,6 +32,11 @@ export function AppSidebar({
   const { data: communities, isLoading } = useUserCommunities();
   const { preloadCommunity } = useUnifiedPreloader();
   const { playSound } = useSoundEffect();
+  const isMobile = useIsMobile();
+  const { user } = useCurrentUser();
+  const author = useAuthor(user?.pubkey || '');
+  const metadata = author.data?.metadata;
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -226,7 +236,7 @@ export function AppSidebar({
         </ScrollArea>
 
         {/* Fixed bottom section - Add Community Button */}
-        <div className="flex flex-col items-center pt-2 pb-3">
+        <div className="flex flex-col items-center pt-2 pb-3 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -242,12 +252,43 @@ export function AppSidebar({
               <p>Add a Community</p>
             </TooltipContent>
           </Tooltip>
+
+          {/* User Profile Picture - Only show in mobile view */}
+          {isMobile && user && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                  onClick={() => setShowProfileModal(true)}
+                >
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
+                    <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                      {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>View Profile</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
 
         <CommunitySelectionDialog
           open={showCommunitySelectionDialog}
           onOpenChange={onShowCommunitySelectionDialogChange}
           onCommunitySelect={onSelectCommunity}
+        />
+
+        {/* Profile Modal */}
+        <ProfileModal
+          open={showProfileModal}
+          onOpenChange={setShowProfileModal}
+          onOpenSettings={() => {}}
         />
       </div>
     </TooltipProvider>
