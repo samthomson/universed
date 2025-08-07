@@ -329,12 +329,14 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                     <SpacesArea
                       communityId={selectedCommunity}
                       selectedSpace="marketplace"
+                      onNavigateToDMs={handleNavigateToDMs}
                     />
                   )}
                   {activeTab === "resources" && selectedCommunity && (
                     <SpacesArea
                       communityId={selectedCommunity}
                       selectedSpace="resources"
+                      onNavigateToDMs={handleNavigateToDMs}
                     />
                   )}
                 </>
@@ -426,6 +428,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                                 <SpacesArea
                                   communityId={selectedCommunity}
                                   selectedSpace={selectedSpace}
+                                  onNavigateToDMs={handleNavigateToDMs}
                                 />
                               )
                               : (
@@ -443,12 +446,14 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                           <SpacesArea
                             communityId={selectedCommunity}
                             selectedSpace="marketplace"
+                            onNavigateToDMs={handleNavigateToDMs}
                           />
                         )}
                         {activeTab === "resources" && selectedCommunity && (
                           <SpacesArea
                             communityId={selectedCommunity}
                             selectedSpace="resources"
+                            onNavigateToDMs={handleNavigateToDMs}
                           />
                         )}
                       </div>

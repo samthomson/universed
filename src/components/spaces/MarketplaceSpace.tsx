@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 import {
   ShoppingBag,
   Plus,
@@ -11,7 +13,10 @@ import {
   Zap,
   DollarSign,
   MapPin,
-  Clock
+  Clock,
+  MessageCircle,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +24,17 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useAuthor } from '@/hooks/useAuthor';
+import { useToast } from '@/hooks/useToast';
+import { genUserName } from '@/lib/genUserName';
 import { CreateMarketplaceItemDialog } from './CreateMarketplaceItemDialog';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface MarketplaceSpaceProps {
   communityId: string;
+  onNavigateToDMs?: (targetPubkey?: string) => void;
 }
 
 interface MarketplaceItem {
@@ -90,9 +100,10 @@ function parseMarketplaceEvent(event: NostrEvent): MarketplaceItem | null {
   }
 }
 
-export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
+export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSpaceProps) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -233,7 +244,8 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
       </div>
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto spaces-scroll">
+      <div className="flex-1 overflow-y-auto scrollbar-thin"
+           style={{ maxHeight: 'calc(100vh - 200px)' }}>
         <div className="p-4 space-y-4">
 
         {/* Search and Filters */}
@@ -329,6 +341,16 @@ export function MarketplaceSpace({ communityId }: MarketplaceSpaceProps) {
                 viewMode={viewMode}
                 formatPrice={formatPrice}
                 getCurrencyIcon={getCurrencyIcon}
+                onStartDM={(pubkey) => {
+                  if (onNavigateToDMs) {
+                    // Use the proper navigation function that clears community state
+                    onNavigateToDMs(pubkey);
+                  } else {
+                    // Fallback to direct navigation
+                    const npub = nip19.npubEncode(pubkey);
+                    navigate(`/dm/${npub}`);
+                  }
+                }}
               />
             ))}
           </div>
@@ -343,14 +365,46 @@ function MarketplaceItemCard({
   item,
   viewMode,
   formatPrice,
-  getCurrencyIcon
+  getCurrencyIcon,
+  onStartDM
 }: {
   item: MarketplaceItem;
   viewMode: 'grid' | 'list';
   formatPrice: (price: number, currency: string) => string;
   getCurrencyIcon: (currency: string) => React.ReactNode;
+  onStartDM: (pubkey: string) => void;
 }) {
+  const [copiedNpub, setCopiedNpub] = useState(false);
+  const { toast } = useToast();
+
   const timeAgo = new Date(item.createdAt * 1000).toLocaleDateString();
+  const author = useAuthor(item.seller);
+  const metadata = author.data?.metadata;
+  const displayName = metadata?.name || genUserName(item.seller);
+  const profileImage = metadata?.picture;
+
+  // Generate npub for display and copying
+  const npub = nip19.npubEncode(item.seller);
+  const shortNpub = `${npub.slice(0, 8)}...${npub.slice(-4)}`;
+
+  const handleCopyNpub = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopiedNpub(true);
+      toast({
+        title: "Copied!",
+        description: "User's npub copied to clipboard",
+      });
+      setTimeout(() => setCopiedNpub(false), 2000);
+    } catch {
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy npub to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (viewMode === 'list') {
     return (
@@ -395,10 +449,50 @@ function MarketplaceItemCard({
                       <span>{item.location}</span>
                     </div>
                   )}
+                  <div className="flex items-center space-x-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{timeAgo}</span>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>{timeAgo}</span>
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={profileImage} alt={displayName} />
+                      <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                        {displayName.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="text-gray-300 text-sm">{displayName}</span>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-xs text-gray-500">{shortNpub}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-4 w-4 p-0 hover:bg-gray-600"
+                          onClick={handleCopyNpub}
+                        >
+                          {copiedNpub ? (
+                            <Check className="w-3 h-3 text-green-400" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-gray-400" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartDM(item.seller);
+                    }}
+                  >
+                    <MessageCircle className="w-3 h-3 mr-1" />
+                    DM
+                  </Button>
                 </div>
               </div>
             </div>
@@ -453,6 +547,48 @@ function MarketplaceItemCard({
             <span>{item.location}</span>
           </div>
         )}
+
+        {/* Seller Info and DM Button */}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-600">
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
+            <Avatar className="w-6 h-6 flex-shrink-0">
+              <AvatarImage src={profileImage} alt={displayName} />
+              <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                {displayName.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-gray-300 text-sm truncate">{displayName}</span>
+              <div className="flex items-center space-x-1">
+                <span className="text-xs text-gray-500 truncate">{shortNpub}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-4 w-4 p-0 hover:bg-gray-600 flex-shrink-0"
+                  onClick={handleCopyNpub}
+                >
+                  {copiedNpub ? (
+                    <Check className="w-3 h-3 text-green-400" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-gray-400" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600 flex-shrink-0 ml-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartDM(item.seller);
+            }}
+          >
+            <MessageCircle className="w-3 h-3 mr-1" />
+            DM
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
