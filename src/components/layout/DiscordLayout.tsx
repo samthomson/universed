@@ -412,7 +412,6 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                       ),
                       EmptyPlaceholder: () => (
                         <div className="p-4">
-                          <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
                           <p className="text-sm text-muted-foreground">No mutual friends yet</p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Friends appear when you follow each other
