@@ -96,7 +96,9 @@ export function BaseMessageInput({
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+      // Limit height to approximately 2 lines (64px)
+      const maxHeight = 64;
+      textarea.style.height = Math.min(textarea.scrollHeight, maxHeight) + 'px';
     }
   };
 
@@ -473,7 +475,7 @@ export function BaseMessageInput({
         </div>
       )}
 
-      <div className="flex items-end space-x-3">
+      <div className="flex items-center space-x-3">
         {config.allowFileUpload && (
           <MessageAttachmentMenu
             onFilesUploaded={handleFilesUploaded}
@@ -496,9 +498,11 @@ export function BaseMessageInput({
             adjustTextareaHeight();
           }}
           placeholder={placeholder || "Type a message..."}
-          className="min-h-[40px] w-full max-h-[200px] resize-none bg-transparent ring-transparent border
-          -0 focus-within:ring-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:ring-none text-foreground focus-within:appearance-none placeholder:text-muted-foreground p-0"
+          className="min-h-[24px] max-h-[64px] w-full resize-none bg-transparent border-none
+          focus:outline-none focus:ring-0 text-foreground placeholder:text-muted-foreground
+          p-0 leading-tight scrollbar-thin overflow-y-auto"
           disabled={isSending}
+          rows={1}
         />
         {config.allowEmoji && (
           <EmojiPickerComponent
