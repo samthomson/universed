@@ -1,4 +1,3 @@
-// import { Button } from "@/components/ui/button"; // Currently unused
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
@@ -18,10 +17,6 @@ export function UserPanel() {
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
-
-  // Voice state hooks (currently unused but available for future voice features)
-  // const { isMuted, toggleMute } = useVoiceMuteState();
-  // const { isDeafened, toggleDeafen } = useVoiceDeafenState();
   const { isConnectedToVoice: _isConnectedToVoice } = useVoiceConnectionState();
 
   const [showStatusDialog, setShowStatusDialog] = useState(false);

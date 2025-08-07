@@ -83,7 +83,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
 
 
-  
+
 
   // Initialize form data when community changes
   useEffect(() => {
@@ -499,29 +499,6 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             <TabsContent value="moderation" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Auto-Moderation</CardTitle>
-                  <CardDescription>
-                    Automatically moderate content based on rules
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pb-0">
-                  <div className="flex items-center space-x-2">
-                    <Switch id="auto-delete-spam" />
-                    <Label htmlFor="auto-delete-spam">Auto-delete spam messages</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="filter-profanity" />
-                    <Label htmlFor="filter-profanity">Filter profanity</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="require-verification" />
-                    <Label htmlFor="require-verification">Require phone verification</Label>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
                   <CardTitle>Moderation Queue</CardTitle>
                   <CardDescription>
                     Review flagged content and user reports ({totalReports} pending)
@@ -594,9 +571,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </div>
                     ) : joinRequests && joinRequests.length > 0 ? (
                       joinRequests.map((request) => (
-                        <JoinRequestItem 
-                          key={request.event.id} 
-                          request={request} 
+                        <JoinRequestItem
+                          key={request.event.id}
+                          request={request}
                           onApprove={() => handleApproveRequest(request.requesterPubkey)}
                           onDecline={() => handleDeclineRequest(request.requesterPubkey)}
                           isApproving={approvingMembers.has(request.requesterPubkey)}
@@ -1109,16 +1086,16 @@ function ReportItem({ report }: { report: { targetPubkey: string; reporterPubkey
             {report.reportType}
           </Badge>
         </div>
-        
+
         <p className="text-xs text-muted-foreground">
           {timeAgo}
         </p>
-        
+
         {report.reason && (
           <p className="text-xs text-muted-foreground italic">"{report.reason}"</p>
         )}
       </div>
-      
+
       <div className="flex gap-2 mt-3">
         <Button size="sm" variant="destructive">
           {report.targetEventId ? 'Delete Content' : 'Ban User'}
