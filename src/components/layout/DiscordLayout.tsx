@@ -331,54 +331,53 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
 
           {/* Main Content Area */}
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Mobile Top Navigation Bar */}
-            <div className="flex items-center justify-between p-3 border-b bg-background z-20 flex-shrink-0">
-              {/* Back button - show for DM conversations or community chat/members */}
-              {(!selectedCommunity && dmTargetPubkey) || (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleBackNavigation}
-                  className="flex-shrink-0"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              ) : (
+            {/* Mobile Top Navigation Bar - only show when needed */}
+            {((!selectedCommunity && dmTargetPubkey) ||
+              (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ||
+              (mobileView === "chat" && selectedCommunity) ||
+              (mobileView === "members")) && (
+              <div className="flex items-center justify-between p-3 border-b bg-background z-20 flex-shrink-0">
+                {/* Back button - show for DM conversations or community chat/members */}
+                {(!selectedCommunity && dmTargetPubkey) || (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleBackNavigation}
+                    className="flex-shrink-0"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                ) : (
+                  <div className="flex-shrink-0 w-9"></div>
+                )}
+
+                {/* Center content - Minimal titles, no title for DM conversations */}
+                <div className="flex-1 text-center min-w-0">
+                  {mobileView === "chat" && selectedCommunity && (
+                    <div className="flex flex-col items-center min-w-0">
+                      {activeTab === "channels" ? (
+                        <MobileChannelHeader
+                          communityId={selectedCommunity}
+                          channelId={selectedChannel}
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      ) : (
+                        <h2 className="font-semibold text-lg truncate w-full">
+                          {activeTab === "marketplace" ? "Shop" :
+                           activeTab === "resources" ? "Files" : "Chat"}
+                        </h2>
+                      )}
+                    </div>
+                  )}
+                  {mobileView === "members" && (
+                    <h2 className="font-semibold text-lg truncate">Members</h2>
+                  )}
+                </div>
+
+                {/* Right spacer for balance */}
                 <div className="flex-shrink-0 w-9"></div>
-              )}
-
-              {/* Center content - Minimal titles, no title for DM conversations */}
-              <div className="flex-1 text-center min-w-0">
-                {!selectedCommunity && !dmTargetPubkey && (
-                  <h2 className="font-semibold text-lg truncate">Messages</h2>
-                )}
-                {mobileView === "channels" && selectedCommunity && (
-                  <h2 className="font-semibold text-lg truncate">Channels</h2>
-                )}
-                {mobileView === "chat" && selectedCommunity && (
-                  <div className="flex flex-col items-center min-w-0">
-                    {activeTab === "channels" ? (
-                      <MobileChannelHeader
-                        communityId={selectedCommunity}
-                        channelId={selectedChannel}
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
-                    ) : (
-                      <h2 className="font-semibold text-lg truncate w-full">
-                        {activeTab === "marketplace" ? "Shop" :
-                         activeTab === "resources" ? "Files" : "Chat"}
-                      </h2>
-                    )}
-                  </div>
-                )}
-                {mobileView === "members" && (
-                  <h2 className="font-semibold text-lg truncate">Members</h2>
-                )}
               </div>
-
-              {/* Right spacer for balance */}
-              <div className="flex-shrink-0 w-9"></div>
-            </div>
+            )}
 
             {/* Mobile Tab Navigation - only show in chat view with Lucide icons */}
             {selectedCommunity && mobileView === "chat" && (
