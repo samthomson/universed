@@ -169,52 +169,9 @@ export function DMConversationList({
     );
   }
 
-  // Filter conversations based on search query
-  const filteredConversations = conversations.filter(conversation => {
-    if (!searchQuery) return true;
-
-    const query = searchQuery.toLowerCase();
-    
-    // Search by pubkey
-    if (conversation.pubkey.toLowerCase().includes(query)) {
-      return true;
-    }
-
-    // Search by display name (we need to get the author data for this)
-    // Since we can't use hooks inside filter, we'll need to handle this differently
-    // For now, we'll rely on the ConversationItem to have the author data
-    // This is a limitation of the current architecture
-    return true; // We'll filter in the ConversationItem instead
-  });
-
-  // If we have a search query, we need to filter by display name at the item level
-  // This is not ideal but necessary due to the hook rules
-  const conversationsToRender = searchQuery 
-    ? filteredConversations.filter(() => {
-        // This filter will be applied after the ConversationItem has author data
-        // We'll handle the actual display name filtering in a memoized component
-        return true;
-      })
-    : filteredConversations;
-
-  if (conversationsToRender.length === 0) {
-    return (
-      <div className="p-4 text-center text-gray-400">
-        {searchQuery ? (
-          <p className="text-sm">No conversations found</p>
-        ) : (
-          <div>
-            <p className="text-sm mb-2">No conversations yet</p>
-            <p className="text-xs">Start a new conversation!</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-1 p-2 overflow-y-auto max-h-[calc(100vh-200px)]">
-      {conversationsToRender.map((conversation) => (
+      {conversations.map((conversation) => (
         <SearchableConversationItem
           key={conversation.id}
           conversation={conversation}
