@@ -1,5 +1,4 @@
-import { Mic, MicOff, Headphones, HeadphonesIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button"; // Currently unused
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
@@ -10,7 +9,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus, getTraditionalStatusText } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useVoiceMuteState, useVoiceDeafenState, useVoiceConnectionState } from "@/contexts/voiceHooks";
+import { useVoiceConnectionState } from "@/contexts/voiceHooks";
 import { useState } from "react";
 
 export function UserPanel() {
@@ -20,8 +19,9 @@ export function UserPanel() {
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
 
-  const { isMuted, toggleMute } = useVoiceMuteState();
-  const { isDeafened, toggleDeafen } = useVoiceDeafenState();
+  // Voice state hooks (currently unused but available for future voice features)
+  // const { isMuted, toggleMute } = useVoiceMuteState();
+  // const { isDeafened, toggleDeafen } = useVoiceDeafenState();
   const { isConnectedToVoice: _isConnectedToVoice } = useVoiceConnectionState();
 
   const [showStatusDialog, setShowStatusDialog] = useState(false);

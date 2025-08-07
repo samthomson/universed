@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useUserCommunities } from './useUserCommunities';
-import { useDirectMessages } from './useDirectMessages';
+// import { useDirectMessages } from './useDirectMessages'; // Currently unused
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
@@ -41,7 +41,7 @@ export function useOptimizedQueryTiers() {
   const { cacheEvents } = useEventCache();
   const { user } = useCurrentUser();
   const { data: userCommunities } = useUserCommunities();
-  const { data: directMessages } = useDirectMessages();
+  // const { data: directMessages } = useDirectMessages(); // Currently unused in tier system
 
   const stateRef = useRef<QueryTierState>({
     tier1Complete: false,
@@ -64,7 +64,7 @@ export function useOptimizedQueryTiers() {
   // TIER 1: CRITICAL - DMs + User Communities (Highest Priority)
   const preloadTier1 = useCallback(async (signal: AbortSignal): Promise<PreloadResult> => {
     const tierStart = Date.now();
-    
+
     try {
       logger.log('🚀 TIER 1: Starting critical preload (DMs + User Communities)');
 
@@ -79,7 +79,7 @@ export function useOptimizedQueryTiers() {
       if (!stateRef.current.dmPreloaded) {
         try {
           const dmStart = Date.now();
-          
+
           // Ultra-aggressive DM query - both sent and received in one shot
           const dmFilters: NostrFilter[] = [
             {
@@ -124,7 +124,7 @@ export function useOptimizedQueryTiers() {
       if (!stateRef.current.userCommunitiesPreloaded && userCommunities && userCommunities.length > 0) {
         try {
           const communitiesStart = Date.now();
-          
+
           // Get community IDs prioritized by membership status
           const communityIds = userCommunities
             .sort((a, b) => {
@@ -203,7 +203,7 @@ export function useOptimizedQueryTiers() {
   // TIER 2: HIGH - Community Channels & Spaces (High Priority)
   const preloadTier2 = useCallback(async (signal: AbortSignal): Promise<PreloadResult> => {
     const tierStart = Date.now();
-    
+
     try {
       logger.log('⚡ TIER 2: Starting high priority preload (Channels & Spaces)');
 
@@ -224,7 +224,7 @@ export function useOptimizedQueryTiers() {
       // 2A: Preload Channels for top communities
       try {
         const channelsStart = Date.now();
-        
+
         const channelFilters: NostrFilter[] = topCommunities.map(community => ({
           kinds: [32807], // Channel definitions
           '#a': [community.id],
@@ -237,19 +237,19 @@ export function useOptimizedQueryTiers() {
 
         if (channelEvents.length > 0) {
           cacheEvents(channelEvents);
-          
+
           // Process and cache channels for each community
           const communitiesProcessed = new Set<string>();
           channelEvents.forEach(event => {
             const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
             if (communityRef && !communitiesProcessed.has(communityRef)) {
               communitiesProcessed.add(communityRef);
-              
+
               // Get channels for this community
-              const communityChannels = channelEvents.filter(e => 
+              const communityChannels = channelEvents.filter(e =>
                 e.tags.find(([name]) => name === 'a')?.[1] === communityRef
               );
-              
+
               // Always include general channel
               const channels = [
                 {
@@ -271,14 +271,14 @@ export function useOptimizedQueryTiers() {
                   .map(e => {
                     const d = e.tags.find(([name]) => name === 'd')?.[1] || '';
                     const name = e.tags.find(([name]) => name === 'name')?.[1] || '';
-                    
+
                     let content: { name: string; type: 'text' | 'voice' };
                     try {
                       content = JSON.parse(e.content);
                     } catch {
                       content = { name, type: 'text' };
                     }
-                    
+
                     return {
                       id: d,
                       name: content.name || name,
@@ -319,7 +319,7 @@ export function useOptimizedQueryTiers() {
       // 2B: Preload Spaces for top communities
       try {
         const spacesStart = Date.now();
-        
+
         const spaceFilters: NostrFilter[] = topCommunities.map(community => ({
           kinds: [39097], // Space definitions
           '#a': [community.id],
@@ -332,13 +332,13 @@ export function useOptimizedQueryTiers() {
 
         if (spaceEvents.length > 0) {
           cacheEvents(spaceEvents);
-          
+
           // Process and cache spaces for each community
           topCommunities.forEach(community => {
-            const communitySpaces = spaceEvents.filter(e => 
+            const communitySpaces = spaceEvents.filter(e =>
               e.tags.find(([name]) => name === 'a')?.[1] === community.id
             );
-            
+
             // Default spaces
             const defaultSpaces = [
               {
@@ -365,21 +365,35 @@ export function useOptimizedQueryTiers() {
                 creator: '',
                 event: {} as NostrEvent,
               },
-            ];
+            ] as const;
 
             // Apply custom configurations
-            const allSpaces = [...defaultSpaces];
+            type SpaceType = 'marketplace' | 'resources' | 'custom';
+            interface Space {
+              id: string;
+              name: string;
+              description: string;
+              type: SpaceType;
+              icon: string;
+              enabled: boolean;
+              position: number;
+              communityId: string;
+              creator: string;
+              event: NostrEvent;
+            }
+
+            const allSpaces: Space[] = [...defaultSpaces];
             communitySpaces.forEach(customSpace => {
               const d = customSpace.tags.find(([name]) => name === 'd')?.[1] || '';
               const name = customSpace.tags.find(([name]) => name === 'name')?.[1] || '';
-              
+
               let content: { name?: string; type?: 'marketplace' | 'resources' | 'custom'; icon?: string; enabled?: boolean; position?: number };
               try {
                 content = JSON.parse(customSpace.content);
               } catch {
                 content = { name };
               }
-              
+
               const existingIndex = allSpaces.findIndex(s => s.id === d);
               if (existingIndex >= 0) {
                 allSpaces[existingIndex] = {
@@ -407,7 +421,7 @@ export function useOptimizedQueryTiers() {
             });
 
             const enabledSpaces = allSpaces.filter(space => space.enabled);
-            
+
             // Cache spaces
             queryClient.setQueryData(['spaces', community.id], enabledSpaces, {
               updatedAt: Date.now(),
@@ -465,7 +479,7 @@ export function useOptimizedQueryTiers() {
   // TIER 3: MEDIUM - Recent Messages & Additional Content (Medium Priority)
   const preloadTier3 = useCallback(async (signal: AbortSignal): Promise<PreloadResult> => {
     const tierStart = Date.now();
-    
+
     try {
       logger.log('📊 TIER 3: Starting medium priority preload (Recent Messages)');
 
@@ -480,7 +494,7 @@ export function useOptimizedQueryTiers() {
       if (topCommunity) {
         try {
           const messagesStart = Date.now();
-          
+
           // Preload recent messages for top community's general channel
           const [kind, pubkey, identifier] = topCommunity.id.split(':');
           if (kind && pubkey && identifier) {
@@ -497,17 +511,17 @@ export function useOptimizedQueryTiers() {
 
             if (messageEvents.length > 0) {
               cacheEvents(messageEvents);
-              
+
               // Filter and validate messages
               const validMessages = messageEvents.filter(event => {
                 if (![1, 9411].includes(event.kind)) return false;
                 if (event.tags.some(([name]) => name === 'e')) return false; // No replies
-                
+
                 if (event.kind === 9411) {
                   const channelTag = event.tags.find(([name]) => name === 't')?.[1];
                   return channelTag === 'general'; // Only general channel for tier 3
                 }
-                
+
                 // For kind 1, allow if no channel tag or general channel
                 const channelTag = event.tags.find(([name]) => name === 't')?.[1];
                 return !channelTag || channelTag === 'general';
