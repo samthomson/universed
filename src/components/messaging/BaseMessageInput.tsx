@@ -1,7 +1,6 @@
 import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
 import { Plus, Send, Smile } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -51,6 +50,7 @@ export function BaseMessageInput({
   
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useCurrentUser();
   const { toast } = useToast();
@@ -81,6 +81,7 @@ export function BaseMessageInput({
 
   // Close autocomplete on blur
   const handleTextareaBlur = () => {
+    setIsFocused(false)
     // Small delay to allow emoji selection clicks to register
     setTimeout(() => {
       setShowEmojiAutocomplete(false);
@@ -347,8 +348,9 @@ export function BaseMessageInput({
   }
 
   return (
-
-    <div className="relative p-3 bg-secondary rounded-lg w-full">
+    <div className={`p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
+      isFocused ? 'border-2 border-blueviolet' : 'border border-border'
+    }`}>
       {/* Attached Files Preview */}
       {attachedFiles.length > 0 && (
         <div className="mb-3 space-y-2">
@@ -381,20 +383,23 @@ export function BaseMessageInput({
             <Plus className="w-5 h-5" />
           </Button>
         )}
-        <Textarea
+        <textarea
           ref={textareaRef}
           value={message}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onClick={handleSelectionChange}
           onBlur={handleTextareaBlur}
+
+          onFocus={() => setIsFocused(true)}
           onSelect={handleSelectionChange}
           onChange={(e) => {
             handleMessageChange(e.target.value)
             adjustTextareaHeight();
           }}
           placeholder={placeholder || "Type a message..."}
-          className="min-h-[40px] max-h-[200px] resize-none bg-transparent border-0 focus-visible:ring-0 text-foreground placeholder:text-muted-foreground p-0"
+          className="min-h-[40px] w-full max-h-[200px] resize-none bg-transparent ring-transparent border
+          -0 focus-within:ring-0 focus-visible:ring-0 focus-visible:outline-none focus-visible:ring-none text-foreground focus-within:appearance-none placeholder:text-muted-foreground p-0"
           disabled={isSending}
         />
         {config.allowEmoji && (

@@ -22,6 +22,7 @@ interface BaseChatAreaProps {
     showPin: boolean;
     showDelete: boolean;
     showBan: boolean;
+    showReport: boolean;
   };
   messageInputConfig: {
     allowMentions: boolean;

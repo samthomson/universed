@@ -1,5 +1,5 @@
-import { ReactNode } from 'react';
-import { MessageCircle, UserPlus, UserMinus, Shield, ShieldOff, Copy, ExternalLink } from 'lucide-react';
+import { ReactNode, useState } from 'react';
+import { MessageCircle, UserPlus, UserMinus, Shield, ShieldOff, Copy, ExternalLink, Flag } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,6 +15,9 @@ import { useManageBlockedUsers } from '@/hooks/useManageBlockedUsers';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
+import { ReportUserDialog } from '@/components/reporting/ReportUserDialog';
+import { useCommunityContext } from '@/contexts/CommunityContext';
+import { useUserRole } from '@/hooks/useCommunityRoles';
 
 interface UserContextMenuProps {
   children: ReactNode;
@@ -27,31 +30,28 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
   const { user } = useCurrentUser();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { currentCommunityId } = useCommunityContext();
+  const { role } = useUserRole(currentCommunityId || '');
+  const isAdmin = role === 'owner' || role === 'admin';
 
   const isFriend = useIsFriend(pubkey);
   const isBlocked = useIsBlocked(pubkey);
   const { addFriend, removeFriend } = useManageFriends();
   const { blockUser, unblockUser } = useManageBlockedUsers();
+  
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   // Don't show context menu for current user
   if (user?.pubkey === pubkey) {
     return <>{children}</>;
   }
 
-  const handleCopyPubkey = () => {
-    navigator.clipboard.writeText(pubkey);
-    toast({
-      title: 'Copied to clipboard',
-      description: 'User public key copied to clipboard',
-    });
-  };
-
   const handleCopyNpub = () => {
     const npub = nip19.npubEncode(pubkey);
     navigator.clipboard.writeText(npub);
     toast({
       title: 'Copied to clipboard',
-      description: 'User npub copied to clipboard',
+      description: 'User public key copied to clipboard',
     });
   };
 
@@ -104,66 +104,86 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
     }
   };
 
+  const handleReportUser = () => {
+    setShowReportDialog(true);
+  };
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        {children}
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
-        {/* Profile Actions */}
-        <ContextMenuItem onClick={handleViewProfile}>
-          <ExternalLink className="w-4 h-4 mr-2" />
-          View Profile
-        </ContextMenuItem>
-
-        <ContextMenuItem onClick={handleStartDM}>
-          <MessageCircle className="w-4 h-4 mr-2" />
-          Send Message
-        </ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        {/* Friend Actions */}
-        {isFriend ? (
-          <ContextMenuItem onClick={handleRemoveFriend}>
-            <UserMinus className="w-4 h-4 mr-2" />
-            Remove Friend
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          {children}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-56">
+          {/* Profile Actions */}
+          <ContextMenuItem onClick={handleViewProfile}>
+            <ExternalLink className="w-4 h-4 mr-2" />
+            View Profile
           </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={handleAddFriend}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Add Friend
+
+          <ContextMenuItem onClick={handleStartDM}>
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Send Message
           </ContextMenuItem>
-        )}
 
-        <ContextMenuSeparator />
+          <ContextMenuSeparator />
 
-        {/* Moderation Actions */}
-        {isBlocked ? (
-          <ContextMenuItem onClick={handleUnblockUser}>
-            <ShieldOff className="w-4 h-4 mr-2" />
-            Unblock User
+          {/* Friend Actions */}
+          {isFriend ? (
+            <ContextMenuItem onClick={handleRemoveFriend}>
+              <UserMinus className="w-4 h-4 mr-2" />
+              Remove Friend
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem onClick={handleAddFriend}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add Friend
+            </ContextMenuItem>
+          )}
+
+          <ContextMenuSeparator />
+
+          {/* Admin Actions - Only show for owners and admins */}
+          {isAdmin && (
+            <>
+              {isBlocked ? (
+                <ContextMenuItem onClick={handleUnblockUser}>
+                  <ShieldOff className="w-4 h-4 mr-2" />
+                  Unblock User
+                </ContextMenuItem>
+              ) : (
+                <ContextMenuItem onClick={handleBlockUser} className="text-red-600 focus:text-red-600">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Ban User
+                </ContextMenuItem>
+              )}
+            </>
+          )}
+
+          {/* Report Action */}
+          <ContextMenuItem onClick={handleReportUser} className="text-red-600 focus:text-red-600">
+            <Flag className="w-4 h-4 mr-2" />
+            Report User
           </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={handleBlockUser} className="text-red-600 focus:text-red-600">
-            <Shield className="w-4 h-4 mr-2" />
-            Block User
+
+          <ContextMenuSeparator />
+
+          {/* Copy Actions */}
+          <ContextMenuItem onClick={handleCopyNpub}>
+            <Copy className="w-4 h-4 mr-2" />
+            Copy User Public Key
           </ContextMenuItem>
-        )}
+        </ContextMenuContent>
+      </ContextMenu>
 
-        <ContextMenuSeparator />
-
-        {/* Copy Actions */}
-        <ContextMenuItem onClick={handleCopyNpub}>
-          <Copy className="w-4 h-4 mr-2" />
-          Copy npub
-        </ContextMenuItem>
-
-        <ContextMenuItem onClick={handleCopyPubkey}>
-          <Copy className="w-4 h-4 mr-2" />
-          Copy Public Key
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+      {/* Report User Dialog */}
+      <ReportUserDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        targetPubkey={pubkey}
+        targetDisplayName={displayName}
+        communityId={currentCommunityId || undefined}
+      />
+    </>
   );
 }
