@@ -14,11 +14,11 @@ export interface DMConversation {
 function validateDMEvent(event: NostrEvent): boolean {
   // Accept both NIP-04 (kind 4) and NIP-44 (kind 1059) encrypted DMs
   if (![4, 1059].includes(event.kind)) return false;
-  
+
   // Must have a 'p' tag for the recipient
   const hasP = event.tags.some(([name]) => name === 'p');
   if (!hasP) return false;
-  
+
   return true;
 }
 
@@ -31,34 +31,28 @@ export function useDirectMessages() {
     queryFn: async (c) => {
       if (!user) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      
-      // Query for DMs sent to us and by us
-      const [receivedDMs, sentDMs] = await Promise.all([
-        // DMs sent to us
-        nostr.query([
-          {
-            kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-            '#p': [user.pubkey],
-            limit: 200,
-          }
-        ], { signal }),
-        // DMs sent by us
-        nostr.query([
-          {
-            kinds: [4, 1059],
-            authors: [user.pubkey],
-            limit: 200,
-          }
-        ], { signal }),
-      ]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for DMs
 
-      const allDMs = [...receivedDMs, ...sentDMs].filter(validateDMEvent);
-      
+      // BRUTAL OPTIMIZATION: Single query with multiple filters instead of two separate queries
+      const allDMs = await nostr.query([
+        {
+          kinds: [4, 1059], // DMs sent to us
+          '#p': [user.pubkey],
+          limit: 200,
+        },
+        {
+          kinds: [4, 1059], // DMs sent by us
+          authors: [user.pubkey],
+          limit: 200,
+        }
+      ], { signal });
+
+      const validDMs = allDMs.filter(validateDMEvent);
+
       // Group by conversation (other person's pubkey)
       const conversationMap = new Map<string, DMConversation>();
-      
-      allDMs.forEach(dm => {
+
+      validDMs.forEach(dm => {
         // Determine the other person's pubkey
         let otherPubkey: string;
         if (dm.pubkey === user.pubkey) {
@@ -90,6 +84,6 @@ export function useDirectMessages() {
     },
     enabled: !!user,
 
-    refetchInterval: 1000 * 30, // Refetch every 30 seconds
+    refetchInterval: 1000 * 60, // BRUTAL: Reduced to 60 seconds
   });
 }

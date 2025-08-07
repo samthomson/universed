@@ -25,8 +25,8 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         filter.limit = limit;
       }
 
-      // Query for all kind 1111 comments that reference this addressable event regardless of depth
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      // BRUTAL OPTIMIZATION: Faster timeout for comments
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]);
       const events = await nostr.query([filter], { signal });
 
       // Helper function to get tag value

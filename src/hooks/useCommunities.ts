@@ -135,7 +135,7 @@ export function useCommunities() {
   return useQuery({
     queryKey: ['communities'],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for communities
 
       const events = await nostr.query([
         { kinds: [34550], limit: 100 }

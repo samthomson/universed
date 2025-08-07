@@ -52,9 +52,9 @@ export function validateMessageEvent(event: NostrEvent, expectedChannelId: strin
 
 // Export the queryFn for explicit reuse in preloaders
 export async function fetchMessages(
-  communityId: string, 
-  channelId: string, 
-  nostr: NPool, 
+  communityId: string,
+  channelId: string,
+  nostr: NPool,
   cacheEvents: (events: NostrEvent[]) => void,
   signal?: AbortSignal
 ): Promise<NostrEvent[]> {
@@ -81,7 +81,7 @@ export function useMessages(communityId: string, channelId: string) {
   const queryClient = useQueryClient();
   const { canAccess: canRead } = useCanAccessChannel(communityId, channelId, 'read');
   const { cacheEvents } = useEventCache();
-  
+
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
@@ -95,19 +95,19 @@ export function useMessages(communityId: string, channelId: string) {
       const now = Date.now();
       const eventAge = now - (event.created_at * 1000); // Convert to milliseconds
       const isRecentMessage = eventAge < RECENT_MESSAGE_THRESHOLD;
-      
+
       if (!oldMessages) {
         // First message - only animate if it's recent
         return [{ ...event, clientFirstSeen: isRecentMessage ? now : undefined }];
       }
-      
+
       // Skip if we already have this real message (not optimistic)
       if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
-      
+
       // Check if this real message should replace an optimistic message
       // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
-      const optimisticMessageIndex = oldMessages.findIndex(msg => 
-        msg.isSending && 
+      const optimisticMessageIndex = oldMessages.findIndex(msg =>
+        msg.isSending &&
         msg.pubkey === event.pubkey &&
         msg.content === event.content &&
         Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
@@ -117,14 +117,14 @@ export function useMessages(communityId: string, channelId: string) {
         // Replace the optimistic message with the real one (keep existing animation timestamp)
         const updatedMessages = [...oldMessages];
         const existingMessage = updatedMessages[optimisticMessageIndex];
-        updatedMessages[optimisticMessageIndex] = { 
-          ...event, 
+        updatedMessages[optimisticMessageIndex] = {
+          ...event,
           clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
         };
         logger.log(`[Messages] Replaced optimistic message with real message: ${event.id}`);
         return updatedMessages.sort((a, b) => a.created_at - b.created_at);
       }
-      
+
       // No optimistic message to replace, add as new message (only animate if recent)
       return [...oldMessages, { ...event, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at);
     });
@@ -195,8 +195,8 @@ export function useMessages(communityId: string, channelId: string) {
     queryKey,
     queryFn: async (c) => {
       if (!canRead) return [];
-      
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for messages
       return fetchMessages(communityId, channelId, nostr, cacheEvents, signal);
     },
     enabled: !!communityId && !!channelId && canRead,

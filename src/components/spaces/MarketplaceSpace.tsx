@@ -113,7 +113,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
   const { data: items, isLoading } = useQuery({
     queryKey: ['marketplace-items', communityId, searchQuery, selectedCategory, sortBy],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for marketplace
 
       // Parse community ID to get the components for filtering
       const [kind, pubkey, identifier] = communityId.split(':');

@@ -35,29 +35,23 @@ export function useDMMessages(conversationId: string) {
       if (!user || !conversationId) return [];
       if (!user.signer) return []; // Need signer for decryption
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for DM messages
 
-      // Make two separate queries for each direction of the conversation
-      const [sentByUser, sentByPartner] = await Promise.all([
-        // Messages sent by user to partner
-        nostr.query([{
+      // BRUTAL OPTIMIZATION: Single query with multiple filters instead of two separate queries
+      const allMessages = await nostr.query([
+        {
           kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-          authors: [user.pubkey], // Only current user as author
-          "#p": [conversationId], // Only conversation partner as recipient
-          limit: 100, // Limit per direction
-        }], { signal }),
-
-        // Messages sent by partner to user
-        nostr.query([{
+          authors: [user.pubkey], // Messages sent by user
+          "#p": [conversationId], // To conversation partner
+          limit: 100,
+        },
+        {
           kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-          authors: [conversationId], // Only conversation partner as author
-          "#p": [user.pubkey], // Only current user as recipient
-          limit: 100, // Limit per direction
-        }], { signal }),
-      ]);
-
-      // Combine results from both queries
-      const allMessages = [...sentByUser, ...sentByPartner];
+          authors: [conversationId], // Messages sent by partner
+          "#p": [user.pubkey], // To current user
+          limit: 100,
+        }
+      ], { signal });
 
       // Deduplicate by event ID (in case same message comes from different relays)
       const uniqueMessages = Array.from(
@@ -152,7 +146,7 @@ export function useDMMessages(conversationId: string) {
         .map((result) => result.value);
     },
     enabled: !!user && !!conversationId && !!user.signer,
-    refetchInterval: 15 * 1000, // 15 seconds - Balanced for DM responsiveness
+    refetchInterval: 30 * 1000, // BRUTAL: 30 seconds - Reduced for efficiency
     // IMPORTANT: Clear messages when switching conversations
     placeholderData: undefined,
   });
