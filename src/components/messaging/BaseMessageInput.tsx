@@ -101,6 +101,10 @@ export function BaseMessageInput({
       return;
     }
 
+    // Store original values in case we need to restore on error
+    const originalMessage = message.trim();
+    const originalFiles = [...attachedFiles];
+
     try {
       const tags: string[][] = [];
 
@@ -122,7 +126,7 @@ export function BaseMessageInput({
       });
 
       // Process shortcodes before sending
-      let content = message.trim();
+      let content = originalMessage;
       if (content) {
         content = replaceShortcodes(content);
       }
@@ -133,17 +137,23 @@ export function BaseMessageInput({
         content = content ? `${content}\n\n${fileUrls}` : fileUrls;
       }
 
-      // Send the message with proper content and tags
-      await onSendMessage(content, tags);
-      
-      // Clear form state after successful send
+      // Clear form immediately for responsive UX
       setMessage("");
       setAttachedFiles([]);
       setShowEmojiAutocomplete(false);
       setShortcodeContext(null);
       textareaRef.current?.focus();
+
+      // Send the message in the background
+      await onSendMessage(content, tags);
     } catch (error) {
       console.error("Failed to send message:", error);
+      
+      // Restore form state on error
+      setMessage(originalMessage);
+      setAttachedFiles(originalFiles);
+      textareaRef.current?.focus();
+      
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
