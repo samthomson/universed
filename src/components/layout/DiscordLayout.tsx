@@ -13,6 +13,7 @@ import { FriendItem } from "@/components/friends/FriendsList";
 import { MobileChannelHeader } from "@/components/layout/MobileChannelHeader";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
+import { useUrlParameters } from "@/hooks/useUrlParameters";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -26,11 +27,15 @@ import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
+import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
+import { useSendDM } from "@/hooks/useSendDM";
+import { createMarketplaceItemMessage } from "@/lib/marketplaceDM";
+import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
 
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
@@ -95,18 +100,31 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   const { data: membershipStatus } = useUserCommunityMembership(urlCommunityId);
   const { data: mutualFriends } = useMutualFriends();
   const navigate = useNavigate();
+  const urlParameters = useUrlParameters();
+  const { setHighlightedItemId } = useMarketplaceContext();
 
-  const handleNavigateToDMs = (targetPubkey?: string) => {
+  const { mutate: sendDM } = useSendDM();
+  const [pendingMarketplaceItem, setPendingMarketplaceItem] = useState<MarketplaceItem | null>(null);
+
+  const handleNavigateToDMs = (targetPubkey?: string, marketplaceItem?: MarketplaceItem) => {
     setSelectedCommunity(null);
     setSelectedChannel(null);
     setSelectedSpace(null);
     setActiveTab("channels"); // Reset to channels tab to avoid confusion
+
     if (targetPubkey) {
       setDmTargetPubkey(targetPubkey);
       setSelectedDMConversation(targetPubkey);
+
+      // If there's a marketplace item, store it to be sent when the DM loads
+      if (marketplaceItem) {
+        setPendingMarketplaceItem(marketplaceItem);
+      }
     } else {
       setSelectedDMConversation(null);
+      setPendingMarketplaceItem(null);
     }
+
     if (isMobile) {
       setMobileView("chat");
     }
@@ -125,6 +143,32 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
       }
     }
   }, [initialDMTargetPubkey, isMobile]);
+
+  // Send marketplace item message when DM conversation is selected
+  useEffect(() => {
+    if (selectedDMConversation && pendingMarketplaceItem) {
+      const sendMessage = async () => {
+        try {
+          // Create the marketplace item message
+          const messageContent = createMarketplaceItemMessage(pendingMarketplaceItem);
+
+          // Send the DM
+          await sendDM({
+            recipientPubkey: selectedDMConversation,
+            content: messageContent,
+          });
+
+          // Clear the pending item
+          setPendingMarketplaceItem(null);
+        } catch (error) {
+          console.error('Failed to send marketplace item message:', error);
+          // Don't clear the pending item so user can try again or it can be retried
+        }
+      };
+
+      sendMessage();
+    }
+  }, [selectedDMConversation, pendingMarketplaceItem, sendDM]);
 
   useEffect(() => {
     if (!hasInitialized && !urlCommunityId && userCommunities !== undefined) {
@@ -157,6 +201,25 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
       } else {
         setSelectedCommunity(urlCommunityId);
 
+        // Handle URL parameters for tab selection and item highlighting
+        if (urlParameters.tab === 'marketplace') {
+          setActiveTab('marketplace');
+          setSelectedSpace('marketplace');
+          setSelectedChannel(null);
+
+          // Set the highlighted item if provided
+          if (urlParameters.highlight) {
+            setHighlightedItemId(urlParameters.highlight);
+          }
+        } else if (urlParameters.tab === 'resources') {
+          setActiveTab('resources');
+          setSelectedSpace('resources');
+          setSelectedChannel(null);
+        } else {
+          setActiveTab('channels');
+          setSelectedSpace(null);
+        }
+
         if (
           membershipStatus !== "owner" && membershipStatus !== "moderator" &&
           membershipStatus !== "approved" && membershipStatus !== "pending"
@@ -185,6 +248,9 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     preloadChannelsImmediately,
     preloadSpacesImmediately,
     selectedCommunity,
+    urlParameters.tab,
+    urlParameters.highlight,
+    setHighlightedItemId,
   ]);
 
   useEffect(() => {
@@ -363,8 +429,9 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     const showSidebar = (mobileView === "channels" && selectedCommunity) || (!selectedCommunity && !selectedDMConversation);
 
     return (
-      <>
-        <div className="flex h-screen bg-background text-foreground">
+      <CommunityProvider currentCommunityId={selectedCommunity}>
+          <>
+            <div className="flex h-screen bg-background text-foreground">
           {/* Left Sidebar - only show in channels view or when no community selected */}
           {showSidebar && (
             <div className="w-16 bg-background/50 flex flex-col h-full border-r">
@@ -578,13 +645,14 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
           onJoinSuccess={handleJoinSuccess}
           communityId={urlCommunityId}
         />
-      </>
+          </>
+      </CommunityProvider>
     );
   }
 
   return (
     <CommunityProvider currentCommunityId={selectedCommunity}>
-      <>
+        <>
         <div className="flex h-screen bg-background text-foreground">
           <div className="w-16 bg-background/50 flex flex-col h-full">
             <AppSidebar
@@ -730,7 +798,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
           onJoinSuccess={handleJoinSuccess}
           communityId={urlCommunityId}
         />
-      </>
-    </CommunityProvider>
+          </>
+      </CommunityProvider>
   );
 }
