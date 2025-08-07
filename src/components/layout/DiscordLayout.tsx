@@ -10,6 +10,7 @@ import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { CommunityHeader } from "@/components/community/CommunityHeader";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { FriendItem } from "@/components/friends/FriendsList";
+import { MobileChannelHeader } from "@/components/layout/MobileChannelHeader";
 import { useChannels } from "@/hooks/useChannels";
 import { useUrlNavigation } from "@/hooks/useUrlNavigation";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
@@ -356,11 +357,18 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                 )}
                 {mobileView === "chat" && selectedCommunity && (
                   <div className="flex flex-col items-center min-w-0">
-                    <h2 className="font-semibold text-lg truncate w-full">
-                      {activeTab === "channels" ? "Chat" :
-                       activeTab === "marketplace" ? "Shop" :
-                       activeTab === "resources" ? "Files" : "Chat"}
-                    </h2>
+                    {activeTab === "channels" ? (
+                      <MobileChannelHeader
+                        communityId={selectedCommunity}
+                        channelId={selectedChannel}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                    ) : (
+                      <h2 className="font-semibold text-lg truncate w-full">
+                        {activeTab === "marketplace" ? "Shop" :
+                         activeTab === "resources" ? "Files" : "Chat"}
+                      </h2>
+                    )}
                   </div>
                 )}
                 {mobileView === "members" && (
