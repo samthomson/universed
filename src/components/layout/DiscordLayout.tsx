@@ -22,7 +22,7 @@ import { ArrowLeft } from "lucide-react";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
-import { CommunityProvider } from "@/contexts/CommunityContext";
+import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
