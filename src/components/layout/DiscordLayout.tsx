@@ -6,6 +6,7 @@ import { ChatArea } from "./ChatArea";
 import { MemberList } from "./MemberList";
 import { UserPanel } from "./UserPanel";
 import { SpacesArea } from "@/components/spaces/SpacesArea";
+import { CommunityHeader } from "@/components/community/CommunityHeader";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { FriendItem } from "@/components/friends/FriendsList";
 import { useChannels } from "@/hooks/useChannels";
@@ -44,6 +45,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<
     string | null
   >(null);
+  const [activeTab, setActiveTab] = useState("channels");
 
   const { setActiveCommunity } = useMessageSystem();
   useEnablePerformanceMonitoring();
@@ -214,6 +216,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   const handleChannelSelect = (channelId: string) => {
     setSelectedChannel(channelId);
     setSelectedSpace(null);
+    setActiveTab("channels"); // Ensure we're on channels tab when selecting a channel
 
     if (selectedCommunity) {
       recordChannelVisit(selectedCommunity, channelId);
@@ -227,6 +230,14 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   const handleSpaceSelect = (spaceId: string) => {
     setSelectedSpace(spaceId);
     setSelectedChannel(null);
+
+    // Sync active tab with space selection
+    if (spaceId === "marketplace") {
+      setActiveTab("marketplace");
+    } else if (spaceId === "resources") {
+      setActiveTab("resources");
+    }
+
     if (isMobile) {
       setMobileView("chat");
     }
@@ -240,6 +251,22 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
       recordCommunityVisit(communityId);
       preloadChannelsImmediately(communityId);
       preloadSpacesImmediately(communityId);
+    }
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+
+    // Update selected space based on tab
+    if (tab === "marketplace") {
+      setSelectedSpace("marketplace");
+      setSelectedChannel(null);
+    } else if (tab === "resources") {
+      setSelectedSpace("resources");
+      setSelectedChannel(null);
+    } else if (tab === "channels") {
+      setSelectedSpace(null);
+      // Keep the current channel or select the first available one
     }
   };
 
@@ -274,15 +301,43 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
             <div className="flex items-center space-x-2"></div>
           </div>
 
+          <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Community Header for mobile - positioned at top */}
+          {selectedCommunity && mobileView !== "communities" && (
+            <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
+              <CommunityHeader
+                communityId={selectedCommunity}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </div>
+          )}
+
           <div className="flex-1 overflow-hidden">
             {mobileView === "chat"
               ? (
-                <ChatArea
-                  communityId={selectedCommunity}
-                  channelId={selectedChannel}
-                  onToggleMemberList={() => setMobileView("members")}
-                  onNavigateToDMs={handleNavigateToDMs}
-                />
+                <>
+                  {activeTab === "channels" && (
+                    <ChatArea
+                      communityId={selectedCommunity}
+                      channelId={selectedChannel}
+                      onToggleMemberList={() => setMobileView("members")}
+                      onNavigateToDMs={handleNavigateToDMs}
+                    />
+                  )}
+                  {activeTab === "marketplace" && selectedCommunity && (
+                    <SpacesArea
+                      communityId={selectedCommunity}
+                      selectedSpace="marketplace"
+                    />
+                  )}
+                  {activeTab === "resources" && selectedCommunity && (
+                    <SpacesArea
+                      communityId={selectedCommunity}
+                      selectedSpace="resources"
+                    />
+                  )}
+                </>
               )
               : mobileView === "channels"
               ? (
@@ -308,6 +363,7 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
                 />
               )}
           </div>
+        </div>
         </div>
 
         <JoinRequestDialog
@@ -336,47 +392,79 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
           {selectedCommunity
             ? (
               <>
-                <div className="w-60 bg-secondary/30 flex flex-col">
-                  <CommunityPanel
-                    communityId={selectedCommunity}
-                    selectedChannel={selectedChannel}
-                    selectedSpace={selectedSpace}
-                    onSelectChannel={handleChannelSelect}
-                    onSelectSpace={handleSpaceSelect}
-                    onSelectCommunity={handleCommunitySelect}
-                    onNavigateToDMs={handleNavigateToDMs}
-                  />
-                  <UserPanel />
-                </div>
-
                 <div className="flex-1 flex flex-col">
-                  {selectedSpace
-                    ? (
-                      <SpacesArea
-                        communityId={selectedCommunity}
-                        selectedSpace={selectedSpace}
-                      />
-                    )
-                    : (
-                      <ChatArea
-                        communityId={selectedCommunity}
-                        channelId={selectedChannel}
-                        onToggleMemberList={() =>
-                          setShowMemberList(!showMemberList)}
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
-                    )}
-                </div>
-
-                {showMemberList && selectedChannel && !selectedSpace && (
-                  <div className="w-60 bg-secondary/30">
-                    <MemberList
+                  {/* Community Header - Full width top bar after sidebar */}
+                  <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
+                    <CommunityHeader
                       communityId={selectedCommunity}
-                      channelId={selectedChannel}
-                      onNavigateToDMs={handleNavigateToDMs}
+                      activeTab={activeTab}
+                      onTabChange={handleTabChange}
                     />
                   </div>
-                )}
+
+                  <div className="flex flex-1 overflow-hidden">
+                    <div className="w-60 bg-secondary/30 flex flex-col">
+                      <CommunityPanel
+                        communityId={selectedCommunity}
+                        selectedChannel={selectedChannel}
+                        selectedSpace={selectedSpace}
+                        onSelectChannel={handleChannelSelect}
+                        onSelectSpace={handleSpaceSelect}
+                        onSelectCommunity={handleCommunitySelect}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                      <UserPanel />
+                    </div>
+
+                    <div className="flex-1 flex flex-col">
+                      {/* Main Content Area */}
+                      <div className="flex-1 flex flex-col">
+                        {activeTab === "channels" && (
+                          <>
+                            {selectedSpace
+                              ? (
+                                <SpacesArea
+                                  communityId={selectedCommunity}
+                                  selectedSpace={selectedSpace}
+                                />
+                              )
+                              : (
+                                <ChatArea
+                                  communityId={selectedCommunity}
+                                  channelId={selectedChannel}
+                                  onToggleMemberList={() =>
+                                    setShowMemberList(!showMemberList)}
+                                  onNavigateToDMs={handleNavigateToDMs}
+                                />
+                              )}
+                          </>
+                        )}
+                        {activeTab === "marketplace" && selectedCommunity && (
+                          <SpacesArea
+                            communityId={selectedCommunity}
+                            selectedSpace="marketplace"
+                          />
+                        )}
+                        {activeTab === "resources" && selectedCommunity && (
+                          <SpacesArea
+                            communityId={selectedCommunity}
+                            selectedSpace="resources"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && (
+                      <div className="w-60 bg-secondary/30">
+                        <MemberList
+                          communityId={selectedCommunity}
+                          channelId={selectedChannel}
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )
             : (
