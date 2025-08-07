@@ -148,6 +148,8 @@ export function BaseChatArea({
               config={messageInputConfig}
               placeholder={inputPlaceholder || "Type a message..."}
               isSending={sendMessageMutation.isPending}
+              communityId={communityId}
+              channelId={channelId}
             />
           </div>
         </div>

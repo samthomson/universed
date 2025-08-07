@@ -5,8 +5,8 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import NostrProvider from '@/components/NostrProvider';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
-import { VoiceProvider } from '@/contexts/VoiceContext';
 import { NWCProvider } from '@/contexts/NWCContext';
+import { VoiceProvider } from '@/contexts/VoiceContext.tsx';
 
 interface TestAppProps {
   children: React.ReactNode;

@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
-import { VoiceProvider } from '@/contexts/VoiceContext';
+import { VoiceProvider } from '@/contexts/VoiceContext.tsx';
 import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';

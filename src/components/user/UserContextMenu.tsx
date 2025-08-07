@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { ReportUserDialog } from '@/components/reporting/ReportUserDialog';
-import { useCommunityContext } from '@/contexts/CommunityContext';
+import { useCommunityContext } from '@/contexts/communityHooks';
 import { useUserRole } from '@/hooks/useCommunityRoles';
 
 interface UserContextMenuProps {
@@ -38,7 +38,7 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
   const isBlocked = useIsBlocked(pubkey);
   const { addFriend, removeFriend } = useManageFriends();
   const { blockUser, unblockUser } = useManageBlockedUsers();
-  
+
   const [showReportDialog, setShowReportDialog] = useState(false);
 
   // Don't show context menu for current user
