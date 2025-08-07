@@ -7,7 +7,7 @@ import { VoiceControls } from './VoiceControls';
 import { useVoiceChannel } from '@/hooks/useVoiceChannel';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useVoiceMuteState, useVoiceDeafenState, useVoiceSpeakingState, useVoiceConnectionState } from '@/contexts/VoiceContext';
+import { useVoiceMuteState, useVoiceDeafenState, useVoiceSpeakingState, useVoiceConnectionState } from '@/contexts/voiceHooks';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';

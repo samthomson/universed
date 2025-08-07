@@ -22,6 +22,7 @@ interface BaseChatAreaProps {
     showPin: boolean;
     showDelete: boolean;
     showBan: boolean;
+    showReport: boolean;
   };
   messageInputConfig: {
     allowMentions: boolean;
@@ -147,6 +148,8 @@ export function BaseChatArea({
               config={messageInputConfig}
               placeholder={inputPlaceholder || "Type a message..."}
               isSending={sendMessageMutation.isPending}
+              communityId={communityId}
+              channelId={channelId}
             />
           </div>
         </div>

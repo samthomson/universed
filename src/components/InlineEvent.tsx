@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
 import { CalendarEventCard } from '@/components/CalendarEventCard';
+import { PollCard } from '@/components/PollCard';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useEventById } from '@/hooks/useEventById';
 import { genUserName } from '@/lib/genUserName';
@@ -63,6 +64,9 @@ export function InlineEvent({
 
   // Check if this is a NIP-52 calendar event
   const isCalendarEvent = event.kind === 31922 || event.kind === 31923;
+  
+  // Check if this is a NIP-88 poll event
+  const isPollEvent = event.kind === 1068;
 
   // If it's a calendar event, use the specialized CalendarEventCard
   if (isCalendarEvent) {
@@ -71,6 +75,18 @@ export function InlineEvent({
         event={event} 
         className={className}
         compact={true}
+      />
+    );
+  }
+
+  // If it's a poll event, use the specialized PollCard
+  if (isPollEvent) {
+    return (
+      <PollCard 
+        event={event} 
+        className={className}
+        compact={true}
+        showHeader={showHeader}
       />
     );
   }

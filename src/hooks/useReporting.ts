@@ -17,6 +17,7 @@ export interface ReportUserParams {
   userPubkey: string;
   reportType: ReportType;
   reason?: string;
+  communityId?: string;
 }
 
 export interface ReportPostParams {
@@ -24,6 +25,7 @@ export interface ReportPostParams {
   authorPubkey: string;
   reportType: ReportType;
   reason?: string;
+  communityId?: string;
 }
 
 export interface Report {
@@ -78,7 +80,7 @@ export function useReporting() {
 
   // Report a user
   const reportUser = useMutation({
-    mutationFn: async ({ userPubkey, reportType, reason }: ReportUserParams) => {
+    mutationFn: async ({ userPubkey, reportType, reason, communityId }: ReportUserParams) => {
       if (!user) {
         throw new Error('User must be logged in to report content');
       }
@@ -86,6 +88,11 @@ export function useReporting() {
       const tags = [
         ['p', userPubkey, reportType],
       ];
+
+      // Add community context if available
+      if (communityId) {
+        tags.push(['a', communityId]);
+      }
 
       return new Promise<void>((resolve, reject) => {
         createEvent(
@@ -108,7 +115,7 @@ export function useReporting() {
 
   // Report a post
   const reportPost = useMutation({
-    mutationFn: async ({ postId, authorPubkey, reportType, reason }: ReportPostParams) => {
+    mutationFn: async ({ postId, authorPubkey, reportType, reason, communityId }: ReportPostParams) => {
       if (!user) {
         throw new Error('User must be logged in to report content');
       }
@@ -117,6 +124,11 @@ export function useReporting() {
         ['e', postId, reportType],
         ['p', authorPubkey],
       ];
+
+      // Add community context if available
+      if (communityId) {
+        tags.push(['a', communityId]);
+      }
 
       return new Promise<void>((resolve, reject) => {
         createEvent(
@@ -154,16 +166,31 @@ export function useReports(communityId?: string) {
   return useQuery({
     queryKey: ['reports', communityId],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
-      const events = await nostr.query([
-        { kinds: [1984], limit: 100 }
+      // Fetch all report events
+      const reportEvents = await nostr.query([
+        { kinds: [1984], limit: 200 }
       ], { signal });
 
-      const validEvents = events.filter(validateReportEvent);
-      return validEvents.map(parseReportEvent);
+      const validReports = reportEvents.filter(validateReportEvent).map(parseReportEvent);
+
+      // If no communityId is specified, return all reports
+      if (!communityId) {
+        return validReports;
+      }
+
+      // Filter reports to only include those with the community a tag
+      const communityReports = validReports.filter(report => {
+        return report.event.tags.some(
+          ([name, value]) => name === 'a' && value === communityId
+        );
+      });
+
+      return communityReports;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: !!communityId || communityId === undefined, // Always enabled for flexibility
   });
 }
 

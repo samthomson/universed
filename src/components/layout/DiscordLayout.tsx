@@ -22,6 +22,7 @@ import { ArrowLeft } from "lucide-react";
 import { useChannelPreloader } from "@/hooks/useChannelPreloader";
 import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
+import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
@@ -320,118 +321,120 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
   }
 
   return (
-    <>
-      <div className="flex h-screen bg-background text-foreground">
-        <div className="w-16 bg-background/50 flex flex-col h-full">
-          <AppSidebar
-            selectedCommunity={selectedCommunity}
-            showCommunitySelectionDialog={showCommunitySelectionDialog}
-            onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
-            onSelectCommunity={handleCommunitySelect}
-          />
-        </div>
+    <CommunityProvider currentCommunityId={selectedCommunity}>
+      <>
+        <div className="flex h-screen bg-background text-foreground">
+          <div className="w-16 bg-background/50 flex flex-col h-full">
+            <AppSidebar
+              selectedCommunity={selectedCommunity}
+              showCommunitySelectionDialog={showCommunitySelectionDialog}
+              onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
+              onSelectCommunity={handleCommunitySelect}
+            />
+          </div>
 
-        {selectedCommunity
-          ? (
-            <>
-              <div className="w-60 bg-secondary/30 flex flex-col">
-                <CommunityPanel
-                  communityId={selectedCommunity}
-                  selectedChannel={selectedChannel}
-                  selectedSpace={selectedSpace}
-                  onSelectChannel={handleChannelSelect}
-                  onSelectSpace={handleSpaceSelect}
-                  onSelectCommunity={handleCommunitySelect}
-                  onNavigateToDMs={handleNavigateToDMs}
-                />
-                <UserPanel />
-              </div>
+          {selectedCommunity
+            ? (
+              <>
+                <div className="w-60 bg-secondary/30 flex flex-col">
+                  <CommunityPanel
+                    communityId={selectedCommunity}
+                    selectedChannel={selectedChannel}
+                    selectedSpace={selectedSpace}
+                    onSelectChannel={handleChannelSelect}
+                    onSelectSpace={handleSpaceSelect}
+                    onSelectCommunity={handleCommunitySelect}
+                    onNavigateToDMs={handleNavigateToDMs}
+                  />
+                  <UserPanel />
+                </div>
 
-              <div className="flex-1 flex flex-col">
-                {selectedSpace
-                  ? (
-                    <SpacesArea
-                      communityId={selectedCommunity}
-                      selectedSpace={selectedSpace}
-                    />
-                  )
-                  : (
-                    <ChatArea
+                <div className="flex-1 flex flex-col">
+                  {selectedSpace
+                    ? (
+                      <SpacesArea
+                        communityId={selectedCommunity}
+                        selectedSpace={selectedSpace}
+                      />
+                    )
+                    : (
+                      <ChatArea
+                        communityId={selectedCommunity}
+                        channelId={selectedChannel}
+                        onToggleMemberList={() =>
+                          setShowMemberList(!showMemberList)}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                    )}
+                </div>
+
+                {showMemberList && selectedChannel && !selectedSpace && (
+                  <div className="w-60 bg-secondary/30">
+                    <MemberList
                       communityId={selectedCommunity}
                       channelId={selectedChannel}
-                      onToggleMemberList={() =>
-                        setShowMemberList(!showMemberList)}
                       onNavigateToDMs={handleNavigateToDMs}
                     />
-                  )}
-              </div>
-
-              {showMemberList && selectedChannel && !selectedSpace && (
-                <div className="w-60 bg-secondary/30">
-                  <MemberList
+                  </div>
+                )}
+              </>
+            )
+            : (
+              <>
+                <div className="flex-1 flex flex-col">
+                  <CommunityPanel
                     communityId={selectedCommunity}
-                    channelId={selectedChannel}
+                    selectedChannel={selectedChannel}
+                    onSelectChannel={setSelectedChannel}
+                    onSelectCommunity={handleCommunitySelect}
+                    dmTargetPubkey={dmTargetPubkey}
+                    onDmTargetHandled={() => setDmTargetPubkey(null)}
                     onNavigateToDMs={handleNavigateToDMs}
                   />
                 </div>
-              )}
-            </>
-          )
-          : (
-            <>
-              <div className="flex-1 flex flex-col">
-                <CommunityPanel
-                  communityId={selectedCommunity}
-                  selectedChannel={selectedChannel}
-                  onSelectChannel={setSelectedChannel}
-                  onSelectCommunity={handleCommunitySelect}
-                  dmTargetPubkey={dmTargetPubkey}
-                  onDmTargetHandled={() => setDmTargetPubkey(null)}
-                  onNavigateToDMs={handleNavigateToDMs}
-                />
-              </div>
 
-              <div className="w-60 bg-secondary/30 flex flex-col">
-                <Virtuoso
-                  data={mutualFriends || []}
-                  itemContent={(index, friend) => (
-                    <div className="p-4 pt-0">
-                      <FriendItem
-                        friend={friend}
-                        onMessage={(pubkey) => navigate(`/dm/${pubkey}`)}
-                      />
-                    </div>
-                  )}
-                  components={{
-                    Header: () => (
-                      <div className="p-4">
-                        <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
+                <div className="w-60 bg-secondary/30 flex flex-col">
+                  <Virtuoso
+                    data={mutualFriends || []}
+                    itemContent={(index, friend) => (
+                      <div className="p-4 pt-0">
+                        <FriendItem
+                          friend={friend}
+                          onMessage={(pubkey) => navigate(`/dm/${pubkey}`)}
+                        />
                       </div>
-                    ),
-                    EmptyPlaceholder: () => (
-                      <div className="p-4">
-                        <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
-                        <p className="text-sm text-muted-foreground">No mutual friends yet</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Friends appear when you follow each other
-                        </p>
-                      </div>
-                    ),
-                    Footer: () => <div className="h-2" />,
-                  }}
-                  className="flex-1 scrollbar-thin"
-                />
-              </div>
-            </>
-          )}
-      </div>
+                    )}
+                    components={{
+                      Header: () => (
+                        <div className="p-4">
+                          <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
+                        </div>
+                      ),
+                      EmptyPlaceholder: () => (
+                        <div className="p-4">
+                          <h3 className="font-semibold text-sm text-muted-foreground mb-3">FRIENDS</h3>
+                          <p className="text-sm text-muted-foreground">No mutual friends yet</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Friends appear when you follow each other
+                          </p>
+                        </div>
+                      ),
+                      Footer: () => <div className="h-2" />,
+                    }}
+                    className="flex-1 scrollbar-thin"
+                  />
+                </div>
+              </>
+            )}
+        </div>
 
-      <JoinRequestDialog
-        open={showJoinDialog}
-        onOpenChange={handleJoinDialogClose}
-        onJoinSuccess={handleJoinSuccess}
-        communityId={urlCommunityId}
-      />
-    </>
+        <JoinRequestDialog
+          open={showJoinDialog}
+          onOpenChange={handleJoinDialogClose}
+          onJoinSuccess={handleJoinSuccess}
+          communityId={urlCommunityId}
+        />
+      </>
+    </CommunityProvider>
   );
 }

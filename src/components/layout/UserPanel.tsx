@@ -10,7 +10,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useUserStatus, getTraditionalStatusText } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useVoiceMuteState, useVoiceDeafenState, useVoiceConnectionState } from "@/contexts/VoiceContext";
+import { useVoiceMuteState, useVoiceDeafenState, useVoiceConnectionState } from "@/contexts/voiceHooks";
 import { useState } from "react";
 
 export function UserPanel() {

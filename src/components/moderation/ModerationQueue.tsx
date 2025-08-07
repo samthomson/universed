@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, XCircle, Trash2, AlertTriangle, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2, AlertTriangle, Clock, Copy, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,9 @@ import { useReports, type Report } from '@/hooks/useReporting';
 import { useModerationActions } from '@/hooks/useModerationActions';
 import { useAuthor } from '@/hooks/useAuthor';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/useToast';
 import { genUserName } from '@/lib/genUserName';
+import { nip19 } from 'nostr-tools';
 
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -24,6 +26,7 @@ interface QueueItemProps {
 function QueueItem({ report, communityId }: QueueItemProps) {
   const [reason, setReason] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
+  const { toast } = useToast();
 
   const author = useAuthor(report.targetPubkey);
   const reporter = useAuthor(report.reporterPubkey);
@@ -38,6 +41,21 @@ function QueueItem({ report, communityId }: QueueItemProps) {
     isBanningUser,
     isMutingUser,
   } = useModerationActions();
+
+  const targetNpub = nip19.npubEncode(report.targetPubkey);
+  const reporterNpub = nip19.npubEncode(report.reporterPubkey);
+
+  const handleCopyNpub = (npub: string, userType: string) => {
+    navigator.clipboard.writeText(npub);
+    toast({
+      title: 'Copied to clipboard',
+      description: `${userType} npub copied to clipboard`,
+    });
+  };
+
+  const handleViewProfile = (npub: string) => {
+    window.open(`/${npub}`, '_blank');
+  };
 
   const handleApprove = () => {
     if (report.targetEventId) {
@@ -105,12 +123,56 @@ function QueueItem({ report, communityId }: QueueItemProps) {
                 {genUserName(report.targetPubkey).slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <div className="font-medium">
-                {author.data?.metadata?.name || genUserName(report.targetPubkey)}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Reported by {reporter.data?.metadata?.name || genUserName(report.reporterPubkey)}
+            <div className="flex-1">
+              <div className="space-y-2">
+                {/* Reported User */}
+                <div className="space-y-1">
+                  <div className="font-medium flex items-center gap-2">
+                    <span className="text-red-600">Reported User:</span>
+                    {author.data?.metadata?.name || genUserName(report.targetPubkey)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleCopyNpub(targetNpub, 'User')}
+                      title="Copy user npub"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleViewProfile(targetNpub)}
+                      title="View profile"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono break-all">
+                    {targetNpub}
+                  </div>
+                </div>
+
+                {/* Reporting User */}
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <span className="text-blue-600">Reported by:</span>
+                    {reporter.data?.metadata?.name || genUserName(report.reporterPubkey)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
+                      title="Copy reporter npub"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono break-all">
+                    {reporterNpub}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
