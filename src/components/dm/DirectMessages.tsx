@@ -6,6 +6,7 @@ import { Virtuoso } from "react-virtuoso";
 import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
+import { NewDMDrawer } from "./NewDMDrawer";
 import { UserPanel } from "@/components/layout/UserPanel";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -166,6 +167,20 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             </div>
           </>
         )}
+
+        {/* New DM Drawer for mobile */}
+        <NewDMDrawer
+          open={showNewDM}
+          onOpenChange={setShowNewDM}
+          onConversationCreated={(pubkey) => {
+            if (propSelectedConversation !== undefined) {
+              onConversationSelect?.(pubkey);
+            } else {
+              setInternalSelectedConversation(pubkey);
+            }
+            setShowNewDM(false);
+          }}
+        />
       </div>
     );
   }
