@@ -124,41 +124,55 @@ function QueueItem({ report, communityId }: QueueItemProps) {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="font-medium flex items-center gap-2">
-                {author.data?.metadata?.name || genUserName(report.targetPubkey)}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleCopyNpub(targetNpub, 'User')}
-                  title="Copy user npub"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => handleViewProfile(targetNpub)}
-                  title="View profile"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                <span>Reported by {reporter.data?.metadata?.name || genUserName(report.reporterPubkey)}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
-                  title="Copy reporter npub"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="text-xs text-muted-foreground font-mono">
-                User: {targetNpub.slice(0, 16)}...
+              <div className="space-y-2">
+                {/* Reported User */}
+                <div className="space-y-1">
+                  <div className="font-medium flex items-center gap-2">
+                    <span className="text-red-600">Reported User:</span>
+                    {author.data?.metadata?.name || genUserName(report.targetPubkey)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleCopyNpub(targetNpub, 'User')}
+                      title="Copy user npub"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleViewProfile(targetNpub)}
+                      title="View profile"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono break-all">
+                    {targetNpub}
+                  </div>
+                </div>
+
+                {/* Reporting User */}
+                <div className="space-y-1">
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <span className="text-blue-600">Reported by:</span>
+                    {reporter.data?.metadata?.name || genUserName(report.reporterPubkey)}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
+                      title="Copy reporter npub"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono break-all">
+                    {reporterNpub}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
