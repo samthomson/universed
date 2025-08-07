@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Users, Hash, Plus, Clock, CheckCircle } from "lucide-react";
+import { Search, Users, Plus, Clock, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/useToast";
 import { generateCommunityNaddr } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import type { MembershipStatus } from "@/hooks/useUserMembership";
+import { useCommunityMembers } from "@/hooks/useCommunityMembers";
+import { CommunityMemberDisplay } from "./CommunityMemberDisplay";
 
 interface CommunityDiscoveryProps {
   onCommunitySelect?: (communityId: string) => void;
@@ -37,9 +39,9 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const { mutate: joinCommunity, isPending: isJoining } = useJoinCommunity();
   const { toast } = useToast();
   const { preloadMessages } = useBackgroundMessagePreloader(null, null);
+  const { data: members, isLoading: isMembersLoading } = useCommunityMembers(community.id);
 
   const creatorName = metadata?.name || genUserName(community.creator);
-  const memberCount = community.moderators.length;
 
   const handleJoinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -199,16 +201,11 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
         )}
 
         <div className="flex items-center justify-between min-w-0">
-          <div className="flex items-center space-x-4 text-sm text-gray-400 min-w-0">
-            <div className="flex items-center space-x-1 shrink-0">
-              <Users className="w-4 h-4" />
-              <span>{memberCount} members</span>
-            </div>
-            <div className="flex items-center space-x-1 shrink-0">
-              <Hash className="w-4 h-4" />
-              <span>3 channels</span> {/* Simplified - could be dynamic */}
-            </div>
-          </div>
+          <CommunityMemberDisplay
+              members={members || []}
+              isLoading={isMembersLoading}
+              className="w-full"
+            />
 
           <div className="flex items-center space-x-2 shrink-0">
             {membershipStatus === 'pending' && (
