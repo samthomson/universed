@@ -39,17 +39,34 @@ export function searchEmojis(query: string, limit = 8): EmojiData[] {
   const results: EmojiData[] = [];
   const seen = new Set<string>();
   
-  // Search through all shortcodes
+  // Collect all matches first
+  const matches: Array<{ shortcode: string; emojiData: EmojiData; exactMatch: boolean }> = [];
+  
   for (const [shortcode, emojiData] of allShortcodes) {
-    if (results.length >= limit) break;
-    
     if (shortcode.startsWith(normalizedQuery) && !seen.has(emojiData.emoji)) {
-      results.push(emojiData);
+      matches.push({
+        shortcode,
+        emojiData,
+        exactMatch: shortcode === normalizedQuery
+      });
       seen.add(emojiData.emoji);
     }
   }
   
-  return results;
+  // Sort matches: exact matches first, then by shortcode length (shorter = more relevant), then alphabetically
+  matches.sort((a, b) => {
+    if (a.exactMatch && !b.exactMatch) return -1;
+    if (!a.exactMatch && b.exactMatch) return 1;
+    if (a.shortcode.length !== b.shortcode.length) return a.shortcode.length - b.shortcode.length;
+    return a.shortcode.localeCompare(b.shortcode);
+  });
+  
+  // Debug log for troubleshooting
+  if (normalizedQuery.startsWith('hous')) {
+    console.log(`Emoji search for "${normalizedQuery}":`, matches.slice(0, limit).map(m => ({ shortcode: m.shortcode, emoji: m.emojiData.emoji })));
+  }
+  
+  return matches.slice(0, limit).map(m => m.emojiData);
 }
 
 /**

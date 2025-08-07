@@ -426,7 +426,6 @@ export function BaseMessageInput({
           query={autocompleteQuery}
           selectedIndex={selectedEmojiIndex}
           onSelect={handleEmojiAutocompleteSelect}
-          // onClose={() => setShowEmojiAutocomplete(false)}
         />
       )}
 
