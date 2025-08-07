@@ -101,13 +101,6 @@ export function BaseMessageInput({
       return;
     }
 
-    // The `onSendMessage` prop will handle the specifics of creating the event
-    // (e.g., kind, specific tags for DMs vs. groups).
-    await onSendMessage(message, []); // Passing empty tags for now
-    setMessage("");
-    setShowEmojiAutocomplete(false);
-    setShortcodeContext(null);
-    textareaRef.current?.focus();
     try {
       const tags: string[][] = [];
 
@@ -140,9 +133,15 @@ export function BaseMessageInput({
         content = content ? `${content}\n\n${fileUrls}` : fileUrls;
       }
 
+      // Send the message with proper content and tags
       await onSendMessage(content, tags);
+      
+      // Clear form state after successful send
       setMessage("");
       setAttachedFiles([]);
+      setShowEmojiAutocomplete(false);
+      setShortcodeContext(null);
+      textareaRef.current?.focus();
     } catch (error) {
       console.error("Failed to send message:", error);
       toast({
