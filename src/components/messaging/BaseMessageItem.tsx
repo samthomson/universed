@@ -1,6 +1,6 @@
 import { memo, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Flag, Zap } from "lucide-react";
+import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Flag, Zap, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { CompactMarketplaceItemCard } from "./CompactMarketplaceItemCard";
@@ -18,6 +18,7 @@ import { UserContextMenu } from "@/components/user/UserContextMenu";
 import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
+import { MessageThread } from "@/components/chat/MessageThread";
 import { ZapButton } from "@/components/ZapButton";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
 import { useCommunityContext } from "@/contexts/communityHooks";
@@ -27,6 +28,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
 import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
+import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
@@ -73,12 +75,15 @@ function BaseMessageItemComponent({
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showThreadDialog, setShowThreadDialog] = useState(false);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
+  const { data: hasReplies } = useMessageHasReplies(message.id);
+  const { data: replyCount } = useMessageReplyCount(message.id);
   const { currentCommunityId } = useCommunityContext();
   const { role } = useUserRole(currentCommunityId || '');
   const isAdmin = role === 'owner' || role === 'admin';
@@ -248,6 +253,17 @@ function BaseMessageItemComponent({
                 )}
             </div>
           )}
+
+          {/* Reply Indicator - Always visible when there are replies */}
+          {config.showThreadReply && hasReplies && (
+            <button
+              onClick={() => setShowThreadDialog(true)}
+              className="flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+            </button>
+          )}
         </div>
 
         {shouldShowActions && (
@@ -348,6 +364,14 @@ function BaseMessageItemComponent({
         targetPubkey={message.pubkey}
         targetDisplayName={displayName}
         communityId={currentCommunityId || undefined}
+      />
+
+      {/* Thread Dialog */}
+      <MessageThread
+        rootMessage={message}
+        open={showThreadDialog}
+        onOpenChange={setShowThreadDialog}
+        onNavigateToDMs={onNavigateToDMs}
       />
     </div>
   );
