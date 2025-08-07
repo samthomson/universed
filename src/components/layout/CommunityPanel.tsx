@@ -182,10 +182,38 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
 
   return (
     <div className="flex flex-col h-full">
+      {/* Community header for mobile channels view */}
+      {isMobile && (
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+          <div className="flex items-center space-x-3">
+            {community.image ? (
+              <Avatar className="w-10 h-10 flex-shrink-0">
+                <AvatarImage src={community.image} alt={community.name} />
+                <AvatarFallback className="text-base font-semibold">
+                  {community.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-base flex-shrink-0">
+                {community.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                {community.name}
+              </h2>
+              {community.description && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {community.description}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ScrollArea className="flex-1">
-        <div className="absolute p-2 space-y-4 w-full">
-
+        <div className="p-2 space-y-4 w-full">
           {/* Channel Organizer */}
           <ChannelOrganizer
             communityId={communityId}

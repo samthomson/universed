@@ -191,8 +191,8 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
           </div>
         </div>
 
-        {/* Center: Tab Navigation */}
-        <div className="absolute left-1/2 transform -translate-x-1/2">
+        {/* Center: Tab Navigation - Hidden on mobile, shown on desktop */}
+        <div className="hidden sm:block absolute left-1/2 transform -translate-x-1/2">
           <div className="w-full max-w-md">
             <RadioTabs activeTab={activeTab} onTabChange={onTabChange} />
           </div>

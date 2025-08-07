@@ -358,7 +358,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
                 getCurrencyIcon={getCurrencyIcon}
                 onStartDM={(pubkey) => {
                   if (onNavigateToDMs) {
-                    // Use the proper navigation function that clears community state
+                    // Use the proper navigation function that handles mobile state correctly
                     onNavigateToDMs(pubkey);
                   } else {
                     // Fallback to direct navigation

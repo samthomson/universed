@@ -14,12 +14,14 @@ import { nip19 } from "nostr-tools";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
+  selectedConversation?: string | null;
   onTargetHandled?: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  onConversationSelect?: (pubkey: string | null) => void;
 }
 
-export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs }: DirectMessagesProps = {}) {
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+export function DirectMessages({ targetPubkey, selectedConversation: propSelectedConversation, onTargetHandled, onNavigateToDMs, onConversationSelect }: DirectMessagesProps = {}) {
+  const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -27,16 +29,22 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
   const { user } = useCurrentUser();
   const { data: conversations, isLoading } = useDirectMessages();
 
+  // Use controlled state if provided, otherwise use internal state
+  const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
+
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
     if (targetPubkey) {
-      // Always set the selected conversation to the target pubkey
-      // This works for both existing conversations and new ones
-      setSelectedConversation(targetPubkey);
+      // If controlled, notify parent, otherwise set internal state
+      if (propSelectedConversation !== undefined) {
+        onConversationSelect?.(targetPubkey);
+      } else {
+        setInternalSelectedConversation(targetPubkey);
+      }
       // Mark the target as handled
       onTargetHandled?.();
     }
-  }, [targetPubkey, onTargetHandled]);
+  }, [targetPubkey, onTargetHandled, onConversationSelect, propSelectedConversation]);
 
   // Update URL when a conversation is selected (only for manual selections, not initial ones)
   useEffect(() => {
@@ -81,7 +89,13 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
           <DMChatArea
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
-            onBack={() => setSelectedConversation(null)}
+            onBack={() => {
+              if (propSelectedConversation !== undefined) {
+                onConversationSelect?.(null);
+              } else {
+                setInternalSelectedConversation(null);
+              }
+            }}
           />
         ) : (
           <>
@@ -118,8 +132,14 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
                 itemContent={(index, conversation) => (
                   <DMConversationList
                     conversations={[conversation]}
-                    selectedConversation={selectedConversation}
-                    onSelectConversation={setSelectedConversation}
+                    selectedConversation={selectedConversation || null}
+                    onSelectConversation={(pubkey) => {
+                  if (propSelectedConversation !== undefined) {
+                    onConversationSelect?.(pubkey);
+                  } else {
+                    setInternalSelectedConversation(pubkey);
+                  }
+                }}
                     searchQuery={searchQuery}
                     isLoading={isLoading}
                     isVirtualized={true}
@@ -188,8 +208,14 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
             itemContent={(index, conversation) => (
               <DMConversationList
                 conversations={[conversation]}
-                selectedConversation={selectedConversation}
-                onSelectConversation={setSelectedConversation}
+                selectedConversation={selectedConversation || null}
+                onSelectConversation={(pubkey) => {
+                  if (propSelectedConversation !== undefined) {
+                    onConversationSelect?.(pubkey);
+                  } else {
+                    setInternalSelectedConversation(pubkey);
+                  }
+                }}
                 searchQuery={searchQuery}
                 isLoading={isLoading}
                 isVirtualized={true}
@@ -246,7 +272,11 @@ export function DirectMessages({ targetPubkey, onTargetHandled, onNavigateToDMs 
         open={showNewDM}
         onOpenChange={setShowNewDM}
         onConversationCreated={(pubkey) => {
-          setSelectedConversation(pubkey);
+          if (propSelectedConversation !== undefined) {
+            onConversationSelect?.(pubkey);
+          } else {
+            setInternalSelectedConversation(pubkey);
+          }
           setShowNewDM(false);
         }}
       />
