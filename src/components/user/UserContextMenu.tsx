@@ -46,20 +46,12 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
     return <>{children}</>;
   }
 
-  const handleCopyPubkey = () => {
-    navigator.clipboard.writeText(pubkey);
-    toast({
-      title: 'Copied to clipboard',
-      description: 'User public key copied to clipboard',
-    });
-  };
-
   const handleCopyNpub = () => {
     const npub = nip19.npubEncode(pubkey);
     navigator.clipboard.writeText(npub);
     toast({
       title: 'Copied to clipboard',
-      description: 'User npub copied to clipboard',
+      description: 'User public key copied to clipboard',
     });
   };
 
@@ -179,12 +171,7 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
           {/* Copy Actions */}
           <ContextMenuItem onClick={handleCopyNpub}>
             <Copy className="w-4 h-4 mr-2" />
-            Copy npub
-          </ContextMenuItem>
-
-          <ContextMenuItem onClick={handleCopyPubkey}>
-            <Copy className="w-4 h-4 mr-2" />
-            Copy Public Key
+            Copy User Public Key
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
