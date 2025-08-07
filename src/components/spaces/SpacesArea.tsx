@@ -7,9 +7,10 @@ import { Box } from 'lucide-react';
 interface SpacesAreaProps {
   communityId: string;
   selectedSpace: string | null;
+  onNavigateToDMs?: (targetPubkey?: string) => void;
 }
 
-export function SpacesArea({ communityId, selectedSpace }: SpacesAreaProps) {
+export function SpacesArea({ communityId, selectedSpace, onNavigateToDMs }: SpacesAreaProps) {
   const { data: spaces } = useSpaces(communityId);
 
   if (!selectedSpace) {
@@ -37,7 +38,7 @@ export function SpacesArea({ communityId, selectedSpace }: SpacesAreaProps) {
   // Render the appropriate space component based on type
   switch (space.type) {
     case 'marketplace':
-      return <MarketplaceSpace communityId={communityId} />;
+      return <MarketplaceSpace communityId={communityId} onNavigateToDMs={onNavigateToDMs} />;
 
     case 'resources':
       return <ResourcesSpace communityId={communityId} />;
