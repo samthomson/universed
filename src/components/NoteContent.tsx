@@ -41,7 +41,7 @@ function isImageURL(url: string): boolean {
 
 // Helper function to detect if content contains markdown syntax
 function containsMarkdown(text: string): boolean {
-  // Check for common markdown patterns
+  // Check for common markdown patterns, but exclude user mentions
   const markdownPatterns = [
     /^#{1,6}\s+/m,           // Headers
     /\*\*.*?\*\*/,          // Bold
@@ -51,13 +51,19 @@ function containsMarkdown(text: string): boolean {
     /^>\s+/m,               // Blockquotes
     /^[-*+]\s+/m,           // Lists
     /^\d+\.\s+/m,           // Numbered lists
-    /\[.*?\]\(.*?\)/,       // Links
-    /!\[.*?\]\(.*?\)/,      // Images
+    /!\[.*?\]\(.*?\)/,      // Images (but not user mentions)
     /\|.*?\|/,              // Tables
     /~~.*?~~/,              // Strikethrough
   ];
 
-  return markdownPatterns.some(pattern => pattern.test(text));
+  // Check for markdown links, but exclude user mentions in the format @[name](pubkey)
+  const hasMarkdownLinks = /\[.*?\]\(.*?\)/.test(text);
+  const hasUserMentions = /@\[.*?\]\([0-9a-f]{64}\)/i.test(text);
+
+  // Only consider it markdown if it has markdown links but no user mentions
+  const hasRealMarkdown = markdownPatterns.some(pattern => pattern.test(text)) || (hasMarkdownLinks && !hasUserMentions);
+
+  return hasRealMarkdown;
 }
 
 interface NoteContentProps {
@@ -125,7 +131,11 @@ export function NoteContent({
               const childText = Array.isArray(children) ? children.join('') : String(children || '');
               const isUserMention = href && /^[0-9a-f]{64}$/i.test(href); // 64 char hex pubkey
 
-              if (isUserMention) {
+              // Also check if the text starts with @ and href is a pubkey (for @[name](pubkey) format)
+              const isMentionFormat = childText.startsWith('@') && href && /^[0-9a-f]{64}$/i.test(href);
+
+              if (isUserMention || isMentionFormat) {
+                // Remove the leading @ from the display name if it exists, since NostrMention will add it back
                 const displayName = childText.startsWith('@') ? childText.substring(1) : childText;
                 const pubkey = href;
 
@@ -373,11 +383,12 @@ export function NoteContent({
         }
       } else if (mentionDisplayName && mentionPubkey) {
         // Handle user mentions in @[displayName](pubkey) format
+        const displayName = mentionDisplayName.startsWith('@') ? mentionDisplayName.substring(1) : mentionDisplayName;
         parts.push(
           <NostrMention
             key={`user-mention-${keyCounter++}`}
             pubkey={mentionPubkey}
-            displayName={mentionDisplayName}
+            displayName={displayName}
             onUserClick={(pubkey) => {
               setSelectedUserPubkey(pubkey);
               setShowProfileDialog(true);
@@ -467,6 +478,9 @@ function NostrMention({
     onUserClick?.(pubkey);
   };
 
+  // Only add @ prefix if the display name doesn't already start with @
+  const displayText = displayName.startsWith('@') ? displayName : `@${displayName}`;
+
   return (
     <button
       onClick={handleClick}
@@ -477,7 +491,7 @@ function NostrMention({
           : "text-gray-500 hover:text-gray-600"
       )}
     >
-      @{displayName}
+      {displayText}
     </button>
   );
 }

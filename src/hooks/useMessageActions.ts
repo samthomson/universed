@@ -7,7 +7,7 @@ import type { NostrEvent } from '@nostrify/nostrify';
 const DELETION_KIND = 5;
 
 export function useDeleteMessage(communityId?: string) {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { canModerate } = useCanModerate(communityId || '');
@@ -39,13 +39,48 @@ export function useDeleteMessage(communityId?: string) {
         }
       }
 
-      createEvent({
+      await createEvent({
         kind: DELETION_KIND,
         content: reason || (isOwnMessage ? 'Message deleted' : 'Message deleted by moderator'),
         tags,
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ messageEvent }) => {
+      // Cancel any outgoing refetches for messages
+      await queryClient.cancelQueries({ queryKey: ['messages'] });
+
+      // Get the current messages from all relevant queries
+      const queriesData = queryClient.getQueriesData({ queryKey: ['messages'] });
+
+      // Snapshot the previous messages
+      const previousMessagesByQuery = new Map();
+      queriesData.forEach(([queryKey, messages]) => {
+        if (Array.isArray(messages)) {
+          previousMessagesByQuery.set(queryKey, messages);
+        }
+      });
+
+      // Optimistically remove the message from all message queries
+      queriesData.forEach(([queryKey]) => {
+        queryClient.setQueryData(queryKey, (old: NostrEvent[] | undefined) => {
+          if (!Array.isArray(old)) return old;
+          return old.filter(message => message.id !== messageEvent.id);
+        });
+      });
+
+      // Return context for rollback
+      return { previousMessagesByQuery, deletedMessageId: messageEvent.id };
+    },
+    onError: (error, variables, context) => {
+      // If the mutation fails, restore the messages
+      if (context?.previousMessagesByQuery) {
+        context.previousMessagesByQuery.forEach((messages, queryKey) => {
+          queryClient.setQueryData(queryKey, messages);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we're in sync
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       queryClient.invalidateQueries({ queryKey: ['moderation-logs'] });
     },
@@ -53,7 +88,7 @@ export function useDeleteMessage(communityId?: string) {
 }
 
 export function useEditMessage() {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
 
@@ -68,7 +103,7 @@ export function useEditMessage() {
           ['t', 'a', 'e', 'p'].includes(name)
         );
 
-        createEvent({
+        await createEvent({
           kind: 9411,
           content: newContent,
           tags: [
@@ -91,7 +126,7 @@ export interface BulkDeleteMessagesParams {
 }
 
 export function useBulkDeleteMessages(communityId?: string) {
-  const { mutate: createEvent } = useNostrPublish();
+  const { mutateAsync: createEvent } = useNostrPublish();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { canModerate } = useCanModerate(communityId || '');
@@ -120,13 +155,51 @@ export function useBulkDeleteMessages(communityId?: string) {
         }
       }
 
-      createEvent({
+      await createEvent({
         kind: DELETION_KIND,
         content: reason || `Bulk deletion of ${messageEvents.length} messages by moderator`,
         tags,
       });
     },
-    onSuccess: () => {
+    onMutate: async ({ messageEvents }) => {
+      // Cancel any outgoing refetches for messages
+      await queryClient.cancelQueries({ queryKey: ['messages'] });
+
+      // Get the current messages from all relevant queries
+      const queriesData = queryClient.getQueriesData({ queryKey: ['messages'] });
+
+      // Snapshot the previous messages
+      const previousMessagesByQuery = new Map();
+      queriesData.forEach(([queryKey, messages]) => {
+        if (Array.isArray(messages)) {
+          previousMessagesByQuery.set(queryKey, messages);
+        }
+      });
+
+      // Get the IDs of messages to delete
+      const deletedMessageIds = messageEvents.map(event => event.id);
+
+      // Optimistically remove the messages from all message queries
+      queriesData.forEach(([queryKey]) => {
+        queryClient.setQueryData(queryKey, (old: NostrEvent[] | undefined) => {
+          if (!Array.isArray(old)) return old;
+          return old.filter(message => !deletedMessageIds.includes(message.id));
+        });
+      });
+
+      // Return context for rollback
+      return { previousMessagesByQuery, deletedMessageIds };
+    },
+    onError: (error, variables, context) => {
+      // If the mutation fails, restore the messages
+      if (context?.previousMessagesByQuery) {
+        context.previousMessagesByQuery.forEach((messages, queryKey) => {
+          queryClient.setQueryData(queryKey, messages);
+        });
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we're in sync
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       queryClient.invalidateQueries({ queryKey: ['moderation-logs'] });
     },

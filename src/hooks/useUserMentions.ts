@@ -161,9 +161,10 @@ export function useUserMentions(
     const cursorPosition = textarea.selectionStart;
 
     // Replace the @query with the display mention format
+    // Note: startIndex includes the @ symbol, so we replace from startIndex
     const beforeMention = text.slice(0, startIndex);
     const afterMention = text.slice(cursorPosition);
-    const displayMentionText = `@[${displayName}]`;
+    const displayMentionText = `@[${displayName}]`; // Include @ in display text
     const fullMentionText = `@[${displayName}](${pubkey})`;
 
     const newDisplayText = beforeMention + displayMentionText + afterMention;

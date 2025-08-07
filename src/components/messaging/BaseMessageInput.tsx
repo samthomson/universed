@@ -5,10 +5,12 @@ import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { MessageAttachmentMenu } from "@/components/messaging/MessageAttachmentMenu";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
+import { UserMentionAutocomplete } from "@/components/chat/UserMentionAutocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
 import { useUploadFile } from "@/hooks/useUploadFile";
+import { useUserMentions } from "@/hooks/useUserMentions";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
 
@@ -51,13 +53,36 @@ export function BaseMessageInput({
     startIndex: number;
     endIndex: number;
   } | null>(null);
-  
+
+  // User mentions state
+  const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useCurrentUser();
   const { toast } = useToast();
   const { mutateAsync: uploadFile } = useUploadFile();
+
+  // User mentions functionality
+  const {
+    currentMention,
+    insertMention,
+    updateMentions,
+    getMentionTags,
+    getFullTextWithPubkeys
+  } = useUserMentions(message, setMessage, textareaRef);
+
+  // Enter key handler for mentions
+  const [mentionEnterHandler, setMentionEnterHandler] = useState<(() => boolean) | null>(null);
+
+  const handleMentionEnterKey = (handler: () => boolean) => {
+    setMentionEnterHandler(() => handler);
+  };
+
+
 
   interface AttachedFile {
     url: string;
@@ -112,6 +137,10 @@ export function BaseMessageInput({
     try {
       const tags: string[][] = [];
 
+      // Add mention tags (p tags for mentioned users)
+      const mentionTags = getMentionTags();
+      tags.push(...mentionTags);
+
       // Add imeta tags for attached files
       attachedFiles.forEach(file => {
         const imetaTag = ["imeta"];
@@ -129,10 +158,12 @@ export function BaseMessageInput({
         tags.push(imetaTag);
       });
 
-      // Process shortcodes before sending
+      // Process shortcodes and mentions before sending
       let content = originalMessage;
       if (content) {
         content = replaceShortcodes(content);
+        // Convert display mentions to full mentions with pubkeys
+        content = getFullTextWithPubkeys(content);
       }
 
       // Add file URLs to content if there are attachments
@@ -146,18 +177,21 @@ export function BaseMessageInput({
       setAttachedFiles([]);
       setShowEmojiAutocomplete(false);
       setShortcodeContext(null);
+      setShowMentionAutocomplete(false);
+      setMentionQuery("");
       textareaRef.current?.focus();
 
       // Send the message in the background
       await onSendMessage(content, tags);
     } catch (error) {
       console.error("Failed to send message:", error);
-      
+
       // Restore form state on error
       setMessage(originalMessage);
       setAttachedFiles(originalFiles);
+      // Re-mention state will be restored by the useEffect when message changes
       textareaRef.current?.focus();
-      
+
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
@@ -167,10 +201,34 @@ export function BaseMessageInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // If autocomplete is open, handle navigation keys here
+    // If mention autocomplete is open, handle special keys
+    if (showMentionAutocomplete) {
+      switch (e.key) {
+        case 'Enter':
+        case 'Tab':
+          if (showMentionAutocomplete && mentionEnterHandler) {
+            e.preventDefault();
+            mentionEnterHandler();
+            return;
+          }
+          // For Tab key, always prevent default when autocomplete is open
+          if (e.key === 'Tab' && showMentionAutocomplete) {
+            e.preventDefault();
+            return;
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setShowMentionAutocomplete(false);
+          setMentionQuery("");
+          return;
+      }
+    }
+
+    // If emoji autocomplete is open, handle navigation keys here
     if (showEmojiAutocomplete) {
       const emojis = searchEmojis(autocompleteQuery, 8);
-      
+
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
@@ -224,15 +282,15 @@ export function BaseMessageInput({
     }
 
     const textarea = textareaRef.current;
-    
+
     // Save the context before clearing it
     const { startIndex, endIndex } = shortcodeContext;
-    
-    const newMessage = 
-      message.slice(0, startIndex) + 
-      emoji.emoji + 
+
+    const newMessage =
+      message.slice(0, startIndex) +
+      emoji.emoji +
       message.slice(endIndex);
-    
+
     setMessage(newMessage);
     setShowEmojiAutocomplete(false);
     setShortcodeContext(null);
@@ -245,9 +303,22 @@ export function BaseMessageInput({
     }, 0);
   };
 
+  const handleMentionSelect = (pubkey: string, displayName: string) => {
+    insertMention(pubkey, displayName);
+    setShowMentionAutocomplete(false);
+    setMentionQuery("");
+  };
+
+  // Wrapper function to handle the type difference
+  const handleMentionKeyDown = (e: KeyboardEvent<Element>) => {
+    // Convert to React.KeyboardEvent for compatibility
+    const reactEvent = e as unknown as KeyboardEvent<HTMLTextAreaElement>;
+    handleKeyDown(reactEvent);
+  };
+
   const updateAutocomplete = (newMessage: string, cursorPosition: number) => {
     const context = extractShortcodeContext(newMessage, cursorPosition);
-    
+
     if (context && context.query.length > 0) {
       setShortcodeContext(context);
       setAutocompleteQuery(context.query);
@@ -262,11 +333,25 @@ export function BaseMessageInput({
 
   const handleMessageChange = (newMessage: string) => {
     setMessage(newMessage);
-    
+
     const textarea = textareaRef.current;
     if (!textarea) return;
 
+    // Update emoji autocomplete
     updateAutocomplete(newMessage, textarea.selectionStart);
+
+    // Update mention autocomplete
+    updateMentions(newMessage, textarea.selectionStart);
+
+    // Check if we should show mention autocomplete
+    if (currentMention) {
+      setShowMentionAutocomplete(true);
+      setMentionQuery(currentMention.query);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentionAutocomplete(false);
+      setMentionQuery("");
+    }
   };
 
   const handleSelectionChange = () => {
@@ -274,6 +359,19 @@ export function BaseMessageInput({
     if (!textarea) return;
 
     updateAutocomplete(message, textarea.selectionStart);
+
+    // Update mention autocomplete on selection change
+    updateMentions(message, textarea.selectionStart);
+
+    // Check if we should show mention autocomplete
+    if (currentMention) {
+      setShowMentionAutocomplete(true);
+      setMentionQuery(currentMention.query);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentionAutocomplete(false);
+      setMentionQuery("");
+    }
   };
 
   const handleFilesUploaded = (files: AttachedFile[]) => {
@@ -305,7 +403,7 @@ export function BaseMessageInput({
           // Upload each image file
           for (const file of validFiles) {
             const tags = await uploadFile(file);
-            
+
             // Extract URL from tags (first tag should contain the URL)
             const url = tags[0]?.[1];
             if (!url) {
@@ -377,7 +475,7 @@ export function BaseMessageInput({
 
       <div className="flex items-end space-x-3">
         {config.allowFileUpload && (
-          <MessageAttachmentMenu 
+          <MessageAttachmentMenu
             onFilesUploaded={handleFilesUploaded}
             communityId={communityId}
             channelId={channelId}
@@ -425,7 +523,22 @@ export function BaseMessageInput({
           <Send className="w-4 h-4" />
         </Button>
       </div>
-      
+
+      {showMentionAutocomplete && config.allowMentions && communityId && (
+        <UserMentionAutocomplete
+          open={showMentionAutocomplete}
+          onOpenChange={setShowMentionAutocomplete}
+          query={mentionQuery}
+          onSelect={handleMentionSelect}
+          communityId={communityId}
+          triggerRef={textareaRef}
+          onKeyDown={handleMentionKeyDown}
+          selectedIndex={selectedMentionIndex}
+          onSelectedIndexChange={setSelectedMentionIndex}
+          onEnterKey={handleMentionEnterKey}
+        />
+      )}
+
       {showEmojiAutocomplete && (
         <EmojiAutocomplete
           query={autocompleteQuery}

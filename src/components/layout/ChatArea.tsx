@@ -19,6 +19,8 @@ import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
+import { useMentionNotifications } from "@/hooks/useMentionNotifications";
+import { useDeleteMessage } from "@/hooks/useMessageActions";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useState, useMemo } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
@@ -163,6 +165,8 @@ function CommunityChat(
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
   const { role } = useUserRole(communityId);
   const { banUser } = useModerationActions();
+  const { mutate: deleteMessage } = useDeleteMessage(communityId);
+  const { mutate: sendMentionNotifications } = useMentionNotifications();
   const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
 
@@ -189,14 +193,34 @@ function CommunityChat(
     const tags = [
       ["t", channelId],
       ["a", `${kind}:${pubkey}:${identifier}`],
-      ...additionalTags, // Add any additional tags (like imeta for files)
+      ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
     ];
 
-    await createEvent({
+    // Extract mentioned pubkeys from p tags
+    const mentionedPubkeys = tags
+      .filter(([name]) => name === 'p')
+      .map(([, pubkey]) => pubkey);
+
+    const messageEvent = await createEvent({
       kind: 9411,
       content,
       tags,
     });
+
+    // Send mention notifications if there are any mentioned users
+    if (mentionedPubkeys.length > 0 && messageEvent) {
+      try {
+        await sendMentionNotifications({
+          mentionedPubkeys,
+          messageEvent,
+          communityId,
+          channelId,
+        });
+      } catch (error) {
+        console.error('Failed to send mention notifications:', error);
+        // Don't fail the message send if notifications fail
+      }
+    }
   };
 
   const handlePinMessage = (message: NostrEvent) => {
@@ -219,6 +243,13 @@ function CommunityChat(
       communityId,
       userPubkey: pubkey,
       reason: reason?.trim() || 'Banned by admin from chat'
+    });
+  };
+
+  const handleDeleteMessage = (message: NostrEvent, reason?: string) => {
+    deleteMessage({
+      messageEvent: message,
+      reason: reason?.trim()
     });
   };
 
@@ -247,6 +278,7 @@ function CommunityChat(
         onPin={handlePinMessage}
         onReply={handleReply}
         onBan={handleBanUser}
+        onDelete={handleDeleteMessage}
         header={
           <CommunityChatHeader
             communityId={communityId}
@@ -267,7 +299,7 @@ function CommunityChat(
           </div>
         }
       />
-      
+
       {threadRootMessage && (
         <MessageThread
           rootMessage={threadRootMessage}
