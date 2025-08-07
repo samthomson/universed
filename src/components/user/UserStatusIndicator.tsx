@@ -43,7 +43,7 @@ export function UserStatusIndicator({ pubkey, className, showText = false }: Use
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="cursor-help">
+            <div className="cursor-pointer">
               {display.element}
             </div>
           </TooltipTrigger>
