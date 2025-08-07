@@ -34,6 +34,6 @@ export function useReactions(eventId: string) {
       return validEvents.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!eventId,
-    refetchInterval: 30 * 1000, // 30 seconds - Reduced refetch frequency
+    refetchInterval: 60 * 1000, // BRUTAL: 60 seconds - Further reduced
   });
 }

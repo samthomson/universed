@@ -25,7 +25,7 @@ export function useCommunityMembers(communityId: string | null) {
     queryFn: async (c) => {
       if (!communityId) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for members
 
       // Find the community to get moderators and creator
       const community = communities?.find(c => c.id === communityId);
@@ -38,45 +38,31 @@ export function useCommunityMembers(communityId: string | null) {
         return [];
       }
 
-      // Query for approved members list, recent activity, join requests, and leave requests
-      const [membershipEvents, activityEvents, joinRequestEvents, leaveRequestEvents] = await Promise.all([
-        // Get approved members list
-        nostr.query([
-          {
-            kinds: [34551], // Approved members list
-            '#d': [communityId],
-            limit: 10,
-          }
-        ], { signal }),
+      // BRUTAL OPTIMIZATION: Separate queries for different tag types (FIXED)
+      const allEvents = await nostr.query([
+        {
+          kinds: [34551], // Approved members list uses #d tag
+          '#d': [communityId],
+          limit: 10,
+        },
+        {
+          kinds: [4552, 4553], // Join/leave requests use #a tag
+          '#a': [communityId],
+          limit: 500,
+        },
+        {
+          kinds: [9411, 1], // Recent activity for online status
+          '#a': [communityId],
+          limit: 200,
+          since: Math.floor(Date.now() / 1000) - (30 * 60), // Last 30 minutes
+        }
+      ], { signal });
 
-        // Get recent community activity to determine online status
-        nostr.query([
-          {
-            kinds: [9411, 1], // Channel messages and text notes
-            '#a': [communityId],
-            limit: 200,
-            since: Math.floor(Date.now() / 1000) - (30 * 60), // Last 30 minutes for "online" status
-          }
-        ], { signal }),
-
-        // Get join requests for this community
-        nostr.query([
-          {
-            kinds: [4552], // Join requests
-            '#a': [communityId],
-            limit: 500,
-          }
-        ], { signal }),
-
-        // Get leave requests for this community
-        nostr.query([
-          {
-            kinds: [4553], // Leave requests
-            '#a': [communityId],
-            limit: 500,
-          }
-        ], { signal })
-      ]);
+      // Separate by kind in JavaScript (much faster than 4 separate queries)
+      const membershipEvents = allEvents.filter(e => e.kind === 34551);
+      const joinRequestEvents = allEvents.filter(e => e.kind === 4552);
+      const leaveRequestEvents = allEvents.filter(e => e.kind === 4553);
+      const activityEvents = allEvents.filter(e => [9411, 1].includes(e.kind));
 
       const validMembershipEvents = membershipEvents.filter(validateMembershipEvent);
 

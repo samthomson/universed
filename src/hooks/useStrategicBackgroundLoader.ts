@@ -241,17 +241,27 @@ export function useStrategicBackgroundLoader() {
       const [kind, pubkey, identifier] = communityId.split(':');
       if (!kind || !pubkey || !identifier) return;
 
-      // Load channels first if not cached
-      const channelsCacheKey = ['channels', communityId];
-      if (!isCacheValid(channelsCacheKey, PRIORITY_CACHE_MAX_AGE)) {
-        const channelFilters: NostrFilter[] = [{
-          kinds: [32807],
-          '#a': [communityId],
-          '#t': ['channel'],
-          limit: 50,
-        }];
+      // BRUTAL OPTIMIZATION: Single query for channels + spaces + messages
+      const [channelsCacheKey, spacesCacheKey] = [['channels', communityId], ['spaces', communityId]];
 
-        const channelEvents = await nostr.query(channelFilters, { signal });
+      if (!isCacheValid(channelsCacheKey, PRIORITY_CACHE_MAX_AGE) || !isCacheValid(spacesCacheKey, PRIORITY_CACHE_MAX_AGE)) {
+        // Combined query for ALL community metadata
+        const allEvents = await nostr.query([
+          {
+            kinds: [32807, 39097], // Channels + spaces
+            '#a': [communityId],
+            limit: 70, // Combined limit
+          },
+          {
+            kinds: [1, 9411], // Messages for general channel
+            '#a': [communityId],
+            limit: MAX_EVENTS_PER_QUERY,
+          }
+        ], { signal });
+
+        const channelEvents = allEvents.filter(e => e.kind === 32807);
+        const spaceEvents = allEvents.filter(e => e.kind === 39097);
+        const _messageEvents = allEvents.filter(e => [1, 9411].includes(e.kind)); // Reserved for future use
 
         if (channelEvents.length > 0) {
           cacheEvents(channelEvents);
@@ -300,106 +310,93 @@ export function useStrategicBackgroundLoader() {
             updatedAt: Date.now(),
           });
         }
-      }
 
-      // Load spaces if not cached
-      const spacesCacheKey = ['spaces', communityId];
-      if (!isCacheValid(spacesCacheKey, PRIORITY_CACHE_MAX_AGE)) {
-        const spaceFilters: NostrFilter[] = [{
-          kinds: [39097],
-          '#a': [communityId],
-          '#t': ['space'],
-          limit: 20,
-        }];
-
-        const spaceEvents = await nostr.query(spaceFilters, { signal });
-
+        // Process spaces from the combined query
         if (spaceEvents.length > 0) {
-          cacheEvents(spaceEvents);
 
-          // Process and cache spaces inline
-          const defaultSpaces = [
-            {
-              id: 'marketplace',
-              name: 'Marketplace',
-              description: 'Buy and sell goods with Bitcoin, Lightning, and Cashu',
-              type: 'marketplace' as const,
-              icon: 'ShoppingBag',
-              enabled: true,
-              position: 0,
-              communityId,
-              creator: '',
-              event: {} as NostrEvent,
-            },
-            {
-              id: 'resources',
-              name: 'Resources',
-              description: 'Organized collection of useful links and files',
-              type: 'resources' as const,
-              icon: 'BookOpen',
-              enabled: true,
-              position: 1,
-              communityId,
-              creator: '',
-              event: {} as NostrEvent,
-            },
-          ];
+        // Process and cache spaces inline
+        const defaultSpaces = [
+          {
+            id: 'marketplace',
+            name: 'Marketplace',
+            description: 'Buy and sell goods with Bitcoin, Lightning, and Cashu',
+            type: 'marketplace' as const,
+            icon: 'ShoppingBag',
+            enabled: true,
+            position: 0,
+            communityId,
+            creator: '',
+            event: {} as NostrEvent,
+          },
+          {
+            id: 'resources',
+            name: 'Resources',
+            description: 'Organized collection of useful links and files',
+            type: 'resources' as const,
+            icon: 'BookOpen',
+            enabled: true,
+            position: 1,
+            communityId,
+            creator: '',
+            event: {} as NostrEvent,
+          },
+        ];
 
-          // Process custom space configurations
-          const customSpaces = spaceEvents
-            .filter(event => {
-              const d = event.tags.find(([name]) => name === 'd')?.[1];
-              return d && event.kind === 39097;
-            })
-            .map(event => {
-              const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
-              const name = event.tags.find(([name]) => name === 'name')?.[1] || '';
+        // Process custom space configurations
+        const customSpaces = spaceEvents
+          .filter(event => {
+            const d = event.tags.find(([name]) => name === 'd')?.[1];
+            return d && event.kind === 39097;
+          })
+          .map(event => {
+            const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
+            const name = event.tags.find(([name]) => name === 'name')?.[1] || '';
 
-              let content: { name?: string; type?: 'marketplace' | 'resources' | 'custom'; icon?: string; enabled?: boolean; position?: number; description?: string };
-              try {
-                content = JSON.parse(event.content);
-              } catch {
-                content = { name };
-              }
-
-              return {
-                id: d,
-                name: content.name || name,
-                description: content.description || '',
-                type: content.type || 'custom' as const,
-                icon: content.icon || 'Box',
-                enabled: content.enabled !== false,
-                position: content.position || 999,
-                communityId,
-                creator: event.pubkey,
-                event,
-              };
-            });
-
-          // Merge default and custom spaces
-          const allSpaces: Array<{
-            id: string;
-            name: string;
-            description: string;
-            type: 'marketplace' | 'resources' | 'custom';
-            icon: string;
-            enabled: boolean;
-            position: number;
-            communityId: string;
-            creator: string;
-            event: NostrEvent;
-          }> = [...defaultSpaces];
-
-          customSpaces.forEach(custom => {
-            const existingIndex = allSpaces.findIndex(s => s.id === custom.id);
-            if (existingIndex >= 0) {
-              allSpaces[existingIndex] = custom;
-            } else {
-              allSpaces.push(custom);
+            let content: { name?: string; type?: 'marketplace' | 'resources' | 'custom'; icon?: string; enabled?: boolean; position?: number; description?: string };
+            try {
+              content = JSON.parse(event.content);
+            } catch {
+              content = { name };
             }
+
+            return {
+              id: d,
+              name: content.name || name,
+              description: content.description || '',
+              type: content.type || 'custom' as const,
+              icon: content.icon || 'Box',
+              enabled: content.enabled !== false,
+              position: content.position || 999,
+              communityId,
+              creator: event.pubkey,
+              event,
+            };
           });
 
-          const spaces = allSpaces.filter(space => space.enabled);
+        // Merge default and custom spaces
+        const allSpaces: Array<{
+          id: string;
+          name: string;
+          description: string;
+          type: 'marketplace' | 'resources' | 'custom';
+          icon: string;
+          enabled: boolean;
+          position: number;
+          communityId: string;
+          creator: string;
+          event: NostrEvent;
+        }> = [...defaultSpaces];
+
+        customSpaces.forEach(custom => {
+          const existingIndex = allSpaces.findIndex(s => s.id === custom.id);
+          if (existingIndex >= 0) {
+            allSpaces[existingIndex] = custom;
+          } else {
+            allSpaces.push(custom);
+          }
+        });
+
+        const spaces = allSpaces.filter(space => space.enabled);
 
           queryClient.setQueryData(spacesCacheKey, spaces, {
             updatedAt: Date.now(),
