@@ -1,108 +1,104 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
-import { useBlockedUsers } from './useBlockedUsers';
+import { useMutedUsers } from './useBlockedUsers';
 import { useToast } from './useToast';
 
-const USER_LIST_KIND = 30000;
+// NIP-51 Mute list kind
+const MUTE_LIST_KIND = 10000;
 
 /**
- * Hook to manage blocked users list
+ * Hook to manage muted users list according to NIP-51
+ * Uses kind 10000 for mute lists (standard replaceable event)
  */
-export function useManageBlockedUsers() {
+export function useManageMutedUsers() {
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
-  const { data: currentBlockedUsers = [] } = useBlockedUsers();
+  const { data: currentMutedUsers = [] } = useMutedUsers();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const blockUser = useMutation({
+  const muteUser = useMutation({
     mutationFn: async (pubkey: string) => {
       if (!user?.pubkey) {
-        throw new Error('Must be logged in to block users');
+        throw new Error('Must be logged in to mute users');
       }
 
       if (pubkey === user.pubkey) {
-        throw new Error('Cannot block yourself');
+        throw new Error('Cannot mute yourself');
       }
 
-      // Check if already blocked
-      if (currentBlockedUsers.includes(pubkey)) {
-        throw new Error('User is already blocked');
+      // Check if already muted
+      if (currentMutedUsers.includes(pubkey)) {
+        throw new Error('User is already muted');
       }
 
-      // Create updated blocked list
-      const updatedBlockedUsers = [...currentBlockedUsers, pubkey];
+      // Create updated muted list
+      const updatedMutedUsers = [...currentMutedUsers, pubkey];
 
-      // Convert to p tags
-      const pTags = updatedBlockedUsers.map(blockedPubkey => ['p', blockedPubkey]);
+      // Convert to p tags according to NIP-51
+      const pTags = updatedMutedUsers.map(mutedPubkey => ['p', mutedPubkey]);
 
-      // Publish updated blocked list (kind 30000 with d tag "blocked")
+      // Publish updated mute list (kind 10000, no 'd' tag needed for standard replaceable events)
       await publishEvent({
-        kind: USER_LIST_KIND,
+        kind: MUTE_LIST_KIND,
         content: '',
-        tags: [
-          ['d', 'blocked'],
-          ...pTags,
-        ],
+        tags: pTags,
       });
 
       return pubkey;
     },
     onSuccess: () => {
-      // Invalidate blocked users query to refetch
-      queryClient.invalidateQueries({ queryKey: ['blocked-users', user?.pubkey] });
+      // Invalidate muted users query to refetch
+      queryClient.invalidateQueries({ queryKey: ['muted-users', user?.pubkey] });
       
       toast({
-        title: 'User blocked',
-        description: 'User has been added to your blocked list',
+        title: 'User muted',
+        description: 'User has been added to your mute list',
       });
     },
     onError: (error) => {
       toast({
-        title: 'Failed to block user',
+        title: 'Failed to mute user',
         description: error.message,
         variant: 'destructive',
       });
     },
   });
 
-  const unblockUser = useMutation({
+  const unmuteUser = useMutation({
     mutationFn: async (pubkey: string) => {
       if (!user?.pubkey) {
-        throw new Error('Must be logged in to unblock users');
+        throw new Error('Must be logged in to unmute users');
       }
 
-      // Filter out the user to unblock
-      const updatedBlockedUsers = currentBlockedUsers.filter(blockedPubkey => blockedPubkey !== pubkey);
+      // Filter out the user to unmute
+      const updatedMutedUsers = currentMutedUsers.filter(mutedPubkey => mutedPubkey !== pubkey);
 
-      // Convert to p tags
-      const pTags = updatedBlockedUsers.map(blockedPubkey => ['p', blockedPubkey]);
+      // Convert to p tags according to NIP-51
+      const pTags = updatedMutedUsers.map(mutedPubkey => ['p', mutedPubkey]);
 
-      // Publish updated blocked list
+      // Publish updated mute list (kind 10000, no 'd' tag needed)
       await publishEvent({
-        kind: USER_LIST_KIND,
+        kind: MUTE_LIST_KIND,
         content: '',
-        tags: [
-          ['d', 'blocked'],
-          ...pTags,
-        ],
+        tags: pTags,
       });
 
       return pubkey;
     },
     onSuccess: () => {
-      // Invalidate blocked users query to refetch
-      queryClient.invalidateQueries({ queryKey: ['blocked-users', user?.pubkey] });
+      // Invalidate muted users query to refetch
+      queryClient.invalidateQueries({ queryKey: ['muted-users', user?.pubkey] });
       
       toast({
-        title: 'User unblocked',
-        description: 'User has been removed from your blocked list',
+        title: 'User unmuted',
+        description: 'User has been removed from your mute list',
       });
     },
     onError: (error) => {
       toast({
-        title: 'Failed to unblock user',
+        title: 'Failed to unmute user',
         description: error.message,
         variant: 'destructive',
       });
@@ -110,9 +106,23 @@ export function useManageBlockedUsers() {
   });
 
   return {
-    blockUser: blockUser.mutateAsync,
-    unblockUser: unblockUser.mutateAsync,
-    isBlocking: blockUser.isPending,
-    isUnblocking: unblockUser.isPending,
+    muteUser: muteUser.mutateAsync,
+    unmuteUser: unmuteUser.mutateAsync,
+    isMuting: muteUser.isPending,
+    isUnmuting: unmuteUser.isPending,
+  };
+}
+
+// Deprecated function - maintained for backward compatibility
+// This will be removed in a future update
+export function useManageBlockedUsers() {
+  console.warn('useManageBlockedUsers is deprecated, use useManageMutedUsers instead');
+  const mutedHooks = useManageMutedUsers();
+  
+  return {
+    blockUser: mutedHooks.muteUser,
+    unblockUser: mutedHooks.unmuteUser,
+    isBlocking: mutedHooks.isMuting,
+    isUnblocking: mutedHooks.isUnmuting,
   };
 }

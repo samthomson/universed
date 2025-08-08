@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { Crown, Shield, Users, MoreVertical, UserMinus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +13,7 @@ import { genUserName } from "@/lib/genUserName";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/useToast";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
-import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import { MemberCard } from "@/components/members/MemberCard";
 import type { NostrEvent, NostrMetadata } from "@nostrify/nostrify";
 
 interface MemberListProps {
@@ -28,11 +28,14 @@ interface MemberItemProps {
   isOnline?: boolean;
   communityId: string;
   canManage?: boolean;
-  onMemberClick?: (pubkey: string) => void;
+  onStartDM?: (pubkey: string) => void;
+  onFollow?: (pubkey: string) => void;
+  onMute?: (pubkey: string) => void;
+  onReport?: (pubkey: string) => void;
   authorData?: { event?: NostrEvent; metadata?: NostrMetadata };
 }
 
-function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, communityId, canManage = false, onMemberClick, authorData }: MemberItemProps) {
+function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, communityId, canManage = false, onStartDM, onFollow, onMute, onReport, authorData }: MemberItemProps) {
   const metadata = authorData?.metadata;
   const { removeMember, isRemovingMember } = useManageMembers();
   const { toast } = useToast();
@@ -84,67 +87,69 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
   };
 
   return (
-    <div
-      className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-600/50 rounded group cursor-pointer"
-      onClick={() => onMemberClick?.(pubkey)}
+    <MemberCard
+      pubkey={pubkey}
+      onStartDM={onStartDM}
+      onFollow={onFollow}
+      onMute={onMute}
+      onReport={onReport}
     >
-      <div className="relative">
-        <Avatar className="w-8 h-8">
-          <AvatarImage src={profileImage} alt={displayName} />
-          <AvatarFallback className="bg-indigo-600 text-white text-xs">
-            {displayName.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="absolute -bottom-0.5 -right-0.5">
-          <UserStatusIndicator pubkey={pubkey} />
+      <div className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-600/50 rounded group cursor-pointer">
+        <div className="relative">
+          <Avatar className="w-8 h-8">
+            <AvatarImage src={profileImage} alt={displayName} />
+            <AvatarFallback className="bg-indigo-600 text-white text-xs">
+              {displayName.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="absolute -bottom-0.5 -right-0.5">
+            <UserStatusIndicator pubkey={pubkey} />
+          </div>
         </div>
-      </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center space-x-1">
-          {getRoleIcon()}
-          <span className={`text-sm font-medium truncate ${getRoleColor()}`}>
-            {displayName}
-          </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-1">
+            {getRoleIcon()}
+            <span className={`text-sm font-medium truncate ${getRoleColor()}`}>
+              {displayName}
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* Member management dropdown for moderators */}
-      {canManage && role === 'member' && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => e.stopPropagation()} // Prevent triggering member click
-            >
-              <MoreVertical className="w-3 h-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent triggering member click
-                handleRemoveMember();
-              }}
-              disabled={isRemovingMember}
-              className="text-red-600 focus:text-red-600"
-            >
-              <UserMinus className="w-4 h-4 mr-2" />
-              Remove Member
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
+        {/* Member management dropdown for moderators */}
+        {canManage && role === 'member' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()} // Prevent triggering member card
+              >
+                <MoreVertical className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent triggering member card
+                  handleRemoveMember();
+                }}
+                disabled={isRemovingMember}
+                className="text-red-600 focus:text-red-600"
+              >
+                <UserMinus className="w-4 h-4 mr-2" />
+                Remove Member
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </MemberCard>
   );
 }
 
 export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
-  const [selectedMemberPubkey, setSelectedMemberPubkey] = useState<string | null>(null);
-  const [showProfileDialog, setShowProfileDialog] = useState(false);
-
   const { data: members, isLoading } = useCommunityMembers(communityId);
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
@@ -164,15 +169,24 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
     return community.creator === user.pubkey || community.moderators.includes(user.pubkey);
   })() : false;
 
-  const handleMemberClick = (pubkey: string) => {
-    setSelectedMemberPubkey(pubkey);
-    setShowProfileDialog(true);
-  };
-
   const handleStartDM = (pubkey: string) => {
     // Navigate to DMs and start conversation with this user
     onNavigateToDMs?.(pubkey);
-    setShowProfileDialog(false);
+  };
+
+  const handleFollow = (_pubkey: string) => {
+    // Follow functionality is now implemented directly in MemberCard
+    // This is kept as a no-op for backward compatibility
+  };
+
+  const handleMute = (_pubkey: string) => {
+    // Mute functionality is now implemented directly in MemberCard
+    // This is kept as a no-op for backward compatibility
+  };
+
+  const handleReport = (_pubkey: string) => {
+    // Report functionality is now implemented directly in MemberCard
+    // This is kept as a no-op for backward compatibility
   };
 
   if (!communityId) {
@@ -228,7 +242,10 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
                       isOnline={member.isOnline}
                       communityId={communityId}
                       canManage={canManageMembers}
-                      onMemberClick={handleMemberClick}
+                      onStartDM={handleStartDM}
+                      onFollow={handleFollow}
+                      onMute={handleMute}
+                      onReport={handleReport}
                       authorData={batchedAuthors?.[member.pubkey]}
                     />
                   ))}
@@ -250,7 +267,10 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
                         isOnline={member.isOnline}
                         communityId={communityId}
                         canManage={canManageMembers}
-                        onMemberClick={handleMemberClick}
+                        onStartDM={handleStartDM}
+                        onFollow={handleFollow}
+                        onMute={handleMute}
+                        onReport={handleReport}
                         authorData={batchedAuthors?.[member.pubkey]}
                       />
                     ))}
@@ -265,14 +285,6 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
           )}
         </div>
       </ScrollArea>
-
-      {/* User Profile Dialog */}
-      <UserProfileDialog
-        pubkey={selectedMemberPubkey}
-        open={showProfileDialog}
-        onOpenChange={setShowProfileDialog}
-        onStartDM={handleStartDM}
-      />
     </div>
   );
 }

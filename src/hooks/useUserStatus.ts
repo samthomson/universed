@@ -17,6 +17,13 @@ export interface UserStatus {
 
 const USER_STATUS_KIND = 30315;
 
+export interface UserMusicStatus {
+  content?: string; // Track name - "Intergalactic - Beastie Boys"
+  link?: string; // URL/URI - spotify link, etc.
+  expiration?: number; // When the track will stop playing
+  lastUpdated?: number;
+}
+
 export function useUserStatus(pubkey?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -136,4 +143,51 @@ export function getTraditionalStatusText(
     default:
       return "Available";
   }
+}
+
+export function useUserMusicStatus(pubkey?: string) {
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+  const targetPubkey = pubkey || user?.pubkey;
+
+  return useQuery({
+    queryKey: ["user-music-status", targetPubkey],
+    queryFn: async (c) => {
+      if (!targetPubkey) return null;
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1500)]);
+      const events = await nostr.query([{
+        kinds: [USER_STATUS_KIND],
+        authors: [targetPubkey],
+        "#d": ["music"],
+        limit: 1,
+      }], { signal });
+
+      if (events.length === 0) {
+        return null;
+      }
+
+      const event = events[0];
+      const content = event.content || "";
+      const rTag = event.tags.find(([name]) => name === "r")?.[1];
+      const expirationTag = event.tags.find(([name]) => name === "expiration")?.[1];
+      
+      // Check if expired
+      if (expirationTag) {
+        const expiration = parseInt(expirationTag, 10) * 1000;
+        if (Date.now() > expiration) {
+          return null; // Expired music status
+        }
+      }
+
+      return {
+        content,
+        link: rTag,
+        expiration: expirationTag ? parseInt(expirationTag, 10) * 1000 : undefined,
+        lastUpdated: event.created_at * 1000,
+      };
+    },
+    enabled: !!targetPubkey,
+    refetchInterval: 30 * 1000, // Refresh every 30 seconds for music status
+  });
 }
