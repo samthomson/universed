@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Save, Shield, Eye, MessageSquare, Hash, Bot } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { useCanModerate } from '@/hooks/useCommunityRoles';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { useCommunitySettings, useUpdateCommunitySettings } from '@/hooks/useCommunitySettings';
 import { AutoModerationSettings } from './AutoModerationSettings';
 
 interface CommunitySettingsProps {
@@ -28,6 +29,8 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
   const { toast } = useToast();
 
   const community = communities?.find(c => c.id === communityId);
+  const { data: communitySettings } = useCommunitySettings(communityId);
+  const { mutateAsync: updateSettings } = useUpdateCommunitySettings(communityId);
 
   const [settings, setSettings] = useState({
     name: community?.name || '',
@@ -35,18 +38,18 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
     picture: community?.image || '',
     banner: community?.banner || '',
     rules: [] as string[],
-    moderationPolicy: 'moderate', // strict, moderate, relaxed
-    requireApproval: false,
-    allowAnonymous: true,
-    maxPostLength: 280,
+    moderationPolicy: communitySettings?.moderationPolicy || 'moderate',
+    requireApproval: communitySettings?.requireApproval ?? true,
+    allowAnonymous: communitySettings?.allowAnonymous ?? true,
+    maxPostLength: communitySettings?.maxPostLength || 280,
     allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif'],
-    autoModeration: {
+    autoModeration: communitySettings?.autoModeration || {
       enabled: false,
       spamDetection: true,
       profanityFilter: false,
       linkValidation: true,
     },
-    notifications: {
+    notifications: communitySettings?.notifications || {
       newMembers: true,
       newPosts: false,
       reports: true,
@@ -56,6 +59,21 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
 
   const [newRule, setNewRule] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Update local settings when community settings change
+  useEffect(() => {
+    if (communitySettings) {
+      setSettings(prev => ({
+        ...prev,
+        moderationPolicy: communitySettings.moderationPolicy,
+        requireApproval: communitySettings.requireApproval,
+        allowAnonymous: communitySettings.allowAnonymous,
+        maxPostLength: communitySettings.maxPostLength,
+        autoModeration: communitySettings.autoModeration,
+        notifications: communitySettings.notifications,
+      }));
+    }
+  }, [communitySettings]);
 
   const handleSaveSettings = async () => {
     if (!user || !community) {
@@ -70,21 +88,25 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
     setIsSaving(true);
 
     try {
-      // Update community definition with new settings
+      // Update community settings using the new hook
+      await updateSettings({
+        moderationPolicy: settings.moderationPolicy,
+        requireApproval: settings.requireApproval,
+        allowAnonymous: settings.allowAnonymous,
+        maxPostLength: settings.maxPostLength,
+        autoModeration: settings.autoModeration,
+        notifications: settings.notifications,
+      });
+
+      // Update community definition with basic info
       const tags = [
         ['d', community.id.split(':')[2]], // Extract d-tag
         ['name', settings.name],
         ['about', settings.about],
         ['picture', settings.picture],
         ['banner', settings.banner],
-        ['moderation_policy', settings.moderationPolicy],
-        ['require_approval', settings.requireApproval.toString()],
-        ['allow_anonymous', settings.allowAnonymous.toString()],
-        ['max_post_length', settings.maxPostLength.toString()],
         ...settings.rules.map(rule => ['rule', rule]),
         ...settings.allowedFileTypes.map(type => ['allowed_file_type', type]),
-        ['auto_moderation', JSON.stringify(settings.autoModeration)],
-        ['notifications', JSON.stringify(settings.notifications)],
       ];
 
       // Add existing moderators
@@ -282,7 +304,7 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
               <Label>Moderation Policy</Label>
               <Select
                 value={settings.moderationPolicy}
-                onValueChange={(value) => setSettings(prev => ({ ...prev, moderationPolicy: value }))}
+                onValueChange={(value: 'strict' | 'moderate' | 'relaxed') => setSettings(prev => ({ ...prev, moderationPolicy: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -297,14 +319,32 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <Label>Require Post Approval</Label>
+                <Label>Require Member Approval</Label>
                 <p className="text-sm text-muted-foreground">
-                  All posts must be approved by moderators before being visible
+                  Only approved members can post messages in the community
                 </p>
               </div>
               <Switch
                 checked={settings.requireApproval}
-                onCheckedChange={(checked) => setSettings(prev => ({ ...prev, requireApproval: checked }))}
+                onCheckedChange={async (checked) => {
+                  setSettings(prev => ({ ...prev, requireApproval: checked }));
+                  try {
+                    await updateSettings({ requireApproval: checked });
+                    toast({
+                      title: 'Setting updated',
+                      description: `Member approval requirement ${checked ? 'enabled' : 'disabled'}.`,
+                    });
+                  } catch (error) {
+                    console.error('Failed to update approval setting:', error);
+                    toast({
+                      title: 'Error',
+                      description: 'Failed to update approval setting',
+                      variant: 'destructive',
+                    });
+                    // Revert the local state on error
+                    setSettings(prev => ({ ...prev, requireApproval: !checked }));
+                  }
+                }}
               />
             </div>
 

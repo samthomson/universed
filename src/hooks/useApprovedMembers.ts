@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCommunities } from './useCommunities';
+import { useCommunitySettings } from './useCommunitySettings';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function validateMembershipEvent(event: NostrEvent): boolean {
@@ -12,16 +13,23 @@ function validateMembershipEvent(event: NostrEvent): boolean {
 /**
  * Hook to get the set of approved members for a community.
  * Returns a Set of pubkeys that are approved to post in the community.
- * Includes community creator, moderators, and explicitly approved members.
+ * If requireApproval is disabled, returns null to indicate no filtering should be applied.
+ * Otherwise includes community creator, moderators, and explicitly approved members.
  */
 export function useApprovedMembers(communityId: string | null) {
   const { nostr } = useNostr();
   const { data: communities } = useCommunities();
+  const { data: settings } = useCommunitySettings(communityId);
 
   return useQuery({
-    queryKey: ['approved-members', communityId],
+    queryKey: ['approved-members', communityId, settings?.requireApproval],
     queryFn: async (c) => {
-      if (!communityId || !communities) return new Set<string>();
+      if (!communityId || !communities || !settings) return new Set<string>();
+
+      // If approval is not required, return null to indicate no filtering
+      if (!settings.requireApproval) {
+        return null;
+      }
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]);
 
@@ -72,7 +80,7 @@ export function useApprovedMembers(communityId: string | null) {
 
       return approvedMembers;
     },
-    enabled: !!communityId && !!communities,
+    enabled: !!communityId && !!communities && !!settings,
     staleTime: 1000 * 60 * 2, // 2 minutes - members don't change frequently
   });
 }

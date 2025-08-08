@@ -38,6 +38,7 @@ import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useManageMembers } from "@/hooks/useManageMembers";
+import { useCommunitySettings, useUpdateCommunitySettings } from "@/hooks/useCommunitySettings";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from 'nostr-tools';
@@ -64,6 +65,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Community settings
+  const { data: communitySettings } = useCommunitySettings(communityId);
+  const { mutateAsync: updateSettings } = useUpdateCommunitySettings(communityId);
 
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
@@ -137,6 +142,24 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     setFormData(prev => ({ ...prev, image: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle require approval toggle
+  const handleRequireApprovalChange = async (checked: boolean) => {
+    try {
+      await updateSettings({ requireApproval: checked });
+      toast({
+        title: "Success",
+        description: `Approval requirement ${checked ? 'enabled' : 'disabled'} successfully!`,
+      });
+    } catch (error) {
+      console.error("Failed to update approval setting:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update approval setting",
+        variant: "destructive",
+      });
     }
   };
 
@@ -450,9 +473,19 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     <Switch id="public-community" />
                     <Label htmlFor="public-community">Public Community</Label>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="require-approval" />
-                    <Label htmlFor="require-approval">Require approval to join</Label>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <Label htmlFor="require-approval">Require approval to join</Label>
+                      <p className="text-sm text-muted-foreground">
+                        When enabled, only approved members can post messages in the community
+                      </p>
+                    </div>
+                    <Switch
+                      id="require-approval"
+                      checked={communitySettings?.requireApproval ?? true}
+                      onCheckedChange={handleRequireApprovalChange}
+                      disabled={!isAdmin}
+                    />
                   </div>
                 </CardContent>
               </Card>

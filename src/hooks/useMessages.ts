@@ -38,7 +38,7 @@ function buildFilters(kind: string, pubkey: string, identifier: string, channelI
 export function validateMessageEvent(
   event: NostrEvent,
   expectedChannelId: string,
-  approvedMembers?: Set<string>
+  approvedMembers?: Set<string> | null
 ): boolean {
   // Combine all validation into a single pass with short-circuit evaluation
   const isValidEvent = (
@@ -53,6 +53,11 @@ export function validateMessageEvent(
        event.tags.some(([name, value]) => name === 't' && value === expectedChannelId)
      )))
   );
+
+  // If approvedMembers is null, no member filtering is applied (approval not required)
+  if (approvedMembers === null) {
+    return isValidEvent;
+  }
 
   // If we have approved members list, also check if the author is approved
   if (isValidEvent && approvedMembers) {
@@ -69,7 +74,7 @@ export async function fetchMessages(
   nostr: NPool,
   cacheEvents: (events: NostrEvent[]) => void,
   signal?: AbortSignal,
-  approvedMembers?: Set<string>
+  approvedMembers?: Set<string> | null
 ): Promise<NostrEvent[]> {
   const [kind, pubkey, identifier] = communityId.split(':');
   if (!kind || !pubkey || !identifier) return [];
@@ -148,7 +153,7 @@ export function useMessages(communityId: string, channelId: string) {
 
   // Start real subscription
   const startSubscription = useCallback(async () => {
-    if (!communityId || !channelId || !canRead || !approvedMembers) return;
+    if (!communityId || !channelId || !canRead || approvedMembers === undefined) return;
 
     const [kind, pubkey, identifier] = communityId.split(':');
     if (!kind || !pubkey || !identifier) return;
@@ -213,7 +218,7 @@ export function useMessages(communityId: string, channelId: string) {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for messages
       return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers);
     },
-    enabled: !!communityId && !!channelId && canRead && !!approvedMembers,
+    enabled: !!communityId && !!channelId && canRead && approvedMembers !== undefined,
     refetchInterval: false,
     // IMPORTANT: Clear messages when switching channels - don't show stale data
     placeholderData: undefined,
@@ -221,7 +226,7 @@ export function useMessages(communityId: string, channelId: string) {
 
   // Manage subscription lifecycle
   useEffect(() => {
-    if (query.data && canRead && approvedMembers) {
+    if (query.data && canRead && approvedMembers !== undefined) {
       startSubscription();
     }
     return stopSubscription;
@@ -232,7 +237,7 @@ export function useMessages(communityId: string, channelId: string) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         stopSubscription();
-      } else if (document.visibilityState === 'visible' && query.data && canRead && approvedMembers) {
+      } else if (document.visibilityState === 'visible' && query.data && canRead && approvedMembers !== undefined) {
         startSubscription();
       }
     };
