@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCanAccessChannel } from './useChannelPermissions';
 import { useEventCache } from './useEventCache';
+import { useApprovedMembers } from './useApprovedMembers';
 import { logger } from '@/lib/logger';
 import type { NostrFilter, NPool } from '@nostrify/nostrify';
 import type { NostrEvent } from '@/types/nostr';
@@ -34,9 +35,13 @@ function buildFilters(kind: string, pubkey: string, identifier: string, channelI
   return filters;
 }
 
-export function validateMessageEvent(event: NostrEvent, expectedChannelId: string): boolean {
+export function validateMessageEvent(
+  event: NostrEvent,
+  expectedChannelId: string,
+  approvedMembers?: Set<string>
+): boolean {
   // Combine all validation into a single pass with short-circuit evaluation
-  return (
+  const isValidEvent = (
     // Check kind first (fastest check)
     ([1, 9411].includes(event.kind)) &&
     // Check for e-tags in one operation (no replies in main feed)
@@ -48,6 +53,13 @@ export function validateMessageEvent(event: NostrEvent, expectedChannelId: strin
        event.tags.some(([name, value]) => name === 't' && value === expectedChannelId)
      )))
   );
+
+  // If we have approved members list, also check if the author is approved
+  if (isValidEvent && approvedMembers) {
+    return approvedMembers.has(event.pubkey);
+  }
+
+  return isValidEvent;
 }
 
 // Export the queryFn for explicit reuse in preloaders
@@ -56,7 +68,8 @@ export async function fetchMessages(
   channelId: string,
   nostr: NPool,
   cacheEvents: (events: NostrEvent[]) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  approvedMembers?: Set<string>
 ): Promise<NostrEvent[]> {
   const [kind, pubkey, identifier] = communityId.split(':');
   if (!kind || !pubkey || !identifier) return [];
@@ -68,7 +81,7 @@ export async function fetchMessages(
     cacheEvents(events);
   }
 
-  const validEvents = events.filter(event => validateMessageEvent(event, channelId));
+  const validEvents = events.filter(event => validateMessageEvent(event, channelId, approvedMembers));
   return validEvents.sort((a, b) => a.created_at - b.created_at);
 }
 
@@ -81,13 +94,14 @@ export function useMessages(communityId: string, channelId: string) {
   const queryClient = useQueryClient();
   const { canAccess: canRead } = useCanAccessChannel(communityId, channelId, 'read');
   const { cacheEvents } = useEventCache();
+  const { data: approvedMembers } = useApprovedMembers(communityId);
 
   const subscriptionRef = useRef<{ close: () => void } | null>(null);
   const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
   // Handle new real-time messages
   const handleNewMessage = useCallback((event: NostrEvent) => {
-    if (!validateMessageEvent(event, channelId)) return;
+    if (!validateMessageEvent(event, channelId, approvedMembers)) return;
 
     cacheEvents([event]);
 
@@ -130,11 +144,11 @@ export function useMessages(communityId: string, channelId: string) {
     });
 
     logger.log(`[Messages] New message: ${event.id}`);
-  }, [channelId, cacheEvents, queryClient, queryKey]);
+  }, [channelId, cacheEvents, queryClient, queryKey, approvedMembers]);
 
   // Start real subscription
   const startSubscription = useCallback(async () => {
-    if (!communityId || !channelId || !canRead) return;
+    if (!communityId || !channelId || !canRead || !approvedMembers) return;
 
     const [kind, pubkey, identifier] = communityId.split(':');
     if (!kind || !pubkey || !identifier) return;
@@ -180,7 +194,7 @@ export function useMessages(communityId: string, channelId: string) {
     } catch (error) {
       logger.error('Failed to start subscription:', error);
     }
-  }, [communityId, channelId, canRead, nostr, handleNewMessage]);
+  }, [communityId, channelId, canRead, approvedMembers, nostr, handleNewMessage]);
 
   // Stop subscription
   const stopSubscription = useCallback(() => {
@@ -192,14 +206,14 @@ export function useMessages(communityId: string, channelId: string) {
 
   // Initial query for existing messages
   const query = useQuery({
-    queryKey,
+    queryKey: [...queryKey, approvedMembers?.size], // Include approved members in query key
     queryFn: async (c) => {
       if (!canRead) return [];
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for messages
-      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal);
+      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers);
     },
-    enabled: !!communityId && !!channelId && canRead,
+    enabled: !!communityId && !!channelId && canRead && !!approvedMembers,
     refetchInterval: false,
     // IMPORTANT: Clear messages when switching channels - don't show stale data
     placeholderData: undefined,
@@ -207,18 +221,18 @@ export function useMessages(communityId: string, channelId: string) {
 
   // Manage subscription lifecycle
   useEffect(() => {
-    if (query.data && canRead) {
+    if (query.data && canRead && approvedMembers) {
       startSubscription();
     }
     return stopSubscription;
-  }, [query.data, canRead, startSubscription, stopSubscription]);
+  }, [query.data, canRead, approvedMembers, startSubscription, stopSubscription]);
 
   // Handle tab visibility
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         stopSubscription();
-      } else if (document.visibilityState === 'visible' && query.data && canRead) {
+      } else if (document.visibilityState === 'visible' && query.data && canRead && approvedMembers) {
         startSubscription();
       }
     };
@@ -228,7 +242,7 @@ export function useMessages(communityId: string, channelId: string) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopSubscription();
     };
-  }, [query.data, canRead, startSubscription, stopSubscription]);
+  }, [query.data, canRead, approvedMembers, startSubscription, stopSubscription]);
 
   return {
     data: query.data,

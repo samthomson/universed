@@ -63,4 +63,49 @@ describe('validateMessageEvent', () => {
     const event = { ...baseEvent, kind: 42, tags: [['t', 'random']] };
     expect(validateMessageEvent(event, 'random')).toBe(false);
   });
+
+  describe('approved members filtering', () => {
+    it('accepts messages from approved members', () => {
+      const event: NostrEvent = {
+        ...baseEvent,
+        kind: 1,
+        pubkey: 'approved-user',
+        tags: [],
+      };
+      const approvedMembers = new Set(['approved-user', 'another-user']);
+      expect(validateMessageEvent(event, 'general', approvedMembers)).toBe(true);
+    });
+
+    it('rejects messages from non-approved members', () => {
+      const event: NostrEvent = {
+        ...baseEvent,
+        kind: 1,
+        pubkey: 'non-approved-user',
+        tags: [],
+      };
+      const approvedMembers = new Set(['approved-user', 'another-user']);
+      expect(validateMessageEvent(event, 'general', approvedMembers)).toBe(false);
+    });
+
+    it('works without approved members set (no filtering)', () => {
+      const event: NostrEvent = {
+        ...baseEvent,
+        kind: 1,
+        pubkey: 'any-user',
+        tags: [],
+      };
+      expect(validateMessageEvent(event, 'general')).toBe(true);
+    });
+
+    it('filters channel messages by approved members', () => {
+      const event: NostrEvent = {
+        ...baseEvent,
+        kind: 9411,
+        pubkey: 'non-approved-user',
+        tags: [['t', 'dev']],
+      };
+      const approvedMembers = new Set(['approved-user']);
+      expect(validateMessageEvent(event, 'dev', approvedMembers)).toBe(false);
+    });
+  });
 });

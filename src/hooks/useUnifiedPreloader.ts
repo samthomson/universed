@@ -31,7 +31,7 @@ export function useUnifiedPreloader() {
   // Preload channel messages
   const preloadChannelMessages = useCallback((communityId: string, channelId: string) => {
     const queryKey = ['messages', communityId, channelId];
-    
+
     if (!isDataFresh(queryKey)) {
       queryClient.prefetchQuery({
         queryKey,
@@ -47,7 +47,7 @@ export function useUnifiedPreloader() {
   const preloadCommunity = useCallback((communityId: string) => {
     // Preload channel definitions
     preloadChannelDefinitions(communityId);
-    
+
     // Preload default channel messages (usually "general")
     preloadChannelMessages(communityId, 'general');
   }, [preloadChannelDefinitions, preloadChannelMessages]);
@@ -90,10 +90,10 @@ export function useUnifiedPreloader() {
     preloadCommunity,
     preloadSpaces,
     preloadSpaceContent,
-    
+
     // Combined preloaders
     preloadCommunityComplete,
-    
+
     // Utility
     isDataFresh,
   };
