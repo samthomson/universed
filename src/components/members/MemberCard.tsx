@@ -172,9 +172,9 @@ export function MemberCard({
 
           <div className="px-4 pb-4">
             {/* Avatar positioned over banner */}
-            <div className="relative -mt-8 mb-4">
+            <div className="-mt-8 mb-4">
               <div 
-                className="cursor-pointer"
+                className="cursor-pointer relative inline-block"
                 onClick={handleOpenProfile}
                 title="View profile"
               >
@@ -184,11 +184,11 @@ export function MemberCard({
                     {displayName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-              </div>
-              
-              {/* Status indicator positioned on avatar */}
-              <div className="absolute -bottom-1 -right-1">
-                <UserStatusIndicator pubkey={pubkey} />
+                
+                {/* Status indicator positioned on avatar */}
+                <div className="absolute bottom-2 right-0.5">
+                  <UserStatusIndicator pubkey={pubkey} />
+                </div>
               </div>
             </div>
 
