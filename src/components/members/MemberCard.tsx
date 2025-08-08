@@ -13,8 +13,8 @@ import { ZapDialog } from "@/components/ZapDialog";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
 import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
-import { useManageMutedUsers } from "@/hooks/useManageBlockedUsers";
-import { useIsMuted } from "@/hooks/useBlockedUsers";
+import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
+import { useIsMuted } from "@/hooks/useMutedUsers";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import { useState } from "react";
@@ -31,15 +31,15 @@ interface MemberCardProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-export function MemberCard({ 
-  pubkey, 
-  children, 
-  onStartDM, 
-  onFollow, 
-  onMute, 
+export function MemberCard({
+  pubkey,
+  children,
+  onStartDM,
+  onFollow,
+  onMute,
   onReport,
   open,
-  onOpenChange 
+  onOpenChange
 }: MemberCardProps) {
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey);
@@ -49,11 +49,11 @@ export function MemberCard({
   const [copied, setCopied] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
-  
+
   // Follow state and actions
   const isFollowing = useIsFriend(pubkey);
   const { addFriend, removeFriend, isAddingFriend, isRemovingFriend } = useManageFriends();
-  
+
   // Mute state and actions (NIP-51 compliant)
   const isMuted = useIsMuted(pubkey);
   const { muteUser, unmuteUser, isMuting, isUnmuting } = useManageMutedUsers();
@@ -133,10 +133,10 @@ export function MemberCard({
       } else {
         // Get user's preferred relay from their profile metadata
         const userRelay = metadata?.nip05 ? `wss://${metadata.nip05.split('@')[1]}` : undefined;
-        await addFriend({ 
-          pubkey, 
+        await addFriend({
+          pubkey,
           relay: userRelay,
-          petname: displayName 
+          petname: displayName
         });
       }
       onFollow?.(pubkey);
@@ -152,8 +152,8 @@ export function MemberCard({
       <PopoverTrigger asChild>
         {children}
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-80 p-0 bg-gray-900 border-gray-700 shadow-xl" 
+      <PopoverContent
+        className="w-80 p-0 bg-gray-900 border-gray-700 shadow-xl"
         align="start"
         side="right"
         sideOffset={8}
@@ -173,7 +173,7 @@ export function MemberCard({
           <div className="px-4 pb-4">
             {/* Avatar positioned over banner */}
             <div className="-mt-8 mb-4">
-              <div 
+              <div
                 className="cursor-pointer relative inline-block"
                 onClick={handleOpenProfile}
                 title="View profile"
@@ -184,7 +184,7 @@ export function MemberCard({
                     {displayName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 {/* Status indicator positioned on avatar */}
                 <div className="absolute bottom-2 right-0.5">
                   <UserStatusIndicator pubkey={pubkey} />
@@ -195,14 +195,14 @@ export function MemberCard({
             {/* Profile Info */}
             <div className="space-y-3">
               <div>
-                <h3 
+                <h3
                   className="text-lg font-bold text-white leading-tight cursor-pointer hover:text-indigo-400 transition-colors"
                   onClick={handleOpenProfile}
                   title="View profile"
                 >
                   {displayName}
                 </h3>
-                
+
                 {/* Status message */}
                 {(userStatus?.emoji || userStatus?.message) && (
                   <div className="flex items-center space-x-1 mt-1">
@@ -222,9 +222,9 @@ export function MemberCard({
                     <Music className="w-3 h-3 text-purple-500" />
                     <p className="text-sm text-gray-300 truncate">
                       {musicStatus.link ? (
-                        <a 
-                          href={musicStatus.link} 
-                          target="_blank" 
+                        <a
+                          href={musicStatus.link}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-purple-400 transition-colors"
                           onClick={(e) => e.stopPropagation()}
@@ -285,16 +285,16 @@ export function MemberCard({
                     onClick={handleToggleFollow}
                     disabled={isAddingFriend || isRemovingFriend}
                     className={`flex-1 h-8 text-xs ${
-                      isFollowing 
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white" 
+                      isFollowing
+                        ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                         : "bg-indigo-600 hover:bg-indigo-700 text-white"
                     }`}
                   >
                     <UserPlus className="w-3 h-3 mr-1" />
-                    {isAddingFriend || isRemovingFriend 
-                      ? "..." 
-                      : isFollowing 
-                        ? "Following" 
+                    {isAddingFriend || isRemovingFriend
+                      ? "..."
+                      : isFollowing
+                        ? "Following"
                         : "Follow"
                     }
                   </Button>
@@ -333,8 +333,8 @@ export function MemberCard({
                         <MoreHorizontal className="w-3 h-3" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent 
-                      align="end" 
+                    <DropdownMenuContent
+                      align="end"
                       className="bg-gray-800 border-gray-600"
                     >
                       <DropdownMenuItem

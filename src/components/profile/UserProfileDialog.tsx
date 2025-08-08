@@ -12,8 +12,8 @@ import { ZapDialog } from "@/components/ZapDialog";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
 import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
-import { useManageMutedUsers } from "@/hooks/useManageBlockedUsers";
-import { useIsMuted } from "@/hooks/useBlockedUsers";
+import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
+import { useIsMuted } from "@/hooks/useMutedUsers";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from "nostr-tools";
@@ -35,11 +35,11 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
   const metadata = author.data?.metadata;
   const [copied, setCopied] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
-  
+
   // Follow state and actions
   const isFollowing = useIsFriend(pubkey || "");
   const { addFriend, removeFriend, isAddingFriend, isRemovingFriend } = useManageFriends();
-  
+
   // Mute state and actions (NIP-51 compliant)
   const isMuted = useIsMuted(pubkey || "");
   const { muteUser, unmuteUser, isMuting, isUnmuting } = useManageMutedUsers();
@@ -74,17 +74,17 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
 
   const handleToggleFollow = async () => {
     if (!pubkey) return;
-    
+
     try {
       if (isFollowing) {
         await removeFriend(pubkey);
       } else {
         // Get user's preferred relay from their profile metadata
         const userRelay = metadata?.nip05 ? `wss://${metadata.nip05.split('@')[1]}` : undefined;
-        await addFriend({ 
-          pubkey, 
+        await addFriend({
+          pubkey,
           relay: userRelay,
-          petname: displayName 
+          petname: displayName
         });
       }
     } catch (error) {
@@ -95,7 +95,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
 
   const handleToggleMute = async () => {
     if (!pubkey) return;
-    
+
     try {
       if (isMuted) {
         await unmuteUser(pubkey);
@@ -155,7 +155,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                     {displayName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 {/* Status indicator positioned on avatar */}
                 <div className="absolute bottom-2 right-1.5">
                   <UserStatusIndicator pubkey={pubkey} className="scale-125" />
@@ -186,9 +186,9 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                       <Music className="w-3 h-3 text-purple-500" />
                       <p className="text-sm text-gray-300 truncate">
                         {musicStatus.link ? (
-                          <a 
-                            href={musicStatus.link} 
-                            target="_blank" 
+                          <a
+                            href={musicStatus.link}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="hover:text-purple-400 transition-colors"
                             onClick={(e) => e.stopPropagation()}
@@ -258,16 +258,16 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                       onClick={handleToggleFollow}
                       disabled={isAddingFriend || isRemovingFriend}
                       className={`flex-1 h-8 text-xs ${
-                        isFollowing 
-                          ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white" 
+                        isFollowing
+                          ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                           : "bg-indigo-600 hover:bg-indigo-700 text-white"
                       }`}
                     >
                       <UserPlus className="w-3 h-3 mr-1" />
-                      {isAddingFriend || isRemovingFriend 
-                        ? "..." 
-                        : isFollowing 
-                          ? "Following" 
+                      {isAddingFriend || isRemovingFriend
+                        ? "..."
+                        : isFollowing
+                          ? "Following"
                           : "Follow"
                       }
                     </Button>
@@ -306,8 +306,8 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                           <MoreHorizontal className="w-3 h-3" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent 
-                        align="end" 
+                      <DropdownMenuContent
+                        align="end"
                         className="bg-gray-800 border-gray-600"
                       >
                         <DropdownMenuItem
@@ -335,7 +335,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
           </div>
         </div>
       </DialogContent>
-      
+
       {/* Report Dialog */}
       <ReportUserDialog
         targetPubkey={pubkey || ""}
