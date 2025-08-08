@@ -14,4 +14,7 @@ export function CommunityProvider({ children, currentCommunityId }: CommunityPro
   );
 }
 
+// Re-export context from the types file
+export { CommunityContext } from './CommunityContext';
+
 

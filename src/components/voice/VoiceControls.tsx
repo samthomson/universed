@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Volume2, VolumeX, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -11,7 +11,8 @@ interface VoiceControlsProps {
   className?: string;
 }
 
-export function VoiceControls({ className }: VoiceControlsProps) {
+export const VoiceControls = forwardRef<HTMLButtonElement, VoiceControlsProps>(
+  ({ className }, ref) => {
   const [masterVolume, setMasterVolume] = useState([100]);
   const [micVolume, setMicVolume] = useState([100]);
   const [noiseSuppression, setNoiseSuppression] = useState(true);
@@ -33,17 +34,18 @@ export function VoiceControls({ className }: VoiceControlsProps) {
     localStorage.setItem('voice-mic-volume', value[0].toString());
   };
 
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={`text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 ${className}`}
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
-      </PopoverTrigger>
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            ref={ref}
+            variant="ghost"
+            size="icon"
+            className={`text-gray-400 hover:text-gray-300 hover:bg-gray-700/50 ${className}`}
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+        </PopoverTrigger>
       <PopoverContent className="w-80" align="end">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -160,5 +162,8 @@ export function VoiceControls({ className }: VoiceControlsProps) {
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
+    );
+  }
+);
+
+VoiceControls.displayName = 'VoiceControls';

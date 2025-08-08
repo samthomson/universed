@@ -169,3 +169,7 @@ export function VoiceProvider({ children }: VoiceProviderProps) {
   );
 }
 
+// Re-export types and context from the types file
+export type { VoiceState, VoiceContextType } from './VoiceContext';
+export { VoiceContext } from './VoiceContext';
+

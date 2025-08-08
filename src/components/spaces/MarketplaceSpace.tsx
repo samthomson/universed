@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
-import { useMarketplaceContext } from '@/contexts/MarketplaceContext';
+import { useMarketplaceContext } from '@/contexts/MarketplaceContext.tsx';
 // import { createMarketplaceItemMessage } from '@/lib/marketplaceDM';
 import {
   ShoppingBag,

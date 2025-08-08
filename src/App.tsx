@@ -19,7 +19,7 @@ import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
 import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
 import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
-import { MarketplaceProvider } from '@/contexts/MarketplaceContext';
+import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
 import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
 import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
 import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
