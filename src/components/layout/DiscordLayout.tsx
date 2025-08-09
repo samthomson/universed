@@ -56,6 +56,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
   const initializationRef = useRef(false);
+  const urlInitializationRef = useRef(false);
   const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<
     string | null
   >(null);
@@ -150,9 +151,10 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     }
   }, [initialDMTargetPubkey, isMobile]);
 
-  // Handle initial space community ID from URL
+  // Handle initial space community ID from URL - only once
   useEffect(() => {
-    if (initialSpaceCommunityId) {
+    if (initialSpaceCommunityId && !urlInitializationRef.current) {
+      urlInitializationRef.current = true;
       setSelectedCommunity(initialSpaceCommunityId);
       setSelectedDMConversation(null);
       setDmTargetPubkey(null);
