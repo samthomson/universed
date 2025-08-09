@@ -17,6 +17,12 @@ function DMWrapper() {
   return <Index dmTargetPubkey={npub} />;
 }
 
+// Wrapper component to extract community-id parameter and pass it to Index
+function SpacesWrapper() {
+  const { communityId } = useParams<{ communityId?: string }>();
+  return <Index spaceCommunityId={communityId} />;
+}
+
 export function AppRouter() {
   return (
     <BrowserRouter>
@@ -34,11 +40,14 @@ export function AppRouter() {
         <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
-        
-        {/* DM Routes */}
+
+        {/* DM Routes - always at /dm */}
         <Route path="/dm" element={<Index dmTargetPubkey={undefined} />} />
         <Route path="/dm/:npub" element={<DMWrapper />} />
-        
+
+        {/* Space Routes - show /space/community-id when joining communities */}
+        <Route path="/space/:communityId" element={<SpacesWrapper />} />
+
         {/* Catch-all route for naddr and other patterns */}
         <Route path="/:identifier" element={<Index />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

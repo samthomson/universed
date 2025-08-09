@@ -14,6 +14,8 @@ export function useAuthorBatch(pubkeys: (string | undefined)[]) {
 
   return useQuery<Record<string, { event?: NostrEvent; metadata?: NostrMetadata }>>({
     queryKey: ['authors-batch', validPubkeys.sort()], // Sort for consistent cache keys
+    staleTime: reactQueryConfigs['author-batch'].staleTime,
+    gcTime: reactQueryConfigs['author-batch'].gcTime,
     queryFn: async ({ signal }) => {
       if (validPubkeys.length === 0) {
         return {};
@@ -40,32 +42,41 @@ export function useAuthorBatch(pubkeys: (string | undefined)[]) {
 
       // Use deduplication for the query
       const filters = [{ kinds: [0], authors: uncachedPubkeys, limit: uncachedPubkeys.length }];
-      const events = await getDeduplicatedQuery(
-        `authors-batch-${uncachedPubkeys.sort().join(',')}`,
-        filters,
-        () => nostr.query(filters, { signal: AbortSignal.any([signal, AbortSignal.timeout(2000)]) })
-      );
+      
+      try {
+        const events = await getDeduplicatedQuery(
+          `authors-batch-${uncachedPubkeys.sort().join(',')}`,
+          filters,
+          () => nostr.query(filters, { signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]) })
+        );
 
-      // Process found events and cache individually
-      events.forEach(event => {
-        try {
-          const metadata = n.json().pipe(n.metadata()).parse(event.content);
-          const authorData = { metadata, event };
-          result[event.pubkey] = authorData;
+        console.debug(`[useAuthorBatch] Loaded ${events.length} profiles out of ${uncachedPubkeys.length} requested`);
+        
+        // Process found events and cache individually
+        events.forEach(event => {
+          try {
+            const metadata = n.json().pipe(n.metadata()).parse(event.content);
+            const authorData = { metadata, event };
+            result[event.pubkey] = authorData;
 
-          // Cache individual author for future use
-          setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
-        } catch {
-          const authorData = { event };
-          result[event.pubkey] = authorData;
-          setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
-        }
-      });
+            // Cache individual author for future use
+            setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
+          } catch {
+            const authorData = { event };
+            result[event.pubkey] = authorData;
+            setCachedData(['author', event.pubkey], authorData, reactQueryConfigs.author.staleTime);
+          }
+        });
 
-      return result;
+        return result;
+      } catch (error) {
+        console.warn(`[useAuthorBatch] Failed to load profiles:`, error);
+        // Return partial result with cached data
+        return result;
+      }
     },
     enabled: validPubkeys.length > 0,
-    retry: 1, // Fewer retries for batch queries
+    retry: 2, // Allow more retries for profile loading
     // Use cached data immediately while fetching
     placeholderData: (previousData) => {
       if (previousData) return previousData;

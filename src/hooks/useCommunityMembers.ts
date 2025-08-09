@@ -25,7 +25,7 @@ export function useCommunityMembers(communityId: string | null) {
     queryFn: async (c) => {
       if (!communityId) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for members
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]); // Allow 5s for member data loading
 
       // Find the community to get moderators and creator
       const community = communities?.find(c => c.id === communityId);
