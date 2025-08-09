@@ -39,9 +39,10 @@ import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
 
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
+  initialSpaceCommunityId?: string | null;
 }
 
-export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}) {
+export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }: DiscordLayoutProps = {}) {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -112,6 +113,11 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     setSelectedSpace(null);
     setActiveTab("channels"); // Reset to channels tab to avoid confusion
 
+    // Update URL to /dm when navigating to DMs
+    const url = new URL(window.location.href);
+    url.pathname = '/dm';
+    window.history.replaceState({}, '', url.toString());
+
     if (targetPubkey) {
       setDmTargetPubkey(targetPubkey);
       setSelectedDMConversation(targetPubkey);
@@ -143,6 +149,22 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
       }
     }
   }, [initialDMTargetPubkey, isMobile]);
+
+  // Handle initial space community ID from URL
+  useEffect(() => {
+    if (initialSpaceCommunityId) {
+      setSelectedCommunity(initialSpaceCommunityId);
+      setSelectedDMConversation(null);
+      setDmTargetPubkey(null);
+
+      preloadChannelsImmediately(initialSpaceCommunityId);
+      preloadSpacesImmediately(initialSpaceCommunityId);
+
+      if (isMobile) {
+        setMobileView("channels");
+      }
+    }
+  }, [initialSpaceCommunityId, isMobile, preloadChannelsImmediately, preloadSpacesImmediately]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
@@ -200,6 +222,11 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
         setShowJoinDialog(true);
       } else {
         setSelectedCommunity(urlCommunityId);
+
+        // Update URL to show /space/community-id when navigating via URL parameters
+        const url = new URL(window.location.href);
+        url.pathname = `/space/${urlCommunityId}`;
+        window.history.replaceState({}, '', url.toString());
 
         // Handle URL parameters for tab selection and item highlighting
         if (urlParameters.tab === 'marketplace') {
@@ -291,6 +318,11 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     clearNavigation();
     setCommunityBeforeJoinDialog(null);
 
+    // Update URL to show /space/community-id when joining a community
+    const url = new URL(window.location.href);
+    url.pathname = `/space/${communityId}`;
+    window.history.replaceState({}, '', url.toString());
+
     preloadChannelsImmediately(communityId);
     preloadSpacesImmediately(communityId);
   };
@@ -300,9 +332,17 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     clearNavigation();
     if (communityBeforeJoinDialog === null && selectedCommunity) {
       setSelectedCommunity(null);
+      // Go back to /dm when closing join dialog without selecting a community
+      const url = new URL(window.location.href);
+      url.pathname = '/dm';
+      window.history.replaceState({}, '', url.toString());
     } else if (communityBeforeJoinDialog !== null) {
       setSelectedCommunity(communityBeforeJoinDialog);
       setCommunityBeforeJoinDialog(null);
+      // Update URL to show the previously selected community
+      const url = new URL(window.location.href);
+      url.pathname = `/space/${communityBeforeJoinDialog}`;
+      window.history.replaceState({}, '', url.toString());
     }
   };
 
@@ -341,9 +381,19 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
     setIsAutoSelected(false);
 
     if (communityId) {
+      // Update URL to show /space/community-id when a community is selected
+      const url = new URL(window.location.href);
+      url.pathname = `/space/${communityId}`;
+      window.history.replaceState({}, '', url.toString());
+
       recordCommunityVisit(communityId);
       preloadChannelsImmediately(communityId);
       preloadSpacesImmediately(communityId);
+    } else {
+      // When no community is selected, go back to /dm
+      const url = new URL(window.location.href);
+      url.pathname = '/dm';
+      window.history.replaceState({}, '', url.toString());
     }
   };
 
@@ -379,6 +429,10 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
         // Community channels: go back to no community (DM list)
         setSelectedCommunity(null);
         setMobileView("chat");
+        // Update URL to /dm when leaving community
+        const url = new URL(window.location.href);
+        url.pathname = '/dm';
+        window.history.replaceState({}, '', url.toString());
       }
     }
   };
@@ -407,8 +461,10 @@ export function DiscordLayout({ initialDMTargetPubkey }: DiscordLayoutProps = {}
             title: "Left community",
             description: `You have left ${community.name}`,
           });
-          // Navigate away from the community after leaving
-          window.location.href = '/communities';
+          // Navigate to /dm after leaving community
+          const url = new URL(window.location.href);
+          url.pathname = '/dm';
+          window.location.href = url.toString();
         },
         onError: (error) => {
           toast({

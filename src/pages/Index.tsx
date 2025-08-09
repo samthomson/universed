@@ -10,9 +10,10 @@ import { nip19 } from "nostr-tools";
 
 interface IndexProps {
   dmTargetPubkey?: string;
+  spaceCommunityId?: string;
 }
 
-const Index = ({ dmTargetPubkey }: IndexProps) => {
+const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
   const { user } = useCurrentUser();
 
   useSeoMeta({
@@ -30,6 +31,16 @@ const Index = ({ dmTargetPubkey }: IndexProps) => {
       window.history.replaceState({}, '', url.toString());
     }
   }, [dmTargetPubkey, user]);
+
+  // If spaceCommunityId is provided, ensure user is logged in and handle URL updates
+  useEffect(() => {
+    if (spaceCommunityId && user) {
+      // Update URL to show /space/community-id when joining a community
+      const url = new URL(window.location.href);
+      url.pathname = `/space/${spaceCommunityId}`;
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [spaceCommunityId, user]);
 
   if (!user) {
     return (
@@ -131,7 +142,7 @@ const Index = ({ dmTargetPubkey }: IndexProps) => {
   if (dmTargetPubkey !== undefined) {
     // We're in DM mode - either /dm or /dm/:npub was accessed
     let targetHexPubkey: string | null = null;
-    
+
     if (dmTargetPubkey) {
       try {
         // Try to decode the npub to get the hex pubkey
@@ -148,10 +159,10 @@ const Index = ({ dmTargetPubkey }: IndexProps) => {
       }
     }
 
-    return <DiscordLayout initialDMTargetPubkey={targetHexPubkey} />;
+    return <DiscordLayout initialDMTargetPubkey={targetHexPubkey} initialSpaceCommunityId={spaceCommunityId} />;
   }
 
-  return <DiscordLayout />;
+  return <DiscordLayout initialSpaceCommunityId={spaceCommunityId} />;
 };
 
 export default Index;
