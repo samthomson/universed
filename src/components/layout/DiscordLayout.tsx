@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { AppSidebar } from "./AppSidebar";
 import { CommunityPanel } from "./CommunityPanel";
@@ -54,8 +54,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showCommunitySelectionDialog, setShowCommunitySelectionDialog] =
     useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
+  const initializationRef = useRef(false);
   const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<
     string | null
   >(null);
@@ -156,6 +156,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       setSelectedCommunity(initialSpaceCommunityId);
       setSelectedDMConversation(null);
       setDmTargetPubkey(null);
+      setActiveTab("channels"); // Ensure we default to channels tab
+      setSelectedSpace(null);
 
       preloadChannelsImmediately(initialSpaceCommunityId);
       preloadSpacesImmediately(initialSpaceCommunityId);
@@ -193,8 +195,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   }, [selectedDMConversation, pendingMarketplaceItem, sendDM]);
 
   useEffect(() => {
-    if (!hasInitialized && !urlCommunityId && userCommunities !== undefined) {
-      setHasInitialized(true);
+    // Only auto-select a community once on app initialization - never again
+    if (!initializationRef.current && !urlCommunityId && userCommunities !== undefined) {
+      initializationRef.current = true;
 
       if (userCommunities.length > 0) {
         const firstCommunityId = userCommunities[0].id;
@@ -208,7 +211,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       }
     }
   }, [
-    hasInitialized,
     urlCommunityId,
     userCommunities,
     preloadChannelsImmediately,
@@ -243,6 +245,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           setSelectedSpace('resources');
           setSelectedChannel(null);
         } else {
+          // Default to channels tab when no tab parameter is specified
           setActiveTab('channels');
           setSelectedSpace(null);
         }

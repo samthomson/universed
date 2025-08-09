@@ -49,4 +49,8 @@ export const reactQueryConfigs = {
     staleTime: 90 * 1000, // 90 seconds for batch reactions/zaps
     gcTime: 10 * 60 * 1000, // 10 minutes
   },
+  'author-batch': {
+    staleTime: 30 * 60 * 1000, // 30 minutes (same as individual authors)
+    gcTime: 4 * 60 * 60 * 1000, // 4 hours (same as individual authors)
+  },
 } as const;
