@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
-import { useNostrPublish } from './useNostrPublish';
+import { useMultiRelayPublish } from './useMultiRelayPublish';
 import { useFriends, type Friend } from './useFriends';
 import { useToast } from './useToast';
 
@@ -9,7 +9,7 @@ import { useToast } from './useToast';
  */
 export function useManageFriends() {
   const { user } = useCurrentUser();
-  const { mutateAsync: publishEvent } = useNostrPublish();
+  const { mutateAsync: publishEvent } = useMultiRelayPublish();
   const { data: currentFriends = [] } = useFriends();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -49,6 +49,7 @@ export function useManageFriends() {
         kind: 3,
         content: '',
         tags: pTags,
+        created_at: Math.floor(Date.now() / 1000),
       });
 
       return newFriend;
@@ -123,6 +124,7 @@ export function useManageFriends() {
         kind: 3,
         content: '',
         tags: pTags,
+        created_at: Math.floor(Date.now() / 1000),
       });
 
       return pubkey;
@@ -194,6 +196,7 @@ export function useManageFriends() {
         kind: 3,
         content: '',
         tags: pTags,
+        created_at: Math.floor(Date.now() / 1000),
       });
 
       return { pubkey, petname };

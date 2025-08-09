@@ -10,8 +10,8 @@ import {
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useIsFriend } from '@/hooks/useFriends';
 import { useManageFriends } from '@/hooks/useManageFriends';
-import { useIsBlocked } from '@/hooks/useBlockedUsers';
-import { useManageBlockedUsers } from '@/hooks/useManageBlockedUsers';
+import { useIsMuted } from '@/hooks/useMutedUsers';
+import { useManageMutedUsers } from '@/hooks/useManageMutedUsers';
 import { useToast } from '@/hooks/useToast';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -35,9 +35,9 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
   const isAdmin = role === 'owner' || role === 'admin';
 
   const isFriend = useIsFriend(pubkey);
-  const isBlocked = useIsBlocked(pubkey);
+  const isMuted = useIsMuted(pubkey);
   const { addFriend, removeFriend } = useManageFriends();
-  const { blockUser, unblockUser } = useManageBlockedUsers();
+  const { muteUser, unmuteUser } = useManageMutedUsers();
 
   const [showReportDialog, setShowReportDialog] = useState(false);
 
@@ -76,17 +76,17 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
     }
   };
 
-  const handleBlockUser = async () => {
+  const handleMuteUser = async () => {
     try {
-      await blockUser(pubkey);
+      await muteUser(pubkey);
     } catch {
       // Error handled in hook
     }
   };
 
-  const handleUnblockUser = async () => {
+  const handleUnmuteUser = async () => {
     try {
-      await unblockUser(pubkey);
+      await unmuteUser(pubkey);
     } catch {
       // Error handled in hook
     }
@@ -146,15 +146,15 @@ export function UserContextMenu({ children, pubkey, displayName, onStartDM }: Us
           {/* Admin Actions - Only show for owners and admins */}
           {isAdmin && (
             <>
-              {isBlocked ? (
-                <ContextMenuItem onClick={handleUnblockUser}>
+              {isMuted ? (
+                <ContextMenuItem onClick={handleUnmuteUser}>
                   <ShieldOff className="w-4 h-4 mr-2" />
-                  Unblock User
+                  Unmute User
                 </ContextMenuItem>
               ) : (
-                <ContextMenuItem onClick={handleBlockUser} className="text-red-600 focus:text-red-600">
+                <ContextMenuItem onClick={handleMuteUser} className="text-red-600 focus:text-red-600">
                   <Shield className="w-4 h-4 mr-2" />
-                  Ban User
+                  Mute User
                 </ContextMenuItem>
               )}
             </>

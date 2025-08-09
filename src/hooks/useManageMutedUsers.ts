@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import { useNostrPublish } from './useNostrPublish';
-import { useMutedUsers } from './useBlockedUsers';
+import { useMutedUsers } from './useMutedUsers';
 import { useToast } from './useToast';
 
 // NIP-51 Mute list kind
@@ -51,7 +51,7 @@ export function useManageMutedUsers() {
     onSuccess: () => {
       // Invalidate muted users query to refetch
       queryClient.invalidateQueries({ queryKey: ['muted-users', user?.pubkey] });
-
+      
       toast({
         title: 'User muted',
         description: 'User has been added to your mute list',
@@ -90,7 +90,7 @@ export function useManageMutedUsers() {
     onSuccess: () => {
       // Invalidate muted users query to refetch
       queryClient.invalidateQueries({ queryKey: ['muted-users', user?.pubkey] });
-
+      
       toast({
         title: 'User unmuted',
         description: 'User has been removed from your mute list',
@@ -110,18 +110,5 @@ export function useManageMutedUsers() {
     unmuteUser: unmuteUser.mutateAsync,
     isMuting: muteUser.isPending,
     isUnmuting: unmuteUser.isPending,
-  };
-}
-
-// Deprecated function - maintained for backward compatibility
-// This will be removed in a future update
-export function useManageBlockedUsers() {
-  const mutedHooks = useManageMutedUsers();
-
-  return {
-    blockUser: mutedHooks.muteUser,
-    unblockUser: mutedHooks.unmuteUser,
-    isBlocking: mutedHooks.isMuting,
-    isUnblocking: mutedHooks.isUnmuting,
   };
 }

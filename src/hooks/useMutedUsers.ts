@@ -45,13 +45,3 @@ export function useIsMuted(pubkey: string) {
   const { data: mutedUsers } = useMutedUsers();
   return mutedUsers?.includes(pubkey) || false;
 }
-
-// Deprecated functions - maintained for backward compatibility
-// These will be removed in a future update
-export function useBlockedUsers() {
-  return useMutedUsers();
-}
-
-export function useIsBlocked(pubkey: string) {
-  return useIsMuted(pubkey);
-}
