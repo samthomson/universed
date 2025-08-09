@@ -8,9 +8,10 @@ import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
 import { UserPanel } from "@/components/layout/UserPanel";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDMCategories, type DMTabType } from "@/hooks/useDMCategories";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 
 interface DirectMessagesProps {
@@ -25,13 +26,19 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<DMTabType>('known');
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
-  const { data: conversations, isLoading } = useDirectMessages();
+  const { data: categories, isLoading } = useDMCategories();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
+
+  // Get conversations for the active tab
+  const conversations = categories ?
+    (activeTab === 'known' ? categories.known : categories.newRequests) :
+    [];
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -97,6 +104,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 setInternalSelectedConversation(null);
               }
             }}
+            onMessageSent={(recipientPubkey) => {
+              // Check if this conversation is currently in New Requests
+              const isNewRequest = categories?.newRequests.some(conv => conv.pubkey === recipientPubkey);
+
+              // If this was a new request, mark it as responded to move it to Known
+              if (isNewRequest && categories?.markAsResponded) {
+                categories.markAsResponded(recipientPubkey);
+              }
+            }}
           />
         ) : (
           <>
@@ -114,8 +130,14 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 </Button>
               </div>
 
+              {/* Tabs */}
+              <DMTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+
               {/* Search */}
-              <div className="relative">
+              <div className="relative mt-3">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   placeholder="Search conversations"
@@ -151,8 +173,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                     <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
                       <div className="text-center text-gray-400">
                         <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-                        <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
+                        <h3 className="text-lg font-semibold mb-2">
+                          {activeTab === 'known' ? 'No known conversations' : 'No requests'}
+                        </h3>
+                        <p className="text-sm mb-4">
+                          {activeTab === 'known'
+                            ? 'Conversations from people you follow will appear here.'
+                            : 'Message requests from people you don\'t follow will appear here.'
+                          }
+                        </p>
                         <Button onClick={() => setShowNewDM(true)} className="mobile-touch">
                           <Plus className="w-4 h-4 mr-2" />
                           Start New Conversation
@@ -204,8 +233,14 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             </Button>
           </div>
 
+          {/* Tabs */}
+          <DMTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+
           {/* Search */}
-          <div className="relative">
+          <div className="relative mt-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search conversations"
@@ -241,8 +276,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 <div className="flex items-center justify-center p-8">
                   <div className="text-center text-gray-400">
                     <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">No conversations yet</h3>
-                    <p className="text-sm mb-4">Start a new conversation to get chatting!</p>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {activeTab === 'known' ? 'No known conversations' : 'No requests'}
+                    </h3>
+                    <p className="text-sm mb-4">
+                      {activeTab === 'known'
+                        ? 'Conversations from people you follow will appear here.'
+                        : 'Message requests from people you don\'t follow will appear here.'
+                      }
+                    </p>
                     <Button onClick={() => setShowNewDM(true)}>
                       <Plus className="w-4 h-4 mr-2" />
                       Start New Conversation
@@ -266,6 +308,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <DMChatArea
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
+            onMessageSent={(recipientPubkey) => {
+              // Check if this conversation is currently in New Requests
+              const isNewRequest = categories?.newRequests.some(conv => conv.pubkey === recipientPubkey);
+
+              // If this was a new request, mark it as responded to move it to Known
+              if (isNewRequest && categories?.markAsResponded) {
+                categories.markAsResponded(recipientPubkey);
+              }
+            }}
           />
         ) : (
           <div className="flex items-center justify-center h-full">
