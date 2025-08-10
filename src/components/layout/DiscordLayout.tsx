@@ -18,13 +18,10 @@ import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
-import { useEnablePerformanceMonitoring } from "@/hooks/usePerformanceMonitor";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
-import { useChannelPreloader } from "@/hooks/useChannelPreloader";
-import { useSpacesPreloader } from "@/hooks/useSpacesPreloader";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
@@ -63,14 +60,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const [activeTab, setActiveTab] = useState("channels");
 
   const { setActiveCommunity } = useMessageSystem();
-  useEnablePerformanceMonitoring();
   useEffect(() => {
     setActiveCommunity(selectedCommunity);
   }, [selectedCommunity, setActiveCommunity]);
-
-  const { preloadImmediately: preloadChannelsImmediately } =
-    useChannelPreloader();
-  const { preloadImmediately: preloadSpacesImmediately } = useSpacesPreloader();
 
   const { recordCommunityVisit, recordChannelVisit } = useVisitHistory();
 
@@ -161,14 +153,11 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       setActiveTab("channels"); // Ensure we default to channels tab
       setSelectedSpace(null);
 
-      preloadChannelsImmediately(initialSpaceCommunityId);
-      preloadSpacesImmediately(initialSpaceCommunityId);
-
       if (isMobile) {
         setMobileView("channels");
       }
     }
-  }, [initialSpaceCommunityId, isMobile, preloadChannelsImmediately, preloadSpacesImmediately]);
+  }, [initialSpaceCommunityId, isMobile]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
@@ -205,9 +194,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
         const firstCommunityId = userCommunities[0].id;
         setSelectedCommunity(firstCommunityId);
         setIsAutoSelected(true);
-
-        preloadChannelsImmediately(firstCommunityId);
-        preloadSpacesImmediately(firstCommunityId);
       } else {
         setSelectedCommunity(null);
       }
@@ -215,8 +201,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   }, [
     urlCommunityId,
     userCommunities,
-    preloadChannelsImmediately,
-    preloadSpacesImmediately,
   ]);
 
   useEffect(() => {
@@ -267,9 +251,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
         } else {
           clearNavigation();
         }
-
-        preloadChannelsImmediately(urlCommunityId);
-        preloadSpacesImmediately(urlCommunityId);
       }
     }
   }, [
@@ -277,8 +258,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     isJoinRequest,
     membershipStatus,
     clearNavigation,
-    preloadChannelsImmediately,
-    preloadSpacesImmediately,
     selectedCommunity,
     urlParameters.tab,
     urlParameters.highlight,
@@ -327,9 +306,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     const url = new URL(window.location.href);
     url.pathname = `/space/${communityId}`;
     window.history.replaceState({}, '', url.toString());
-
-    preloadChannelsImmediately(communityId);
-    preloadSpacesImmediately(communityId);
   };
 
   const handleJoinDialogClose = () => {
@@ -392,8 +368,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       window.history.replaceState({}, '', url.toString());
 
       recordCommunityVisit(communityId);
-      preloadChannelsImmediately(communityId);
-      preloadSpacesImmediately(communityId);
     } else {
       // When no community is selected, go back to /dm
       const url = new URL(window.location.href);

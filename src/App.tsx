@@ -13,17 +13,10 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { VoiceProvider } from '@/contexts/VoiceContext.tsx';
-import { PerformanceIndicator } from '@/components/PerformanceIndicator';
 import { useAppContext } from '@/hooks/useAppContext';
-import { useEnableSmartPrefetch } from '@/hooks/useSmartPrefetch';
-import { useEnablePerformanceMonitoring } from '@/hooks/usePerformanceMonitor';
 import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
-import { useUserCommunitiesChannelPreloader } from '@/hooks/useUserCommunitiesChannelPreloader';
-import { useHighPriorityChannelPreloader } from '@/hooks/useHighPriorityChannelPreloader';
-import { useHighPrioritySpacesPreloader } from '@/hooks/useHighPrioritySpacesPreloader';
-import { useEnableOptimizedQueryTiers } from '@/hooks/useOptimizedQueryTiers';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 import { StarBackground } from '@/components/ui/StarBackground';
 
@@ -79,14 +72,6 @@ const presetRelays = [
 function AppContent() {
   const { config, updateConfig } = useAppContext();
 
-  // Enable performance optimizations
-  useEnableSmartPrefetch();
-  useEnablePerformanceMonitoring();
-  useEnableOptimizedQueryTiers(); // OPTIMIZED: Tiered query execution (DMs + Communities first)
-  useHighPriorityChannelPreloader(); // HIGH PRIORITY: Load channels immediately
-  useHighPrioritySpacesPreloader(); // HIGH PRIORITY: Load spaces immediately
-  useUserCommunitiesChannelPreloader(); // BACKGROUND: Continue background loading
-
   const handleHidePerformanceDashboard = () => {
     updateConfig((current) => ({
       ...current,
@@ -101,10 +86,6 @@ function AppContent() {
         <QueryOptimizer />
         <Toaster />
         <Sonner />
-        <PerformanceIndicator
-          isVisible={config.showPerformanceDashboard || false}
-          onHide={handleHidePerformanceDashboard}
-        />
         <Suspense>
           <AppRouter />
         </Suspense>

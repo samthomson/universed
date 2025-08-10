@@ -12,7 +12,6 @@ import { useUserMembership } from "@/hooks/useUserMembership";
 import { useJoinCommunity } from "@/hooks/useJoinCommunity";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useBackgroundMessagePreloader } from "@/hooks/useBackgroundMessagePreloader";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
 import { generateCommunityNaddr } from "@/lib/utils";
@@ -38,7 +37,6 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const { user } = useCurrentUser();
   const { mutate: joinCommunity, isPending: isJoining } = useJoinCommunity();
   const { toast } = useToast();
-  const { preloadMessages } = useBackgroundMessagePreloader(null, null);
   const { data: members, isLoading: isMembersLoading } = useCommunityMembers(community.id);
 
   const creatorName = metadata?.name || genUserName(community.creator);
@@ -130,13 +128,6 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   };
 
   const handleCardClick = () => {
-    // Always preload messages in the background for preview, regardless of membership status
-    // Preload the general channel messages
-    preloadMessages(community.id, 'general').catch((error) => {
-      // Silently fail background preloading - it's not critical for the main flow
-      console.warn('Background message preloading failed:', error);
-    });
-
     // Navigate to the main app with the community selected for preview
     const naddr = generateCommunityNaddr(community.event);
 
