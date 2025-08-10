@@ -22,11 +22,12 @@ interface DMChatAreaProps {
   conversationId: string; // The other person's pubkey
   onNavigateToDMs?: (targetPubkey: string) => void;
   onBack?: () => void; // For mobile navigation
+  onMessageSent?: (recipientPubkey: string) => void; // Callback when a message is sent
 }
 
-function DMChatHeader({ 
-  conversationId, 
-  onBack 
+function DMChatHeader({
+  conversationId,
+  onBack
 }: {
   conversationId: string;
   onBack?: () => void;
@@ -79,7 +80,7 @@ function DMChatHeader({
 }
 
 export function DMChatArea(
-  { conversationId, onNavigateToDMs, onBack }: DMChatAreaProps,
+  { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { data: messages, isLoading } = useDMMessages(conversationId);
   const { mutate: sendDM } = useSendDM();
@@ -96,6 +97,9 @@ export function DMChatArea(
       recipientPubkey: conversationId,
       content,
     });
+
+    // Call the callback to notify that a message was sent
+    onMessageSent?.(conversationId);
   };
 
   const handleDeleteMessage = async (message: NostrEvent) => {
@@ -140,9 +144,9 @@ export function DMChatArea(
       onDelete={handleDeleteMessage}
       queryKey={['dm-messages', user?.pubkey || '', conversationId]}
       header={
-        <DMChatHeader 
-          conversationId={conversationId} 
-          onBack={onBack} 
+        <DMChatHeader
+          conversationId={conversationId}
+          onBack={onBack}
         />
       }
       messageListConfig={dmMessageListConfig}
