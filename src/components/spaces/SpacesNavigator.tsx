@@ -23,7 +23,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SpaceManagementDialog } from './SpaceManagementDialog';
 import { useSpaces, type Space } from '@/hooks/useSpaces';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
-import { useUnifiedPreloader } from '@/hooks/useUnifiedPreloader';
 
 interface SpacesNavigatorProps {
   communityId: string;
@@ -54,7 +53,6 @@ export function SpacesNavigator({
   onSelectSpace
 }: SpacesNavigatorProps) {
   const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
-  const { preloadSpaces } = useUnifiedPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = isLoadingSpaces && !spaces;
@@ -110,7 +108,6 @@ export function SpacesNavigator({
               onSelect={() => onSelectSpace(space.id)}
               getIconComponent={getIconComponent}
               communityId={communityId}
-              onSpacePreload={preloadSpaces}
             />
           ))}
         </CollapsibleContent>

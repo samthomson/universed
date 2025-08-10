@@ -13,7 +13,6 @@ import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { VoiceProvider } from '@/contexts/VoiceContext.tsx';
-import { useAppContext } from '@/hooks/useAppContext';
 import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
@@ -70,15 +69,6 @@ const presetRelays = [
 ];
 
 function AppContent() {
-  const { config, updateConfig } = useAppContext();
-
-  const handleHidePerformanceDashboard = () => {
-    updateConfig((current) => ({
-      ...current,
-      showPerformanceDashboard: false,
-    }));
-  };
-
   return (
     <MessageSystemProvider>
       <StarBackground />
