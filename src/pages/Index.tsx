@@ -1,4 +1,3 @@
-import { useSeoMeta } from '@unhead/react';
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoginArea } from "@/components/auth/LoginArea";
 import { DiscordLayout } from "@/components/layout/DiscordLayout";
@@ -17,10 +16,6 @@ interface IndexProps {
 const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
   const { user } = useCurrentUser();
 
-  useSeoMeta({
-    title: 'Universes - Discover Communities on Nostr',
-    description: 'Explore infinite universes of communities, conversations, and connections on the decentralized Nostr protocol.',
-  });
 
   // If dmTargetPubkey is provided, ensure user is logged in and handle URL updates
   useEffect(() => {
