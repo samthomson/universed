@@ -1,4 +1,4 @@
-universes.chadwick.site {
+universes.to {
     root * /usr/share/caddy
     file_server
     encode gzip

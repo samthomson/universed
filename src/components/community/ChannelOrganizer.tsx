@@ -36,8 +36,6 @@ import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders
 import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 import { useVoiceChannel } from "@/hooks/useVoiceChannel";
 
-import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
-
 interface ChannelOrganizerProps {
   communityId: string;
   selectedChannel: string | null;
@@ -57,7 +55,6 @@ export function ChannelOrganizer({
 }: ChannelOrganizerProps) {
   const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
   const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
-  const { preloadChannelMessages } = useUnifiedPreloader();
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
   const shouldShowLoading = (isLoadingChannels && !channels) || (isLoadingFolders && !folders);
@@ -129,7 +126,6 @@ export function ChannelOrganizer({
           canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
-          onChannelPreload={preloadChannelMessages}
         />
       ))}
 
@@ -154,7 +150,6 @@ export function ChannelOrganizer({
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
               communityId={communityId}
-              onChannelPreload={preloadChannelMessages}
             />
           ))}
         </CategorySection>
@@ -181,7 +176,6 @@ export function ChannelOrganizer({
               onCopyLink={() => copyChannelLink(channel)}
               canModerate={canModerate}
               communityId={communityId}
-              onChannelPreload={preloadChannelMessages}
             />
           ))}
         </CategorySection>

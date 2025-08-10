@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
-import { useUnifiedPreloader } from "@/hooks/useUnifiedPreloader";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
@@ -31,7 +30,6 @@ export function AppSidebar({
   onSelectCommunity
 }: AppSidebarProps) {
   const { data: communities, isLoading } = useUserCommunities();
-  const { preloadCommunity } = useUnifiedPreloader();
   const { playSound } = useSoundEffect();
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
@@ -156,7 +154,6 @@ export function AppSidebar({
                           ${isLanding && isFirstPosition ? 'shadow-lg shadow-blue-500/20' : ''}
                         `}
                         onClick={() => handleCommunitySelect(community.id)}
-                        onMouseDown={() => preloadCommunity(community.id)}
                         disabled={isAnimating && !isLaunching && !isLanding}
                       >
                       {community.image ? (
