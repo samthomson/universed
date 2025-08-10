@@ -1,9 +1,8 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoginArea } from "@/components/auth/LoginArea";
 import { DiscordLayout } from "@/components/layout/DiscordLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, Users, MessageCircle, Globe } from "lucide-react";
+import { Users, MessageCircle, Globe } from "lucide-react";
 import { useEffect } from "react";
 import { nip19 } from "nostr-tools";
 import { communityIdToNaddr, naddrToCommunityId } from "@/lib/utils";
@@ -63,117 +62,208 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        {/* Animated background stars */}
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
+        {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="stars"></div>
           <div className="stars2"></div>
           <div className="stars3"></div>
         </div>
 
-        <div className="relative z-10 min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          <div className="max-w-4xl mx-auto text-center space-y-6 sm:space-y-8 md:space-y-12">
-            {/* Hero Section */}
-            <div className="space-y-3 sm:space-y-4 md:space-y-6">
-              <div className="flex items-center justify-center space-x-2 mb-3 sm:mb-4">
-                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 text-purple-400" />
-                <Badge variant="secondary" className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs sm:text-sm">
-                  Powered by Nostr
+        {/* Hero Section */}
+        <div className="relative z-10 min-h-screen">
+          <div className="container mx-auto px-4 pt-16 pb-24">
+            <div className="text-center max-w-4xl mx-auto">
+              {/* Badge */}
+              <div className="flex items-center justify-center space-x-2 mb-8">
+                <Badge variant="secondary" className="bg-white/10 text-white border-white/20 text-sm px-4 py-2">
+                  🌌 Powered by Nostr
                 </Badge>
               </div>
 
-              <h1 className="relative text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-bold z-50">
-                <span className="relative z-50 inline-block" style={{ color: '#8B5CF6' }}>🌌</span>
-                <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent ml-2">Welcome to Universes</span>
+              {/* Main Heading */}
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
+                IMAGINE A PLACE...
               </h1>
-
-              <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed px-2 sm:px-4">
-                <span className="text-purple-400 font-semibold">Where your Space is truly yours.</span>
-              </p>
               
-              <p className="text-sm sm:text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed px-2 sm:px-4 mt-4">
-                Why settle for a backyard when you can explore the galaxy? In Universes, you can build your own <span className="text-purple-300 font-medium">Spaces</span> — or discover ones that match your vibe. Every Space is decentralized, truly yours, and free from corporate overlords. Your Space, your rules.
+              <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+                ...where you can belong to a Space, a community, or a galaxy full of friends—where it's easy to talk every day and hang out more often. Where your world is truly yours.
               </p>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+                <LoginArea className="w-full max-w-xs" />
+                <p className="text-sm text-gray-400">
+                  New to decentralized communities? <br />
+                  <span className="text-purple-300">Join millions exploring the galaxy.</span>
+                </p>
+              </div>
             </div>
 
-            {/* Features Introduction */}
-            <div className="space-y-4 px-2 sm:px-4">
-              <p className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed font-medium">
-                Each Space has three powerful tools:
-              </p>
-            </div>
-
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 gap-4 sm:gap-6 max-w-4xl mx-auto px-2 sm:px-4">
-              <Card className="bg-slate-800/80 border-slate-700/60 backdrop-blur-sm hover:bg-slate-800/90 transition-colors duration-300">
-                <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-5">
-                  <div className="relative">
-                    <MessageCircle className="h-12 w-12 sm:h-16 sm:w-16 text-blue-400 mx-auto drop-shadow-lg" />
+            {/* Feature Sections */}
+            <div className="max-w-7xl mx-auto space-y-32 mt-32">
+              
+              {/* Community Feature */}
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="order-2 lg:order-1">
+                  <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                    <div className="flex items-center space-x-4 mb-6">
+                      <div className="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
+                        <MessageCircle className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-white">Community</h3>
+                        <p className="text-gray-400">Connect & Create Together</p>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="bg-slate-700/50 rounded-lg p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                          <span className="text-white font-medium"># general</span>
+                        </div>
+                        <p className="text-gray-300 mt-2 text-sm">Welcome to our Space! Introduce yourself here.</p>
+                      </div>
+                      <div className="bg-slate-700/50 rounded-lg p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                          <span className="text-white font-medium">🎙️ Voice Hangout</span>
+                        </div>
+                        <p className="text-gray-300 mt-2 text-sm">3 members in voice chat</p>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-semibold text-slate-200 text-lg sm:text-xl md:text-2xl">💬 Community</h3>
-                  <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-md mx-auto">Connect with your people through text chats, voice channels, and live events. Build meaningful relationships, share ideas, and create the conversations that matter most to your community.</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/80 border-slate-700/60 backdrop-blur-sm hover:bg-slate-800/90 transition-colors duration-300">
-                <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-5">
-                  <div className="relative">
-                    <Users className="h-12 w-12 sm:h-16 sm:w-16 text-green-400 mx-auto drop-shadow-lg" />
-                  </div>
-                  <h3 className="font-semibold text-slate-200 text-lg sm:text-xl md:text-2xl">🛒 Marketplace</h3>
-                  <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-md mx-auto">Turn your passion into profit with integrated commerce tools. Sell digital art, physical products, services, or exclusive content directly to your community members in a trusted, seamless environment.</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/80 border-slate-700/60 backdrop-blur-sm hover:bg-slate-800/90 transition-colors duration-300">
-                <CardContent className="p-6 sm:p-8 text-center space-y-4 sm:space-y-5">
-                  <div className="relative">
-                    <Globe className="h-12 w-12 sm:h-16 sm:w-16 text-yellow-400 mx-auto drop-shadow-lg" />
-                  </div>
-                  <h3 className="font-semibold text-slate-200 text-lg sm:text-xl md:text-2xl">📂 Resources</h3>
-                  <p className="text-sm sm:text-base text-slate-400 leading-relaxed max-w-md mx-auto">A shared library for your community. Easily upload, organize, and access files, documents, and media in one place, so everyone stays connected and informed.</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Call to Action */}
-            <div className="space-y-4 px-2 sm:px-4">
-              <p className="text-base sm:text-lg text-slate-200 max-w-3xl mx-auto leading-relaxed font-medium">
-                No gatekeepers. No random shutdowns. Just your people, your rules, <span className="whitespace-nowrap">your Space.</span>
-              </p>
-            </div>
-
-            {/* Login Section */}
-            <div className="space-y-3 sm:space-y-4 md:space-y-6 px-2 sm:px-4">
-              <div className="flex justify-center">
-                <LoginArea className="w-full max-w-60" />
+                </div>
+                <div className="order-1 lg:order-2 text-center lg:text-left">
+                  <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                    Create an invite-only place where you belong
+                  </h2>
+                  <p className="text-xl text-gray-300 leading-relaxed">
+                    Universes Spaces are organized into topic-based channels where you can collaborate, share, and just talk about your day without clogging up a group chat.
+                  </p>
+                </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-400">
-                🚀 <span className="text-purple-300 font-medium">Start your Space today and make it yours forever.</span>
-              </p>
+              {/* Marketplace Feature */}
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="text-center lg:text-left">
+                  <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                    Where hanging out is easy
+                  </h2>
+                  <p className="text-xl text-gray-300 leading-relaxed">
+                    Grab a seat in a voice channel when you're free. Friends in your Space can see you're around and instantly pop in to talk without having to call.
+                  </p>
+                </div>
+                <div>
+                  <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                    <div className="flex items-center space-x-4 mb-6">
+                      <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-white">Marketplace</h3>
+                        <p className="text-gray-400">Buy & Sell with Bitcoin</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-700/50 rounded-lg p-4">
+                        <div className="w-full h-24 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg mb-3"></div>
+                        <h4 className="text-white font-medium text-sm">Digital Art NFT</h4>
+                        <p className="text-green-400 font-bold">₿0.001</p>
+                      </div>
+                      <div className="bg-slate-700/50 rounded-lg p-4">
+                        <div className="w-full h-24 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-lg mb-3"></div>
+                        <h4 className="text-white font-medium text-sm">Course Access</h4>
+                        <p className="text-green-400 font-bold">₿0.005</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Resources Feature */}
+              <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="order-2 lg:order-1">
+                  <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
+                    <div className="flex items-center space-x-4 mb-6">
+                      <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                        <Globe className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-white">Resources</h3>
+                        <p className="text-gray-400">Shared Knowledge Base</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg">
+                        <div className="w-8 h-8 bg-blue-500/20 rounded flex items-center justify-center">
+                          <span className="text-blue-400 text-xs">📄</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-medium text-sm">Community Guidelines.pdf</p>
+                          <p className="text-gray-400 text-xs">Updated 2 days ago</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg">
+                        <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center">
+                          <span className="text-purple-400 text-xs">🎥</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-white font-medium text-sm">Welcome Video</p>
+                          <p className="text-gray-400 text-xs">3.2k views</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="order-1 lg:order-2 text-center lg:text-left">
+                  <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                    From few to a fandom
+                  </h2>
+                  <p className="text-xl text-gray-300 leading-relaxed">
+                    Get any community running with moderation tools and custom member access. Give members special powers, set up private channels, and more.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Footer */}
-            <div className="pt-4 sm:pt-6 md:pt-8 border-t border-slate-700/50 px-2 sm:px-4">
-              <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-6 text-xs text-slate-500">
-                <a
-                  href="https://gitlab.com/soapbox-pub/universes"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center space-x-2 hover:text-purple-400 transition-colors"
-                >
-                  <MessageCircle className="h-3 w-3" />
-                  <span>Open Source</span>
-                </a>
-                <a
-                  href="https://soapbox.pub/mkstack"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-purple-400 transition-colors"
-                >
-                  Vibed with MKStack
-                </a>
+            {/* Final CTA */}
+            <div className="text-center max-w-4xl mx-auto mt-32 pt-16">
+              <h2 className="text-4xl md:text-6xl font-bold text-white mb-6">
+                Ready to start your journey?
+              </h2>
+              <p className="text-xl text-gray-300 mb-12">
+                No gatekeepers. No random shutdowns. <br />
+                Just your people, your rules, your Space.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <LoginArea className="w-full max-w-xs" />
+              </div>
+              
+              {/* Footer */}
+              <div className="mt-16 pt-8 border-t border-slate-700/50">
+                <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm text-gray-400">
+                  <a
+                    href="https://gitlab.com/soapbox-pub/universes"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    Open Source
+                  </a>
+                  <a
+                    href="https://soapbox.pub/mkstack"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white transition-colors"
+                  >
+                    Vibed with MKStack
+                  </a>
+                </div>
               </div>
             </div>
           </div>
