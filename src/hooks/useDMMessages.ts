@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNostr } from "@nostrify/react";
+import { useAllDMs, validateDMEvent } from "./useAllDMs";
 import { useCurrentUser } from "./useCurrentUser";
 import type { NostrEvent } from "@/types/nostr";
 
@@ -14,67 +14,40 @@ interface DecryptedMessage {
   direction: "sent" | "received";
 }
 
-function validateDMEvent(event: NostrEvent): boolean {
-  // Accept both NIP-04 (kind 4) and NIP-44 (kind 1059) encrypted DMs
-  if (![4, 1059].includes(event.kind)) return false;
-
-  // Must have a 'p' tag for the recipient
-  const hasP = event.tags.some(([name]) => name === "p");
-  if (!hasP) return false;
-
-  return true;
-}
-
+/**
+ * Hook to fetch and decrypt messages for a specific conversation
+ * Now uses the base useAllDMs hook to avoid query duplication
+ */
 export function useDMMessages(conversationId: string) {
-  const { nostr } = useNostr();
+  const { data: allDMsData } = useAllDMs();
   const { user } = useCurrentUser();
 
   return useQuery<DecryptedMessage[]>({
-    queryKey: ["dm-messages", user?.pubkey, conversationId],
-    queryFn: async (c) => {
-      if (!user || !conversationId) return [];
-      if (!user.signer) return []; // Need signer for decryption
+    queryKey: ["dm-messages", user?.pubkey, conversationId, allDMsData?.allDMEvents],
+    queryFn: async () => {
+      if (!user || !conversationId || !allDMsData || !user.signer) return [];
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for DM messages
-
-      // BRUTAL OPTIMIZATION: Single query with multiple filters instead of two separate queries
-      const allMessages = await nostr.query([
-        {
-          kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-          authors: [user.pubkey], // Messages sent by user
-          "#p": [conversationId], // To conversation partner
-          limit: 100,
-        },
-        {
-          kinds: [4, 1059], // NIP-04 and NIP-44 encrypted DMs
-          authors: [conversationId], // Messages sent by partner
-          "#p": [user.pubkey], // To current user
-          limit: 100,
-        }
-      ], { signal });
-
-      // Deduplicate by event ID (in case same message comes from different relays)
-      const uniqueMessages = Array.from(
-        new Map(allMessages.map((event) => [event.id, event])).values(),
-      );
-
-      // Validate each message
-      const validMessages = uniqueMessages.filter((event) => {
+      // Filter messages for this specific conversation from the cached DM events
+      const conversationMessages = allDMsData.allDMEvents.filter((event) => {
         if (!validateDMEvent(event)) return false;
 
         // Additional verification to ensure message is between the two users
         const isFromUser = event.pubkey === user.pubkey;
         const isFromPartner = event.pubkey === conversationId;
-        const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] ||
-          "";
+        const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] || "";
         const isToUser = recipientPTag === user.pubkey;
         const isToPartner = recipientPTag === conversationId;
 
         return (isFromUser && isToPartner) || (isFromPartner && isToUser);
       });
 
+      // Deduplicate by event ID (in case same message comes from different relays)
+      const uniqueMessages = Array.from(
+        new Map(conversationMessages.map((event) => [event.id, event])).values(),
+      );
+
       // Sort by created_at (oldest first for chronological order)
-      const sortedMessages = validMessages.sort((a, b) =>
+      const sortedMessages = uniqueMessages.sort((a, b) =>
         a.created_at - b.created_at
       );
 
@@ -145,8 +118,8 @@ export function useDMMessages(conversationId: string) {
         )
         .map((result) => result.value);
     },
-    enabled: !!user && !!conversationId && !!user.signer,
-    refetchInterval: 30 * 1000, // BRUTAL: 30 seconds - Reduced for efficiency
+    enabled: !!user && !!conversationId && !!allDMsData && !!user.signer,
+    refetchInterval: 30 * 1000, // 30 seconds for individual messages
     // IMPORTANT: Clear messages when switching conversations
     placeholderData: undefined,
   });

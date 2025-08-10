@@ -6,7 +6,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useDMDecrypt } from "@/hooks/useDMDecrypt";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import type { DMConversation } from "@/hooks/useDirectMessages";
+import type { DMConversation } from "@/hooks/useAllDMs";
 
 interface DMConversationListProps {
   conversations: DMConversation[];
@@ -51,11 +51,11 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
   // Helper function to highlight matching text
   const highlightText = (text: string, searchTerm: string) => {
     if (!searchTerm || !text) return text;
-    
+
     const regex = new RegExp(`(${searchTerm})`, 'gi');
     const parts = text.split(regex);
-    
-    return parts.map((part, index) => 
+
+    return parts.map((part, index) =>
       regex.test(part) ? (
         <span key={index} className="bg-yellow-400 text-black px-0.5 rounded">
           {part}
@@ -210,13 +210,13 @@ function SearchableConversationItem({
   // Filter by display name if search query exists
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
-    
+
     // Check if display name matches
     const nameMatches = displayName.toLowerCase().includes(query);
-    
+
     // Check if decrypted content matches (only if we have decrypted content)
     const contentMatches = decryptedContent && decryptedContent.toLowerCase().includes(query);
-    
+
     // If neither name nor content matches, don't show this conversation
     if (!nameMatches && !contentMatches) {
       return null;

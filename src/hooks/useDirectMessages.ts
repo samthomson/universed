@@ -1,89 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
-import { useCurrentUser } from './useCurrentUser';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { useAllDMs, type DMConversation } from './useAllDMs';
 
-export interface DMConversation {
-  id: string; // The other person's pubkey
-  pubkey: string;
-  lastMessage?: NostrEvent;
-  lastMessageTime: number;
-  unreadCount: number;
-}
-
-function validateDMEvent(event: NostrEvent): boolean {
-  // Accept both NIP-04 (kind 4) and NIP-44 (kind 1059) encrypted DMs
-  if (![4, 1059].includes(event.kind)) return false;
-
-  // Must have a 'p' tag for the recipient
-  const hasP = event.tags.some(([name]) => name === 'p');
-  if (!hasP) return false;
-
-  return true;
-}
-
+/**
+ * Legacy hook that returns all DM conversations
+ * Now uses the base useAllDMs hook to avoid query duplication
+ */
 export function useDirectMessages() {
-  const { nostr } = useNostr();
-  const { user } = useCurrentUser();
+  const { data: allDMsData } = useAllDMs();
 
-  return useQuery({
-    queryKey: ['direct-messages', user?.pubkey],
-    queryFn: async (c) => {
-      if (!user) return [];
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]); // BRUTAL: 2s max for DMs
-
-      // BRUTAL OPTIMIZATION: Single query with multiple filters instead of two separate queries
-      const allDMs = await nostr.query([
-        {
-          kinds: [4, 1059], // DMs sent to us
-          '#p': [user.pubkey],
-          limit: 200,
-        },
-        {
-          kinds: [4, 1059], // DMs sent by us
-          authors: [user.pubkey],
-          limit: 200,
-        }
-      ], { signal });
-
-      const validDMs = allDMs.filter(validateDMEvent);
-
-      // Group by conversation (other person's pubkey)
-      const conversationMap = new Map<string, DMConversation>();
-
-      validDMs.forEach(dm => {
-        // Determine the other person's pubkey
-        let otherPubkey: string;
-        if (dm.pubkey === user.pubkey) {
-          // We sent this DM, find the recipient
-          const pTag = dm.tags.find(([name]) => name === 'p');
-          otherPubkey = pTag?.[1] || '';
-        } else {
-          // We received this DM
-          otherPubkey = dm.pubkey;
-        }
-
-        if (!otherPubkey) return;
-
-        const existing = conversationMap.get(otherPubkey);
-        if (!existing || dm.created_at > existing.lastMessageTime) {
-          conversationMap.set(otherPubkey, {
-            id: otherPubkey,
-            pubkey: otherPubkey,
-            lastMessage: dm,
-            lastMessageTime: dm.created_at,
-            unreadCount: 0, // TODO: Implement read status tracking
-          });
-        }
-      });
-
-      // Convert to array and sort by last message time
-      return Array.from(conversationMap.values())
-        .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+  return useQuery<DMConversation[]>({
+    queryKey: ['direct-messages', allDMsData?.conversations],
+    queryFn: () => {
+      return allDMsData?.conversations || [];
     },
-    enabled: !!user,
-
-    refetchInterval: 1000 * 60, // BRUTAL: Reduced to 60 seconds
+    enabled: !!allDMsData,
+    // Keep the same refetch interval as the base hook
+    refetchInterval: 1000 * 60,
   });
 }
