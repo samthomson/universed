@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Users, MessageCircle, Globe } from "lucide-react";
 import { useEffect } from "react";
 import { nip19 } from "nostr-tools";
+import { communityIdToNaddr, naddrToCommunityId } from "@/lib/utils";
 
 interface IndexProps {
   dmTargetPubkey?: string;
@@ -35,10 +36,33 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
   // If spaceCommunityId is provided, ensure user is logged in and handle URL updates
   useEffect(() => {
     if (spaceCommunityId && user) {
-      // Update URL to show /space/community-id when joining a community
-      const url = new URL(window.location.href);
-      url.pathname = `/space/${spaceCommunityId}`;
-      window.history.replaceState({}, '', url.toString());
+      // Check if the communityId is already in naddr format
+      if (spaceCommunityId.startsWith('naddr1')) {
+        // Already in naddr format, check if URL needs to be updated
+        const currentPath = window.location.pathname;
+        const expectedPath = `/space/${spaceCommunityId}`;
+
+        // Only update URL if it's not already correct (prevents unnecessary redirects)
+        if (currentPath !== expectedPath) {
+          const url = new URL(window.location.href);
+          url.pathname = expectedPath;
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else {
+        // Convert community ID to naddr format for the URL
+        try {
+          const naddr = communityIdToNaddr(spaceCommunityId);
+          const url = new URL(window.location.href);
+          url.pathname = `/space/${naddr}`;
+          window.history.replaceState({}, '', url.toString());
+        } catch {
+          console.error('Failed to encode community ID as naddr');
+          // Fallback to original format
+          const url = new URL(window.location.href);
+          url.pathname = `/space/${spaceCommunityId}`;
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
     }
   }, [spaceCommunityId, user]);
 
@@ -138,6 +162,21 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
     );
   }
 
+  // Decode spaceCommunityId if it's in naddr format
+  let decodedSpaceCommunityId: string | null = null;
+  if (spaceCommunityId) {
+    if (spaceCommunityId.startsWith('naddr1')) {
+      try {
+        decodedSpaceCommunityId = naddrToCommunityId(spaceCommunityId);
+      } catch {
+        console.error('Failed to decode naddr');
+        decodedSpaceCommunityId = null;
+      }
+    } else {
+      decodedSpaceCommunityId = spaceCommunityId;
+    }
+  }
+
   // Check if we're in DM mode
   if (dmTargetPubkey !== undefined) {
     // We're in DM mode - either /dm or /dm/:npub was accessed
@@ -159,10 +198,10 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
       }
     }
 
-    return <DiscordLayout initialDMTargetPubkey={targetHexPubkey} initialSpaceCommunityId={spaceCommunityId} />;
+    return <DiscordLayout initialDMTargetPubkey={targetHexPubkey} initialSpaceCommunityId={decodedSpaceCommunityId} />;
   }
 
-  return <DiscordLayout initialSpaceCommunityId={spaceCommunityId} />;
+  return <DiscordLayout initialSpaceCommunityId={decodedSpaceCommunityId} />;
 };
 
 export default Index;

@@ -21,3 +21,56 @@ export function generateCommunityNaddr(event: NostrEvent): string {
     relays,
   });
 }
+
+/**
+ * Parse a community ID in format "kind:pubkey:d-tag" and return naddr
+ */
+export function communityIdToNaddr(communityId: string): string {
+  const [kind, pubkey, d] = communityId.split(':');
+  if (!kind || !pubkey || !d) {
+    throw new Error('Invalid community ID format');
+  }
+
+  return nip19.naddrEncode({
+    kind: parseInt(kind, 10),
+    pubkey,
+    identifier: d,
+    relays: [],
+  });
+}
+
+/**
+ * Decode an naddr and return community ID in format "kind:pubkey:d-tag"
+ */
+export function naddrToCommunityId(naddr: string): string {
+  try {
+    const decoded = nip19.decode(naddr);
+    if (decoded.type !== 'naddr') {
+      throw new Error('Not an naddr identifier');
+    }
+
+    const { kind, pubkey, identifier } = decoded.data;
+    return `${kind}:${pubkey}:${identifier}`;
+  } catch {
+    throw new Error('Invalid naddr format');
+  }
+}
+
+/**
+ * Check if a string is a community ID in format "kind:pubkey:d-tag"
+ */
+export function isCommunityId(value: string): boolean {
+  return /^\d+:[a-f0-9]{64}:[^:]+$/.test(value);
+}
+
+/**
+ * Check if a string is an naddr
+ */
+export function isNaddr(value: string): boolean {
+  try {
+    const decoded = nip19.decode(value);
+    return decoded.type === 'naddr';
+  } catch {
+    return false;
+  }
+}

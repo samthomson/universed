@@ -11,6 +11,7 @@ import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
 import NotFound from "./pages/NotFound";
 
+
 // Wrapper component to extract npub parameter and pass it to Index
 function DMWrapper() {
   const { npub } = useParams<{ npub?: string }>();
@@ -18,8 +19,15 @@ function DMWrapper() {
 }
 
 // Wrapper component to extract community-id parameter and pass it to Index
+// Handles both "kind:pubkey:d-tag" format and naddr format
 function SpacesWrapper() {
   const { communityId } = useParams<{ communityId?: string }>();
+
+  if (!communityId) {
+    return <Index />;
+  }
+
+  // Pass the communityId as-is to Index - it will handle both formats
   return <Index spaceCommunityId={communityId} />;
 }
 

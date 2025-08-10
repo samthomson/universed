@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
 import { useSendDM } from "@/hooks/useSendDM";
 import { createMarketplaceItemMessage } from "@/lib/marketplaceDM";
+import { communityIdToNaddr } from "@/lib/utils";
 import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
 
 interface DiscordLayoutProps {
@@ -187,7 +188,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
 
   useEffect(() => {
     // Only auto-select a community once on app initialization - never again
-    if (!initializationRef.current && !urlCommunityId && userCommunities !== undefined) {
+    // But don't auto-select if we have an initialSpaceCommunityId from URL navigation
+    if (!initializationRef.current && !urlCommunityId && userCommunities !== undefined && !initialSpaceCommunityId) {
       initializationRef.current = true;
 
       if (userCommunities.length > 0) {
@@ -201,6 +203,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   }, [
     urlCommunityId,
     userCommunities,
+    initialSpaceCommunityId,
   ]);
 
   useEffect(() => {
@@ -211,10 +214,19 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       } else {
         setSelectedCommunity(urlCommunityId);
 
-        // Update URL to show /space/community-id when navigating via URL parameters
-        const url = new URL(window.location.href);
-        url.pathname = `/space/${urlCommunityId}`;
-        window.history.replaceState({}, '', url.toString());
+        // Update URL to show /space/naddr when navigating via URL parameters
+        try {
+          const naddr = communityIdToNaddr(urlCommunityId);
+          const url = new URL(window.location.href);
+          url.pathname = `/space/${naddr}`;
+          window.history.replaceState({}, '', url.toString());
+        } catch {
+          console.error('Failed to encode community ID as naddr');
+          // Fallback to original format
+          const url = new URL(window.location.href);
+          url.pathname = `/space/${urlCommunityId}`;
+          window.history.replaceState({}, '', url.toString());
+        }
 
         // Handle URL parameters for tab selection and item highlighting
         if (urlParameters.tab === 'marketplace') {
@@ -302,10 +314,19 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     clearNavigation();
     setCommunityBeforeJoinDialog(null);
 
-    // Update URL to show /space/community-id when joining a community
-    const url = new URL(window.location.href);
-    url.pathname = `/space/${communityId}`;
-    window.history.replaceState({}, '', url.toString());
+    // Update URL to show /space/naddr when joining a community
+    try {
+      const naddr = communityIdToNaddr(communityId);
+      const url = new URL(window.location.href);
+      url.pathname = `/space/${naddr}`;
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      console.error('Failed to encode community ID as naddr');
+      // Fallback to original format
+      const url = new URL(window.location.href);
+      url.pathname = `/space/${communityId}`;
+      window.history.replaceState({}, '', url.toString());
+    }
   };
 
   const handleJoinDialogClose = () => {
@@ -321,9 +342,18 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       setSelectedCommunity(communityBeforeJoinDialog);
       setCommunityBeforeJoinDialog(null);
       // Update URL to show the previously selected community
-      const url = new URL(window.location.href);
-      url.pathname = `/space/${communityBeforeJoinDialog}`;
-      window.history.replaceState({}, '', url.toString());
+      try {
+        const naddr = communityIdToNaddr(communityBeforeJoinDialog);
+        const url = new URL(window.location.href);
+        url.pathname = `/space/${naddr}`;
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        console.error('Failed to encode community ID as naddr');
+        // Fallback to original format
+        const url = new URL(window.location.href);
+        url.pathname = `/space/${communityBeforeJoinDialog}`;
+        window.history.replaceState({}, '', url.toString());
+      }
     }
   };
 
@@ -362,10 +392,19 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     setIsAutoSelected(false);
 
     if (communityId) {
-      // Update URL to show /space/community-id when a community is selected
-      const url = new URL(window.location.href);
-      url.pathname = `/space/${communityId}`;
-      window.history.replaceState({}, '', url.toString());
+      // Update URL to show /space/naddr when a community is selected
+      try {
+        const naddr = communityIdToNaddr(communityId);
+        const url = new URL(window.location.href);
+        url.pathname = `/space/${naddr}`;
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        console.error('Failed to encode community ID as naddr');
+        // Fallback to original format
+        const url = new URL(window.location.href);
+        url.pathname = `/space/${communityId}`;
+        window.history.replaceState({}, '', url.toString());
+      }
 
       recordCommunityVisit(communityId);
     } else {
