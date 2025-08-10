@@ -1,8 +1,7 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LoginArea } from "@/components/auth/LoginArea";
 import { DiscordLayout } from "@/components/layout/DiscordLayout";
-import { Badge } from "@/components/ui/badge";
-import { Users, MessageCircle, Globe } from "lucide-react";
+import { MessageCircle, ShoppingCart, FolderOpen } from "lucide-react";
 import { useEffect } from "react";
 import { nip19 } from "nostr-tools";
 import { communityIdToNaddr, naddrToCommunityId } from "@/lib/utils";
@@ -74,34 +73,38 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
         <div className="relative z-10 min-h-screen">
           <div className="container mx-auto px-4 pt-16 pb-24">
             <div className="text-center max-w-4xl mx-auto">
-              {/* Badge */}
-              <div className="flex items-center justify-center space-x-2 mb-8">
-                <Badge variant="secondary" className="bg-white/10 text-white border-white/20 text-sm px-4 py-2">
-                  🌌 Powered by Nostr
-                </Badge>
-              </div>
-
               {/* Main Heading */}
               <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
                 IMAGINE A PLACE...
               </h1>
               
               <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-                ...where you can belong to a Space, a community, or a galaxy full of friends—where it's easy to talk every day and hang out more often. Where your world is truly yours.
+                ...where you can find or build a Space that matches your vibe. Why settle for building on someone else's backyard when you can explore the galaxy? Build without limits, create without compromise. Your Space, your rules.
               </p>
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
                 <LoginArea className="w-full max-w-xs" />
-                <p className="text-sm text-gray-400">
-                  New to decentralized communities? <br />
-                  <span className="text-purple-300">Join millions exploring the galaxy.</span>
+              <p className="text-sm text-gray-400">
+                  Ready to own your Space? <br />
+                  <span className="text-purple-300">Join thousands creating their worlds.</span>
                 </p>
               </div>
             </div>
 
             {/* Feature Sections */}
             <div className="max-w-7xl mx-auto space-y-32 mt-32">
+              
+              {/* Welcome to Universes Section */}
+              <div className="text-center mb-16">
+                <div className="text-8xl mb-6">🌌</div>
+                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                  Welcome to Universes
+                </h2>
+                <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+                  Each Space has three powerful tools:
+                </p>
+              </div>
               
               {/* Community Feature */}
               <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -140,10 +143,10 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
                 </div>
                 <div className="order-1 lg:order-2 text-center lg:text-left">
                   <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-                    Create an invite-only place where you belong
+                    💬 Community
                   </h2>
                   <p className="text-xl text-gray-300 leading-relaxed">
-                    Universes Spaces are organized into topic-based channels where you can collaborate, share, and just talk about your day without clogging up a group chat.
+                    Connect with your people through text chats, voice channels, and live events. Build meaningful relationships, share ideas, and create the conversations that matter most to your community.
                   </p>
                 </div>
               </div>
@@ -152,33 +155,37 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
               <div className="grid lg:grid-cols-2 gap-12 items-center">
                 <div className="text-center lg:text-left">
                   <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-                    Where hanging out is easy
+                    🛒 Marketplace
                   </h2>
                   <p className="text-xl text-gray-300 leading-relaxed">
-                    Grab a seat in a voice channel when you're free. Friends in your Space can see you're around and instantly pop in to talk without having to call.
+                    Turn your passion into profit with integrated commerce tools. Sell digital art, physical products, services, or exclusive content directly to your community members in a trusted, seamless environment.
                   </p>
                 </div>
                 <div>
                   <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div className="flex items-center space-x-4 mb-6">
                       <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
-                        <Users className="w-6 h-6 text-green-400" />
+                        <ShoppingCart className="w-6 h-6 text-green-400" />
                       </div>
                       <div>
                         <h3 className="text-2xl font-bold text-white">Marketplace</h3>
-                        <p className="text-gray-400">Buy & Sell with Bitcoin</p>
+                        <p className="text-gray-400">Buy & Sell Anything</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-slate-700/50 rounded-lg p-4">
-                        <div className="w-full h-24 bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg mb-3"></div>
-                        <h4 className="text-white font-medium text-sm">Digital Art NFT</h4>
-                        <p className="text-green-400 font-bold">₿0.001</p>
+                        <div className="w-full h-24 bg-gradient-to-r from-orange-400 to-red-400 rounded-lg mb-3 flex items-center justify-center text-3xl">
+                          🎸
+                        </div>
+                        <h4 className="text-white font-medium text-sm">Vintage Guitar</h4>
+                        <p className="text-green-400 font-bold">250,000 sats</p>
                       </div>
                       <div className="bg-slate-700/50 rounded-lg p-4">
-                        <div className="w-full h-24 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-lg mb-3"></div>
-                        <h4 className="text-white font-medium text-sm">Course Access</h4>
-                        <p className="text-green-400 font-bold">₿0.005</p>
+                        <div className="w-full h-24 bg-gradient-to-r from-green-400 to-emerald-400 rounded-lg mb-3 flex items-center justify-center text-3xl">
+                          📚
+                        </div>
+                        <h4 className="text-white font-medium text-sm">Recipe Book</h4>
+                        <p className="text-green-400 font-bold">15,000 sats</p>
                       </div>
                     </div>
                   </div>
@@ -191,7 +198,7 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
                   <div className="bg-slate-800/40 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50">
                     <div className="flex items-center space-x-4 mb-6">
                       <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                        <Globe className="w-6 h-6 text-yellow-400" />
+                        <FolderOpen className="w-6 h-6 text-yellow-400" />
                       </div>
                       <div>
                         <h3 className="text-2xl font-bold text-white">Resources</h3>
@@ -222,10 +229,10 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
                 </div>
                 <div className="order-1 lg:order-2 text-center lg:text-left">
                   <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-                    From few to a fandom
+                    📂 Resources
                   </h2>
                   <p className="text-xl text-gray-300 leading-relaxed">
-                    Get any community running with moderation tools and custom member access. Give members special powers, set up private channels, and more.
+                    A shared library for your community. Easily upload, organize, and access files, documents, and media in one place, so everyone stays connected and informed.
                   </p>
                 </div>
               </div>
@@ -247,6 +254,18 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
               {/* Footer */}
               <div className="mt-16 pt-8 border-t border-slate-700/50">
                 <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-sm text-gray-400">
+                  <span className="flex items-center space-x-1">
+                    <span>🌌</span>
+                    <span>Powered by </span>
+                    <a
+                      href="https://nostr.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-white transition-colors"
+                    >
+                      Nostr
+                    </a>
+                  </span>
                   <a
                     href="https://gitlab.com/soapbox-pub/universes"
                     target="_blank"
