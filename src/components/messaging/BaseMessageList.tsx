@@ -88,7 +88,6 @@ export function BaseMessageList({
         alignToBottom
         followOutput
         initialTopMostItemIndex={regularMessages.length - 1}
-        atBottomThreshold={200}
         startReached={loadOlderMessages}
         overscan={200}
         totalCount={regularMessages.length}
