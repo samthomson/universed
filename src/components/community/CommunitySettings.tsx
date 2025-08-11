@@ -287,6 +287,38 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     }
   };
 
+  const handleDeleteCommunity = async () => {
+    if (!user || !community) return;
+
+    try {
+      // Create a kind 5 deletion request event
+      await createEvent({
+        kind: 5,
+        content: "Community deleted by owner",
+        tags: [
+          ["e", community.event.id], // Reference the community event to be deleted
+          ["k", "34550"], // Specify the kind of the event being deleted
+        ],
+      });
+
+      toast({
+        title: "Success",
+        description: "Community deletion request sent successfully!",
+      });
+
+      // Close the settings dialog
+      onOpenChange(false);
+
+    } catch (error) {
+      console.error("Failed to delete community:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete community",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Check if user is admin/mod
   const isAdmin = user?.pubkey === community.creator;
   const isModerator = community.moderators.includes(user?.pubkey || '');
@@ -515,7 +547,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction className="bg-red-600 hover:bg-red-700">
+                        <AlertDialogAction
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={handleDeleteCommunity}
+                        >
                           Delete Community
                         </AlertDialogAction>
                       </AlertDialogFooter>

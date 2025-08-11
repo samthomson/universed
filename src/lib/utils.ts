@@ -40,10 +40,10 @@ export function communityIdToNaddr(communityId: string): string {
 }
 
 /**
- * Generate a random channel identifier from a custom name
+ * Generate a random community identifier from a custom name
  * Format: my-custom-name-rand
  */
-export function generateChannelIdentifier(customName: string): string {
+export function generateCommunityIdentifier(customName: string): string {
   // Clean the custom name: lowercase, replace spaces and special chars with hyphens
   const cleanedName = customName
     .toLowerCase()
@@ -57,6 +57,22 @@ export function generateChannelIdentifier(customName: string): string {
 
   // Combine: cleaned-name-rand
   return `${cleanedName}-${randomChars}`;
+}
+
+/**
+ * Generate a clean channel identifier from a display name
+ * Format: my-custom-name (no random suffix)
+ */
+export function generateChannelIdentifier(displayName: string): string {
+  // Clean the display name: lowercase, replace spaces and special chars with hyphens
+  const cleanedName = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .trim();
+
+  return cleanedName;
 }
 
 /**

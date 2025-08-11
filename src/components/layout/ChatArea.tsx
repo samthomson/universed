@@ -26,6 +26,8 @@ import { useState, useMemo, useCallback } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
 import { MessageThread } from "@/components/chat/MessageThread";
+import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
+import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 
 import {
   DropdownMenu,
@@ -174,8 +176,10 @@ function CommunityChat(
   const { banUser } = useModerationActions();
   const { mutate: deleteMessage } = useDeleteMessage(communityId);
   const { mutate: sendMentionNotifications } = useMentionNotifications();
+  const { data: membershipStatus } = useUserCommunityMembership(communityId);
   const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   const isAdmin = role === 'owner' || role === 'admin';
 
@@ -281,6 +285,10 @@ function CommunityChat(
     return <div>Channel not found</div>;
   }
 
+  const handleJoinRequest = () => {
+    setShowJoinDialog(true);
+  };
+
   if (isVoiceChannel) {
     return (
       <div className="flex flex-col h-full chat-container">
@@ -316,6 +324,8 @@ function CommunityChat(
         loadingOlderMessages={loadingOlderMessages}
         onLoadOlderMessages={loadOlderMessages}
         reachedStartOfConversation={reachedStartOfConversation}
+        membershipStatus={membershipStatus}
+        onJoinRequest={handleJoinRequest}
       />
 
       {threadRootMessage && (
@@ -324,6 +334,14 @@ function CommunityChat(
           open={isThreadOpen}
           onOpenChange={setIsThreadOpen}
           onNavigateToDMs={onNavigateToDMs}
+        />
+      )}
+
+      {showJoinDialog && (
+        <JoinRequestDialog
+          communityId={communityId}
+          open={showJoinDialog}
+          onOpenChange={setShowJoinDialog}
         />
       )}
     </>

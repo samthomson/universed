@@ -48,7 +48,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
     if (!user) {
       toast({
         title: "Login Required",
-        description: "You must be logged in to join a community.",
+        description: "You must be logged in to join a space.",
         variant: "destructive",
       });
       return;
@@ -274,12 +274,6 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-white">Discover Communities</h2>
-        <p className="text-gray-400">Find and join communities that interest you</p>
-      </div>
-
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />

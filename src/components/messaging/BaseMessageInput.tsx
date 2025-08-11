@@ -13,6 +13,7 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useUserMentions } from "@/hooks/useUserMentions";
 import { replaceShortcodes } from "@/lib/emoji";
 import type { NostrEvent } from "@/types/nostr";
+import { MembershipCTA } from "@/components/community/MembershipCTA";
 
 interface MessageInputConfig {
   allowMentions: boolean;
@@ -32,6 +33,8 @@ interface BaseMessageInputProps {
   disabledReason?: string;
   communityId?: string;
   channelId?: string;
+  membershipStatus?: 'owner' | 'moderator' | 'approved' | 'pending' | 'declined' | 'banned' | 'not-member';
+  onJoinRequest?: () => void;
 }
 
 export function BaseMessageInput({
@@ -43,6 +46,8 @@ export function BaseMessageInput({
   disabledReason,
   communityId,
   channelId,
+  membershipStatus,
+  onJoinRequest,
 }: BaseMessageInputProps) {
   const [message, setMessage] = useState("");
   const [showEmojiAutocomplete, setShowEmojiAutocomplete] = useState(false);
@@ -438,6 +443,17 @@ export function BaseMessageInput({
       }
     }
     // If no images, let the default paste behavior handle text
+  }
+
+  // Check if user is not an approved member and show CTA instead of message input
+  if (membershipStatus && !['owner', 'moderator', 'approved'].includes(membershipStatus)) {
+    return (
+      <MembershipCTA
+        _communityId={communityId || ''}
+        onJoinRequest={onJoinRequest || (() => {})}
+        className="m-4"
+      />
+    );
   }
 
   if (disabled) {

@@ -43,6 +43,8 @@ interface BaseChatAreaProps {
   loadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<void>;
   reachedStartOfConversation?: boolean;
+  membershipStatus?: 'owner' | 'moderator' | 'approved' | 'pending' | 'declined' | 'banned' | 'not-member';
+  onJoinRequest?: () => void;
 }
 
 export function BaseChatArea({
@@ -67,6 +69,8 @@ export function BaseChatArea({
   loadingOlderMessages = false,
   onLoadOlderMessages,
   reachedStartOfConversation = false,
+  membershipStatus,
+  onJoinRequest,
 }: BaseChatAreaProps) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -158,16 +162,16 @@ export function BaseChatArea({
         {additionalContent}
 
         <div className="flex-shrink-0">
-          <div className="p-4">
-            <BaseMessageInput
-              onSendMessage={handleSendMessage}
-              config={messageInputConfig}
-              placeholder={inputPlaceholder || "Type a message..."}
-              isSending={sendMessageMutation.isPending}
-              communityId={communityId}
-              channelId={channelId}
-            />
-          </div>
+          <BaseMessageInput
+            onSendMessage={handleSendMessage}
+            config={messageInputConfig}
+            placeholder={inputPlaceholder || "Type a message..."}
+            isSending={sendMessageMutation.isPending}
+            communityId={communityId}
+            channelId={channelId}
+            membershipStatus={membershipStatus}
+            onJoinRequest={onJoinRequest}
+          />
         </div>
       </div>
     </div>

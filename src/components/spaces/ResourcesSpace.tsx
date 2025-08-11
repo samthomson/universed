@@ -21,6 +21,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useUserCommunityMembership } from '@/hooks/useUserCommunityMembership';
+import { useToast } from '@/hooks/useToast';
+import { MembershipCTA } from '@/components/community/MembershipCTA';
 import { CreateResourceFolderDialog } from './CreateResourceFolderDialog';
 import { AddResourceToFolderDialog } from './AddResourceToFolderDialog';
 import { useResourceFolders, useFolderResources } from '@/hooks/useResourceFolders';
@@ -35,6 +38,8 @@ interface ResourcesSpaceProps {
 export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
   const { user } = useCurrentUser();
   const { role } = useUserRole(communityId, user?.pubkey);
+  const { data: membershipStatus } = useUserCommunityMembership(communityId);
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -52,6 +57,11 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
 
   // Filter and sort folders
   const filteredFolders = folders?.filter(folder => {
+    // Filter by membership status - only show folders to approved members
+    if (membershipStatus && !['owner', 'moderator', 'approved'].includes(membershipStatus)) {
+      return false;
+    }
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return folder.name.toLowerCase().includes(query) ||
@@ -158,6 +168,52 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
 
   // Show folder view if a folder is selected
   if (selectedFolder) {
+    // Check if user is approved to view folder contents
+    if (membershipStatus && !['owner', 'moderator', 'approved'].includes(membershipStatus)) {
+      return (
+        <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+          <div className="border-b border-gray-700 p-4 flex-shrink-0">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedFolder(null)}
+                className="text-gray-400 hover:text-gray-200"
+              >
+                ← Back to Folders
+              </Button>
+              <div className="flex items-center space-x-2">
+                <Folder className="w-5 h-5 text-green-400" />
+                <div>
+                  <h1 className="text-xl font-semibold text-white">{selectedFolder.name}</h1>
+                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                    <span>{selectedFolder.resourceCount} resources</span>
+                    <span>•</span>
+                    <div className="flex items-center space-x-1">
+                      {getPermissionIcon(selectedFolder.addPermission)}
+                      <span>{getPermissionLabel(selectedFolder.addPermission)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-8">
+            <MembershipCTA
+              _communityId={communityId}
+              onJoinRequest={() => {
+                toast({
+                  title: "Feature Coming Soon",
+                  description: "Join requests will be available soon. Please contact a community moderator.",
+                });
+              }}
+              className="max-w-md"
+            />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
         {/* Folder Header */}
@@ -306,7 +362,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
               </p>
             </div>
           </div>
-          {user && (role === 'owner' || role === 'moderator') && (
+          {user && membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) && (role === 'owner' || role === 'moderator') && (
             <CreateResourceFolderDialog communityId={communityId} />
           )}
         </div>
@@ -373,29 +429,42 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
 
         {/* Results */}
         {filteredFolders.length === 0 ? (
-          <Card className="border-dashed border-gray-600 bg-gray-750">
-            <CardContent className="py-12 px-8 text-center">
-              <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-200">No resource folders found</h3>
-              <p className="text-gray-400 mb-4">
-                {searchQuery || selectedTag !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Create the first resource folder for this community!'
-                }
-              </p>
-              {user && (role === 'owner' || role === 'moderator') && (
-                <CreateResourceFolderDialog
-                  communityId={communityId}
-                  trigger={
-                    <Button className="bg-green-600 hover:bg-green-700 text-white">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create First Folder
-                    </Button>
+          membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) ? (
+            <Card className="border-dashed border-gray-600 bg-gray-750">
+              <CardContent className="py-12 px-8 text-center">
+                <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2 text-gray-200">No resource folders found</h3>
+                <p className="text-gray-400 mb-4">
+                  {searchQuery || selectedTag !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : 'Create the first resource folder for this community!'
                   }
-                />
-              )}
-            </CardContent>
-          </Card>
+                </p>
+                {user && (role === 'owner' || role === 'moderator') && (
+                  <CreateResourceFolderDialog
+                    communityId={communityId}
+                    trigger={
+                      <Button className="bg-green-600 hover:bg-green-700 text-white">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create First Folder
+                      </Button>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <MembershipCTA
+              _communityId={communityId}
+              onJoinRequest={() => {
+                toast({
+                  title: "Feature Coming Soon",
+                  description: "Join requests will be available soon. Please contact a community moderator.",
+                });
+              }}
+              className="border-dashed border-gray-600 bg-gray-750"
+            />
+          )
         ) : (
           <div className={
             viewMode === 'grid'
@@ -412,6 +481,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
                 getPermissionIcon={getPermissionIcon}
                 getPermissionLabel={getPermissionLabel}
                 canAddToFolder={folderPermissions[folder.id] || false}
+                isApprovedMember={membershipStatus ? ['owner', 'moderator', 'approved'].includes(membershipStatus) : false}
               />
             ))}
           </div>
@@ -429,7 +499,8 @@ function ResourceFolderCard({
   communityId,
   getPermissionIcon,
   getPermissionLabel,
-  canAddToFolder
+  canAddToFolder,
+  isApprovedMember
 }: {
   folder: ResourceFolder;
   viewMode: 'grid' | 'list';
@@ -438,6 +509,7 @@ function ResourceFolderCard({
   getPermissionIcon: (permission: string) => React.ReactNode;
   getPermissionLabel: (permission: string) => string;
   canAddToFolder: boolean;
+  isApprovedMember: boolean;
 }) {
   const timeAgo = new Date(folder.createdAt * 1000).toLocaleDateString();
 
@@ -503,7 +575,7 @@ function ResourceFolderCard({
                     </Badge>
                   )}
                 </div>
-                {canAddToFolder && (
+                {canAddToFolder && isApprovedMember && (
                   <AddResourceToFolderDialog
                     communityId={communityId}
                     folderId={folder.id}
@@ -586,7 +658,7 @@ function ResourceFolderCard({
         )}
 
         {/* Add Resource Button */}
-        {canAddToFolder && (
+        {canAddToFolder && isApprovedMember && (
           <div className="pt-2 border-t border-gray-600">
             <AddResourceToFolderDialog
               communityId={communityId}

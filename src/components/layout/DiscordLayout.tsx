@@ -20,13 +20,14 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useCommunities } from "@/hooks/useCommunities";
+import { useCommunities, type Community } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
@@ -41,6 +42,7 @@ interface DiscordLayoutProps {
 }
 
 export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }: DiscordLayoutProps = {}) {
+  const queryClient = useQueryClient();
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -148,17 +150,43 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   useEffect(() => {
     if (initialSpaceCommunityId && !urlInitializationRef.current) {
       urlInitializationRef.current = true;
-      setSelectedCommunity(initialSpaceCommunityId);
-      setSelectedDMConversation(null);
-      setDmTargetPubkey(null);
-      setActiveTab("channels"); // Ensure we default to channels tab
-      setSelectedSpace(null);
 
-      if (isMobile) {
-        setMobileView("channels");
+      // Check if the community exists in cache first
+      const cachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
+      const communityExists = cachedCommunities?.some(c => c.id === initialSpaceCommunityId);
+
+      if (communityExists) {
+        setSelectedCommunity(initialSpaceCommunityId);
+        setSelectedDMConversation(null);
+        setDmTargetPubkey(null);
+        setActiveTab("channels"); // Ensure we default to channels tab
+        setSelectedSpace(null);
+
+        if (isMobile) {
+          setMobileView("channels");
+        }
+      } else {
+        // If community doesn't exist in cache, wait a bit and try again
+        // This handles the case where optimistic data is being set
+        setTimeout(() => {
+          const updatedCachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
+          const updatedCommunityExists = updatedCachedCommunities?.some(c => c.id === initialSpaceCommunityId);
+
+          if (updatedCommunityExists) {
+            setSelectedCommunity(initialSpaceCommunityId);
+            setSelectedDMConversation(null);
+            setDmTargetPubkey(null);
+            setActiveTab("channels");
+            setSelectedSpace(null);
+
+            if (isMobile) {
+              setMobileView("channels");
+            }
+          }
+        }, 100);
       }
     }
-  }, [initialSpaceCommunityId, isMobile]);
+  }, [initialSpaceCommunityId, isMobile, queryClient]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
@@ -308,6 +336,25 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       }
     }
   }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
+
+  // Auto-show join dialog when user selects a community they're not a member of
+  useEffect(() => {
+    if (selectedCommunity && membershipStatus && !urlCommunityId) {
+      // Only show dialog if user is not an approved member and not coming from URL navigation
+      if (
+        membershipStatus !== "owner" &&
+        membershipStatus !== "moderator" &&
+        membershipStatus !== "approved" &&
+        membershipStatus !== "pending"
+      ) {
+        // Small delay to allow the community to load first
+        setTimeout(() => {
+          setCommunityBeforeJoinDialog(null); // No previous community to go back to
+          setShowJoinDialog(true);
+        }, 300);
+      }
+    }
+  }, [selectedCommunity, membershipStatus, urlCommunityId]);
 
   const handleJoinSuccess = (communityId: string) => {
     setSelectedCommunity(communityId);

@@ -29,7 +29,7 @@ vi.mock('./CreateCommunityDialog', () => ({
 }));
 
 describe('CommunitySelectionDialog', () => {
-  it('renders selection options when open', () => {
+  it('renders discovery view with create button when open', () => {
     render(
       <TestApp>
         <CommunitySelectionDialog
@@ -39,12 +39,12 @@ describe('CommunitySelectionDialog', () => {
       </TestApp>
     );
 
-    expect(screen.getByText('Add a Community')).toBeInTheDocument();
-    expect(screen.getByText('Create New Community')).toBeInTheDocument();
-    expect(screen.getByText('Discover Communities')).toBeInTheDocument();
+    expect(screen.getByText('DISCOVER YOUR SPACE')).toBeInTheDocument();
+    expect(screen.getByText('Create Space')).toBeInTheDocument();
+    expect(screen.getByTestId('community-discovery')).toBeInTheDocument();
   });
 
-  it('shows create community dialog when create option is clicked', () => {
+  it('shows create community dialog when create button is clicked', () => {
     render(
       <TestApp>
         <CommunitySelectionDialog
@@ -54,11 +54,11 @@ describe('CommunitySelectionDialog', () => {
       </TestApp>
     );
 
-    fireEvent.click(screen.getByText('Create New Community'));
+    fireEvent.click(screen.getByText('Create Space'));
     expect(screen.getByTestId('create-community-dialog')).toBeInTheDocument();
   });
 
-  it('shows discovery view when discover option is clicked', () => {
+  it('shows discovery view by default with no back button', () => {
     render(
       <TestApp>
         <CommunitySelectionDialog
@@ -68,9 +68,9 @@ describe('CommunitySelectionDialog', () => {
       </TestApp>
     );
 
-    fireEvent.click(screen.getByText('Discover Communities'));
     expect(screen.getByTestId('community-discovery')).toBeInTheDocument();
-    expect(screen.getByText('← Back')).toBeInTheDocument();
+    // Should not have a back button since we're always in discovery view
+    expect(screen.queryByText('← Back')).not.toBeInTheDocument();
   });
 
   it('calls onCommunitySelect when a community is selected from discovery', () => {
@@ -88,7 +88,7 @@ describe('CommunitySelectionDialog', () => {
     );
 
     // Navigate to discovery view
-    fireEvent.click(screen.getByText('Discover Communities'));
+    fireEvent.click(screen.getByText('DISCOVER YOUR SPACE'));
 
     // Select a community
     fireEvent.click(screen.getByText('Test Community'));
@@ -112,7 +112,7 @@ describe('CommunitySelectionDialog', () => {
     );
 
     // Navigate to create view
-    fireEvent.click(screen.getByText('Create New Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // The create dialog should appear, replacing this dialog
     // This test verifies the callbacks are properly wired up
