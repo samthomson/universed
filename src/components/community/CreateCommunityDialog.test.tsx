@@ -158,10 +158,8 @@ describe('CreateCommunityDialog', () => {
 
     // Fill in the required fields
     const nameInput = screen.getByLabelText('Community Name');
-    const identifierInput = screen.getByLabelText('Identifier');
 
     fireEvent.change(nameInput, { target: { value: 'Test Community' } });
-    fireEvent.change(identifierInput, { target: { value: 'test-community' } });
 
     // Submit the form
     fireEvent.click(screen.getByRole('button', { name: /Continue to Setup$/i }));

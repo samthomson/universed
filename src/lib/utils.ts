@@ -40,6 +40,26 @@ export function communityIdToNaddr(communityId: string): string {
 }
 
 /**
+ * Generate a random channel identifier from a custom name
+ * Format: my-custom-name-rand
+ */
+export function generateChannelIdentifier(customName: string): string {
+  // Clean the custom name: lowercase, replace spaces and special chars with hyphens
+  const cleanedName = customName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .trim();
+
+  // Generate random 4-character alphanumeric string
+  const randomChars = Math.random().toString(36).substring(2, 6);
+
+  // Combine: cleaned-name-rand
+  return `${cleanedName}-${randomChars}`;
+}
+
+/**
  * Decode an naddr and return community ID in format "kind:pubkey:d-tag"
  */
 export function naddrToCommunityId(naddr: string): string {

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/useToast";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2, Plus, Shield } from "lucide-react";
-import { cn, communityIdToNaddr } from "@/lib/utils";
+import { cn, communityIdToNaddr, generateChannelIdentifier } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import { QuickSetupStep } from "./QuickSetupStep";
 
@@ -29,7 +29,6 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    identifier: "",
     image: "",
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -51,7 +50,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   useEffect(() => {
     if (open) {
       setStep('welcome');
-      setFormData({ name: "", description: "", identifier: "", image: "" });
+      setFormData({ name: "", description: "", image: "" });
       setImageFile(null);
       setImagePreview("");
       setCreatedCommunityId("");
@@ -126,7 +125,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         }
       }
 
-      const communityIdentifier = formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "");
+      const communityIdentifier = generateChannelIdentifier(formData.name);
 
       // Create community definition event
       const communityTags = [
@@ -202,23 +201,24 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         });
       }
 
-      // Create default general channel
-      const channelName = 'general';
+      // Create default general channel with auto-generated identifier
+      const channelDisplayName = 'general';
+      const channelIdentifier = generateChannelIdentifier(channelDisplayName);
       const channelTags = [
-        ["d", `34550:${user!.pubkey}:${communityIdentifier}:${channelName}`],
+        ["d", `34550:${user!.pubkey}:${communityIdentifier}:${channelIdentifier}`],
         ["a", `34550:${user!.pubkey}:${communityIdentifier}`],
-        ["name", channelName],
+        ["name", channelIdentifier],
         ["description", "General discussion"],
         ["channel_type", "text"],
         ["position", "0"],
         ["t", "channel"],
-        ["alt", `Channel: ${channelName}`],
+        ["alt", `Channel: ${channelIdentifier}`],
       ];
 
       await createEvent({
         kind: 32807,
         content: JSON.stringify({
-          name: channelName,
+          name: channelIdentifier,
           description: "General discussion",
           type: "text",
           position: 0,
@@ -236,7 +236,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
       const previousCommunities = queryClient.getQueryData<Community[]>(['communities']);
 
       // Create optimistic community
-      const communityId = `34550:${user!.pubkey}:${formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
+      const communityId = `34550:${user!.pubkey}:${generateChannelIdentifier(formData.name)}`;
       setCreatedCommunityId(communityId);
 
       const optimisticCommunity: Community = {
@@ -299,10 +299,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
     e.preventDefault();
     if (!user || createCommunityMutation.isPending || isUploading) return;
 
-    if (!formData.name.trim() || !formData.identifier.trim()) {
+    if (!formData.name.trim()) {
       toast({
         title: "Error",
-        description: "Name and identifier are required",
+        description: "Community name is required",
         variant: "destructive",
       });
       return;
@@ -513,22 +513,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="identifier" className="text-sm font-medium">Identifier</Label>
-                  <Input
-                    id="identifier"
-                    value={formData.identifier}
-                    onChange={(e) => setFormData(prev => ({ ...prev, identifier: e.target.value }))}
-                    placeholder="my-awesome-community"
-                    pattern="[a-z0-9-]+"
-                    title="Only lowercase letters, numbers, and hyphens allowed"
-                    required
-                    className="rounded-lg"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Used in URLs and must be unique. Only lowercase letters, numbers, and hyphens.
-                  </p>
-                </div>
+
 
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-sm font-medium">Description (optional)</Label>

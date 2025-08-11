@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 
 import { useUserSearch } from '@/hooks/useUserSearch';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useFriends } from '@/hooks/useFriends';
 import { genUserName } from '@/lib/genUserName';
 
 interface QuickSetupStepProps {
@@ -35,6 +36,11 @@ export function QuickSetupStep({
 }: QuickSetupStepProps) {
   const [moderatorSearchQuery, setModeratorSearchQuery] = useState('');
   const [preApprovedSearchQuery, setPreApprovedSearchQuery] = useState('');
+  const { data: friends } = useFriends();
+
+  const isUserFriend = (pubkey: string) => {
+    return friends?.some(friend => friend.pubkey === pubkey) || false;
+  };
 
   const { data: moderatorSearchResults, isLoading: isSearchingModerators } = useUserSearch(moderatorSearchQuery);
   const { data: preApprovedSearchResults, isLoading: isSearchingPreApproved } = useUserSearch(preApprovedSearchQuery);
@@ -64,20 +70,43 @@ export function QuickSetupStep({
     const metadata = author.data?.metadata;
     const displayName = metadata?.name || genUserName(pubkey);
     const profileImage = metadata?.picture;
+    const nip05 = metadata?.nip05;
+    const isFriend = isUserFriend(pubkey);
 
     return (
       <Card className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={profileImage} />
-              <AvatarFallback className="bg-purple-600 text-white">
-                {displayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={profileImage} />
+                <AvatarFallback className="bg-purple-600 text-white">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isFriend && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Users className="w-2 h-2 text-white" />
+                </div>
+              )}
+            </div>
             <div>
-              <p className="font-medium text-sm">{displayName}</p>
-              <p className="text-xs text-muted-foreground">{pubkey.slice(0, 16)}...</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{displayName}</p>
+                {isFriend && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Following
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground font-mono">{pubkey.slice(0, 16)}...</p>
+                {nip05 && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                    ✓ {nip05}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -104,20 +133,43 @@ export function QuickSetupStep({
     const metadata = author.data?.metadata;
     const displayName = metadata?.name || genUserName(pubkey);
     const profileImage = metadata?.picture;
+    const nip05 = metadata?.nip05;
+    const isFriend = isUserFriend(pubkey);
 
     return (
       <Card className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={profileImage} />
-              <AvatarFallback className="bg-green-600 text-white">
-                {displayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={profileImage} />
+                <AvatarFallback className="bg-green-600 text-white">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isFriend && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Users className="w-2 h-2 text-white" />
+                </div>
+              )}
+            </div>
             <div>
-              <p className="font-medium text-sm">{displayName}</p>
-              <p className="text-xs text-muted-foreground">{pubkey.slice(0, 16)}...</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm">{displayName}</p>
+                {isFriend && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Following
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground font-mono">{pubkey.slice(0, 16)}...</p>
+                {nip05 && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                    ✓ {nip05}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -144,6 +196,8 @@ export function QuickSetupStep({
     const metadata = author.data?.metadata;
     const displayName = metadata?.name || genUserName(pubkey);
     const profileImage = metadata?.picture;
+    const nip05 = metadata?.nip05;
+    const isFriend = isUserFriend(pubkey);
 
     const isModeratorSelected = selectedModerators.includes(pubkey);
     const isPreApprovedSelected = preApprovedUsers.includes(pubkey);
@@ -155,18 +209,39 @@ export function QuickSetupStep({
     const buttonColor = type === 'moderator' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700';
 
     return (
-      <Card className={`p-3 cursor-pointer transition-colors ${isSelected ? selectedColor : 'hover:bg-gray-50'}`}>
+      <Card className={`p-3 cursor-pointer transition-colors ${isSelected ? selectedColor : 'hover:bg-gray-100'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={profileImage} />
-              <AvatarFallback className="bg-gray-600 text-white">
-                {displayName.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium text-sm">{displayName}</p>
-              <p className="text-xs text-muted-foreground">{pubkey.slice(0, 16)}...</p>
+            <div className="relative">
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={profileImage} />
+                <AvatarFallback className="bg-gray-600 text-white">
+                  {displayName.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {isFriend && (
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                  <Users className="w-2 h-2 text-white" />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-sm truncate">{displayName}</p>
+                {isFriend && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Following
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground font-mono truncate">{pubkey.slice(0, 16)}...</p>
+                {nip05 && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 truncate max-w-[120px]">
+                    {nip05}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <Button
@@ -226,7 +301,7 @@ export function QuickSetupStep({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search users to add as moderators..."
+                placeholder="Search by name, npub, or nip-05..."
                 value={moderatorSearchQuery}
                 onChange={(e) => setModeratorSearchQuery(e.target.value)}
                 className="pl-10"
@@ -303,7 +378,7 @@ export function QuickSetupStep({
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="Search users to pre-approve..."
+                    placeholder="Search by name, npub, or nip-05..."
                     value={preApprovedSearchQuery}
                     onChange={(e) => setPreApprovedSearchQuery(e.target.value)}
                     className="pl-10"
