@@ -329,30 +329,30 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
           {step === 'welcome' && (
             <div className='text-center space-y-4'>
               {/* Hero illustration */}
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50'>
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50'>
                 <div className='flex justify-center items-center space-x-4 mb-3'>
                   <div className='relative'>
-                    <UserPlus className='w-12 h-12 text-blue-600' />
+                    <UserPlus className='w-12 h-12 text-purple-600' />
                     <Sparkles className='w-4 h-4 text-yellow-500 absolute -top-1 -right-1 animate-pulse' />
                   </div>
-                  <Globe className='w-16 h-16 text-blue-700 animate-spin-slow' />
+                  <Globe className='w-16 h-16 text-purple-700 animate-spin-slow' />
                   <div className='relative'>
-                    <FileText className='w-12 h-12 text-blue-600' />
+                    <FileText className='w-12 h-12 text-purple-600' />
                     <Sparkles className='w-4 h-4 text-yellow-500 absolute -top-1 -left-1 animate-pulse' style={{animationDelay: '0.3s'}} />
                   </div>
                 </div>
 
                 {/* Benefits */}
                 <div className='grid grid-cols-1 gap-2 text-sm'>
-                  <div className='flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300'>
+                  <div className='flex items-center justify-center gap-2 text-purple-700 dark:text-purple-300'>
                     <Shield className='w-4 h-4' />
                     Decentralized and censorship-resistant
                   </div>
-                  <div className='flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300'>
+                  <div className='flex items-center justify-center gap-2 text-purple-700 dark:text-purple-300'>
                     <User className='w-4 h-4' />
                     You are in control of your data
                   </div>
-                  <div className='flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300'>
+                  <div className='flex items-center justify-center gap-2 text-purple-700 dark:text-purple-300'>
                     <Globe className='w-4 h-4' />
                     Join a global network
                   </div>
@@ -366,7 +366,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
                 </p>
 
                 <Button
-                  className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                  className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
                   onClick={() => setStep('generate')}
                 >
                   <LogIn className='w-5 h-5 mr-2' />
@@ -383,7 +383,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
           {/* Generate Step - Enhanced with animations */}
           {step === 'generate' && (
             <div className='text-center space-y-4'>
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-purple-100 dark:from-blue-950/50 dark:to-purple-950/50 overflow-hidden'>
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
                 {/* Animated background elements */}
                 {showSparkles && (
                   <div className='absolute inset-0'>
@@ -439,7 +439,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
 
               {!isLoading && (
                 <Button
-                  className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                  className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
                   onClick={generateKey}
                   disabled={isLoading}
                 >
@@ -454,7 +454,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
           {step === 'download' && (
             <div className='text-center space-y-4'>
               {/* Key reveal */}
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50 overflow-hidden'>
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
                 {/* Sparkles */}
                 <div className='absolute inset-0 pointer-events-none'>
                   <Sparkles className='absolute top-3 left-4 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
@@ -465,10 +465,10 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
 
                 <div className='relative z-10 flex justify-center items-center mb-3'>
                   <div className='relative'>
-                    <div className='w-16 h-16 bg-gradient-to-br from-blue-200 to-indigo-300 rounded-full flex items-center justify-center shadow-lg animate-pulse'>
-                      <Key className='w-8 h-8 text-indigo-800' />
+                    <div className='w-16 h-16 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg animate-pulse'>
+                      <Key className='w-8 h-8 text-purple-800' />
                     </div>
-                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center animate-bounce'>
+                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
                       <Sparkles className='w-3 h-3 text-white' />
                     </div>
                   </div>
@@ -596,8 +596,8 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
                 <Button
                   className={`w-full rounded-full py-4 text-base font-semibold transform transition-all duration-200 shadow-lg ${
                     keySecured !== 'none'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 dark:from-blue-950/50 dark:to-purple-950/50 hover:scale-105'
-                      : 'bg-gradient-to-r from-blue-600/60 to-indigo-600/60 text-muted cursor-not-allowed'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:scale-105'
+                      : 'bg-gradient-to-r from-purple-600/60 to-pink-600/60 text-muted cursor-not-allowed'
                   }`}
                   onClick={finishKeySetup}
                   disabled={keySecured === 'none'}
@@ -624,7 +624,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
           {step === 'profile' && (
             <div className='text-center space-y-4'>
               {/* Profile setup illustration */}
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50 overflow-hidden'>
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
                 {/* Sparkles */}
                 <div className='absolute inset-0 pointer-events-none'>
                   <Sparkles className='absolute top-3 left-4 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
@@ -634,10 +634,10 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
 
                 <div className='relative z-10 flex justify-center items-center mb-3'>
                   <div className='relative'>
-                    <div className='w-16 h-16 bg-gradient-to-br from-blue-200 to-indigo-300 rounded-full flex items-center justify-center shadow-lg'>
-                      <User className='w-8 h-8 text-blue-800' />
+                    <div className='w-16 h-16 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg'>
+                      <User className='w-8 h-8 text-purple-800' />
                     </div>
-                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center animate-bounce'>
+                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
                       <Sparkles className='w-3 h-3 text-white' />
                     </div>
                   </div>
@@ -656,10 +656,10 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
 
               {/* Publishing status indicator */}
               {isPublishing && (
-                <div className='relative p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-800'>
+                <div className='relative p-4 rounded-xl bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200 dark:border-purple-800'>
                   <div className='flex items-center justify-center gap-3'>
-                    <div className='w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin' />
-                    <span className='text-sm font-medium text-blue-700 dark:text-blue-300'>
+                    <div className='w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin' />
+                    <span className='text-sm font-medium text-purple-700 dark:text-purple-300'>
                       Publishing your profile...
                     </span>
                   </div>
@@ -739,7 +739,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
               {/* Action buttons */}
               <div className='space-y-3'>
                 <Button
-                  className='w-full rounded-full py-4 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none'
+                  className='w-full rounded-full py-4 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none'
                   onClick={() => finishSignup(false)}
                   disabled={isPublishing || isUploading}
                 >
