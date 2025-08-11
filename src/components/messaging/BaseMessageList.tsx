@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
 import { PinnedMessages } from "@/components/chat/PinnedMessages";
@@ -38,8 +38,42 @@ export function BaseMessageList({
   communityId,
   channelId,
 }: BaseMessageListProps) {
-  const virtuosoRef = useRef<VirtuosoHandle>(null);  
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  // Track previous message count to detect when new messages are loaded
+  const [prevMessageCount, setPrevMessageCount] = useState(0);
+  // Track when we're loading older messages
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
+  
+  // Effect to manage scroll behavior when messages change
+  useEffect(() => {
+    // If we're loading older messages (messages were added)
+    if (regularMessages.length > prevMessageCount && prevMessageCount > 0 && isLoadingOlder) {
+      
+      // Use Virtuoso's API to maintain scroll position
+      setTimeout(() => {
+        // We'll use a simpler approach to maintain scroll position
+        const addedCount = regularMessages.length - prevMessageCount;
+        
+        // Use a fixed index to maintain position, but adjust it to show the button too
+        // We'll scroll to one message before what was previously the first visible message
+        // This ensures the "Load older messages" button is still visible
+        const targetIndex = Math.max(0, addedCount - 1);
+        
+        virtuosoRef.current?.scrollToIndex({
+          index: targetIndex,
+          align: 'start',
+          behavior: 'auto'
+        });
+        
+        // Reset loading flag
+        setIsLoadingOlder(false);
+      }, 0);
+    }
+    
+    // Update the previous count
+    setPrevMessageCount(regularMessages.length);
+  }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
 
   if (isLoading && messages.length === 0) {
     return (
@@ -122,7 +156,12 @@ export function BaseMessageList({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => loadOlderMessages?.()}
+                  onClick={() => {
+                    // Set loading flag first
+                    setIsLoadingOlder(true);                    
+                    // Then load older messages
+                    loadOlderMessages?.();
+                  }}
                   disabled={loadingOlder}
                   className="flex items-center gap-1"
                 >
