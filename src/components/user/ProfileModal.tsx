@@ -243,9 +243,8 @@ export function ProfileModal({
       if (!profilePubkey) return { notes: [], images: [], articles: [] };
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      try {
-        // Fetch different kinds of content separately to ensure we get enough of each
-        const [noteEvents, imageEvents, articleEvents] = await Promise.all([
+      // Fetch different kinds of content separately to ensure we get enough of each
+      const [noteEvents, imageEvents, articleEvents] = await Promise.all([
         nostr.query([{
           kinds: [1], // notes
           authors: [profilePubkey],
@@ -263,23 +262,18 @@ export function ProfileModal({
         }], { signal })
       ]);
 
-      // Combine all events for debug logging
-      const events = [...noteEvents, ...imageEvents, ...articleEvents];
-
       // Filter notes to get root notes only
       const notes = noteEvents
         .filter(e => {
           // Check for any "e" tags (these indicate replies)
           const eTags = e.tags.filter(([name]) => name === 'e');
           const hasETags = eTags.length > 0;
-          
-          
+
           // Only show notes without "e" tags (root notes)
           return !hasETags;
         })
         .sort((a, b) => b.created_at - a.created_at)
         .slice(0, 6);
-
 
       // Images are already filtered by kind, just sort and limit
       const images = imageEvents
@@ -290,12 +284,8 @@ export function ProfileModal({
       const articles = articleEvents
         .sort((a, b) => b.created_at - a.created_at)
         .slice(0, 6);
-      
 
-        return { notes, images, articles };
-      } catch (error) {
-        throw error;
-      }
+      return { notes, images, articles };
     },
     enabled: !!profilePubkey && open,
   });
@@ -403,7 +393,7 @@ export function ProfileModal({
                     style={{ backgroundImage: `url(${banner})` }}
                   />
                 )}
-                
+
                 {/* Large Avatar positioned at bottom of banner */}
                 <div className="absolute bottom-0 left-3 sm:left-4 transform translate-y-1/2">
                   <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-4 sm:border-6 border-gray-800">
@@ -891,33 +881,7 @@ function MutualContactItem({ pubkey, onProfileClick }: MutualContactItemProps) {
   );
 }
 
-// Compact connection item for Discord-style left sidebar
-interface MutualConnectionItemProps {
-  pubkey: string;
-  onProfileClick: (pubkey: string) => void;
-}
 
-function MutualConnectionItem({ pubkey, onProfileClick }: MutualConnectionItemProps) {
-  const author = useAuthor(pubkey);
-  const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(pubkey);
-  const profileImage = metadata?.picture;
-
-  return (
-    <div
-      className="flex items-center space-x-2 text-sm text-gray-300 hover:text-white cursor-pointer transition-colors"
-      onClick={() => onProfileClick(pubkey)}
-    >
-      <Avatar className="w-6 h-6">
-        <AvatarImage src={profileImage} alt={displayName} />
-        <AvatarFallback className="bg-indigo-600 text-white text-xs">
-          {displayName.slice(0, 1).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-      <span className="truncate">{displayName}</span>
-    </div>
-  );
-}
 
 // Component for displaying a mutual space/community
 interface MutualSpaceItemProps {
@@ -1021,7 +985,7 @@ function ActivityNoteItem({ event }: ActivityItemProps) {
 
   return (
     <div className="group relative p-4 rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-700/40 border border-gray-600/30 hover:from-gray-700/70 hover:to-gray-600/50 hover:border-gray-500/40 transition-all duration-200 shadow-sm hover:shadow-md">
-      
+
       {/* Render images */}
       {imageUrls.length > 0 && (
         <div className="mb-4">
@@ -1079,81 +1043,7 @@ function ActivityNoteItem({ event }: ActivityItemProps) {
   );
 }
 
-function ActivityImageItem({ event }: ActivityItemProps) {
-  const timeAgo = new Date(event.created_at * 1000).toLocaleDateString();
 
-  // Extract image data from NIP-68 imeta tags
-  const imetaTag = event.tags.find(([name]) => name === 'imeta');
-  let imageUrl = '';
-  let alt = 'Image';
-  let title = '';
-
-  if (imetaTag) {
-    // Parse imeta tag format: ["imeta", "url <url>", "alt <alt>", ...]
-    for (let i = 1; i < imetaTag.length; i++) {
-      const param = imetaTag[i];
-      const spaceIndex = param.indexOf(' ');
-      if (spaceIndex > 0) {
-        const key = param.substring(0, spaceIndex);
-        const value = param.substring(spaceIndex + 1);
-        if (key === 'url') imageUrl = value;
-        if (key === 'alt') alt = value;
-      }
-    }
-  }
-
-  // Get title from title tag
-  title = event.tags.find(([name]) => name === 'title')?.[1] || '';
-  
-  // Use content as caption
-  const caption = event.content;
-
-
-  return (
-    <div className="group relative p-4 rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-700/40 border border-gray-600/30 hover:from-gray-700/70 hover:to-gray-600/50 hover:border-gray-500/40 transition-all duration-200 shadow-sm hover:shadow-md">
-      
-      <div className="flex items-start space-x-4">
-        {imageUrl && (
-          <div className="relative group/image flex-shrink-0 overflow-hidden rounded-lg">
-            <img
-              src={imageUrl}
-              alt={alt}
-              className="w-24 h-24 object-cover transition-transform group-hover/image:scale-110"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/image:opacity-100 transition-opacity rounded-lg"></div>
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          {/* Title */}
-          {title && (
-            <div className="mb-1">
-              <h4 className="text-sm font-semibold text-white line-clamp-1">{title}</h4>
-            </div>
-          )}
-          
-          {/* Caption */}
-          {caption && (
-            <div className="mb-2">
-              <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{caption}</p>
-            </div>
-          )}
-          
-          {/* Timestamp - clickable */}
-          <div className="flex items-center justify-end text-xs text-gray-400">
-            <button
-              onClick={() => window.open(createNjumpUrl(event), '_blank')}
-              className="font-medium hover:text-green-400 transition-colors cursor-pointer"
-              title="View on njump.me"
-            >
-              {timeAgo}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ActivityImageGalleryItem({ event }: ActivityItemProps) {
   // Extract image data from NIP-68 imeta tags
@@ -1176,7 +1066,7 @@ function ActivityImageGalleryItem({ event }: ActivityItemProps) {
   }
 
   return (
-    <div 
+    <div
       className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800/50 cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg"
       onClick={() => window.open(createNjumpUrl(event), '_blank')}
       title="Click to view full image"
@@ -1211,18 +1101,18 @@ function ActivityArticleItem({ event }: ActivityItemProps) {
 
   return (
     <div className="group relative p-4 rounded-xl bg-gradient-to-br from-gray-800/60 to-gray-700/40 border border-gray-600/30 hover:from-gray-700/70 hover:to-gray-600/50 hover:border-gray-500/40 transition-all duration-200 shadow-sm hover:shadow-md">
-      
+
       <div className="space-y-3">
         <div>
           <h4 className="text-sm font-semibold text-white line-clamp-2 leading-tight group-hover:text-purple-200 transition-colors">{title}</h4>
         </div>
-        
+
         {displayContent && (
           <div className="border-l-2 border-purple-400/30 pl-3">
             <p className="text-xs text-gray-300 line-clamp-2 leading-relaxed">{displayContent}</p>
           </div>
         )}
-        
+
         {/* Timestamp - clickable */}
         <div className="flex items-center justify-end text-xs text-gray-400 pt-1">
           <button
