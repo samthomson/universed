@@ -9,6 +9,7 @@ import { Communities } from "./pages/Communities";
 import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
+import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
 
@@ -56,8 +57,8 @@ export function AppRouter() {
         {/* Space Routes - show /space/community-id when joining communities */}
         <Route path="/space/:communityId" element={<SpacesWrapper />} />
 
-        {/* Catch-all route for naddr and other patterns */}
-        <Route path="/:identifier" element={<Index />} />
+        {/* NIP-19 identifier routes - handle at root level */}
+        <Route path="/:nip19" element={<NIP19Page />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

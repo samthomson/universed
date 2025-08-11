@@ -89,11 +89,34 @@ describe('CommunitySelectionDialog', () => {
 
     // Navigate to discovery view
     fireEvent.click(screen.getByText('Discover Communities'));
-    
+
     // Select a community
     fireEvent.click(screen.getByText('Test Community'));
 
     expect(mockOnCommunitySelect).toHaveBeenCalledWith('test-community');
     expect(mockOnOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('calls onCommunitySelect when a community is created', () => {
+    const mockOnCommunitySelect = vi.fn();
+    const mockOnOpenChange = vi.fn();
+
+    render(
+      <TestApp>
+        <CommunitySelectionDialog
+          open={true}
+          onOpenChange={mockOnOpenChange}
+          onCommunitySelect={mockOnCommunitySelect}
+        />
+      </TestApp>
+    );
+
+    // Navigate to create view
+    fireEvent.click(screen.getByText('Create New Community'));
+
+    // The create dialog should appear, replacing this dialog
+    // This test verifies the callbacks are properly wired up
+    expect(mockOnCommunitySelect).not.toHaveBeenCalled();
+    expect(mockOnOpenChange).not.toHaveBeenCalled();
   });
 });

@@ -1,24 +1,29 @@
-import { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2, Plus } from "lucide-react";
+import { cn, communityIdToNaddr } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 
 interface CreateCommunityDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCommunityCreated?: (communityId: string) => void;
 }
 
-export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDialogProps) {
+export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }: CreateCommunityDialogProps) {
+  const [step, setStep] = useState<'welcome' | 'details' | 'create' | 'success'>('welcome');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -27,6 +32,7 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [createdCommunityId, setCreatedCommunityId] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useCurrentUser();
@@ -34,6 +40,21 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  // Reset state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setStep('welcome');
+      setFormData({ name: "", description: "", identifier: "", image: "" });
+      setImageFile(null);
+      setImagePreview("");
+      setCreatedCommunityId("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }, [open]);
 
   // Handle image file selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +99,12 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
   // Optimistic community creation mutation
   const createCommunityMutation = useMutation({
     mutationFn: async () => {
+      // Move to create step for animation
+      setStep('create');
+
+      // Add a dramatic pause for the creation effect
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       let imageUrl = formData.image;
 
       // Upload image if a file is selected
@@ -123,8 +150,11 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
       const previousCommunities = queryClient.getQueryData<Community[]>(['communities']);
 
       // Create optimistic community
+      const communityId = `34550:${user!.pubkey}:${formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")}`;
+      setCreatedCommunityId(communityId);
+
       const optimisticCommunity: Community = {
-        id: `34550:${user!.pubkey}:${formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")}`,
+        id: communityId,
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         creator: user!.pubkey,
@@ -168,14 +198,10 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
         description: "Community created successfully!",
       });
 
-      // Reset form
-      setFormData({ name: "", description: "", identifier: "", image: "" });
-      setImageFile(null);
-      setImagePreview("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      onOpenChange(false);
+      // Move to success step after creation animation
+      setTimeout(() => {
+        setStep('success');
+      }, 500);
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -199,113 +225,390 @@ export function CreateCommunityDialog({ open, onOpenChange }: CreateCommunityDia
     createCommunityMutation.mutate();
   };
 
+  const getTitle = () => {
+    if (step === 'welcome') return (
+      <span className="flex items-center justify-center gap-2">
+        <Plus className="w-5 h-5 text-primary" />
+        Create Your Community
+      </span>
+    );
+    if (step === 'details') return (
+      <span className="flex items-center justify-center gap-2">
+        <Settings className="w-5 h-5 text-primary" />
+        Community Details
+      </span>
+    );
+    if (step === 'create') return (
+      <span className="flex items-center justify-center gap-2">
+        <Wand2 className="w-5 h-5 text-primary" />
+        Creating Community
+      </span>
+    );
+    return (
+      <span className="flex items-center justify-center gap-2">
+        <Share className="w-5 h-5 text-primary" />
+        Community Ready!
+      </span>
+    );
+  };
+
+  const getDescription = () => {
+    if (step === 'welcome') return 'Start building your community space';
+    if (step === 'details') return 'Set up your community details';
+    if (step === 'create') return 'Creating your community...';
+    return 'Your community is ready to share!';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create a Community</DialogTitle>
+      <DialogContent
+        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col")}
+      >
+        <DialogHeader className={cn('px-6 pt-6 pb-1 relative flex-shrink-0')}>
+          <DialogTitle className={cn('font-semibold text-center text-lg')}>
+            {getTitle()}
+          </DialogTitle>
+          <DialogDescription className={cn(`text-muted-foreground text-center ${step === 'create' && 'hidden'}`)}>
+            {getDescription()}
+          </DialogDescription>
         </DialogHeader>
+        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll flex-1'>
+          {/* Welcome Step - Guided flow introduction */}
+          {step === 'welcome' && (
+            <div className='text-center space-y-6'>
+              {/* Hero illustration with community focus */}
+              <div className='relative p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50'>
+                <div className='flex flex-col items-center space-y-4'>
+                  {/* Central community icon */}
+                  <div className='relative'>
+                    <div className='w-20 h-20 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg'>
+                      <Users className='w-10 h-10 text-purple-800' />
+                    </div>
+                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-3 h-3 text-white' />
+                    </div>
+                  </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="community-icon">Community Icon</Label>
-            <div className="flex items-center gap-4">
-              <Avatar className="w-16 h-16">
-                <AvatarImage src={imagePreview || formData.image} />
-                <AvatarFallback className="text-lg">
-                  {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  {isUploading ? "Uploading..." : "Upload Icon"}
-                </Button>
-                {(imagePreview || formData.image) && (
+                  {/* Orbiting elements */}
+                  <div className='relative w-32 h-32'>
+                    <MessageSquare className='absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-purple-600 animate-pulse' />
+                    <Hash className='absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-pink-600 animate-pulse' style={{animationDelay: '0.5s'}} />
+                    <Settings className='absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-purple-700 animate-pulse' style={{animationDelay: '1s'}} />
+                    <Share className='absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-pink-700 animate-pulse' style={{animationDelay: '1.5s'}} />
+                  </div>
+                </div>
+              </div>
+
+              <div className='space-y-4'>
+                <div className='space-y-2'>
+                  <h3 className='text-xl font-semibold text-foreground'>
+                    Build Your Community Space
+                  </h3>
+                  <p className='text-muted-foreground px-4 leading-relaxed'>
+                    Create a dedicated space where your members can chat, share resources,
+                    and collaborate. Your community will have organized channels,
+                    moderation tools, and live on the decentralized Nostr network.
+                  </p>
+                </div>
+
+                <div className='space-y-3'>
+                  <Button
+                    className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                    onClick={() => setStep('details')}
+                  >
+                    <Plus className='w-5 h-5 mr-2' />
+                    Create Community
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Details Step - Community-focused form */}
+          {step === 'details' && (
+            <div className='text-center space-y-4'>
+              {/* Form illustration */}
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
+                {/* Sparkles */}
+                <div className='absolute inset-0 pointer-events-none'>
+                  <Sparkles className='absolute top-3 left-4 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
+                  <Sparkles className='absolute top-6 right-6 w-3 h-3 text-yellow-500 animate-pulse' style={{animationDelay: '0.5s'}} />
+                  <Sparkles className='absolute bottom-4 left-6 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '1s'}} />
+                </div>
+
+                <div className='relative z-10 flex justify-center items-center mb-3'>
+                  <div className='relative'>
+                    <div className='w-16 h-16 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg'>
+                      <Settings className='w-8 h-8 text-purple-800' />
+                    </div>
+                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-3 h-3 text-white' />
+                    </div>
+                  </div>
+                </div>
+
+                <div className='relative z-10 space-y-2'>
+                  <p className='text-base font-semibold'>
+                    Customize Your Community
+                  </p>
+                  <p className='text-sm text-muted-foreground'>
+                    Give your community an identity that members will recognize
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                <div className="space-y-2">
+                  <Label htmlFor="community-icon" className="text-sm font-medium">Community Icon</Label>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage src={imagePreview || formData.image} />
+                      <AvatarFallback className="text-lg">
+                        {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex items-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        {isUploading ? "Uploading..." : "Upload Icon"}
+                      </Button>
+                      {(imagePreview || formData.image) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={removeImage}
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Remove
+                        </Button>
+                      )}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a square image (recommended: 256x256px, max 5MB)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="name" className="text-sm font-medium">Community Name</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="My Awesome Community"
+                    required
+                    className="rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="identifier" className="text-sm font-medium">Identifier</Label>
+                  <Input
+                    id="identifier"
+                    value={formData.identifier}
+                    onChange={(e) => setFormData(prev => ({ ...prev, identifier: e.target.value }))}
+                    placeholder="my-awesome-community"
+                    pattern="[a-z0-9-]+"
+                    title="Only lowercase letters, numbers, and hyphens allowed"
+                    required
+                    className="rounded-lg"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used in URLs and must be unique. Only lowercase letters, numbers, and hyphens.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="text-sm font-medium">Description (optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="A place for awesome discussions..."
+                    rows={3}
+                    className="rounded-lg resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    onClick={removeImage}
-                    className="flex items-center gap-2"
+                    onClick={() => onOpenChange(false)}
+                    disabled={createCommunityMutation.isPending || isUploading}
+                    className="rounded-full"
                   >
-                    <X className="w-4 h-4" />
-                    Remove
+                    Cancel
                   </Button>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
+                  <Button
+                    type="submit"
+                    disabled={createCommunityMutation.isPending || isUploading}
+                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                  >
+                    {createCommunityMutation.isPending ? "Creating..." : isUploading ? "Uploading..." : "Create Community"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Create Step - Community creation animation */}
+          {step === 'create' && (
+            <div className='text-center space-y-4'>
+              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
+                {/* Animated background elements */}
+                <div className='absolute inset-0'>
+                  {[...Array(12)].map((_, i) => (
+                    <Sparkles
+                      key={i}
+                      className={`absolute w-4 h-4 text-yellow-400 animate-ping`}
+                      style={{
+                        left: `${Math.random() * 80 + 10}%`,
+                        top: `${Math.random() * 80 + 10}%`,
+                        animationDelay: `${Math.random() * 2}s`
+                      }}
+                    />
+                  ))}
+                </div>
+
+                <div className='relative z-10'>
+                  <div className='space-y-3'>
+                    <div className='relative'>
+                      <Users className='w-20 h-20 text-primary mx-auto animate-pulse' />
+                      <div className='absolute inset-0 flex items-center justify-center'>
+                        <div className='w-24 h-24 border-4 border-purple-600 border-t-transparent rounded-full animate-spin'></div>
+                      </div>
+                    </div>
+                    <div className='space-y-2'>
+                      <p className='text-lg font-semibold text-primary flex items-center justify-center gap-2'>
+                        <Wand2 className='w-5 h-5' />
+                        Creating your community...
+                      </p>
+                      <p className='text-sm text-muted-foreground'>
+                        Setting up your community space and channels
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Upload a square image (recommended: 256x256px, max 5MB)
-            </p>
-          </div>
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Community Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="My Awesome Community"
-              required
-            />
-          </div>
+          {/* Success Step - Share prompt */}
+          {step === 'success' && (
+            <div className='text-center space-y-6'>
+              {/* Success illustration */}
+              <div className='relative p-8 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/50 dark:to-emerald-950/50'>
+                <div className='flex flex-col items-center space-y-4'>
+                  {/* Success icon */}
+                  <div className='relative'>
+                    <div className='w-20 h-20 bg-gradient-to-br from-green-200 to-emerald-300 rounded-full flex items-center justify-center shadow-lg'>
+                      <Users className='w-10 h-10 text-green-800' />
+                    </div>
+                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-3 h-3 text-white' />
+                    </div>
+                  </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="identifier">Identifier</Label>
-            <Input
-              id="identifier"
-              value={formData.identifier}
-              onChange={(e) => setFormData(prev => ({ ...prev, identifier: e.target.value }))}
-              placeholder="my-awesome-community"
-              pattern="[a-z0-9-]+"
-              title="Only lowercase letters, numbers, and hyphens allowed"
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Used in URLs and must be unique. Only lowercase letters, numbers, and hyphens.
-            </p>
-          </div>
+                  <div className='space-y-2'>
+                    <h3 className='text-xl font-semibold text-green-800 dark:text-green-200'>
+                      Community Created Successfully!
+                    </h3>
+                    <p className='text-green-700 dark:text-green-300'>
+                      {formData.name} is ready for members
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (optional)</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="A place for awesome discussions..."
-              rows={3}
-            />
-          </div>
+              <div className='space-y-4'>
+                <p className='text-muted-foreground px-4'>
+                  Your community space is now live! Start by inviting members to join
+                  and begin conversations in your community channels.
+                </p>
 
-          <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={createCommunityMutation.isPending || isUploading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createCommunityMutation.isPending || isUploading}>
-              {createCommunityMutation.isPending ? "Creating..." : isUploading ? "Uploading..." : "Create Community"}
-            </Button>
-          </div>
-        </form>
+                <div className='space-y-3'>
+                  <Button
+                    className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // Navigate to the community using encoded naddr
+                      if (createdCommunityId) {
+                        // Notify parent that community was created and user wants to navigate to it
+                        onCommunityCreated?.(createdCommunityId);
+
+                        // Close dialog first
+                        onOpenChange(false);
+
+                        // Small delay to ensure dialog closes before navigation
+                        setTimeout(() => {
+                          try {
+                            const naddr = communityIdToNaddr(createdCommunityId);
+                            navigate(`/space/${naddr}`);
+                          } catch (error) {
+                            console.error('Failed to encode community ID:', error);
+                            // Fallback to unencoded format if encoding fails
+                            navigate(`/space/${createdCommunityId}`);
+                          }
+                        }, 100);
+                      }
+                    }}
+                  >
+                    <MessageSquare className='w-5 h-5 mr-2' />
+                    Go to Community
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className='w-full rounded-full py-4'
+                    onClick={(e) => {
+                      e.preventDefault();
+                      // Navigate to the community with share dialog open using encoded naddr
+                      if (createdCommunityId) {
+                        // Notify parent that community was created and user wants to navigate to it
+                        onCommunityCreated?.(createdCommunityId);
+
+                        // Close dialog first
+                        onOpenChange(false);
+
+                        // Small delay to ensure dialog closes before navigation
+                        setTimeout(() => {
+                          try {
+                            const naddr = communityIdToNaddr(createdCommunityId);
+                            navigate(`/space/${naddr}?share=true`);
+                          } catch (error) {
+                            console.error('Failed to encode community ID:', error);
+                            // Fallback to unencoded format if encoding fails
+                            navigate(`/space/${createdCommunityId}?share=true`);
+                          }
+                        }, 100);
+                      }
+                    }}
+                  >
+                    <Share className='w-4 h-4 mr-2' />
+                    Share Community
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

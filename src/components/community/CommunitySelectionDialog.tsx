@@ -46,12 +46,20 @@ export function CommunitySelectionDialog({
     }
   };
 
+  const handleCommunityCreated = (communityId: string) => {
+    // When a community is created, close this dialog entirely
+    onOpenChange(false);
+    // Also select the newly created community so the user can see it
+    onCommunitySelect?.(communityId);
+  };
+
   // If we're in create view, show the create dialog
   if (view === 'create') {
     return (
       <CreateCommunityDialog
         open={showCreateDialog}
         onOpenChange={handleCreateDialogClose}
+        onCommunityCreated={handleCommunityCreated}
       />
     );
   }
