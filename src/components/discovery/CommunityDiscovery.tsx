@@ -48,7 +48,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
     if (!user) {
       toast({
         title: "Login Required",
-        description: "You must be logged in to join a community.",
+        description: "You must be logged in to join a space.",
         variant: "destructive",
       });
       return;

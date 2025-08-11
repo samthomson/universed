@@ -271,17 +271,17 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         queryClient.setQueryData(['communities'], context.previousCommunities);
       }
 
-      console.error("Failed to create community:", err);
+      console.error("Failed to create space:", err);
       toast({
         title: "Error",
-        description: "Failed to create community. Please try again.",
+        description: "Failed to create space. Please try again.",
         variant: "destructive",
       });
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Community created successfully!",
+        description: "Space created successfully!",
       });
 
       // Move to success step after creation animation
@@ -302,7 +302,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
     if (!formData.name.trim()) {
       toast({
         title: "Error",
-        description: "Community name is required",
+        description: "Space name is required",
         variant: "destructive",
       });
       return;
@@ -315,13 +315,13 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
     if (step === 'welcome') return (
       <span className="flex items-center justify-center gap-2">
         <Plus className="w-5 h-5 text-primary" />
-        Create Your Community
+        Create Your Space
       </span>
     );
     if (step === 'details') return (
       <span className="flex items-center justify-center gap-2">
         <Settings className="w-5 h-5 text-primary" />
-        Community Details
+        Space Details
       </span>
     );
     if (step === 'quicksetup') return (
@@ -333,23 +333,23 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
     if (step === 'create') return (
       <span className="flex items-center justify-center gap-2">
         <Wand2 className="w-5 h-5 text-primary" />
-        Creating Community
+        Creating Space
       </span>
     );
     return (
       <span className="flex items-center justify-center gap-2">
         <Share className="w-5 h-5 text-primary" />
-        Community Ready!
+        Space Ready!
       </span>
     );
   };
 
   const getDescription = () => {
-    if (step === 'welcome') return 'Start building your community space';
-    if (step === 'details') return 'Set up your community details';
+    if (step === 'welcome') return 'Start building your space';
+    if (step === 'details') return 'Set up your space details';
     if (step === 'quicksetup') return 'Configure moderation and team settings';
-    if (step === 'create') return 'Creating your community...';
-    return 'Your community is ready to share!';
+    if (step === 'create') return 'Creating your space...';
+    return 'Your space is ready to share!';
   };
 
   return (
@@ -401,11 +401,11 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
               <div className='space-y-4'>
                 <div className='space-y-2'>
                   <h3 className='text-3xl font-bold text-white'>
-                    CREATE YOUR COMMUNITY
+                    CREATE YOUR SPACE
                   </h3>
                   <p className='text-purple-200 px-4 leading-relaxed text-lg'>
                     Build a dedicated space where your members can chat, share resources,
-                    and collaborate. Your community will have organized channels,
+                    and collaborate. Your space will have organized channels,
                     moderation tools, and live on the decentralized Nostr network.
                   </p>
                 </div>
@@ -416,7 +416,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     onClick={() => setStep('details')}
                   >
                     <Plus className='w-5 h-5 mr-2' />
-                    Create Community
+                    Create Space
                   </Button>
                 </div>
               </div>
@@ -448,10 +448,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                 <div className='relative z-10 space-y-2'>
                   <p className='text-2xl font-bold text-white'>
-                    CUSTOMIZE YOUR COMMUNITY
+                    CUSTOMIZE YOUR SPACE
                   </p>
                   <p className='text-purple-200'>
-                    Give your community an identity that members will recognize
+                    Give your space an identity that members will recognize
                   </p>
                 </div>
               </div>
@@ -461,7 +461,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 setStep('quicksetup');
               }} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <Label htmlFor="community-icon" className="text-sm font-medium text-purple-200">Community Icon</Label>
+                  <Label htmlFor="community-icon" className="text-sm font-medium text-purple-200">Space Icon</Label>
                   <div className="flex items-center gap-4">
                     <Avatar className="w-16 h-16">
                       <AvatarImage src={imagePreview || formData.image} />
@@ -508,12 +508,12 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium text-purple-200">Community Name</Label>
+                  <Label htmlFor="name" className="text-sm font-medium text-purple-200">Space Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="My Awesome Community"
+                    placeholder="My Awesome Space"
                     required
                     className="rounded-lg bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
                   />
@@ -599,10 +599,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     <div className='space-y-2'>
                       <p className='text-lg font-semibold text-primary flex items-center justify-center gap-2'>
                         <Wand2 className='w-5 h-5' />
-                        Creating your community...
+                        Creating your space...
                       </p>
                       <p className='text-sm text-muted-foreground'>
-                        Setting up your community space and channels
+                        Setting up your space and channels
                       </p>
                     </div>
                   </div>
@@ -629,7 +629,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                   <div className='space-y-2'>
                     <h3 className='text-2xl font-bold text-white'>
-                      Community Created Successfully!
+                      Space Created Successfully!
                     </h3>
                     <p className='text-indigo-200'>
                       {formData.name} is ready for members
@@ -640,8 +640,8 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
               <div className='space-y-4'>
                 <p className='text-indigo-200 px-4'>
-                  Your community space is now live! Start by inviting members to join
-                  and begin conversations in your community channels.
+                  Your space is now live! Start by inviting members to join
+                  and begin conversations in your space's channels.
                 </p>
 
                 <div className='space-y-3'>
@@ -672,7 +672,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     }}
                   >
                     <MessageSquare className='w-5 h-5 mr-2' />
-                    Go to Community
+                    Go to Space
                   </Button>
 
                   <Button
@@ -703,7 +703,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     }}
                   >
                     <Share className='w-4 h-4 mr-2' />
-                    Share Community
+                    Share Space
                   </Button>
                 </div>
               </div>
