@@ -1,4 +1,5 @@
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { logger } from "@/lib/logger";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { BaseMessageList } from "./BaseMessageList";
@@ -118,6 +119,16 @@ export function BaseChatArea({
     });
   };
 
+  // Memoize messageItemProps to prevent unnecessary re-renders
+  const messageItemProps = useMemo(() => ({
+    config: messageItemConfig,
+    onNavigateToDMs,
+    onReply,
+    onPin,
+    onDelete,
+    onBan,
+  }), [messageItemConfig, onNavigateToDMs, onReply, onPin, onDelete, onBan]);
+
   return (
     <div className="flex flex-col h-full">
       {header}
@@ -129,14 +140,7 @@ export function BaseChatArea({
           config={messageListConfig}
           communityId={communityId}
           channelId={channelId}
-          messageItemProps={{
-            config: messageItemConfig,
-            onNavigateToDMs,
-            onReply,
-            onPin,
-            onDelete,
-            onBan,
-          }}
+          messageItemProps={messageItemProps}
         />
 
         {additionalContent}
