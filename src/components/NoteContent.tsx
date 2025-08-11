@@ -157,7 +157,7 @@ export function NoteContent({
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline"
+                    className="text-blue-500 hover:underline break-all"
                     {...props}
                   >
                     {children}
@@ -165,7 +165,7 @@ export function NoteContent({
                 );
               }
               return (
-                <Link to={href || '#'} className="text-blue-500 hover:underline" {...props}>
+                <Link to={href || '#'} className="text-blue-500 hover:underline break-all" {...props}>
                   {children}
                 </Link>
               );
@@ -190,84 +190,90 @@ export function NoteContent({
             },
             // Custom code component for inline code
             code: ({ children, ...props }) => (
-              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>
+              <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono break-all" {...props}>
                 {children}
               </code>
             ),
             // Custom pre component for code blocks
             pre: ({ children, ...props }) => (
-              <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-1" {...props}>
+              <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-1 whitespace-pre-wrap break-words max-w-full" {...props}>
                 {children}
               </pre>
             ),
             // Custom blockquote component
             blockquote: ({ children, ...props }) => (
-              <blockquote className="border-l-4 border-muted-foreground/30 pl-4 my-1 italic" {...props}>
+              <blockquote className="border-l-4 border-muted-foreground/30 pl-4 my-1 italic break-words" {...props}>
                 {children}
               </blockquote>
             ),
+            // Custom paragraph component
+            p: ({ children, ...props }) => (
+              <p className="break-words" {...props}>
+                {children}
+              </p>
+            ),
             // Custom heading components
             h1: ({ children, ...props }) => (
-              <h1 className="text-2xl font-bold mt-2 mb-1" {...props}>
+              <h1 className="text-2xl font-bold mt-2 mb-1 break-words" {...props}>
                 {children}
               </h1>
             ),
             h2: ({ children, ...props }) => (
-              <h2 className="text-xl font-semibold mt-2 mb-1" {...props}>
+              <h2 className="text-xl font-semibold mt-2 mb-1 break-words" {...props}>
                 {children}
               </h2>
             ),
             h3: ({ children, ...props }) => (
-              <h3 className="text-lg font-medium mt-2 mb-1" {...props}>
+              <h3 className="text-lg font-medium mt-2 mb-1 break-words" {...props}>
                 {children}
               </h3>
             ),
             h4: ({ children, ...props }) => (
-              <h4 className="text-base font-medium mt-1 mb-1" {...props}>
+              <h4 className="text-base font-medium mt-1 mb-1 break-words" {...props}>
                 {children}
               </h4>
             ),
             h5: ({ children, ...props }) => (
-              <h5 className="text-sm font-medium mt-1 mb-1" {...props}>
+              <h5 className="text-sm font-medium mt-1 mb-1 break-words" {...props}>
                 {children}
               </h5>
             ),
             h6: ({ children, ...props }) => (
-              <h6 className="text-sm font-medium mt-1 mb-0.5" {...props}>
+              <h6 className="text-sm font-medium mt-1 mb-0.5 break-words" {...props}>
                 {children}
               </h6>
             ),
             // Custom list components
             ul: ({ children, ...props }) => (
-              <ul className="list-disc list-inside space-y-0.5 my-0.5 pl-2" {...props}>
+              <ul className="list-disc list-inside space-y-0.5 my-0.5 pl-2 break-words" {...props}>
                 {children}
               </ul>
             ),
             ol: ({ children, ...props }) => (
-              <ol className="list-decimal list-inside space-y-0.5 my-0.5 pl-4" {...props}>
+              <ol className="list-decimal list-inside space-y-0.5 my-0.5 pl-4 break-words" {...props}>
                 {children}
               </ol>
             ),
             li: ({ children, ...props }) => (
-              <li className="pl-1" {...props}>
+              <li className="pl-1 break-words" {...props}>
                 {children}
               </li>
             ),
             // Custom table components
             table: ({ children, ...props }) => (
-              <div className="overflow-x-auto my-1">
+              <div className="overflow-x-auto my-1 max-w-full">
                 <table className="min-w-full border-collapse border border-border" {...props}>
                   {children}
                 </table>
               </div>
             ),
             th: ({ children, ...props }) => (
-              <th className="border border-border px-3 py-2 bg-muted font-semibold text-left" {...props}>
+              <th className="border border-border px-3 py-2 bg-muted font-semibold text-left break-words max-w-xs" {...props}>
                 {children}
               </th>
             ),
             td: ({ children, ...props }) => (
-              <td className="border border-border px-3 py-2" {...props}>
+              <td className="border border-border px-3 py-2 break-words max-w-xs" {...props}>
                 {children}
               </td>
             ),
@@ -426,10 +432,10 @@ export function NoteContent({
   }, [event.content, mediaAttachments, hasMarkdown]);
 
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("space-y-1 force-wrap", className)}>
       {/* Text content */}
       {(content || event.content) && (
-        <div className="whitespace-pre-wrap break-words">
+        <div className="whitespace-pre-wrap break-all-words">
           {content || event.content}
         </div>
       )}
