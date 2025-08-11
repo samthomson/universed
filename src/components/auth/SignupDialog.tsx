@@ -324,7 +324,7 @@ const SignupDialog: React.FC<SignupDialogProps> = ({ isOpen, onClose, onComplete
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
-        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll flex-1'>
+        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll scrollbar-thin flex-1'>
           {/* Welcome Step - New engaging introduction */}
           {step === 'welcome' && (
             <div className='text-center space-y-4'>
