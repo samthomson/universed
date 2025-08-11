@@ -97,7 +97,12 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
               
               {/* Welcome to Universes Section */}
               <div className="text-center mb-16">
-                <div className="text-8xl mb-6">🌌</div>
+                <img 
+                  src="/universes-logo.png" 
+                  alt="Universes Logo"
+                  className="w-24 h-24 mx-auto mb-6"
+                  style={{ filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.5))' }}
+                />
                 <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
                   Welcome to Universes
                 </h2>
