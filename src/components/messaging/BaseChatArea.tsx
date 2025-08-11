@@ -39,6 +39,9 @@ interface BaseChatAreaProps {
   additionalContent?: React.ReactNode;
   communityId?: string;
   channelId?: string;
+  hasMoreMessages?: boolean;
+  loadingOlderMessages?: boolean;
+  onLoadOlderMessages?: () => Promise<void>;
 }
 
 export function BaseChatArea({
@@ -59,6 +62,9 @@ export function BaseChatArea({
   additionalContent,
   communityId,
   channelId,
+  hasMoreMessages = false,
+  loadingOlderMessages = false,
+  onLoadOlderMessages,
 }: BaseChatAreaProps) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -141,6 +147,9 @@ export function BaseChatArea({
           communityId={communityId}
           channelId={channelId}
           messageItemProps={messageItemProps}
+          hasMore={hasMoreMessages}
+          loadingOlder={loadingOlderMessages}
+          loadOlderMessages={onLoadOlderMessages}
         />
 
         {additionalContent}

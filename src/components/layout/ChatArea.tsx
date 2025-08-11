@@ -158,7 +158,13 @@ function CommunityChat(
     & { communityId: string; channelId: string },
 ) {
   const { data: channels } = useChannels(communityId);
-  const { data: messages, isLoading } = useMessages(communityId, channelId);
+  const { 
+    data: messages, 
+    isLoading, 
+    hasMoreMessages, 
+    loadingOlderMessages, 
+    loadOlderMessages 
+  } = useMessages(communityId, channelId);
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
@@ -305,6 +311,9 @@ function CommunityChat(
         communityId={communityId}
         channelId={channelId}
         additionalContent={additionalContent}
+        hasMoreMessages={hasMoreMessages}
+        loadingOlderMessages={loadingOlderMessages}
+        onLoadOlderMessages={loadOlderMessages}
       />
 
       {threadRootMessage && (

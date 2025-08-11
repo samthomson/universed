@@ -1,9 +1,11 @@
-import { useMemo } from "react";
-import { Virtuoso } from "react-virtuoso";
+import { useRef } from "react";
+import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
 import { PinnedMessages } from "@/components/chat/PinnedMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronUp } from "lucide-react";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface BaseMessageListProps {
@@ -11,7 +13,8 @@ interface BaseMessageListProps {
   pinnedMessageIds?: string[];
   isLoading: boolean;
   hasMore?: boolean;
-  loadMore?: () => void;
+  loadingOlder?: boolean;
+  loadOlderMessages?: () => Promise<void>;
   config: {
     showPinnedMessages: boolean;
     showAvatars: boolean;
@@ -25,14 +28,16 @@ export function BaseMessageList({
   messages,
   pinnedMessageIds = [],
   isLoading,
+  hasMore = false,
+  loadingOlder = false,
+  loadOlderMessages,
   config,
   messageItemProps,
   communityId,
   channelId,
 }: BaseMessageListProps) {
-  const regularMessages = useMemo(() => {
-    return messages.filter((message) => !pinnedMessageIds.includes(message.id));
-  }, [messages, pinnedMessageIds]);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
 
   if (isLoading && messages.length === 0) {
     return (
@@ -68,7 +73,7 @@ export function BaseMessageList({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0">      
       {config.showPinnedMessages && communityId && channelId && (
         <PinnedMessages
           communityId={communityId}
@@ -77,9 +82,12 @@ export function BaseMessageList({
         />
       )}
       <Virtuoso
-        className={`flex-1 px-4 channel-scroll scrollbar-thin`}
-        style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}
+        ref={virtuosoRef}
+        className="flex-1 px-4 scrollbar-thin"
         data={regularMessages}
+        alignToBottom={true}
+        overscan={200}
+        totalCount={regularMessages.length}
         itemContent={(index, message) => {
           const previousMessage = index > 0 ? regularMessages[index - 1] : null;
 
@@ -91,7 +99,7 @@ export function BaseMessageList({
           );
 
           return (
-            <div className="message-item w-full max-w-full overflow-hidden">
+            <div className="message-item w-full max-w-full overflow-hidden py-0.5">
               <BaseMessageItem
                 message={message}
                 showAvatar={showAvatar}
@@ -102,8 +110,23 @@ export function BaseMessageList({
             </div>
           );
         }}
-        followOutput="smooth"
-        initialTopMostItemIndex={regularMessages.length - 1}
+        computeItemKey={(index, message) => message.id}
+        components={{
+          Header: hasMore ? () => (
+            <div className="py-2 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadOlderMessages?.()}
+                disabled={loadingOlder}
+                className="flex items-center gap-1"
+              >
+                <ChevronUp className="h-4 w-4" />
+                {loadingOlder ? 'Loading...' : 'Load older messages'}
+              </Button>
+            </div>
+          ) : undefined,
+        }}
       />
     </div>
   );
