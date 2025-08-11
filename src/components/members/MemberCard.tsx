@@ -268,10 +268,8 @@ export function MemberCard({
 
               {/* About section (truncated) */}
               {about && (
-                <p className="text-xs text-gray-300 leading-relaxed overflow-hidden">
-                  <span className="block h-8 overflow-hidden">
-                    {about.length > 80 ? `${about.slice(0, 80)}...` : about}
-                  </span>
+                <p className="text-xs text-gray-300 leading-relaxed line-clamp-2 overflow-hidden">
+                  {about}
                 </p>
               )}
 
