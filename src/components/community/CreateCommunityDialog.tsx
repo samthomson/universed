@@ -12,9 +12,11 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2, Plus } from "lucide-react";
+import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2, Plus, Shield } from "lucide-react";
 import { cn, communityIdToNaddr } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
+import { QuickSetupStep } from "./QuickSetupStep";
+
 
 interface CreateCommunityDialogProps {
   open: boolean;
@@ -23,7 +25,7 @@ interface CreateCommunityDialogProps {
 }
 
 export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }: CreateCommunityDialogProps) {
-  const [step, setStep] = useState<'welcome' | 'details' | 'create' | 'success'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'details' | 'quicksetup' | 'create' | 'success'>('welcome');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -33,6 +35,9 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [createdCommunityId, setCreatedCommunityId] = useState<string>("");
+  const [selectedModerators, setSelectedModerators] = useState<string[]>([]);
+  const [requireApproval, setRequireApproval] = useState<boolean>(false);
+  const [preApprovedUsers, setPreApprovedUsers] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { user } = useCurrentUser();
@@ -50,6 +55,9 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
       setImageFile(null);
       setImagePreview("");
       setCreatedCommunityId("");
+      setSelectedModerators([]);
+      setRequireApproval(false);
+      setPreApprovedUsers([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -118,29 +126,107 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         }
       }
 
-      const tags = [
-        ["d", formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "")],
+      const communityIdentifier = formData.identifier.toLowerCase().replace(/[^a-z0-9-]/g, "");
+
+      // Create community definition event
+      const communityTags = [
+        ["d", communityIdentifier],
         ["name", formData.name.trim()],
       ];
 
       if (formData.description.trim()) {
-        tags.push(["description", formData.description.trim()]);
+        communityTags.push(["description", formData.description.trim()]);
       }
 
       if (imageUrl) {
-        tags.push(["image", imageUrl]);
+        communityTags.push(["image", imageUrl]);
       }
 
       // Add creator as moderator
-      tags.push(["p", user!.pubkey, "", "moderator"]);
+      communityTags.push(["p", user!.pubkey, "", "moderator"]);
 
-      const event = await createEvent({
-        kind: 34550,
-        content: "",
-        tags,
+      // Add selected moderators
+      selectedModerators.forEach(moderatorPubkey => {
+        communityTags.push(["p", moderatorPubkey, "", "moderator"]);
       });
 
-      return event;
+      const communityEvent = await createEvent({
+        kind: 34550,
+        content: "",
+        tags: communityTags,
+      });
+
+      // Create simplified community settings event
+      const settingsTags = [
+        ["d", `34550:${user!.pubkey}:${communityIdentifier}`],
+        ["require_approval", requireApproval.toString()],
+        ["allow_anonymous", "true"],
+        ["moderation_policy", "moderate"],
+        ["max_post_length", "280"],
+        ["auto_moderation", JSON.stringify({
+          enabled: false,
+          spamDetection: true,
+          profanityFilter: false,
+          linkValidation: true,
+        })],
+        ["notifications", JSON.stringify({
+          newMembers: true,
+          newPosts: false,
+          reports: true,
+          mentions: true,
+        })],
+      ];
+
+      await createEvent({
+        kind: 34552,
+        content: "",
+        tags: settingsTags,
+      });
+
+      // Create approved members list if approval is required
+      if (requireApproval && preApprovedUsers.length > 0) {
+        const approvedMembersTags = [
+          ["d", `34550:${user!.pubkey}:${communityIdentifier}`],
+          ["t", "approved-members"],
+        ];
+
+        // Add pre-approved users
+        preApprovedUsers.forEach(userPubkey => {
+          approvedMembersTags.push(["p", userPubkey]);
+        });
+
+        await createEvent({
+          kind: 34551,
+          content: "",
+          tags: approvedMembersTags,
+        });
+      }
+
+      // Create default general channel
+      const channelName = 'general';
+      const channelTags = [
+        ["d", `34550:${user!.pubkey}:${communityIdentifier}:${channelName}`],
+        ["a", `34550:${user!.pubkey}:${communityIdentifier}`],
+        ["name", channelName],
+        ["description", "General discussion"],
+        ["channel_type", "text"],
+        ["position", "0"],
+        ["t", "channel"],
+        ["alt", `Channel: ${channelName}`],
+      ];
+
+      await createEvent({
+        kind: 32807,
+        content: JSON.stringify({
+          name: channelName,
+          description: "General discussion",
+          type: "text",
+          position: 0,
+        }),
+        tags: channelTags,
+      });
+
+      return communityEvent;
     },
     onMutate: async () => {
       // Cancel any outgoing refetches
@@ -238,6 +324,12 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         Community Details
       </span>
     );
+    if (step === 'quicksetup') return (
+      <span className="flex items-center justify-center gap-2">
+        <Shield className="w-5 h-5 text-primary" />
+        Quick Setup
+      </span>
+    );
     if (step === 'create') return (
       <span className="flex items-center justify-center gap-2">
         <Wand2 className="w-5 h-5 text-primary" />
@@ -255,6 +347,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   const getDescription = () => {
     if (step === 'welcome') return 'Start building your community space';
     if (step === 'details') return 'Set up your community details';
+    if (step === 'quicksetup') return 'Configure moderation and team settings';
     if (step === 'create') return 'Creating your community...';
     return 'Your community is ready to share!';
   };
@@ -262,7 +355,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col")}
+        className={cn("max-w-[95vw] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col")}
       >
         <DialogHeader className={cn('px-6 pt-6 pb-1 relative flex-shrink-0')}>
           <DialogTitle className={cn('font-semibold text-center text-lg')}>
@@ -357,7 +450,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4 text-left">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                setStep('quicksetup');
+              }} className="space-y-4 text-left">
                 <div className="space-y-2">
                   <Label htmlFor="community-icon" className="text-sm font-medium">Community Icon</Label>
                   <div className="flex items-center gap-4">
@@ -461,11 +557,25 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     disabled={createCommunityMutation.isPending || isUploading}
                     className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                   >
-                    {createCommunityMutation.isPending ? "Creating..." : isUploading ? "Uploading..." : "Create Community"}
+                    Continue to Setup
                   </Button>
                 </div>
               </form>
             </div>
+          )}
+
+          {/* Quick Setup Step */}
+          {step === 'quicksetup' && (
+            <QuickSetupStep
+              selectedModerators={selectedModerators}
+              onModeratorsChange={setSelectedModerators}
+              requireApproval={requireApproval}
+              onRequireApprovalChange={setRequireApproval}
+              preApprovedUsers={preApprovedUsers}
+              onPreApprovedUsersChange={setPreApprovedUsers}
+              onCreateCommunity={() => handleSubmit(new Event('submit') as unknown as React.FormEvent)}
+              onPrevious={() => setStep('details')}
+            />
           )}
 
           {/* Create Step - Community creation animation */}

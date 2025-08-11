@@ -164,7 +164,7 @@ describe('CreateCommunityDialog', () => {
     fireEvent.change(identifierInput, { target: { value: 'test-community' } });
 
     // Submit the form
-    fireEvent.click(screen.getByRole('button', { name: /Create Community$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Continue to Setup$/i }));
 
     // Wait a bit for the async operations to complete
     await new Promise(resolve => setTimeout(resolve, 100));
