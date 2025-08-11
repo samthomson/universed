@@ -145,8 +145,6 @@ export function useUserMentions(
           const query = newText.slice(lastAtIndex + 1, cursorPosition);
           setCurrentMention({ query, startIndex: lastAtIndex });
 
-          
-
           return;
         }
       }
