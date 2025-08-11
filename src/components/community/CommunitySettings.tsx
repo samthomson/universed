@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Settings, Users, Shield, BarChart3, FileText, Trash2, Crown, Clock, AlertTriangle, Share2, Upload, X, Menu } from "lucide-react";
+import { Settings, Upload, X, Share2, Trash2, Clock, Users, Shield, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -8,41 +8,31 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useCommunities, type Community } from "@/hooks/useCommunities";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useCommunityMembers } from "@/hooks/useCommunityMembers";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
-import { useModerationLogs, useModerationStats } from "@/hooks/useModerationLogs";
+import { useModerationLogs } from "@/hooks/useModerationLogs";
 import { useReports } from "@/hooks/useReporting";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import { useManageMembers } from "@/hooks/useManageMembers";
 import { useCommunitySettings, useUpdateCommunitySettings } from "@/hooks/useCommunitySettings";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from 'nostr-tools';
-import { Copy, Check, QrCode, Download } from 'lucide-react';
+import { Copy, Check, QrCode, Download, Crown, AlertTriangle } from 'lucide-react';
 import QRCode from 'qrcode';
 
 interface CommunitySettingsProps {
@@ -54,9 +44,7 @@ interface CommunitySettingsProps {
 export function CommunitySettings({ communityId, open, onOpenChange }: CommunitySettingsProps) {
   const { data: communities } = useCommunities();
   const { user } = useCurrentUser();
-  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState("overview");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -79,20 +67,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   // Real data hooks
   const { data: members } = useCommunityMembers(communityId);
-  const { data: joinRequests, isRefetching: isRefetchingRequests } = useJoinRequests(communityId);
+  const { data: joinRequests } = useJoinRequests(communityId);
   const { data: moderationLogs } = useModerationLogs(communityId || '');
-  const moderationStats = useModerationStats(communityId || '');
   const { data: reports } = useReports(communityId);
 
   const community = communities?.find(c => c.id === communityId);
 
-
-
-
-
   // Calculate analytics from real data
   const totalMembers = members?.length || 0;
-  const onlineMembers = members?.filter(m => m.isOnline).length || 0;
   const pendingRequests = joinRequests?.length || 0;
   const totalReports = reports?.length || 0;
 
@@ -106,23 +88,6 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       });
     }
   }, [community]);
-
-  // Auto-switch to members tab when there are pending join requests, but only on initial open
-  const hasAutoSwitched = useRef(false);
-
-  useEffect(() => {
-    if (open && pendingRequests > 0 && activeTab === "overview" && !hasAutoSwitched.current) {
-      setActiveTab("members");
-      hasAutoSwitched.current = true;
-    }
-  }, [open, pendingRequests, activeTab]);
-
-  // Reset auto-switch flag when dialog closes
-  useEffect(() => {
-    if (!open) {
-      hasAutoSwitched.current = false;
-    }
-  }, [open]);
 
   if (!community) {
     return null;
@@ -361,123 +326,101 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     );
   }
 
-  // Tab configuration for mobile menu
-  const tabs = [
-    { value: "overview", label: "Overview", icon: Settings },
-    { value: "sharing", label: "Sharing", icon: Share2 },
-    { value: "moderation", label: "Moderation", icon: Shield },
-    { value: "members", label: "Members", icon: Users, showBadge: pendingRequests > 0, badgeCount: pendingRequests },
-    { value: "analytics", label: "Analytics", icon: BarChart3 },
-    { value: "audit", label: "Audit Log", icon: FileText },
-  ];
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    setMobileMenuOpen(false); // Close mobile menu when tab is selected
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-950 via-blue-950/30 to-gray-950 border-blue-900/30 backdrop-blur-xl shadow-2xl shadow-blue-900/10 rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
+          <DialogTitle className="text-xl font-semibold text-white flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-blue-600/20 to-blue-800/20 rounded-full border border-blue-700/30">
+              <Settings className="w-5 h-5 text-blue-400" />
+            </div>
             {community.name} Settings
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          {/* Desktop Tab Navigation */}
-          {!isMobile && (
-            <TabsList className="grid w-full grid-cols-6">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-1 relative">
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                    {tab.showBadge && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center rounded-full"
-                      >
-                        {tab.badgeCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          )}
-
-          {/* Mobile Tab Navigation */}
-          {isMobile && (
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                  <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Menu className="w-4 h-4" />
-                      Menu
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="w-72">
-                    <SheetHeader>
-                      <SheetTitle>Settings Menu</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-6 space-y-2">
-                      {tabs.map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.value;
-                        return (
-                          <Button
-                            key={tab.value}
-                            variant={isActive ? "default" : "ghost"}
-                            className="w-full justify-start gap-3 relative"
-                            onClick={() => handleTabChange(tab.value)}
-                          >
-                            <Icon className="w-4 h-4" />
-                            {tab.label}
-                            {tab.showBadge && (
-                              <Badge
-                                variant="destructive"
-                                className="absolute right-2 h-5 w-5 p-0 text-xs flex items-center justify-center rounded-full"
-                              >
-                                {tab.badgeCount}
-                              </Badge>
-                            )}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </SheetContent>
-                </Sheet>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="h-14 grid w-full grid-cols-3 bg-gray-900/50 border border-blue-900/20 p-1 backdrop-blur-sm rounded-full">
+            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+                <Settings className="w-4 h-4 text-blue-400" />
               </div>
-              <div className="text-sm font-medium text-muted-foreground">
-                {tabs.find(tab => tab.value === activeTab)?.label}
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="members" className="flex items-center gap-2 relative data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+                <Users className="w-4 h-4 text-blue-400" />
               </div>
-            </div>
-          )}
+              Members
+              {pendingRequests > 0 && (
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-600/80 border-red-500/50 backdrop-blur-sm">
+                  {pendingRequests}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="audit" className="flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+                <FileText className="w-4 h-4 text-blue-400" />
+              </div>
+              Audit
+            </TabsTrigger>
+          </TabsList>
 
-          <ScrollArea className="h-[70vh] mt-4">
-            <TabsContent value="overview" className="space-y-6">
-              <Card>
+          <ScrollArea className="h-[60vh] mt-4">
+            <TabsContent value="overview" className="space-y-4">
+              {/* Community Overview */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle>Community Information</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
+                      <Settings className="w-4 h-4 text-blue-400" />
+                    </div>
+                    Community Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-600/10 to-blue-800/10 rounded-2xl border border-blue-700/20 backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-blue-300">{totalMembers}</div>
+                      <div className="text-sm text-blue-200/70">Total Members</div>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-amber-600/10 to-amber-800/10 rounded-2xl border border-amber-700/20 backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-amber-300">{pendingRequests}</div>
+                      <div className="text-sm text-amber-200/70">Pending Requests</div>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-red-600/10 to-red-800/10 rounded-2xl border border-red-700/20 backdrop-blur-sm">
+                      <div className="text-2xl font-bold text-red-300">{totalReports}</div>
+                      <div className="text-sm text-red-200/70">Reports</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Community Information */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
+                      <Settings className="w-4 h-4 text-blue-400" />
+                    </div>
+                    Community Information
+                  </CardTitle>
+                  <CardDescription className="text-blue-200/60">
                     Basic settings for your community
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
+                  {/* Community Icon */}
                   <div className="space-y-2">
-                    <Label htmlFor="community-icon">Community Icon</Label>
+                    <Label className="text-blue-200/80">Community Icon</Label>
                     <div className="flex items-center gap-4">
-                      <Avatar className="w-16 h-16">
-                        <AvatarImage src={imagePreview || formData.image || community.image} />
-                        <AvatarFallback className="text-lg">
-                          {community.name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className="w-16 h-16 ring-2 ring-blue-600/30 shadow-lg shadow-blue-600/10 rounded-full">
+                          <AvatarImage src={imagePreview || formData.image || community.image} />
+                          <AvatarFallback className="text-lg bg-gradient-to-br from-blue-600 to-blue-800 rounded-full">
+                            {community.name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
                       <div className="flex flex-col gap-2">
                         <Button
                           type="button"
@@ -485,7 +428,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                           size="sm"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading || !isAdmin}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
                         >
                           <Upload className="w-4 h-4" />
                           {isUploading ? "Uploading..." : "Upload Icon"}
@@ -496,7 +439,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                             variant="outline"
                             size="sm"
                             onClick={removeImage}
-                            className="flex items-center gap-2"
+                            className="flex items-center gap-2 border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
                           >
                             <X className="w-4 h-4" />
                             Remove
@@ -511,38 +454,43 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-blue-200/50">
                       Upload a square image (recommended: 256x256px, max 5MB). Only admins can change the community icon.
                     </p>
                   </div>
+
+                  {/* Community Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="community-name">Community Name</Label>
+                    <Label htmlFor="community-name" className="text-blue-200/80">Community Name</Label>
                     <Input
                       id="community-name"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       disabled={!isAdmin}
+                      className="bg-gray-900/60 border-blue-900/30 text-blue-100 placeholder-blue-200/30 focus:border-blue-600/50 rounded-full"
                     />
                   </div>
+
+                  {/* Description */}
                   <div className="space-y-2">
-                    <Label htmlFor="community-description">Description</Label>
+                    <Label htmlFor="community-description" className="text-blue-200/80">Description</Label>
                     <Textarea
                       id="community-description"
                       placeholder="Describe your community..."
                       value={formData.description}
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       disabled={!isAdmin}
+                      rows={3}
+                      className="bg-gray-900/60 border-blue-900/30 text-blue-100 placeholder-blue-200/30 focus:border-blue-600/50 rounded-2xl"
                     />
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="public-community" />
-                    <Label htmlFor="public-community">Public Community</Label>
-                  </div>
-                  <div className="flex items-center justify-between">
+
+                  {/* Approval Setting */}
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-blue-600/5 to-blue-800/5 rounded-2xl border border-blue-700/20 backdrop-blur-sm">
                     <div className="space-y-1">
-                      <Label htmlFor="require-approval">Require approval to join</Label>
-                      <p className="text-sm text-muted-foreground">
-                        When enabled, only approved members can post messages in the community
+                      <Label htmlFor="require-approval" className="text-blue-200/80">Require approval to join</Label>
+                      <p className="text-sm text-blue-200/60">
+                        When enabled, new members need approval to join
                       </p>
                     </div>
                     <Switch
@@ -552,86 +500,122 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       disabled={!isAdmin}
                     />
                   </div>
-                </CardContent>
-              </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-red-600">Danger Zone</CardTitle>
-                  <CardDescription>
-                    Irreversible actions for this community
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="flex items-center gap-2">
-                        <Trash2 className="w-4 h-4" />
-                        Delete Community
+                  {/* Save Button */}
+                  {isAdmin && (
+                    <div className="pt-4">
+                      <Button
+                        onClick={handleSaveChanges}
+                        disabled={isUploading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-xl shadow-blue-600/20 border border-blue-600/30 rounded-full"
+                      >
+                        {isUploading ? "Saving..." : "Save Changes"}
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will permanently delete the community
-                          and remove all associated data.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-red-600 hover:bg-red-700"
-                          onClick={handleDeleteCommunity}
-                        >
-                          Delete Community
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            <TabsContent value="sharing" className="space-y-6">
-              <CommunityShareContent community={community} />
-            </TabsContent>
-
-            <TabsContent value="moderation" className="space-y-6">
-              <Card>
+              {/* Sharing Section */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle>Moderation Queue</CardTitle>
-                  <CardDescription>
-                    Review flagged content and user reports ({totalReports} pending)
-                  </CardDescription>
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
+                      <Share2 className="w-4 h-4 text-blue-400" />
+                    </div>
+                    Share Community
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {reports && reports.length > 0 ? (
-                      reports.slice(0, 5).map((report) => (
-                        <ReportItem key={report.id} report={report} />
-                      ))
-                    ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p>No pending reports</p>
+                  <CommunityShareContent community={community} />
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              {isAdmin && (
+                <Card className="bg-red-900/10 border-red-700/30 backdrop-blur-sm rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="text-red-400 flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
+                        <AlertTriangle className="w-4 h-4" />
                       </div>
-                    )}
-                    {reports && reports.length > 5 && (
-                      <Button variant="outline" className="w-full">
-                        View All {reports.length} Reports
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      Danger Zone
+                    </CardTitle>
+                    <CardDescription className="text-red-300/80">
+                      Irreversible actions for this community
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-xl shadow-red-600/20 border border-red-600/30 rounded-full">
+                          <Trash2 className="w-4 h-4" />
+                          Delete Community
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the community
+                            and remove all associated data.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700"
+                            onClick={handleDeleteCommunity}
+                          >
+                            Delete Community
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
-            <TabsContent value="members" className="space-y-6">
-              <Card>
+            <TabsContent value="members" className="space-y-4">
+              {/* Join Requests */}
+              {pendingRequests > 0 && (
+                <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-br from-amber-600/15 to-amber-800/15 rounded-full border border-amber-700/25">
+                        <Clock className="w-4 h-4 text-amber-400" />
+                      </div>
+                      Pending Join Requests ({pendingRequests})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {joinRequests?.map((request) => (
+                        <JoinRequestItem
+                          key={request.event.id}
+                          request={request}
+                          onApprove={() => handleApproveRequest(request.requesterPubkey)}
+                          onDecline={() => handleDeclineRequest(request.requesterPubkey)}
+                          isApproving={approvingMembers.has(request.requesterPubkey)}
+                          isDeclining={decliningMembers.has(request.requesterPubkey)}
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Member Management */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle>Member Management</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
+                      <Users className="w-4 h-4 text-blue-400" />
+                    </div>
+                    Member Management
+                  </CardTitle>
+                  <CardDescription className="text-blue-200/60">
                     Manage community members and their roles
                   </CardDescription>
                 </CardHeader>
@@ -642,120 +626,66 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <MemberItem key={member.pubkey} member={member} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-muted-foreground">
+                      <div className="text-center py-6 text-blue-200/40">
                         <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>No members found</p>
                       </div>
                     )}
                     {members && members.length > 10 && (
-                      <Button variant="outline" className="w-full">
+                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
                         View All {members.length} Members
                       </Button>
                     )}
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
 
-              <Card>
+            <TabsContent value="audit" className="space-y-4">
+              {/* Reports */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle>Join Requests</CardTitle>
-                  <CardDescription>
-                    Pending requests to join the community
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
+                      <Shield className="w-4 h-4 text-red-400" />
+                    </div>
+                    Moderation Queue ({totalReports})
+                  </CardTitle>
+                  <CardDescription className="text-blue-200/60">
+                    Review flagged content and user reports
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {isRefetchingRequests ? (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-2"></div>
-                        <p>Updating...</p>
-                      </div>
-                    ) : joinRequests && joinRequests.length > 0 ? (
-                      joinRequests.map((request) => (
-                        <JoinRequestItem
-                          key={request.event.id}
-                          request={request}
-                          onApprove={() => handleApproveRequest(request.requesterPubkey)}
-                          onDecline={() => handleDeclineRequest(request.requesterPubkey)}
-                          isApproving={approvingMembers.has(request.requesterPubkey)}
-                          isDeclining={decliningMembers.has(request.requesterPubkey)}
-                        />
+                    {reports && reports.length > 0 ? (
+                      reports.slice(0, 5).map((report) => (
+                        <ReportItem key={report.id} report={report} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p>No pending join requests</p>
+                      <div className="text-center py-6 text-blue-200/40">
+                        <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>No pending reports</p>
                       </div>
+                    )}
+                    {reports && reports.length > 5 && (
+                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
+                        View All {reports.length} Reports
+                      </Button>
                     )}
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            <TabsContent value="analytics" className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{totalMembers}</div>
-                    <p className="text-xs text-muted-foreground">Community members</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Join Requests</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{pendingRequests}</div>
-                    <p className="text-xs text-muted-foreground">Pending approval</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Online Members</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{onlineMembers}</div>
-                    <p className="text-xs text-muted-foreground">Currently active</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Mod Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{moderationStats.totalActions}</div>
-                    <p className="text-xs text-muted-foreground">Total actions taken</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {moderationStats.totalActions > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium">Moderation Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      {Object.entries(moderationStats.actionsByType).map(([action, count]) => (
-                        <div key={action} className="flex justify-between">
-                          <span className="capitalize text-sm">{action}:</span>
-                          <span className="font-medium">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="audit" className="space-y-6">
-              <Card>
+              {/* Audit Log */}
+              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle>Audit Log</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-white flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
+                      <FileText className="w-4 h-4 text-blue-400" />
+                    </div>
+                    Audit Log
+                  </CardTitle>
+                  <CardDescription className="text-blue-200/60">
                     Recent moderation and administrative actions
                   </CardDescription>
                 </CardHeader>
@@ -766,13 +696,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <ModerationLogItem key={log.id} log={log} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-muted-foreground">
+                      <div className="text-center py-6 text-blue-200/40">
                         <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>No moderation actions recorded</p>
                       </div>
                     )}
                     {moderationLogs && moderationLogs.length > 10 && (
-                      <Button variant="outline" className="w-full">
+                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
                         View All {moderationLogs.length} Actions
                       </Button>
                     )}
@@ -782,21 +712,160 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </TabsContent>
           </ScrollArea>
 
-          <Separator className="my-4" />
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+          <div className="flex justify-end pt-4 border-t border-blue-900/20">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
+            >
+              Close
             </Button>
-            {isAdmin && (
-              <Button onClick={handleSaveChanges} disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Save Changes"}
-              </Button>
-            )}
           </div>
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Helper component for displaying reports
+function ReportItem({ report }: { report: { targetPubkey: string; reporterPubkey: string; reportType: string; reason: string; createdAt: number; targetEventId?: string } }) {
+  const targetAuthor = useAuthor(report.targetPubkey);
+  const reporterAuthor = useAuthor(report.reporterPubkey);
+  const targetDisplayName = targetAuthor.data?.metadata?.name || genUserName(report.targetPubkey);
+  const reporterDisplayName = reporterAuthor.data?.metadata?.name || genUserName(report.reporterPubkey);
+
+  const targetNpub = nip19.npubEncode(report.targetPubkey);
+  const reporterNpub = nip19.npubEncode(report.reporterPubkey);
+
+  const { toast } = useToast();
+
+  const handleCopyNpub = (npub: string, userType: string) => {
+    navigator.clipboard.writeText(npub);
+    toast({
+      title: 'Copied to clipboard',
+      description: `${userType} npub copied to clipboard`,
+    });
+  };
+
+  const timeAgo = new Date(report.createdAt * 1000).toLocaleString();
+
+  return (
+    <div className="p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
+      <div className="space-y-3">
+        {/* Reported User */}
+        <div className="space-y-1">
+          <div className="font-medium flex items-center gap-2 text-blue-100">
+            <span className="text-red-400">Reported User:</span>
+            {targetDisplayName}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-blue-200/60 hover:text-blue-100 rounded-full"
+              onClick={() => handleCopyNpub(targetNpub, 'Target user')}
+              title="Copy target user npub"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="text-xs text-blue-200/50 font-mono break-all">
+            {targetNpub}
+          </div>
+        </div>
+
+        {/* Reporting User */}
+        <div className="space-y-1">
+          <div className="text-sm text-blue-200/60 flex items-center gap-2">
+            <span className="text-blue-400">Reported by:</span>
+            {reporterDisplayName}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-blue-200/60 hover:text-blue-100 rounded-full"
+              onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
+              title="Copy reporter npub"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="text-xs text-blue-200/50 font-mono break-all">
+            {reporterNpub}
+          </div>
+        </div>
+
+        {/* Report Details */}
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-orange-400" />
+          <p className="text-sm font-medium text-blue-100">
+            {report.targetEventId ? 'Content reported' : 'User reported'}
+          </p>
+          <Badge variant="outline" className="text-xs border-blue-900/30 text-blue-200/80 bg-gray-900/60 rounded-full">
+            {report.reportType}
+          </Badge>
+        </div>
+
+        <p className="text-xs text-blue-200/50">
+          {timeAgo}
+        </p>
+
+        {report.reason && (
+          <p className="text-xs text-blue-200/50 italic">"{report.reason}"</p>
+        )}
+      </div>
+
+      <div className="flex gap-2 mt-3">
+        <Button size="sm" variant="destructive" className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/20 border border-red-600/30 rounded-full">
+          {report.targetEventId ? 'Delete Content' : 'Ban User'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Helper component for displaying moderation log items
+function ModerationLogItem({ log }: { log: { action: string; moderatorPubkey: string; targetPubkey?: string; reason: string; createdAt: number } }) {
+  const moderator = useAuthor(log.moderatorPubkey);
+  const target = useAuthor(log.targetPubkey || '');
+
+  const moderatorName = moderator.data?.metadata?.name || genUserName(log.moderatorPubkey);
+  const targetName = log.targetPubkey ? (target.data?.metadata?.name || genUserName(log.targetPubkey)) : null;
+
+  const timeAgo = new Date(log.createdAt * 1000).toLocaleString();
+
+  const getActionIcon = () => {
+    switch (log.action) {
+      case 'ban':
+      case 'mute':
+        return <Shield className="w-4 h-4 mt-1 text-red-400" />;
+      case 'delete':
+        return <Trash2 className="w-4 h-4 mt-1 text-red-400" />;
+      case 'approve':
+        return <Shield className="w-4 h-4 mt-1 text-green-400" />;
+      default:
+        return <FileText className="w-4 h-4 mt-1 text-blue-400" />;
+    }
+  };
+
+  const getActionDescription = () => {
+    const actionText = log.action.charAt(0).toUpperCase() + log.action.slice(1);
+    if (targetName) {
+      return `${moderatorName} ${log.action}ned ${targetName}`;
+    }
+    return `${moderatorName} performed ${actionText}`;
+  };
+
+  return (
+    <div className="flex items-start gap-3 p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
+      <div className="p-2 bg-gradient-to-br from-blue-600/10 to-blue-800/10 rounded-full border border-blue-700/20">
+        {getActionIcon()}
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-blue-100">{getActionDescription()}</p>
+        {log.reason && (
+          <p className="text-xs text-blue-200/60">Reason: {log.reason}</p>
+        )}
+        <p className="text-xs text-blue-200/50">{timeAgo}</p>
+      </div>
+    </div>
   );
 }
 
@@ -810,13 +879,22 @@ function CommunityShareContent({ community }: { community: Community }) {
   // Parse community ID to get the components for naddr
   const [kind, pubkey, identifier] = community.id.split(':');
 
-  // Generate naddr for the community
-  const naddr = nip19.naddrEncode({
-    kind: parseInt(kind),
-    pubkey,
-    identifier,
-    relays: community.relays.length > 0 ? community.relays : undefined,
-  });
+  // Generate naddr for the community with error handling
+  let naddr = '';
+  try {
+    // Pad the pubkey to 64 characters (32 bytes) if needed
+    const paddedPubkey = pubkey.padStart(64, '0');
+
+    naddr = nip19.naddrEncode({
+      kind: parseInt(kind),
+      pubkey: paddedPubkey,
+      identifier,
+      relays: community.relays.length > 0 ? community.relays : undefined,
+    });
+  } catch (error) {
+    console.error('Failed to generate naddr:', error);
+    // Fallback to a simple join URL without naddr
+  }
 
   // Generate shareable URLs
   const baseUrl = window.location.origin;
@@ -869,8 +947,6 @@ function CommunityShareContent({ community }: { community: Community }) {
     }
   };
 
-
-
   const downloadQRCode = () => {
     if (!qrCodeDataUrl) return;
 
@@ -891,7 +967,7 @@ function CommunityShareContent({ community }: { community: Community }) {
     <Button
       variant="outline"
       size="sm"
-      className={className}
+      className={`${className} border-gray-600 text-gray-300 hover:bg-gray-700`}
       onClick={() => copyToClipboard(text, field)}
     >
       {copiedField === field ? (
@@ -907,19 +983,16 @@ function CommunityShareContent({ community }: { community: Community }) {
       {/* Join Link */}
       <div className="space-y-3">
         <div>
-          <Label htmlFor="join-url" className="text-base font-medium">
-            Join Link
-          </Label>
-          <p className="text-sm text-muted-foreground mb-2">
+          <Label className="text-gray-200">Join Link</Label>
+          <p className="text-sm text-gray-400 mb-2">
             Direct link for people to request to join your community
           </p>
         </div>
         <div className="flex gap-2">
           <Input
-            id="join-url"
             value={joinUrl}
             readOnly
-            className="font-mono text-sm"
+            className="font-mono text-sm bg-gray-700 border-gray-600 text-gray-100"
           />
           <CopyButton text={joinUrl} field="join-url" />
         </div>
@@ -928,129 +1001,68 @@ function CommunityShareContent({ community }: { community: Community }) {
       {/* Nostr Address */}
       <div className="space-y-3">
         <div>
-          <Label htmlFor="naddr" className="text-base font-medium">
-            Nostr Address (naddr)
-          </Label>
-          <p className="text-sm text-muted-foreground mb-2">
+          <Label className="text-gray-200">Nostr Address (naddr)</Label>
+          <p className="text-sm text-gray-400 mb-2">
             Technical identifier for Nostr clients and developers
           </p>
         </div>
         <div className="flex gap-2">
           <Input
-            id="naddr"
             value={naddr}
             readOnly
-            className="font-mono text-sm"
+            className="font-mono text-sm bg-gray-700 border-gray-600 text-gray-100"
           />
           <CopyButton text={naddr} field="naddr" />
         </div>
       </div>
 
       {/* QR Code Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+      <div className="space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-white mb-2 flex items-center justify-center gap-2">
             <QrCode className="h-5 w-5" />
             QR Code
-          </CardTitle>
-          <CardDescription>
+          </h3>
+          <p className="text-sm text-gray-400">
             Scan this QR code to join the community
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-center">
-            <div className="p-3 bg-white rounded-lg border">
-              {isGeneratingQR ? (
-                <Skeleton className="w-64 h-64" />
-              ) : qrCodeDataUrl ? (
-                <img
-                  src={qrCodeDataUrl}
-                  alt={`QR code for ${community.name}`}
-                  className="w-64 h-64"
-                />
-              ) : (
-                <div className="w-64 h-64 flex items-center justify-center text-muted-foreground">
-                  Failed to generate QR code
-                </div>
-              )}
-            </div>
-          </div>
-          {qrCodeDataUrl && (
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={downloadQRCode}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download QR Code
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Helper component for displaying member items
-function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'moderator' | 'member'; isOnline: boolean } }) {
-  const author = useAuthor(member.pubkey);
-  const displayName = author.data?.metadata?.name || genUserName(member.pubkey);
-  const avatar = author.data?.metadata?.picture;
-
-  const getRoleIcon = () => {
-    switch (member.role) {
-      case 'owner':
-        return <Crown className="w-3 h-3" />;
-      case 'moderator':
-        return <Shield className="w-3 h-3" />;
-      default:
-        return null;
-    }
-  };
-
-  const getRoleColor = () => {
-    switch (member.role) {
-      case 'owner':
-        return 'bg-yellow-500';
-      case 'moderator':
-        return 'bg-blue-500';
-      default:
-        return 'bg-gray-500';
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${getRoleColor()}`}>
-          {avatar ? (
-            <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            displayName.charAt(0).toUpperCase()
-          )}
+          </p>
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="font-medium">{displayName}</p>
-            {member.isOnline && (
-              <div className="w-2 h-2 bg-green-500 rounded-full" title="Online" />
+        <div className="flex justify-center">
+          <div className="p-3 bg-white rounded-lg border border-gray-600">
+            {isGeneratingQR ? (
+              <div className="w-64 h-64 bg-gray-200 animate-pulse rounded" />
+            ) : qrCodeDataUrl ? (
+              <img
+                src={qrCodeDataUrl}
+                alt={`QR code for ${community.name}`}
+                className="w-64 h-64"
+              />
+            ) : (
+              <div className="w-64 h-64 flex items-center justify-center text-gray-500">
+                Failed to generate QR code
+              </div>
             )}
           </div>
-          <div className="flex gap-1">
-            <Badge variant={member.role === 'owner' ? 'secondary' : 'outline'} className="flex items-center gap-1">
-              {getRoleIcon()}
-              {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-            </Badge>
-          </div>
         </div>
+        {qrCodeDataUrl && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadQRCode}
+              className="flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700"
+            >
+              <Download className="h-4 w-4" />
+              Download QR Code
+            </Button>
+          </div>
+        )}
       </div>
-      <Button size="sm" variant="outline">Manage</Button>
     </div>
   );
 }
+
+
 
 // Helper component for displaying join requests
 function JoinRequestItem({
@@ -1073,20 +1085,22 @@ function JoinRequestItem({
   const timeAgo = new Date(request.createdAt * 1000).toLocaleString();
 
   return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
+    <div className="flex items-center justify-between p-3 bg-gray-900/60 border border-blue-900/20 rounded-2xl backdrop-blur-sm">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-          {avatar ? (
-            <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
-          ) : (
-            displayName.charAt(0).toUpperCase()
-          )}
+        <div className="relative">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center text-white text-sm font-medium ring-2 ring-blue-600/30 shadow-lg shadow-blue-600/10">
+            {avatar ? (
+              <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              displayName.charAt(0).toUpperCase()
+            )}
+          </div>
         </div>
         <div>
-          <p className="font-medium">{displayName}</p>
-          <p className="text-sm text-muted-foreground">Requested {timeAgo}</p>
+          <p className="font-medium text-blue-100">{displayName}</p>
+          <p className="text-sm text-blue-200/60">Requested {timeAgo}</p>
           {request.message && (
-            <p className="text-xs text-muted-foreground mt-1 italic">"{request.message}"</p>
+            <p className="text-xs text-blue-200/50 mt-1 italic">"{request.message}"</p>
           )}
         </div>
       </div>
@@ -1096,6 +1110,7 @@ function JoinRequestItem({
           variant="outline"
           onClick={onApprove}
           disabled={isApproving || isDeclining}
+          className="border-green-600/30 text-green-300/80 hover:bg-green-600/10 bg-green-600/5 rounded-full"
         >
           {isApproving ? "Approving..." : "Accept"}
         </Button>
@@ -1104,6 +1119,7 @@ function JoinRequestItem({
           variant="destructive"
           onClick={onDecline}
           disabled={isApproving || isDeclining}
+          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/20 border border-red-600/30 rounded-full"
         >
           {isDeclining ? "Declining..." : "Decline"}
         </Button>
@@ -1112,142 +1128,65 @@ function JoinRequestItem({
   );
 }
 
-// Helper component for displaying reports
-function ReportItem({ report }: { report: { targetPubkey: string; reporterPubkey: string; reportType: string; reason: string; createdAt: number; targetEventId?: string } }) {
-  const targetAuthor = useAuthor(report.targetPubkey);
-  const reporterAuthor = useAuthor(report.reporterPubkey);
-  const targetDisplayName = targetAuthor.data?.metadata?.name || genUserName(report.targetPubkey);
-  const reporterDisplayName = reporterAuthor.data?.metadata?.name || genUserName(report.reporterPubkey);
+// Helper component for displaying member items
+function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'moderator' | 'member'; isOnline: boolean } }) {
+  const author = useAuthor(member.pubkey);
+  const displayName = author.data?.metadata?.name || genUserName(member.pubkey);
+  const avatar = author.data?.metadata?.picture;
 
-  const targetNpub = nip19.npubEncode(report.targetPubkey);
-  const reporterNpub = nip19.npubEncode(report.reporterPubkey);
-
-  const { toast } = useToast();
-
-  const handleCopyNpub = (npub: string, userType: string) => {
-    navigator.clipboard.writeText(npub);
-    toast({
-      title: 'Copied to clipboard',
-      description: `${userType} npub copied to clipboard`,
-    });
-  };
-
-  const timeAgo = new Date(report.createdAt * 1000).toLocaleString();
-
-  return (
-    <div className="p-3 border rounded-lg">
-      <div className="space-y-3">
-        {/* Reported User */}
-        <div className="space-y-1">
-          <div className="font-medium flex items-center gap-2">
-            <span className="text-red-600">Reported User:</span>
-            {targetDisplayName}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => handleCopyNpub(targetNpub, 'Target user')}
-              title="Copy target user npub"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground font-mono break-all">
-            {targetNpub}
-          </div>
-        </div>
-
-        {/* Reporting User */}
-        <div className="space-y-1">
-          <div className="text-sm text-muted-foreground flex items-center gap-2">
-            <span className="text-blue-600">Reported by:</span>
-            {reporterDisplayName}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
-              title="Copy reporter npub"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground font-mono break-all">
-            {reporterNpub}
-          </div>
-        </div>
-
-        {/* Report Details */}
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-500" />
-          <p className="text-sm font-medium">
-            {report.targetEventId ? 'Content reported' : 'User reported'}
-          </p>
-          <Badge variant="outline" className="text-xs">
-            {report.reportType}
-          </Badge>
-        </div>
-
-        <p className="text-xs text-muted-foreground">
-          {timeAgo}
-        </p>
-
-        {report.reason && (
-          <p className="text-xs text-muted-foreground italic">"{report.reason}"</p>
-        )}
-      </div>
-
-      <div className="flex gap-2 mt-3">
-        <Button size="sm" variant="destructive">
-          {report.targetEventId ? 'Delete Content' : 'Ban User'}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Helper component for displaying moderation log items
-function ModerationLogItem({ log }: { log: { action: string; moderatorPubkey: string; targetPubkey?: string; reason: string; createdAt: number } }) {
-  const moderator = useAuthor(log.moderatorPubkey);
-  const target = useAuthor(log.targetPubkey || '');
-
-  const moderatorName = moderator.data?.metadata?.name || genUserName(log.moderatorPubkey);
-  const targetName = log.targetPubkey ? (target.data?.metadata?.name || genUserName(log.targetPubkey)) : null;
-
-  const timeAgo = new Date(log.createdAt * 1000).toLocaleString();
-
-  const getActionIcon = () => {
-    switch (log.action) {
-      case 'ban':
-      case 'mute':
-        return <Shield className="w-4 h-4 mt-1 text-red-500" />;
-      case 'delete':
-        return <Trash2 className="w-4 h-4 mt-1 text-red-500" />;
-      case 'approve':
-        return <Shield className="w-4 h-4 mt-1 text-green-500" />;
+  const getRoleIcon = () => {
+    switch (member.role) {
+      case 'owner':
+        return <Crown className="w-3 h-3 text-amber-300" />;
+      case 'moderator':
+        return <Shield className="w-3 h-3 text-blue-300" />;
       default:
-        return <FileText className="w-4 h-4 mt-1 text-blue-500" />;
+        return null;
     }
   };
 
-  const getActionDescription = () => {
-    const actionText = log.action.charAt(0).toUpperCase() + log.action.slice(1);
-    if (targetName) {
-      return `${moderatorName} ${log.action}ned ${targetName}`;
+  const getRoleColor = () => {
+    switch (member.role) {
+      case 'owner':
+        return 'from-amber-600 to-amber-800 ring-amber-600/30 shadow-lg shadow-amber-600/10';
+      case 'moderator':
+        return 'from-blue-600 to-blue-800 ring-blue-600/30 shadow-lg shadow-blue-600/10';
+      default:
+        return 'from-gray-600 to-gray-800 ring-gray-600/30 shadow-lg shadow-gray-600/10';
     }
-    return `${moderatorName} performed ${actionText}`;
   };
 
   return (
-    <div className="flex items-start gap-3 p-3 border rounded-lg">
-      {getActionIcon()}
-      <div className="flex-1">
-        <p className="text-sm font-medium">{getActionDescription()}</p>
-        {log.reason && (
-          <p className="text-xs text-muted-foreground">Reason: {log.reason}</p>
-        )}
-        <p className="text-xs text-muted-foreground">{timeAgo}</p>
+    <div className="flex items-center justify-between p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
+      <div className="flex items-center gap-3">
+        <div className="relative">
+          <div className={`w-8 h-8 bg-gradient-to-br ${getRoleColor()} rounded-full flex items-center justify-center text-white text-sm font-medium ring-2`}>
+            {avatar ? (
+              <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              displayName.charAt(0).toUpperCase()
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-blue-100">{displayName}</p>
+            {member.isOnline && (
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/30" title="Online" />
+            )}
+          </div>
+          <div className="flex gap-1">
+            <Badge variant={member.role === 'owner' ? 'secondary' : 'outline'} className="flex items-center gap-1 bg-gray-900/60 border-blue-900/20 text-blue-200/80 rounded-full">
+              {getRoleIcon()}
+              {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+            </Badge>
+          </div>
+        </div>
       </div>
+      <Button size="sm" variant="outline" className="border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">Manage</Button>
     </div>
   );
 }
+
+
+
