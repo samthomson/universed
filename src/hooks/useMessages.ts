@@ -13,7 +13,7 @@ import type { NostrEvent } from '@/types/nostr';
 const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
 
 // Number of messages to load per pagination request
-const MESSAGES_PER_PAGE = 1; // Small value for testing
+const MESSAGES_PER_PAGE = 10; // Small value for testing
 
 function buildFilters(
   kind: string, 
