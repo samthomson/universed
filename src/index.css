@@ -589,6 +589,37 @@
     max-width: 100%;
   }
 
+  /* Enhanced text wrapping for DM messages */
+  .dm-message-content {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Force text wrapping in all scenarios */
+  .force-wrap {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+    hyphens: auto !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    white-space: pre-wrap !important;
+  }
+
+  /* Handle extremely long strings without spaces */
+  .break-all-words {
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+    word-wrap: break-word !important;
+    hyphens: auto !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
   /* Mobile flex utilities */
   .mobile-flex-container {
     display: flex;
