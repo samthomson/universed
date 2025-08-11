@@ -13,7 +13,7 @@ import type { NostrEvent } from '@/types/nostr';
 const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
 
 // Number of messages to load per pagination request
-const MESSAGES_PER_PAGE = 5; // Small value for testing
+const MESSAGES_PER_PAGE = 20; // Default number of messages to load per page
 
 function buildFilters(
   kind: string, 
@@ -102,9 +102,8 @@ export async function fetchMessages(
   const [kind, pubkey, identifier] = communityId.split(':');
   if (!kind || !pubkey || !identifier) return [];
 
-  // Use our constant for pagination size
-  const paginationOptions = { ...options, limit: MESSAGES_PER_PAGE };
-  const filters = buildFilters(kind, pubkey, identifier, channelId, paginationOptions);
+  // Always use the options as provided
+  const filters = buildFilters(kind, pubkey, identifier, channelId, options);
   const events = await nostr.query(filters, { signal });
 
   if (events.length > 0) {
@@ -145,6 +144,7 @@ export function useMessages(communityId: string, channelId: string) {
       if (!canRead) return [];
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]); // 3s max for messages
+      // Explicitly pass the limit to ensure we get the right number of messages
       return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers, { limit: MESSAGES_PER_PAGE });
     },
     enabled: !!communityId && !!channelId && canRead && approvedMembers !== undefined,
@@ -323,7 +323,7 @@ export function useMessages(communityId: string, channelId: string) {
         approvedMembers,
         { 
           until: oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
-          limit: MESSAGES_PER_PAGE
+          limit: MESSAGES_PER_PAGE // Explicitly pass the limit
         }
       );
 
@@ -332,6 +332,11 @@ export function useMessages(communityId: string, channelId: string) {
         logger.log(`[DEBUG_PAGINATION] Reached the end of history (got 0 messages)`);
         setHasMoreMessages(false);
         setReachedStartOfConversation(true);
+      } else if (olderMessages.length < MESSAGES_PER_PAGE) {
+        // If we got fewer messages than requested, we've probably reached the end
+        logger.log(`[DEBUG_PAGINATION] Got fewer messages (${olderMessages.length}) than requested (${MESSAGES_PER_PAGE}), probably reached the end`);
+        setHasMoreMessages(false); // No more to load
+        // But don't set reachedStartOfConversation to true unless we got zero
       } else {
         // As long as we got at least one message, assume there might be more
         // This is more reliable than checking if we got a full page
