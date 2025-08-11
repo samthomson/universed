@@ -36,7 +36,7 @@ export function BaseMessageList({
   communityId,
   channelId,
 }: BaseMessageListProps) {
-  const virtuosoRef = useRef<VirtuosoHandle>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);  
   const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
 
   if (isLoading && messages.length === 0) {
@@ -85,7 +85,11 @@ export function BaseMessageList({
         ref={virtuosoRef}
         className="flex-1 px-4 scrollbar-thin"
         data={regularMessages}
-        alignToBottom={true}
+        alignToBottom
+        followOutput
+        initialTopMostItemIndex={regularMessages.length - 1}
+        atBottomThreshold={200}
+        startReached={loadOlderMessages}
         overscan={200}
         totalCount={regularMessages.length}
         itemContent={(index, message) => {
