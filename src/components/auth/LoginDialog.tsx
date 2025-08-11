@@ -182,7 +182,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl overflow-y-scroll")}
+        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl")}
       >
         <DialogHeader className={cn('px-6 pt-6 pb-1 relative')}>
 
@@ -190,22 +190,22 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
               Sign up or log in to continue
             </DialogDescription>
         </DialogHeader>
-        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-auto flex-1'>
+        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-auto scrollbar-thin flex-1'>
           {/* Prominent Sign Up Section */}
-          <div className='relative p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-200 dark:border-blue-800 overflow-hidden'>
+          <div className='relative p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 border border-purple-200 dark:border-purple-800 overflow-hidden'>
             <div className='relative z-10 text-center space-y-3'>
               <div className='flex justify-center items-center gap-2 mb-2'>
-                <Sparkles className='w-5 h-5 text-blue-600' />
-                <span className='font-semibold text-blue-800 dark:text-blue-200'>
+                <Sparkles className='w-5 h-5 text-purple-600' />
+                <span className='font-semibold text-purple-800 dark:text-purple-200'>
                   New to Nostr?
                 </span>
               </div>
-              <p className='text-sm text-blue-700 dark:text-blue-300'>
+              <p className='text-sm text-purple-700 dark:text-purple-300'>
                 Create a new account to get started. It's free and open.
               </p>
               <Button
                 onClick={handleSignupClick}
-                className='w-full rounded-full py-3 text-base font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transform transition-all duration-200 hover:scale-105 shadow-lg border-0'
+                className='w-full rounded-full py-3 text-base font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg border-0'
               >
                 <UserPlus className='w-4 h-4 mr-2' />
                 <span>Sign Up</span>
@@ -227,35 +227,35 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
 
           {/* Login Methods */}
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-muted/80 rounded-lg mb-4">
-              <TabsTrigger value="extension" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-3 bg-purple-100/50 dark:bg-purple-900/30 rounded-lg mb-4 border border-purple-200/50 dark:border-purple-800/50">
+              <TabsTrigger value="extension" className="flex items-center gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">
                 <Shield className="w-4 h-4" />
                 <span>Extension</span>
               </TabsTrigger>
-              <TabsTrigger value="key" className="flex items-center gap-2">
+              <TabsTrigger value="key" className="flex items-center gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">
                 <KeyRound className="w-4 h-4" />
                 <span>Key</span>
               </TabsTrigger>
-              <TabsTrigger value="bunker" className="flex items-center gap-2">
+              <TabsTrigger value="bunker" className="flex items-center gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200">
                 <Cloud className="w-4 h-4" />
                 <span>Bunker</span>
               </TabsTrigger>
             </TabsList>
-            <TabsContent value='extension' className='space-y-3 bg-muted'>
+            <TabsContent value='extension' className='space-y-3'>
               {errors.extension && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>{errors.extension}</AlertDescription>
                 </Alert>
               )}
-              <div className='text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800'>
-                <Shield className='w-12 h-12 mx-auto mb-3 text-primary' />
-                <p className='text-sm text-gray-600 dark:text-gray-300 mb-4'>
+              <div className='text-center p-4 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200/50 dark:border-purple-800/50'>
+                <Shield className='w-12 h-12 mx-auto mb-3 text-purple-600' />
+                <p className='text-sm text-purple-700 dark:text-purple-300 mb-4'>
                   Login with one click using the browser extension
                 </p>
                 <div className="flex justify-center">
                   <Button
-                    className='w-full rounded-full py-4'
+                    className='w-full rounded-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
                     onClick={handleExtensionLogin}
                     disabled={isLoading}
                   >
@@ -266,9 +266,9 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
             </TabsContent>
 
             <TabsContent value='key' className='space-y-4'>
-              <div className='space-y-4'>
+              <div className='space-y-4 p-4 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200/50 dark:border-purple-800/50'>
                 <div className='space-y-2'>
-                  <label htmlFor='nsec' className='text-sm font-medium'>
+                  <label htmlFor='nsec' className='text-sm font-medium text-purple-700 dark:text-purple-300'>
                     Secret Key (nsec)
                   </label>
                   <Input
@@ -291,7 +291,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 </div>
 
                 <Button
-                  className='w-full rounded-full py-3'
+                  className='w-full rounded-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
                   onClick={handleKeyLogin}
                   disabled={isLoading || !nsec.trim()}
                 >
@@ -333,9 +333,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
               </div>
             </TabsContent>
 
-            <TabsContent value='bunker' className='space-y-3 bg-muted'>
-              <div className='space-y-2'>
-                <label htmlFor='bunkerUri' className='text-sm font-medium text-gray-700 dark:text-gray-400'>
+            <TabsContent value='bunker' className='space-y-3'>
+              <div className='space-y-4 p-4 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border border-purple-200/50 dark:border-purple-800/50'>
+                <div className='space-y-2'>
+                <label htmlFor='bunkerUri' className='text-sm font-medium text-purple-700 dark:text-purple-300'>
                   Bunker URI
                 </label>
                 <Input
@@ -356,14 +357,15 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 )}
               </div>
 
-              <div className="flex justify-center">
-                <Button
-                  className='w-full rounded-full py-4'
-                  onClick={handleBunkerLogin}
-                  disabled={isLoading || !bunkerUri.trim()}
-                >
-                  {isLoading ? 'Connecting...' : 'Login with Bunker'}
-                </Button>
+                <div className="flex justify-center">
+                  <Button
+                    className='w-full rounded-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                    onClick={handleBunkerLogin}
+                    disabled={isLoading || !bunkerUri.trim()}
+                  >
+                    {isLoading ? 'Connecting...' : 'Login with Bunker'}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
