@@ -182,9 +182,9 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl")}
+        className={cn("max-w-[95vw] sm:max-w-md max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col")}
       >
-        <DialogHeader className={cn('px-6 pt-6 pb-1 relative')}>
+        <DialogHeader className={cn('px-6 pt-6 pb-1 relative flex-shrink-0')}>
 
             <DialogDescription className="text-center">
               Sign up or log in to continue
