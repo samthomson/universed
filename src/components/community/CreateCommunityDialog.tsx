@@ -355,27 +355,33 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("max-w-[95vw] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col")}
+        className={cn("max-w-[95vw] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] max-h-[90dvh] p-0 overflow-hidden rounded-2xl flex flex-col bg-gradient-to-br from-indigo-900/95 via-purple-900/95 to-pink-900/95 backdrop-blur-sm border border-purple-500/20")}
       >
-        <DialogHeader className={cn('px-6 pt-6 pb-1 relative flex-shrink-0')}>
-          <DialogTitle className={cn('font-semibold text-center text-lg')}>
+        {/* Animated background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="stars"></div>
+          <div className="stars2"></div>
+          <div className="stars3"></div>
+        </div>
+        <DialogHeader className={cn('px-6 pt-6 pb-1 relative flex-shrink-0 z-10')}>
+          <DialogTitle className={cn('font-bold text-center text-2xl text-white', step === 'welcome' && 'hidden')}>
             {getTitle()}
           </DialogTitle>
-          <DialogDescription className={cn(`text-muted-foreground text-center ${step === 'create' && 'hidden'}`)}>
+          <DialogDescription className={cn(`text-purple-200 text-center ${step === 'create' && 'hidden'}`, step === 'welcome' && 'hidden')}>
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
-        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll flex-1'>
+        <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll flex-1 relative z-10'>
           {/* Welcome Step - Guided flow introduction */}
           {step === 'welcome' && (
             <div className='text-center space-y-6'>
               {/* Hero illustration with community focus */}
-              <div className='relative p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50'>
+              <div className='relative p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
                 <div className='flex flex-col items-center space-y-4'>
                   {/* Central community icon */}
                   <div className='relative'>
-                    <div className='w-20 h-20 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg'>
-                      <Users className='w-10 h-10 text-purple-800' />
+                    <div className='w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
+                      <Users className='w-10 h-10 text-purple-400' />
                     </div>
                     <div className='absolute -top-2 -right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
                       <Sparkles className='w-3 h-3 text-white' />
@@ -384,21 +390,21 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                   {/* Orbiting elements */}
                   <div className='relative w-32 h-32'>
-                    <MessageSquare className='absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-purple-600 animate-pulse' />
-                    <Hash className='absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-pink-600 animate-pulse' style={{animationDelay: '0.5s'}} />
-                    <Settings className='absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-purple-700 animate-pulse' style={{animationDelay: '1s'}} />
-                    <Share className='absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-pink-700 animate-pulse' style={{animationDelay: '1.5s'}} />
+                    <MessageSquare className='absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-blue-400 animate-pulse' />
+                    <Hash className='absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-purple-400 animate-pulse' style={{animationDelay: '0.5s'}} />
+                    <Settings className='absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-pink-400 animate-pulse' style={{animationDelay: '1s'}} />
+                    <Share className='absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-blue-400 animate-pulse' style={{animationDelay: '1.5s'}} />
                   </div>
                 </div>
               </div>
 
               <div className='space-y-4'>
                 <div className='space-y-2'>
-                  <h3 className='text-xl font-semibold text-foreground'>
-                    Build Your Community Space
+                  <h3 className='text-3xl font-bold text-white'>
+                    CREATE YOUR COMMUNITY
                   </h3>
-                  <p className='text-muted-foreground px-4 leading-relaxed'>
-                    Create a dedicated space where your members can chat, share resources,
+                  <p className='text-purple-200 px-4 leading-relaxed text-lg'>
+                    Build a dedicated space where your members can chat, share resources,
                     and collaborate. Your community will have organized channels,
                     moderation tools, and live on the decentralized Nostr network.
                   </p>
@@ -406,7 +412,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                 <div className='space-y-3'>
                   <Button
-                    className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                    className='w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25'
                     onClick={() => setStep('details')}
                   >
                     <Plus className='w-5 h-5 mr-2' />
@@ -421,7 +427,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
           {step === 'details' && (
             <div className='text-center space-y-4'>
               {/* Form illustration */}
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
+              <div className='relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 overflow-hidden'>
                 {/* Sparkles */}
                 <div className='absolute inset-0 pointer-events-none'>
                   <Sparkles className='absolute top-3 left-4 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
@@ -431,8 +437,8 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                 <div className='relative z-10 flex justify-center items-center mb-3'>
                   <div className='relative'>
-                    <div className='w-16 h-16 bg-gradient-to-br from-purple-200 to-pink-300 rounded-full flex items-center justify-center shadow-lg'>
-                      <Settings className='w-8 h-8 text-purple-800' />
+                    <div className='w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
+                      <Settings className='w-8 h-8 text-purple-400' />
                     </div>
                     <div className='absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
                       <Sparkles className='w-3 h-3 text-white' />
@@ -441,10 +447,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 </div>
 
                 <div className='relative z-10 space-y-2'>
-                  <p className='text-base font-semibold'>
-                    Customize Your Community
+                  <p className='text-2xl font-bold text-white'>
+                    CUSTOMIZE YOUR COMMUNITY
                   </p>
-                  <p className='text-sm text-muted-foreground'>
+                  <p className='text-purple-200'>
                     Give your community an identity that members will recognize
                   </p>
                 </div>
@@ -455,7 +461,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 setStep('quicksetup');
               }} className="space-y-4 text-left">
                 <div className="space-y-2">
-                  <Label htmlFor="community-icon" className="text-sm font-medium">Community Icon</Label>
+                  <Label htmlFor="community-icon" className="text-sm font-medium text-purple-200">Community Icon</Label>
                   <div className="flex items-center gap-4">
                     <Avatar className="w-16 h-16">
                       <AvatarImage src={imagePreview || formData.image} />
@@ -470,7 +476,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                         size="sm"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
                       >
                         <Upload className="w-4 h-4" />
                         {isUploading ? "Uploading..." : "Upload Icon"}
@@ -481,7 +487,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                           variant="outline"
                           size="sm"
                           onClick={removeImage}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
                         >
                           <X className="w-4 h-4" />
                           Remove
@@ -496,34 +502,34 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-purple-300">
                     Upload a square image (recommended: 256x256px, max 5MB)
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium">Community Name</Label>
+                  <Label htmlFor="name" className="text-sm font-medium text-purple-200">Community Name</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="My Awesome Community"
                     required
-                    className="rounded-lg"
+                    className="rounded-lg bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
                   />
                 </div>
 
 
 
                 <div className="space-y-2">
-                  <Label htmlFor="description" className="text-sm font-medium">Description (optional)</Label>
+                  <Label htmlFor="description" className="text-sm font-medium text-purple-200">Description (optional)</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     placeholder="A place for awesome discussions..."
                     rows={3}
-                    className="rounded-lg resize-none"
+                    className="rounded-lg resize-none bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
                   />
                 </div>
 
@@ -533,14 +539,14 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                     variant="outline"
                     onClick={() => onOpenChange(false)}
                     disabled={createCommunityMutation.isPending || isUploading}
-                    className="rounded-full"
+                    className="rounded-full bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={createCommunityMutation.isPending || isUploading}
-                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/25"
                   >
                     Continue to Setup
                   </Button>
@@ -609,23 +615,23 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
           {step === 'success' && (
             <div className='text-center space-y-6'>
               {/* Success illustration */}
-              <div className='relative p-8 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-950/50 dark:to-emerald-950/50'>
+              <div className='relative p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
                 <div className='flex flex-col items-center space-y-4'>
                   {/* Success icon */}
                   <div className='relative'>
-                    <div className='w-20 h-20 bg-gradient-to-br from-green-200 to-emerald-300 rounded-full flex items-center justify-center shadow-lg'>
-                      <Users className='w-10 h-10 text-green-800' />
+                    <div className='w-20 h-20 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-indigo-500/30'>
+                      <Users className='w-10 h-10 text-indigo-400' />
                     </div>
-                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center animate-bounce'>
+                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center animate-bounce'>
                       <Sparkles className='w-3 h-3 text-white' />
                     </div>
                   </div>
 
                   <div className='space-y-2'>
-                    <h3 className='text-xl font-semibold text-green-800 dark:text-green-200'>
+                    <h3 className='text-2xl font-bold text-white'>
                       Community Created Successfully!
                     </h3>
-                    <p className='text-green-700 dark:text-green-300'>
+                    <p className='text-indigo-200'>
                       {formData.name} is ready for members
                     </p>
                   </div>
@@ -633,14 +639,14 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
               </div>
 
               <div className='space-y-4'>
-                <p className='text-muted-foreground px-4'>
+                <p className='text-indigo-200 px-4'>
                   Your community space is now live! Start by inviting members to join
                   and begin conversations in your community channels.
                 </p>
 
                 <div className='space-y-3'>
                   <Button
-                    className='w-full rounded-full py-6 text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform transition-all duration-200 hover:scale-105 shadow-lg'
+                    className='w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-indigo-500/25'
                     onClick={(e) => {
                       e.preventDefault();
                       // Navigate to the community using encoded naddr
@@ -671,7 +677,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                   <Button
                     variant="outline"
-                    className='w-full rounded-full py-4'
+                    className='w-full rounded-full py-4 bg-slate-800/50 border-slate-700/50 text-indigo-200 hover:bg-slate-700/50 hover:text-white'
                     onClick={(e) => {
                       e.preventDefault();
                       // Navigate to the community with share dialog open using encoded naddr

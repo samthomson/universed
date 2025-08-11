@@ -54,7 +54,7 @@ describe('CreateCommunityDialog', () => {
     // Wait for the details step to appear
     await waitFor(() => {
       expect(screen.getByText('Community Details')).toBeInTheDocument();
-      expect(screen.getByText('Customize Your Community')).toBeInTheDocument();
+      expect(screen.getByText('CUSTOMIZE YOUR COMMUNITY')).toBeInTheDocument();
     });
   });
 

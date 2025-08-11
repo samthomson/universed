@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
@@ -118,7 +119,7 @@ export function QuickSetupStep({
               variant="ghost"
               size="icon"
               onClick={() => removeModerator(pubkey)}
-              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/20"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -181,7 +182,7 @@ export function QuickSetupStep({
               variant="ghost"
               size="icon"
               onClick={() => removePreApprovedUser(pubkey)}
-              className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/20"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -205,11 +206,11 @@ export function QuickSetupStep({
     const isSelected = type === 'moderator' ? isModeratorSelected : isPreApprovedSelected;
     const addAction = type === 'moderator' ? addModerator : addPreApprovedUser;
     const removeAction = type === 'moderator' ? removeModerator : removePreApprovedUser;
-    const selectedColor = type === 'moderator' ? 'bg-purple-50 border-purple-200' : 'bg-green-50 border-green-200';
+    const selectedColor = type === 'moderator' ? 'bg-purple-900/50 border-purple-500/30' : 'bg-green-900/50 border-green-500/30';
     const buttonColor = type === 'moderator' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-600 hover:bg-green-700';
 
     return (
-      <Card className={`p-3 cursor-pointer transition-colors ${isSelected ? selectedColor : 'hover:bg-gray-100'}`}>
+      <Card className={`p-3 cursor-pointer transition-colors ${isSelected ? selectedColor : 'hover:bg-slate-800/50'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -248,7 +249,7 @@ export function QuickSetupStep({
             variant={isSelected ? "default" : "outline"}
             size="sm"
             onClick={() => isSelected ? removeAction(pubkey) : addAction(pubkey)}
-            className={isSelected ? buttonColor : ""}
+            className={isSelected ? buttonColor : "bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"}
           >
             {isSelected ? (
               <>
@@ -270,22 +271,25 @@ export function QuickSetupStep({
   return (
     <div className="space-y-6">
       {/* Top Section - Moderators */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Shield className="w-5 h-5" />
-            Moderators
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+      <div className='relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30">
+              <Shield className="w-5 h-5 text-purple-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white">
+              MODERATORS
+            </h3>
+          </div>
+
+          <p className="text-purple-200">
             Add trusted users to help manage your community. You're automatically a moderator.
           </p>
 
           {/* Selected Moderators */}
           {selectedModerators.length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-medium text-sm text-purple-700">
+              <h4 className="font-medium text-sm text-purple-300">
                 Selected ({selectedModerators.length})
               </h4>
               <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -299,12 +303,12 @@ export function QuickSetupStep({
           {/* Search for Moderators */}
           <div className="space-y-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input
                 placeholder="Search by name, npub, or nip-05..."
                 value={moderatorSearchQuery}
                 onChange={(e) => setModeratorSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
               />
             </div>
 
@@ -312,7 +316,7 @@ export function QuickSetupStep({
             {moderatorSearchQuery && (
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {isSearchingModerators ? (
-                  <div className="text-center py-4 text-muted-foreground">
+                  <div className="text-center py-4 text-purple-300">
                     Searching users...
                   </div>
                 ) : moderatorSearchResults && moderatorSearchResults.length > 0 ? (
@@ -320,68 +324,67 @@ export function QuickSetupStep({
                     <SearchResultCard key={`mod-${pubkey}`} pubkey={pubkey} type="moderator" />
                   ))
                 ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No users found
+                  <div className="text-center py-4 text-purple-300">
+                    No users found. Try a different search term.
                   </div>
                 )}
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Middle Section - User Approval */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <CheckCircle className="w-5 h-5" />
-            User Approval
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Approval Toggle */}
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label className="text-base font-medium">Require Approval</Label>
-              <p className="text-sm text-muted-foreground">
-                New members need approval to post
-              </p>
+      <div className='relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-full flex items-center justify-center shadow-lg border border-green-500/30">
+              <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
+            <h3 className="text-2xl font-bold text-white">
+              MEMBER APPROVAL
+            </h3>
+          </div>
+          <div className="flex items-center space-x-2">
             <Switch
+              id="approval"
               checked={requireApproval}
               onCheckedChange={onRequireApprovalChange}
             />
+            <Label htmlFor="approval" className="text-sm font-medium text-purple-200">
+              Require approval for new members
+            </Label>
           </div>
 
-          {/* Pre-approved Users */}
           {requireApproval && (
-            <div className="space-y-4 pt-2 border-t">
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-green-700">
-                  Pre-approved Users ({preApprovedUsers.length})
-                </h4>
-                {preApprovedUsers.length > 0 ? (
+            <>
+              <p className="text-purple-200">
+                These users will be automatically approved when they request to join:
+              </p>
+
+              {/* Selected Pre-approved Users */}
+              {preApprovedUsers.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-green-300">
+                    Pre-approved ({preApprovedUsers.length})
+                  </h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {preApprovedUsers.map((pubkey) => (
                       <PreApprovedUserCard key={pubkey} pubkey={pubkey} />
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No pre-approved users yet. Add users who should have immediate access.
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Search for Pre-approved Users */}
               <div className="space-y-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <Input
                     placeholder="Search by name, npub, or nip-05..."
                     value={preApprovedSearchQuery}
                     onChange={(e) => setPreApprovedSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-slate-800/50 border-slate-700/50 text-white placeholder:text-slate-500 focus:border-purple-500 focus:ring-purple-500/20"
                   />
                 </div>
 
@@ -389,7 +392,7 @@ export function QuickSetupStep({
                 {preApprovedSearchQuery && (
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {isSearchingPreApproved ? (
-                      <div className="text-center py-4 text-muted-foreground">
+                      <div className="text-center py-4 text-purple-300">
                         Searching users...
                       </div>
                     ) : preApprovedSearchResults && preApprovedSearchResults.length > 0 ? (
@@ -397,59 +400,62 @@ export function QuickSetupStep({
                         <SearchResultCard key={`pre-${pubkey}`} pubkey={pubkey} type="preapproved" />
                       ))
                     ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        No users found
+                      <div className="text-center py-4 text-purple-300">
+                        No users found. Try a different search term.
                       </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Bottom Section - What's Included */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            What's Included
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className='relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30">
+              <Settings className="w-5 h-5 text-purple-400" />
+            </div>
+            <h3 className="text-2xl font-bold text-white">
+              WHAT'S INCLUDED
+            </h3>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2 text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <Hash className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-full flex items-center justify-center mx-auto shadow-lg border border-green-500/30">
+                <Hash className="w-6 h-6 text-green-400" />
               </div>
-              <p className="font-medium text-sm">General Channel</p>
-              <p className="text-xs text-muted-foreground">Text channel for discussions</p>
+              <p className="font-medium text-sm text-white">General Channel</p>
+              <p className="text-xs text-purple-200">Text channel for discussions</p>
             </div>
             <div className="space-y-2 text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                <Shield className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto shadow-lg border border-blue-500/30">
+                <Shield className="w-6 h-6 text-blue-400" />
               </div>
-              <p className="font-medium text-sm">Moderation Tools</p>
-              <p className="text-xs text-muted-foreground">Basic community management</p>
+              <p className="font-medium text-sm text-white">Moderation Tools</p>
+              <p className="text-xs text-purple-200">Basic community management</p>
             </div>
             <div className="space-y-2 text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto">
-                <Users className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full flex items-center justify-center mx-auto shadow-lg border border-purple-500/30">
+                <Users className="w-6 h-6 text-purple-400" />
               </div>
-              <p className="font-medium text-sm">Member Management</p>
-              <p className="text-xs text-muted-foreground">User approval and roles</p>
+              <p className="font-medium text-sm text-white">Member Management</p>
+              <p className="text-xs text-purple-200">User approval and roles</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Navigation */}
       <div className="flex justify-between pt-4">
-        <Button variant="outline" onClick={onPrevious}>
+        <Button variant="outline" onClick={onPrevious} className="bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white rounded-full">
           Previous
         </Button>
-        <Button onClick={onCreateCommunity} className="bg-purple-600 hover:bg-purple-700">
+        <Button onClick={onCreateCommunity} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25 rounded-full">
           Create Community
         </Button>
       </div>

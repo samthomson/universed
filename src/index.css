@@ -2,6 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animated stars background */
+.stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stars::before,
+.stars::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: white;
+  box-shadow:
+    100px 100px white, 200px 150px white, 300px 50px white, 400px 300px white,
+    500px 200px white, 600px 100px white, 700px 250px white, 800px 150px white,
+    150px 300px white, 250px 400px white, 350px 200px white, 450px 350px white,
+    550px 250px white, 650px 150px white, 750px 300px white, 850px 200px white,
+    50px 500px white, 150px 600px white, 250px 450px white, 350px 550px white,
+    450px 450px white, 550px 350px white, 650px 500px white, 750px 400px white;
+  animation: twinkle 3s infinite;
+}
+
+.stars::after {
+  animation-delay: 1.5s;
+}
+
+.stars2 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stars2::before,
+.stars2::after {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow:
+    120px 80px rgba(255, 255, 255, 0.8), 220px 180px rgba(255, 255, 255, 0.8), 320px 30px rgba(255, 255, 255, 0.8), 420px 280px rgba(255, 255, 255, 0.8),
+    520px 180px rgba(255, 255, 255, 0.8), 620px 80px rgba(255, 255, 255, 0.8), 720px 230px rgba(255, 255, 255, 0.8), 820px 130px rgba(255, 255, 255, 0.8),
+    170px 280px rgba(255, 255, 255, 0.8), 270px 380px rgba(255, 255, 255, 0.8), 370px 180px rgba(255, 255, 255, 0.8), 470px 330px rgba(255, 255, 255, 0.8),
+    570px 230px rgba(255, 255, 255, 0.8), 670px 130px rgba(255, 255, 255, 0.8), 770px 280px rgba(255, 255, 255, 0.8), 870px 180px rgba(255, 255, 255, 0.8),
+    70px 480px rgba(255, 255, 255, 0.8), 170px 580px rgba(255, 255, 255, 0.8), 270px 430px rgba(255, 255, 255, 0.8), 370px 530px rgba(255, 255, 255, 0.8),
+    470px 430px rgba(255, 255, 255, 0.8), 570px 330px rgba(255, 255, 255, 0.8), 670px 480px rgba(255, 255, 255, 0.8), 770px 380px rgba(255, 255, 255, 0.8);
+  animation: twinkle 4s infinite;
+}
+
+.stars2::after {
+  animation-delay: 2s;
+}
+
+.stars3 {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stars3::before,
+.stars3::after {
+  content: '';
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    80px 120px rgba(255, 255, 255, 0.6), 180px 220px rgba(255, 255, 255, 0.6), 280px 70px rgba(255, 255, 255, 0.6), 380px 320px rgba(255, 255, 255, 0.6),
+    480px 220px rgba(255, 255, 255, 0.6), 580px 120px rgba(255, 255, 255, 0.6), 680px 270px rgba(255, 255, 255, 0.6), 780px 170px rgba(255, 255, 255, 0.6),
+    130px 320px rgba(255, 255, 255, 0.6), 230px 420px rgba(255, 255, 255, 0.6), 330px 220px rgba(255, 255, 255, 0.6), 430px 370px rgba(255, 255, 255, 0.6),
+    530px 270px rgba(255, 255, 255, 0.6), 630px 170px rgba(255, 255, 255, 0.6), 730px 320px rgba(255, 255, 255, 0.6), 830px 220px rgba(255, 255, 255, 0.6),
+    30px 520px rgba(255, 255, 255, 0.6), 130px 620px rgba(255, 255, 255, 0.6), 230px 470px rgba(255, 255, 255, 0.6), 330px 570px rgba(255, 255, 255, 0.6),
+    430px 470px rgba(255, 255, 255, 0.6), 530px 370px rgba(255, 255, 255, 0.6), 630px 520px rgba(255, 255, 255, 0.6), 730px 420px rgba(255, 255, 255, 0.6);
+  animation: twinkle 5s infinite;
+}
+
+.stars3::after {
+  animation-delay: 2.5s;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
 @layer utilities {
 
   /* Thin scrollbar utility */
