@@ -90,7 +90,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
         </Button>
 
         {isExpanded && (
-          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto scrollbar-thin">
             {displayMessages.map((message) => (
               <PinnedMessageItem
                 key={message.id}
