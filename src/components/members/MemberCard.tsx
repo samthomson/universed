@@ -9,7 +9,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useUserStatus, useUserMusicStatus } from "@/hooks/useUserStatus";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
-import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import { ProfileModal } from "@/components/user/ProfileModal";
 import { ZapDialog } from "@/components/ZapDialog";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
 import { MutualCommunities } from "@/components/profile/MutualCommunities";
@@ -50,7 +50,9 @@ export function MemberCard({
   const { data: musicStatus } = useUserMusicStatus(pubkey);
   const metadata = author.data?.metadata;
   const [copied, setCopied] = useState(false);
+  const [currentProfilePubkey, setCurrentProfilePubkey] = useState(pubkey);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [_showSettingsDialog, _setShowSettingsDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [dmMessage, setDmMessage] = useState("");
 
@@ -112,6 +114,10 @@ export function MemberCard({
     onReport?.(pubkey); // Still call the optional callback for compatibility
   };
 
+  const handleProfileChange = (newPubkey: string) => {
+    setCurrentProfilePubkey(newPubkey);
+  };
+
   const handleCopyNpub = async () => {
     try {
       await navigator.clipboard.writeText(npub);
@@ -128,7 +134,7 @@ export function MemberCard({
     onOpenChange?.(false); // Close the member card popup
   };
 
-  const handleProfileDM = (targetPubkey: string) => {
+  const _handleProfileDM = (targetPubkey: string) => {
     onStartDM?.(targetPubkey);
     setShowProfileDialog(false);
   };
@@ -304,10 +310,8 @@ export function MemberCard({
 
               {/* About section (truncated) */}
               {about && (
-                <p className="text-xs text-gray-300 leading-relaxed overflow-hidden">
-                  <span className="block h-8 overflow-hidden">
-                    {about.length > 80 ? `${about.slice(0, 80)}...` : about}
-                  </span>
+                <p className="text-xs text-gray-300 leading-relaxed line-clamp-2 overflow-hidden">
+                  {about}
                 </p>
               )}
 
@@ -435,11 +439,13 @@ export function MemberCard({
     </Popover>
 
     {/* Profile Dialog */}
-    <UserProfileDialog
-      pubkey={pubkey}
+    <ProfileModal
+      targetPubkey={currentProfilePubkey}
       open={showProfileDialog}
       onOpenChange={setShowProfileDialog}
-      onStartDM={handleProfileDM}
+      onOpenSettings={() => _setShowSettingsDialog(true)}
+      onNavigateToDMs={onStartDM}
+      onProfileChange={handleProfileChange}
     />
 
     {/* Report Dialog */}

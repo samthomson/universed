@@ -7,7 +7,7 @@ import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { MediaAttachment } from '@/components/chat/MediaAttachment';
-import { UserProfileDialog } from '@/components/profile/UserProfileDialog';
+import { ProfileModal } from '@/components/user/ProfileModal';
 import { InlineEvent } from '@/components/InlineEvent';
 import { cn } from '@/lib/utils';
 
@@ -69,15 +69,21 @@ function containsMarkdown(text: string): boolean {
 interface NoteContentProps {
   event: NostrEvent;
   className?: string;
+  onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
 /** Parses content of text note events so that URLs and hashtags are linkified. */
 export function NoteContent({
   event,
   className,
+  onNavigateToDMs,
 }: NoteContentProps) {
-  const [selectedUserPubkey, setSelectedUserPubkey] = useState<string | null>(null);
+  const [selectedUserPubkey, setSelectedUserPubkey] = useState<string | undefined>(undefined);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+
+  const handleProfileChange = (newPubkey: string) => {
+    setSelectedUserPubkey(newPubkey);
+  };
   // Extract media attachments from imeta tags
   const mediaAttachments = useMemo(() => {
     return event.tags
@@ -456,10 +462,13 @@ export function NoteContent({
       )}
 
       {/* User Profile Dialog */}
-      <UserProfileDialog
-        pubkey={selectedUserPubkey}
+      <ProfileModal
+        targetPubkey={selectedUserPubkey}
         open={showProfileDialog}
         onOpenChange={setShowProfileDialog}
+        onOpenSettings={() => {}}
+        onNavigateToDMs={onNavigateToDMs}
+        onProfileChange={handleProfileChange}
       />
     </div>
   );

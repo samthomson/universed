@@ -38,7 +38,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
     } else {
       toDisplay = pinnedMessages || [];
     }
-    
+
     // Sort messages by created_at timestamp in descending order (newest first)
     return toDisplay.sort((a, b) => b.created_at - a.created_at);
   }, [messages, messageIds, pinnedMessages]);
@@ -79,7 +79,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
               {pinnedMessages?.length} pinned
             </span>
             {firstMessage && !isExpanded && (
-              <PinnedMessagePreview message={firstMessage} />
+              <PinnedMessagePreview message={firstMessage} onNavigateToDMs={onNavigateToDMs} />
             )}
           </div>
           {isExpanded ? (
@@ -107,7 +107,7 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
   );
 }
 
-function PinnedMessagePreview({ message }: { message: NostrEvent }) {
+function PinnedMessagePreview({ message, onNavigateToDMs: _onNavigateToDMs }: { message: NostrEvent; onNavigateToDMs?: (targetPubkey: string) => void }) {
   const author = useAuthor(message.pubkey);
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(message.pubkey);
@@ -177,7 +177,7 @@ function PinnedMessageItem({
             </span>
           </div>
           <div className="text-xs text-gray-300 break-words">
-            <NoteContent event={message} className="text-xs" />
+            <NoteContent event={message} className="text-xs" onNavigateToDMs={_onNavigateToDMs} />
           </div>
         </div>
         <Button
@@ -217,7 +217,7 @@ function PinnedMessageItem({
                   </span>
                 </div>
                 <div className="text-sm text-gray-300 break-words">
-                  <NoteContent event={message} className="text-sm" />
+                  <NoteContent event={message} className="text-sm" onNavigateToDMs={_onNavigateToDMs} />
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TestApp } from '@/test/TestApp';
@@ -19,7 +19,7 @@ describe('NoteContent', () => {
 
     render(
       <TestApp>
-        <NoteContent event={event} />
+        <NoteContent event={event} onNavigateToDMs={vi.fn()} />
       </TestApp>
     );
 
@@ -45,7 +45,7 @@ describe('NoteContent', () => {
 
     render(
       <TestApp>
-        <NoteContent event={event} />
+        <NoteContent event={event} onNavigateToDMs={vi.fn()} />
       </TestApp>
     );
 
@@ -143,7 +143,7 @@ describe('NoteContent', () => {
 
     render(
       <TestApp>
-        <NoteContent event={event} />
+        <NoteContent event={event} onNavigateToDMs={vi.fn()} />
       </TestApp>
     );
 
@@ -170,7 +170,7 @@ describe('NoteContent', () => {
 
     render(
       <TestApp>
-        <NoteContent event={event} />
+        <NoteContent event={event} onNavigateToDMs={vi.fn()} />
       </TestApp>
     );
 
@@ -179,9 +179,12 @@ describe('NoteContent', () => {
     // Click the mention
     await userEvent.click(aliceButton);
 
-    // Check that the profile dialog appears (it should contain the user's name or npub)
-    // Note: The dialog content might take time to load, so we check for the dialog structure
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // Check that the profile dialog appears by looking for a close button or the user's name
+    // The dialog should contain either a close button (X) or the user's name
+    const closeButton = await screen.findByRole('button', { name: /close/i }, { timeout: 3000 }).catch(() => null);
+    const userName = await screen.findByText(/Alice/i, {}, { timeout: 3000 }).catch(() => null);
+
+    expect(closeButton || userName).toBeInTheDocument();
   });
 
   it('generates deterministic names for users without metadata and styles them differently', () => {

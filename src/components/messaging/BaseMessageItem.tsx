@@ -15,7 +15,7 @@ import {
 
 import { NoteContent } from "@/components/NoteContent";
 import { UserContextMenu } from "@/components/user/UserContextMenu";
-import { UserProfileDialog } from "@/components/profile/UserProfileDialog";
+import { ProfileModal } from "@/components/user/ProfileModal";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
 import { MessageThread } from "@/components/chat/MessageThread";
@@ -71,7 +71,9 @@ function BaseMessageItemComponent({
   channelId,
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [currentProfilePubkey, setCurrentProfilePubkey] = useState(message.pubkey);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [_showSettingsDialog, _setShowSettingsDialog] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -104,10 +106,9 @@ function BaseMessageItemComponent({
   const handleProfileClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (user?.pubkey !== message.pubkey) {
-      setShowProfileDialog(true);
-    }
-  }, [user?.pubkey, message.pubkey]);
+    // Allow profile modal to open for any user (including self)
+    setShowProfileDialog(true);
+  }, []);
 
   const handleEmojiSelect = useCallback((emoji: string) => {
     addReaction({ targetEvent: message, emoji });
@@ -121,6 +122,10 @@ function BaseMessageItemComponent({
 
   const handleDropdownOpenChange = useCallback((open: boolean) => {
     setIsDropdownOpen(open);
+  }, []);
+
+  const handleProfileChange = useCallback((newPubkey: string) => {
+    setCurrentProfilePubkey(newPubkey);
   }, []);
 
   return (
@@ -216,7 +221,7 @@ function BaseMessageItemComponent({
                 }
 
                 return (
-                  <NoteContent event={message} className="text-sm leading-relaxed" />
+                  <NoteContent event={message} className="text-sm leading-relaxed" onNavigateToDMs={onNavigateToDMs} />
                 );
               })()}
               {isSending && !showAvatar && (
@@ -350,11 +355,13 @@ function BaseMessageItemComponent({
         )}
       </div>
 
-      <UserProfileDialog
-        pubkey={message.pubkey}
+      <ProfileModal
+        targetPubkey={currentProfilePubkey}
         open={showProfileDialog}
         onOpenChange={setShowProfileDialog}
-        onStartDM={onNavigateToDMs}
+        onOpenSettings={() => _setShowSettingsDialog(true)}
+        onNavigateToDMs={onNavigateToDMs}
+        onProfileChange={handleProfileChange}
       />
 
       {/* Report User Dialog */}
