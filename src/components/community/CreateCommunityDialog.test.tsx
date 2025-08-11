@@ -36,9 +36,9 @@ describe('CreateCommunityDialog', () => {
       </TestApp>
     );
 
-    expect(screen.getByText('Create Your Community')).toBeInTheDocument();
-    expect(screen.getByText('Start building your community space')).toBeInTheDocument();
-    expect(screen.getByText('Create Community')).toBeInTheDocument();
+    expect(screen.getByText('CREATE YOUR SPACE')).toBeInTheDocument();
+    expect(screen.getByText('Start building your space')).toBeInTheDocument();
+    expect(screen.getByText('Create Space')).toBeInTheDocument();
   });
 
   it('navigates to details step when Create Community is clicked', async () => {
@@ -48,13 +48,13 @@ describe('CreateCommunityDialog', () => {
       </TestApp>
     );
 
-    // Click the Create Community button
-    fireEvent.click(screen.getByText('Create Community'));
+    // Click the Create Space button
+    fireEvent.click(screen.getByText('Create Space'));
 
     // Wait for the details step to appear
     await waitFor(() => {
-      expect(screen.getByText('Community Details')).toBeInTheDocument();
-      expect(screen.getByText('CUSTOMIZE YOUR COMMUNITY')).toBeInTheDocument();
+      expect(screen.getByText('Space Details')).toBeInTheDocument();
+      expect(screen.getByText('CUSTOMIZE YOUR SPACE')).toBeInTheDocument();
     });
   });
 
@@ -66,11 +66,11 @@ describe('CreateCommunityDialog', () => {
     );
 
     // Navigate to details step
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // Wait for the details step to appear
     await waitFor(() => {
-      expect(screen.getByText('Community Icon')).toBeInTheDocument();
+      expect(screen.getByText('Space Icon')).toBeInTheDocument();
       expect(screen.getByText('Upload Icon')).toBeInTheDocument();
       expect(screen.getByText(/Upload a square image/)).toBeInTheDocument();
     });
@@ -84,11 +84,11 @@ describe('CreateCommunityDialog', () => {
     );
 
     // Navigate to details step
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // Wait for the details step to appear
     await waitFor(() => {
-      expect(screen.getByText('Community Details')).toBeInTheDocument();
+      expect(screen.getByText('Space Details')).toBeInTheDocument();
     });
 
     // Create a mock file
@@ -114,11 +114,11 @@ describe('CreateCommunityDialog', () => {
     );
 
     // Navigate to details step
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // Wait for the details step to appear
     await waitFor(() => {
-      expect(screen.getByText('Community Details')).toBeInTheDocument();
+      expect(screen.getByText('Space Details')).toBeInTheDocument();
     });
 
     // Create a mock file that's too large (6MB)
@@ -149,15 +149,15 @@ describe('CreateCommunityDialog', () => {
     );
 
     // Navigate to details step
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // Wait for the details step to appear
     await waitFor(() => {
-      expect(screen.getByText('Community Details')).toBeInTheDocument();
+      expect(screen.getByText('Space Details')).toBeInTheDocument();
     });
 
     // Fill in the required fields
-    const nameInput = screen.getByLabelText('Community Name');
+    const nameInput = screen.getByLabelText('Space Name');
 
     fireEvent.change(nameInput, { target: { value: 'Test Community' } });
 

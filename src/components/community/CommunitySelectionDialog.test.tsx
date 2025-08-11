@@ -40,7 +40,7 @@ describe('CommunitySelectionDialog', () => {
     );
 
     expect(screen.getByText('DISCOVER YOUR SPACE')).toBeInTheDocument();
-    expect(screen.getByText('Create Community')).toBeInTheDocument();
+    expect(screen.getByText('Create Space')).toBeInTheDocument();
     expect(screen.getByTestId('community-discovery')).toBeInTheDocument();
   });
 
@@ -54,7 +54,7 @@ describe('CommunitySelectionDialog', () => {
       </TestApp>
     );
 
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
     expect(screen.getByTestId('create-community-dialog')).toBeInTheDocument();
   });
 
@@ -112,7 +112,7 @@ describe('CommunitySelectionDialog', () => {
     );
 
     // Navigate to create view
-    fireEvent.click(screen.getByText('Create Community'));
+    fireEvent.click(screen.getByText('Create Space'));
 
     // The create dialog should appear, replacing this dialog
     // This test verifies the callbacks are properly wired up
