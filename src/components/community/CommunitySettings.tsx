@@ -107,12 +107,22 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     }
   }, [community]);
 
-  // Auto-switch to members tab when there are pending join requests
+  // Auto-switch to members tab when there are pending join requests, but only on initial open
+  const hasAutoSwitched = useRef(false);
+
   useEffect(() => {
-    if (open && pendingRequests > 0 && activeTab !== "members") {
+    if (open && pendingRequests > 0 && activeTab === "overview" && !hasAutoSwitched.current) {
       setActiveTab("members");
+      hasAutoSwitched.current = true;
     }
   }, [open, pendingRequests, activeTab]);
+
+  // Reset auto-switch flag when dialog closes
+  useEffect(() => {
+    if (!open) {
+      hasAutoSwitched.current = false;
+    }
+  }, [open]);
 
   if (!community) {
     return null;

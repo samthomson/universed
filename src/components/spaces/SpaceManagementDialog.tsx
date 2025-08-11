@@ -129,120 +129,124 @@ export function SpaceManagementDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-gray-800 border-gray-600">
-        <DialogHeader>
-          <DialogTitle className="flex items-center space-x-2 text-gray-100">
-            <Settings className="w-5 h-5" />
-            <span>Manage Spaces</span>
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-[95vw] sm:max-w-2xl lg:max-w-4xl max-h-[80vh] max-h-[80dvh] overflow-y-auto bg-gray-800 border-gray-600 p-0">
+        <div className="flex flex-col h-full">
+          <DialogHeader className="p-6 pb-4 flex-shrink-0">
+            <DialogTitle className="flex items-center space-x-2 text-gray-100">
+              <Settings className="w-5 h-5" />
+              <span>Manage Spaces</span>
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Create New Space */}
-          <Card className="bg-gray-750 border-gray-600">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-100">Create New Space</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isCreating ? (
-                <CreateSpaceForm
-                  communityId={communityId}
-                  onCancel={() => setIsCreating(false)}
-                  onSuccess={() => {
-                    setIsCreating(false);
-                    refetch();
-                  }}
-                />
-              ) : (
-                <Button onClick={() => setIsCreating(true)} className="w-full bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Custom Space
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 sm:space-y-6">
+            {/* Create New Space */}
+            <Card className="bg-gray-750 border-gray-600">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg text-gray-100">Create New Space</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isCreating ? (
+                  <CreateSpaceForm
+                    communityId={communityId}
+                    onCancel={() => setIsCreating(false)}
+                    onSuccess={() => {
+                      setIsCreating(false);
+                      refetch();
+                    }}
+                  />
+                ) : (
+                  <Button onClick={() => setIsCreating(true)} className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Custom Space
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Existing Spaces */}
-          <Card className="bg-gray-750 border-gray-600">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-100">Existing Spaces</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {spaces?.map((space) => (
-                <div key={space.id}>
-                  {editingSpace?.id === space.id ? (
-                    <EditSpaceForm
-                      space={space}
-                      communityId={communityId}
-                      onCancel={() => setEditingSpace(null)}
-                      onSuccess={() => {
-                        setEditingSpace(null);
-                        refetch();
-                      }}
-                    />
-                  ) : (
-                    <div className="flex items-center justify-between p-4 border border-gray-600 rounded-lg bg-gray-700">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
-                          {(() => {
-                            const IconComponent = getIconComponent(space.icon);
-                            return <IconComponent className="w-5 h-5 text-gray-300" />;
-                          })()}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-medium text-gray-100">{space.name}</h3>
-                            <Badge variant={space.type === 'custom' ? 'default' : 'secondary'}>
-                              {space.type}
-                            </Badge>
-                            {!space.enabled && (
-                              <Badge variant="outline">Disabled</Badge>
+            {/* Existing Spaces */}
+            <Card className="bg-gray-750 border-gray-600">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg text-gray-100">Existing Spaces</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 sm:space-y-4">
+                {spaces?.map((space) => (
+                  <div key={space.id}>
+                    {editingSpace?.id === space.id ? (
+                      <EditSpaceForm
+                        space={space}
+                        communityId={communityId}
+                        onCancel={() => setEditingSpace(null)}
+                        onSuccess={() => {
+                          setEditingSpace(null);
+                          refetch();
+                        }}
+                      />
+                    ) : (
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 sm:p-4 border border-gray-600 rounded-lg bg-gray-700 gap-3 sm:gap-0">
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                            {(() => {
+                              const IconComponent = getIconComponent(space.icon);
+                              return <IconComponent className="w-5 h-5 text-gray-300" />;
+                            })()}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-1 sm:gap-0">
+                              <h3 className="font-medium text-gray-100 truncate">{space.name}</h3>
+                              <div className="flex items-center space-x-1 sm:space-x-2">
+                                <Badge variant={space.type === 'custom' ? 'default' : 'secondary'} className="text-xs">
+                                  {space.type}
+                                </Badge>
+                                {!space.enabled && (
+                                  <Badge variant="outline" className="text-xs">Disabled</Badge>
+                                )}
+                              </div>
+                            </div>
+                            {space.description && (
+                              <p className="text-xs sm:text-sm text-gray-400 truncate">
+                                {space.description}
+                              </p>
                             )}
                           </div>
-                          {space.description && (
-                            <p className="text-sm text-gray-400">
-                              {space.description}
-                            </p>
-                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleToggleSpace(space)}
-                        >
-                          {space.enabled ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingSpace(space)}
-                        >
-                          <Settings className="w-4 h-4" />
-                        </Button>
-                        {space.type === 'custom' && (
+                        <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteSpace(space)}
-                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleToggleSpace(space)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {space.enabled ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
                           </Button>
-                        )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingSpace(space)}
+                          >
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                          {space.type === 'custom' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteSpace(space)}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -300,7 +304,7 @@ function CreateSpaceForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="name">Space Name</Label>
           <Input
@@ -343,11 +347,11 @@ function CreateSpaceForm({
           rows={3}
         />
       </div>
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
+        <Button type="button" variant="outline" onClick={onCancel} className="order-2 sm:order-1">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting || !name.trim()}>
+        <Button type="submit" disabled={isSubmitting || !name.trim()} className="order-1 sm:order-2">
           Create Space
         </Button>
       </div>
@@ -408,8 +412,8 @@ function EditSpaceForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-muted/50">
-      <div className="grid grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4 p-3 sm:p-4 border rounded-lg bg-muted/50">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="edit-name">Space Name</Label>
           <Input
@@ -460,11 +464,11 @@ function EditSpaceForm({
         />
         <Label htmlFor="edit-enabled">Enable this space</Label>
       </div>
-      <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:space-x-2">
+        <Button type="button" variant="outline" onClick={onCancel} className="order-2 sm:order-1">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting || !name.trim()}>
+        <Button type="submit" disabled={isSubmitting || !name.trim()} className="order-1 sm:order-2">
           Save Changes
         </Button>
       </div>
