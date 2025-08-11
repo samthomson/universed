@@ -36,9 +36,11 @@ export function UserPanel() {
     <>
       <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
         {/* User Info */}
-        <div
-          className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch`}
+        <button
+          className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch bg-transparent border-none text-left`}
           onClick={handleOpenProfileModal}
+
+          type="button"
         >
           <div className="relative">
             <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
@@ -60,7 +62,7 @@ export function UserPanel() {
               {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Profile Modal */}
