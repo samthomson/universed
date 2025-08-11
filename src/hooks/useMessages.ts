@@ -13,7 +13,7 @@ import type { NostrEvent } from '@/types/nostr';
 const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
 
 // Number of messages to load per pagination request
-const MESSAGES_PER_PAGE = 10; // Small value for testing
+const MESSAGES_PER_PAGE = 5; // Small value for testing
 
 function buildFilters(
   kind: string, 
@@ -144,7 +144,7 @@ export function useMessages(communityId: string, channelId: string) {
       if (!canRead) return [];
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]); // 3s max for messages
-      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers);
+      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers, { limit: MESSAGES_PER_PAGE });
     },
     enabled: !!communityId && !!channelId && canRead && approvedMembers !== undefined,
     refetchInterval: false, // Use global staleTime from QueryOptimizer
@@ -330,6 +330,9 @@ export function useMessages(communityId: string, channelId: string) {
       if (olderMessages.length < MESSAGES_PER_PAGE) {
         logger.log(`[DEBUG_PAGINATION] Reached the end of history (got ${olderMessages.length} < ${MESSAGES_PER_PAGE})`);
         setHasMoreMessages(false);
+      } else {
+        // Make sure hasMoreMessages is true if we got a full page
+        setHasMoreMessages(true);
       }
 
       // Log for debugging
