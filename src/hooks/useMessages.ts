@@ -326,12 +326,14 @@ export function useMessages(communityId: string, channelId: string) {
         }
       );
 
-      // If we got fewer messages than requested, we've reached the end
-      if (olderMessages.length < MESSAGES_PER_PAGE) {
-        logger.log(`[DEBUG_PAGINATION] Reached the end of history (got ${olderMessages.length} < ${MESSAGES_PER_PAGE})`);
+      // If we got zero messages, we've definitely reached the end
+      if (olderMessages.length === 0) {
+        logger.log(`[DEBUG_PAGINATION] Reached the end of history (got 0 messages)`);
         setHasMoreMessages(false);
       } else {
-        // Make sure hasMoreMessages is true if we got a full page
+        // As long as we got at least one message, assume there might be more
+        // This is more reliable than checking if we got a full page
+        logger.log(`[DEBUG_PAGINATION] Got ${olderMessages.length} messages, assuming there might be more`);
         setHasMoreMessages(true);
       }
 
@@ -361,9 +363,27 @@ export function useMessages(communityId: string, channelId: string) {
       // Create a Set of existing message IDs for fast lookup
       const existingIds = new Set(currentMessages.map(msg => msg.id));
       
+      // Log all message IDs for debugging
+      logger.log(`[DEBUG_PAGINATION] Current message IDs: ${currentMessages.map(m => m.id.slice(0, 8)).join(', ')}`);
+      logger.log(`[DEBUG_PAGINATION] Older message IDs: ${olderMessages.map(m => m.id.slice(0, 8)).join(', ')}`);
+      
       // Filter out any duplicates
       const uniqueOlderMessages = olderMessages.filter(msg => !existingIds.has(msg.id));
       logger.log(`[DEBUG_PAGINATION] Unique older messages: ${uniqueOlderMessages.length}`);
+      
+      // If we got older messages but none are unique, that's a sign we need to go further back
+      if (olderMessages.length > 0 && uniqueOlderMessages.length === 0) {
+        logger.log(`[DEBUG_PAGINATION] Got ${olderMessages.length} older messages but none are unique - need to go further back`);
+        
+        // Try going back further by using the oldest timestamp from the older messages
+        if (olderMessages.length > 0) {
+          const oldestFetched = olderMessages.reduce((oldest, current) => 
+            current.created_at < oldest.created_at ? current : oldest, olderMessages[0]);
+          
+          logger.log(`[DEBUG_PAGINATION] Setting oldest timestamp to ${new Date(oldestFetched.created_at * 1000).toISOString()}`);
+          setOldestMessageTimestamp(oldestFetched.created_at);
+        }
+      }
       
       if (uniqueOlderMessages.length === 0) {
         logger.log(`[DEBUG_PAGINATION] No unique older messages to add`);
@@ -425,6 +445,9 @@ export function useMessages(communityId: string, channelId: string) {
       stopSubscription();
     };
   }, [query.data, canRead, approvedMembers, startSubscription, stopSubscription]);
+
+  // Log the current state for debugging
+  logger.log(`[DEBUG_PAGINATION] Current state: hasMoreMessages=${hasMoreMessages}, loadingOlderMessages=${loadingOlderMessages}, messages=${query.data?.length || 0}`);
 
   return {
     data: query.data,
