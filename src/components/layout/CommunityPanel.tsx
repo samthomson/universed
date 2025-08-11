@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { useCommunities } from "@/hooks/useCommunities";
+import { useCommunityById } from "@/hooks/useCommunityById";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { FolderManagementDialog } from "@/components/community/FolderManagementDialog";
@@ -28,6 +29,7 @@ interface CommunityPanelProps {
 
 export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
+  const { data: specificCommunity, isLoading: isLoadingSpecificCommunity } = useCommunityById(communityId);
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
@@ -40,8 +42,9 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
     refetchChannels();
   };
 
-
-  const community = communities?.find(c => c.id === communityId);
+  // Try to find the community in the general communities list first,
+  // then fall back to the specific community query for direct navigation
+  const community = communities?.find(c => c.id === communityId) || specificCommunity;
 
   if (!communityId) {
     // On mobile, show communities list instead of Direct Messages
@@ -161,7 +164,7 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
     );
   }
 
-  if (!community) {
+  if (!community && (isLoadingSpecificCommunity || !communityId)) {
     return (
       <div className="flex flex-col h-full min-h-0">
         <div className="p-4 border-b border-gray-600">
@@ -172,6 +175,19 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
             <Skeleton className="h-4 w-full" />
             <Skeleton className="h-4 w-3/4" />
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!community) {
+    return (
+      <div className="flex flex-col h-full min-h-0 items-center justify-center p-8">
+        <div className="text-center">
+          <h3 className="text-lg font-medium text-white mb-2">Community Not Found</h3>
+          <p className="text-sm text-gray-400 mb-4">
+            The community you're looking for doesn't exist or couldn't be loaded.
+          </p>
         </div>
       </div>
     );

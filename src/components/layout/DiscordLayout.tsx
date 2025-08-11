@@ -20,14 +20,13 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useCommunities, type Community } from "@/hooks/useCommunities";
+import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
@@ -42,7 +41,6 @@ interface DiscordLayoutProps {
 }
 
 export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }: DiscordLayoutProps = {}) {
-  const queryClient = useQueryClient();
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -151,42 +149,19 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     if (initialSpaceCommunityId && !urlInitializationRef.current) {
       urlInitializationRef.current = true;
 
-      // Check if the community exists in cache first
-      const cachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
-      const communityExists = cachedCommunities?.some(c => c.id === initialSpaceCommunityId);
+      // Always set the selected community, even if it's not in cache
+      // This allows users to navigate to communities they're not yet members of
+      setSelectedCommunity(initialSpaceCommunityId);
+      setSelectedDMConversation(null);
+      setDmTargetPubkey(null);
+      setActiveTab("channels"); // Ensure we default to channels tab
+      setSelectedSpace(null);
 
-      if (communityExists) {
-        setSelectedCommunity(initialSpaceCommunityId);
-        setSelectedDMConversation(null);
-        setDmTargetPubkey(null);
-        setActiveTab("channels"); // Ensure we default to channels tab
-        setSelectedSpace(null);
-
-        if (isMobile) {
-          setMobileView("channels");
-        }
-      } else {
-        // If community doesn't exist in cache, wait a bit and try again
-        // This handles the case where optimistic data is being set
-        setTimeout(() => {
-          const updatedCachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
-          const updatedCommunityExists = updatedCachedCommunities?.some(c => c.id === initialSpaceCommunityId);
-
-          if (updatedCommunityExists) {
-            setSelectedCommunity(initialSpaceCommunityId);
-            setSelectedDMConversation(null);
-            setDmTargetPubkey(null);
-            setActiveTab("channels");
-            setSelectedSpace(null);
-
-            if (isMobile) {
-              setMobileView("channels");
-            }
-          }
-        }, 100);
+      if (isMobile) {
+        setMobileView("channels");
       }
     }
-  }, [initialSpaceCommunityId, isMobile, queryClient]);
+  }, [initialSpaceCommunityId, isMobile]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
