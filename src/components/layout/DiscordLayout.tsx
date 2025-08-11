@@ -21,7 +21,7 @@ import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2, Shield } from "lucide-react";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
@@ -31,6 +31,11 @@ import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
 import { useSendDM } from "@/hooks/useSendDM";
+import { useCanModerate } from "@/hooks/useCommunityRoles";
+import { useJoinRequests } from "@/hooks/useJoinRequests";
+import { Badge } from "@/components/ui/badge";
+
+import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { createMarketplaceItemMessage } from "@/lib/marketplaceDM";
 import { communityIdToNaddr } from "@/lib/utils";
 import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
@@ -53,6 +58,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const [showCommunitySelectionDialog, setShowCommunitySelectionDialog] =
     useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
+
+  const [showMobileModeration, setShowMobileModeration] = useState(false);
   const initializationRef = useRef(false);
   const urlInitializationRef = useRef(false);
   const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<
@@ -71,6 +78,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const { data: communities } = useCommunities();
   const { mutate: leaveCommunity, isPending: isLeavingCommunity } = useLeaveCommunity();
   const { toast } = useToast();
+  const { canModerate } = useCanModerate(selectedCommunity || '');
+  const { data: joinRequests } = useJoinRequests(selectedCommunity);
+  const pendingJoinRequests = joinRequests?.length || 0;
 
   const isMobile = useIsMobile();
   const [mobileView, setMobileView] = useState<
@@ -585,29 +595,52 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                   )}
                 </div>
 
-                {/* Triple Dot Menu - only show for community chat with channels tab */}
+                {/* Action Buttons - show for community chat with channels tab */}
                 {mobileView === "chat" && selectedCommunity && activeTab === "channels" ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="flex-shrink-0">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={handleMobileInviteMembers}>
-                        <Share2 className="w-4 h-4 mr-2" />
-                        Invite Members
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleLeaveCommunity}
-                        disabled={isLeavingCommunity}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  <div className="flex items-center gap-1">
+                    {/* Moderation Button with Notification Badge */}
+                    {canModerate && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowMobileModeration(true)}
+                        className="relative flex-shrink-0"
                       >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Leave Community
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <Shield className="h-5 w-5" />
+                        {pendingJoinRequests > 0 && (
+                          <Badge
+                            variant="destructive"
+                            className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
+                          >
+                            {pendingJoinRequests}
+                          </Badge>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Triple Dot Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={handleMobileInviteMembers}>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Invite Members
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleLeaveCommunity}
+                          disabled={isLeavingCommunity}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Leave Community
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ) : (
                   <div className="flex-shrink-0 w-9"></div>
                 )}
@@ -741,6 +774,17 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           onJoinSuccess={handleJoinSuccess}
           communityId={urlCommunityId}
         />
+
+
+
+        {/* Mobile Moderation Panel */}
+        {showMobileModeration && selectedCommunity && (
+          <CommunitySettings
+            communityId={selectedCommunity}
+            open={showMobileModeration}
+            onOpenChange={setShowMobileModeration}
+          />
+        )}
           </>
       </CommunityProvider>
     );

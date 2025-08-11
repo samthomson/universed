@@ -90,6 +90,12 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
 
 
+  // Calculate analytics from real data
+  const totalMembers = members?.length || 0;
+  const onlineMembers = members?.filter(m => m.isOnline).length || 0;
+  const pendingRequests = joinRequests?.length || 0;
+  const totalReports = reports?.length || 0;
+
   // Initialize form data when community changes
   useEffect(() => {
     if (community) {
@@ -100,6 +106,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       });
     }
   }, [community]);
+
+  // Auto-switch to members tab when there are pending join requests
+  useEffect(() => {
+    if (open && pendingRequests > 0 && activeTab !== "members") {
+      setActiveTab("members");
+    }
+  }, [open, pendingRequests, activeTab]);
 
   if (!community) {
     return null;
@@ -338,18 +351,12 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
     );
   }
 
-  // Calculate analytics from real data
-  const totalMembers = members?.length || 0;
-  const onlineMembers = members?.filter(m => m.isOnline).length || 0;
-  const pendingRequests = joinRequests?.length || 0;
-  const totalReports = reports?.length || 0;
-
   // Tab configuration for mobile menu
   const tabs = [
     { value: "overview", label: "Overview", icon: Settings },
     { value: "sharing", label: "Sharing", icon: Share2 },
     { value: "moderation", label: "Moderation", icon: Shield },
-    { value: "members", label: "Members", icon: Users },
+    { value: "members", label: "Members", icon: Users, showBadge: pendingRequests > 0, badgeCount: pendingRequests },
     { value: "analytics", label: "Analytics", icon: BarChart3 },
     { value: "audit", label: "Audit Log", icon: FileText },
   ];
@@ -376,9 +383,17 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
-                  <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-1">
+                  <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-1 relative">
                     <Icon className="w-4 h-4" />
                     {tab.label}
+                    {tab.showBadge && (
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs flex items-center justify-center rounded-full"
+                      >
+                        {tab.badgeCount}
+                      </Badge>
+                    )}
                   </TabsTrigger>
                 );
               })}
@@ -408,11 +423,19 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                           <Button
                             key={tab.value}
                             variant={isActive ? "default" : "ghost"}
-                            className="w-full justify-start gap-3"
+                            className="w-full justify-start gap-3 relative"
                             onClick={() => handleTabChange(tab.value)}
                           >
                             <Icon className="w-4 h-4" />
                             {tab.label}
+                            {tab.showBadge && (
+                              <Badge
+                                variant="destructive"
+                                className="absolute right-2 h-5 w-5 p-0 text-xs flex items-center justify-center rounded-full"
+                              >
+                                {tab.badgeCount}
+                              </Badge>
+                            )}
                           </Button>
                         );
                       })}
