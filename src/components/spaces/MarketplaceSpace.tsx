@@ -30,6 +30,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useToast } from '@/hooks/useToast';
+import { useUserCommunityMembership } from '@/hooks/useUserCommunityMembership';
+import { MembershipCTA } from '@/components/community/MembershipCTA';
 import { genUserName } from '@/lib/genUserName';
 import { CreateMarketplaceItemDialog } from './CreateMarketplaceItemDialog';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -111,6 +113,8 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
   const navigate = useNavigate();
   const { highlightedItemId, clearHighlight } = useMarketplaceContext();
   const highlightedItemRef = useRef<HTMLDivElement>(null);
+  const { data: membershipStatus } = useUserCommunityMembership(communityId);
+  const { toast } = useToast();
 
   // Effect to scroll to highlighted item
   useEffect(() => {
@@ -177,6 +181,14 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
 
     let filteredItems = allItems;
 
+    // Filter by membership status - only show items from approved members
+    if (membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus)) {
+      // User is approved, show all items
+    } else {
+      // User is not approved, don't show any items
+      return [];
+    }
+
     // Filter by category
     if (selectedCategory !== 'all') {
       filteredItems = filteredItems.filter(item => item.category === selectedCategory);
@@ -208,7 +220,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
     });
 
     return filteredItems;
-  }, [allItems, selectedCategory, searchQuery, sortBy]);
+  }, [allItems, selectedCategory, searchQuery, sortBy, membershipStatus]);
 
   // Get unique categories from all items
   const categories = useMemo(() =>
@@ -282,7 +294,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
               </p>
             </div>
           </div>
-          {user && (
+          {user && membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) && (
             <CreateMarketplaceItemDialog communityId={communityId} />
           )}
         </div>
@@ -350,29 +362,42 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
 
         {/* Results */}
         {items && items.length === 0 ? (
-          <Card className="border-dashed border-gray-600 bg-gray-750">
-            <CardContent className="py-12 px-8 text-center">
-              <ShoppingBag className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-200">No items found</h3>
-              <p className="text-gray-400 mb-4">
-                {searchQuery || selectedCategory !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Be the first to list an item in this community marketplace!'
-                }
-              </p>
-              {user && (
-                <CreateMarketplaceItemDialog
-                  communityId={communityId}
-                  trigger={
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                      <Plus className="w-4 h-4 mr-2" />
-                      List First Community Item
-                    </Button>
+          membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) ? (
+            <Card className="border-dashed border-gray-600 bg-gray-750">
+              <CardContent className="py-12 px-8 text-center">
+                <ShoppingBag className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2 text-gray-200">No items found</h3>
+                <p className="text-gray-400 mb-4">
+                  {searchQuery || selectedCategory !== 'all'
+                    ? 'Try adjusting your search or filters'
+                    : 'Be the first to list an item in this community marketplace!'
                   }
-                />
-              )}
-            </CardContent>
-          </Card>
+                </p>
+                {user && (
+                  <CreateMarketplaceItemDialog
+                    communityId={communityId}
+                    trigger={
+                      <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Plus className="w-4 h-4 mr-2" />
+                        List First Community Item
+                      </Button>
+                    }
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <MembershipCTA
+              _communityId={communityId}
+              onJoinRequest={() => {
+                toast({
+                  title: "Feature Coming Soon",
+                  description: "Join requests will be available soon. Please contact a community moderator.",
+                });
+              }}
+              className="border-dashed border-gray-600 bg-gray-750"
+            />
+          )
         ) : (
           <div className={
             viewMode === 'grid'
