@@ -15,6 +15,7 @@ interface BaseMessageListProps {
   hasMore?: boolean;
   loadingOlder?: boolean;
   loadOlderMessages?: () => Promise<void>;
+  reachedStartOfConversation?: boolean;
   config: {
     showPinnedMessages: boolean;
     showAvatars: boolean;
@@ -31,6 +32,7 @@ export function BaseMessageList({
   hasMore = false,
   loadingOlder = false,
   loadOlderMessages,
+  reachedStartOfConversation = false,
   config,
   messageItemProps,
   communityId,
@@ -114,20 +116,26 @@ export function BaseMessageList({
         }}
         computeItemKey={(index, message) => message.id}
         components={{
-          Header: hasMore ? () => (
+          Header: () => (
             <div className="py-2 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loadOlderMessages?.()}
-                disabled={loadingOlder}
-                className="flex items-center gap-1"
-              >
-                <ChevronUp className="h-4 w-4" />
-                {loadingOlder ? 'Loading...' : 'Load older messages'}
-              </Button>
+              {hasMore ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loadOlderMessages?.()}
+                  disabled={loadingOlder}
+                  className="flex items-center gap-1"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                  {loadingOlder ? 'Loading...' : 'Load older messages'}
+                </Button>
+              ) : reachedStartOfConversation ? (
+                <div className="text-xs text-muted-foreground py-2 px-4 border rounded-full bg-muted/30">
+                  Start of conversation
+                </div>
+              ) : null}
             </div>
-          ) : undefined,
+          ),
         }}
       />
     </div>

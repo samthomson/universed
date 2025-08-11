@@ -163,7 +163,8 @@ function CommunityChat(
     isLoading, 
     hasMoreMessages, 
     loadingOlderMessages, 
-    loadOlderMessages 
+    loadOlderMessages,
+    reachedStartOfConversation
   } = useMessages(communityId, channelId);
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
@@ -314,6 +315,7 @@ function CommunityChat(
         hasMoreMessages={hasMoreMessages}
         loadingOlderMessages={loadingOlderMessages}
         onLoadOlderMessages={loadOlderMessages}
+        reachedStartOfConversation={reachedStartOfConversation}
       />
 
       {threadRootMessage && (

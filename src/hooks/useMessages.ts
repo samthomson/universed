@@ -136,6 +136,7 @@ export function useMessages(communityId: string, channelId: string) {
   const [oldestMessageTimestamp, setOldestMessageTimestamp] = useState<number | null>(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [reachedStartOfConversation, setReachedStartOfConversation] = useState(false);
 
   // Initial query for existing messages
   const query = useQuery({
@@ -330,6 +331,7 @@ export function useMessages(communityId: string, channelId: string) {
       if (olderMessages.length === 0) {
         logger.log(`[DEBUG_PAGINATION] Reached the end of history (got 0 messages)`);
         setHasMoreMessages(false);
+        setReachedStartOfConversation(true);
       } else {
         // As long as we got at least one message, assume there might be more
         // This is more reliable than checking if we got a full page
@@ -457,5 +459,6 @@ export function useMessages(communityId: string, channelId: string) {
     hasMoreMessages,
     loadingOlderMessages,
     loadOlderMessages,
+    reachedStartOfConversation,
   };
 }

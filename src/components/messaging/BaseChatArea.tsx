@@ -42,6 +42,7 @@ interface BaseChatAreaProps {
   hasMoreMessages?: boolean;
   loadingOlderMessages?: boolean;
   onLoadOlderMessages?: () => Promise<void>;
+  reachedStartOfConversation?: boolean;
 }
 
 export function BaseChatArea({
@@ -65,6 +66,7 @@ export function BaseChatArea({
   hasMoreMessages = false,
   loadingOlderMessages = false,
   onLoadOlderMessages,
+  reachedStartOfConversation = false,
 }: BaseChatAreaProps) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -150,6 +152,7 @@ export function BaseChatArea({
           hasMore={hasMoreMessages}
           loadingOlder={loadingOlderMessages}
           loadOlderMessages={onLoadOlderMessages}
+          reachedStartOfConversation={reachedStartOfConversation}
         />
 
         {additionalContent}
