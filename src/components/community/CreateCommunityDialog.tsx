@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/useToast";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2, Plus, Shield } from "lucide-react";
-import { cn, communityIdToNaddr, generateChannelIdentifier } from "@/lib/utils";
+import { cn, communityIdToNaddr, generateCommunityIdentifier, generateChannelIdentifier } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import { QuickSetupStep } from "./QuickSetupStep";
 
@@ -125,7 +125,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         }
       }
 
-      const communityIdentifier = generateChannelIdentifier(formData.name);
+      const communityIdentifier = generateCommunityIdentifier(formData.name);
 
       // Create community definition event
       const communityTags = [
@@ -201,24 +201,24 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         });
       }
 
-      // Create default general channel with auto-generated identifier
+      // Create default general channel
       const channelDisplayName = 'general';
       const channelIdentifier = generateChannelIdentifier(channelDisplayName);
       const channelTags = [
         ["d", `34550:${user!.pubkey}:${communityIdentifier}:${channelIdentifier}`],
         ["a", `34550:${user!.pubkey}:${communityIdentifier}`],
-        ["name", channelIdentifier],
+        ["name", channelDisplayName],
         ["description", "General discussion"],
         ["channel_type", "text"],
         ["position", "0"],
         ["t", "channel"],
-        ["alt", `Channel: ${channelIdentifier}`],
+        ["alt", `Channel: ${channelDisplayName}`],
       ];
 
       await createEvent({
         kind: 32807,
         content: JSON.stringify({
-          name: channelIdentifier,
+          name: channelDisplayName,
           description: "General discussion",
           type: "text",
           position: 0,
@@ -235,8 +235,9 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
       // Snapshot the previous value
       const previousCommunities = queryClient.getQueryData<Community[]>(['communities']);
 
-      // Create optimistic community
-      const communityId = `34550:${user!.pubkey}:${generateChannelIdentifier(formData.name)}`;
+      // Generate the same identifier that will be used in the mutation
+      const communityIdentifier = generateCommunityIdentifier(formData.name);
+      const communityId = `34550:${user!.pubkey}:${communityIdentifier}`;
       setCreatedCommunityId(communityId);
 
       const optimisticCommunity: Community = {
@@ -290,8 +291,9 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
       }, 500);
     },
     onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: ['communities'] });
+      // Don't immediately refetch since we have optimistic data
+      // Let the background refetch happen naturally based on staleTime
+      // queryClient.invalidateQueries({ queryKey: ['communities'] });
     },
   });
 
