@@ -614,8 +614,6 @@ export function BaseMessageInput({
         />
       )}
 
-
-
       {showEmojiAutocomplete && (
         <EmojiAutocomplete
           query={autocompleteQuery}
