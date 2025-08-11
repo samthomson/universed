@@ -309,6 +309,25 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     }
   }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
 
+  // Auto-show join dialog when user selects a community they're not a member of
+  useEffect(() => {
+    if (selectedCommunity && membershipStatus && !urlCommunityId) {
+      // Only show dialog if user is not an approved member and not coming from URL navigation
+      if (
+        membershipStatus !== "owner" &&
+        membershipStatus !== "moderator" &&
+        membershipStatus !== "approved" &&
+        membershipStatus !== "pending"
+      ) {
+        // Small delay to allow the community to load first
+        setTimeout(() => {
+          setCommunityBeforeJoinDialog(null); // No previous community to go back to
+          setShowJoinDialog(true);
+        }, 300);
+      }
+    }
+  }, [selectedCommunity, membershipStatus, urlCommunityId]);
+
   const handleJoinSuccess = (communityId: string) => {
     setSelectedCommunity(communityId);
     clearNavigation();
