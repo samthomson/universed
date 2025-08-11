@@ -311,11 +311,22 @@ function CommunityChat(
       />
 
       {threadRootMessage && (
+        (() => {
+          // Debug: Log communityId right before rendering MessageThread
+          if (process.env.NODE_ENV === 'development') {
+            console.log('About to render MessageThread with communityId:', communityId);
+          }
+          return null;
+        })()
+      )}
+      {threadRootMessage && (
         <MessageThread
           rootMessage={threadRootMessage}
           open={isThreadOpen}
           onOpenChange={setIsThreadOpen}
           onNavigateToDMs={onNavigateToDMs}
+          communityId={communityId}
+          channelId={channelId}
         />
       )}
 
@@ -331,6 +342,7 @@ function CommunityChat(
 }
 
 export function ChatArea(props: ChatAreaProps) {
+
   if (!props.communityId || !props.channelId) {
     return (
       <div className="flex flex-col h-full w-full max-w-full overflow-hidden">

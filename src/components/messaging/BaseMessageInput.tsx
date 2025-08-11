@@ -35,6 +35,9 @@ interface BaseMessageInputProps {
   channelId?: string;
   membershipStatus?: 'owner' | 'moderator' | 'approved' | 'pending' | 'declined' | 'banned' | 'not-member';
   onJoinRequest?: () => void;
+  // Thread context props
+  rootMessage?: NostrEvent;
+  threadReplies?: NostrEvent[];
 }
 
 export function BaseMessageInput({
@@ -48,6 +51,8 @@ export function BaseMessageInput({
   channelId,
   membershipStatus,
   onJoinRequest,
+  rootMessage,
+  threadReplies,
 }: BaseMessageInputProps) {
   const [message, setMessage] = useState("");
   const [showEmojiAutocomplete, setShowEmojiAutocomplete] = useState(false);
@@ -62,7 +67,8 @@ export function BaseMessageInput({
   // User mentions state
   const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
-  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(-1); // Start with no selection
+  const [isInsertingMention, setIsInsertingMention] = useState(false); // Flag to prevent reopening autocomplete after insertion
 
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -73,7 +79,6 @@ export function BaseMessageInput({
 
   // User mentions functionality
   const {
-    currentMention,
     insertMention,
     updateMentions,
     getMentionTags,
@@ -84,7 +89,7 @@ export function BaseMessageInput({
   const [mentionEnterHandler, setMentionEnterHandler] = useState<(() => boolean) | null>(null);
 
   const handleMentionEnterKey = (handler: () => boolean) => {
-    setMentionEnterHandler(() => handler);
+    setMentionEnterHandler(handler);
   };
 
 
@@ -213,9 +218,9 @@ export function BaseMessageInput({
       switch (e.key) {
         case 'Enter':
         case 'Tab':
-          if (showMentionAutocomplete && mentionEnterHandler) {
+          // Only call the handler if it exists and there are actual results to select from
+          if (mentionEnterHandler && mentionEnterHandler()) {
             e.preventDefault();
-            mentionEnterHandler();
             return;
           }
           // For Tab key, always prevent default when autocomplete is open
@@ -311,9 +316,15 @@ export function BaseMessageInput({
   };
 
   const handleMentionSelect = (pubkey: string, displayName: string) => {
+    setIsInsertingMention(true);
     insertMention(pubkey, displayName);
     setShowMentionAutocomplete(false);
     setMentionQuery("");
+
+    // Reset the flag after a short delay to allow the text update to complete
+    setTimeout(() => {
+      setIsInsertingMention(false);
+    }, 50);
   };
 
   // Wrapper function to handle the type difference
@@ -347,14 +358,35 @@ export function BaseMessageInput({
     // Update emoji autocomplete
     updateAutocomplete(newMessage, textarea.selectionStart);
 
-    // Update mention autocomplete
+    // Update mention autocomplete - this will update currentMention state
     updateMentions(newMessage, textarea.selectionStart);
 
-    // Check if we should show mention autocomplete
-    if (currentMention) {
-      setShowMentionAutocomplete(true);
-      setMentionQuery(currentMention.query);
-      setSelectedMentionIndex(0);
+    // Don't reopen autocomplete if we're in the middle of inserting a mention
+    if (isInsertingMention) {
+      return;
+    }
+
+    // Check if we should show mention autocomplete by looking at the text directly
+    const textBeforeCursor = newMessage.slice(0, textarea.selectionStart);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      // Check if this @ is not part of an existing mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      const spaceIndex = textAfterAt.indexOf(' ');
+      const newlineIndex = textAfterAt.indexOf('\n');
+
+      // If there's no space or newline after @, or cursor is before them, show autocomplete
+      if ((spaceIndex === -1 || textarea.selectionStart <= lastAtIndex + 1 + spaceIndex) &&
+          (newlineIndex === -1 || textarea.selectionStart <= lastAtIndex + 1 + newlineIndex)) {
+        setShowMentionAutocomplete(true);
+        const query = newMessage.slice(lastAtIndex + 1, textarea.selectionStart);
+        setMentionQuery(query);
+        setSelectedMentionIndex(-1); // Start with no selection
+      } else {
+        setShowMentionAutocomplete(false);
+        setMentionQuery("");
+      }
     } else {
       setShowMentionAutocomplete(false);
       setMentionQuery("");
@@ -370,11 +402,32 @@ export function BaseMessageInput({
     // Update mention autocomplete on selection change
     updateMentions(message, textarea.selectionStart);
 
-    // Check if we should show mention autocomplete
-    if (currentMention) {
-      setShowMentionAutocomplete(true);
-      setMentionQuery(currentMention.query);
-      setSelectedMentionIndex(0);
+    // Don't reopen autocomplete if we're in the middle of inserting a mention
+    if (isInsertingMention) {
+      return;
+    }
+
+    // Check if we should show mention autocomplete by looking at the text directly
+    const textBeforeCursor = message.slice(0, textarea.selectionStart);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      // Check if this @ is not part of an existing mention
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      const spaceIndex = textAfterAt.indexOf(' ');
+      const newlineIndex = textAfterAt.indexOf('\n');
+
+      // If there's no space or newline after @, or cursor is before them, show autocomplete
+      if ((spaceIndex === -1 || textarea.selectionStart <= lastAtIndex + 1 + spaceIndex) &&
+          (newlineIndex === -1 || textarea.selectionStart <= lastAtIndex + 1 + newlineIndex)) {
+        setShowMentionAutocomplete(true);
+        const query = message.slice(lastAtIndex + 1, textarea.selectionStart);
+        setMentionQuery(query);
+        setSelectedMentionIndex(-1); // Start with no selection
+      } else {
+        setShowMentionAutocomplete(false);
+        setMentionQuery("");
+      }
     } else {
       setShowMentionAutocomplete(false);
       setMentionQuery("");
@@ -544,7 +597,7 @@ export function BaseMessageInput({
         </Button>
       </div>
 
-      {showMentionAutocomplete && config.allowMentions && communityId && (
+      {showMentionAutocomplete && config.allowMentions && (
         <UserMentionAutocomplete
           open={showMentionAutocomplete}
           onOpenChange={setShowMentionAutocomplete}
@@ -556,6 +609,8 @@ export function BaseMessageInput({
           selectedIndex={selectedMentionIndex}
           onSelectedIndexChange={setSelectedMentionIndex}
           onEnterKey={handleMentionEnterKey}
+          rootMessage={rootMessage}
+          threadReplies={threadReplies}
         />
       )}
 
