@@ -68,6 +68,7 @@ export function BaseMessageInput({
   const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(-1); // Start with no selection
+  const [isInsertingMention, setIsInsertingMention] = useState(false); // Flag to prevent reopening autocomplete after insertion
 
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -315,9 +316,15 @@ export function BaseMessageInput({
   };
 
   const handleMentionSelect = (pubkey: string, displayName: string) => {
+    setIsInsertingMention(true);
     insertMention(pubkey, displayName);
     setShowMentionAutocomplete(false);
     setMentionQuery("");
+
+    // Reset the flag after a short delay to allow the text update to complete
+    setTimeout(() => {
+      setIsInsertingMention(false);
+    }, 50);
   };
 
   // Wrapper function to handle the type difference
@@ -354,6 +361,11 @@ export function BaseMessageInput({
     // Update mention autocomplete - this will update currentMention state
     updateMentions(newMessage, textarea.selectionStart);
 
+    // Don't reopen autocomplete if we're in the middle of inserting a mention
+    if (isInsertingMention) {
+      return;
+    }
+
     // Check if we should show mention autocomplete by looking at the text directly
     const textBeforeCursor = newMessage.slice(0, textarea.selectionStart);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
@@ -389,6 +401,11 @@ export function BaseMessageInput({
 
     // Update mention autocomplete on selection change
     updateMentions(message, textarea.selectionStart);
+
+    // Don't reopen autocomplete if we're in the middle of inserting a mention
+    if (isInsertingMention) {
+      return;
+    }
 
     // Check if we should show mention autocomplete by looking at the text directly
     const textBeforeCursor = message.slice(0, textarea.selectionStart);

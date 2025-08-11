@@ -36,7 +36,7 @@ export function ThreadReplyInput({ rootMessage, threadReplies, communityId, chan
       // They are discovered through the e-tag reference to the root message
 
       await createEvent({
-        kind: 1, // Thread replies are always kind 1 to ensure compatibility
+        kind: 1111, // Thread replies should be kind 1111 (Comment) events per NIP-22
         content,
         tags,
       });
