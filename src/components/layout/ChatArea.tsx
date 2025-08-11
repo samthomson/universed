@@ -22,7 +22,7 @@ import { useModerationActions } from "@/hooks/useModerationActions";
 import { useMentionNotifications } from "@/hooks/useMentionNotifications";
 import { useDeleteMessage } from "@/hooks/useMessageActions";
 import type { NostrEvent } from "@nostrify/nostrify";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { toast } from "sonner";
 import { MessageThread } from "@/components/chat/MessageThread";
@@ -178,16 +178,10 @@ function CommunityChat(
     showBan: isAdmin, // Enable ban option for admin users
   }), [isAdmin]);
 
-  const channel = channels?.find((c) => c.id === channelId);
+  // Memoize query key to prevent unnecessary re-renders
+  const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
-  if (!channel) {
-    return <div>Channel not found</div>;
-  }
-
-  const channelName = channel?.name || channelId;
-  const isVoiceChannel = channel?.type === "voice";
-
-  const handleSendMessage = async (content: string, additionalTags: string[][] = []) => {
+  const handleSendMessage = useCallback(async (content: string, additionalTags: string[][] = []) => {
     const [kind, pubkey, identifier] = communityId.split(":");
 
     const tags = [
@@ -221,9 +215,9 @@ function CommunityChat(
         // Don't fail the message send if notifications fail
       }
     }
-  };
+  }, [communityId, channelId, createEvent, sendMentionNotifications]);
 
-  const handlePinMessage = (message: NostrEvent) => {
+  const handlePinMessage = useCallback((message: NostrEvent) => {
     const isPinned = pinnedMessageIds?.includes(message.id) || false;
 
     if (isPinned) {
@@ -231,36 +225,59 @@ function CommunityChat(
     } else {
       pinMessage({ communityId, channelId, messageId: message.id });
     }
-  };
+  }, [pinnedMessageIds, unpinMessage, pinMessage, communityId, channelId]);
 
-  const handleReply = (message: NostrEvent) => {
+  const handleReply = useCallback((message: NostrEvent) => {
     setThreadRootMessage(message);
     setIsThreadOpen(true);
-  };
+  }, []);
 
-  const handleBanUser = (pubkey: string, reason?: string) => {
+  const handleBanUser = useCallback((pubkey: string, reason?: string) => {
     banUser.mutate({
       communityId,
       userPubkey: pubkey,
       reason: reason?.trim() || 'Banned by admin from chat'
     });
-  };
+  }, [banUser, communityId]);
 
-  const handleDeleteMessage = (message: NostrEvent, reason?: string) => {
+  const handleDeleteMessage = useCallback((message: NostrEvent, reason?: string) => {
     deleteMessage({
       messageEvent: message,
       reason: reason?.trim()
     });
-  };
+  }, [deleteMessage]);
+
+  // Memoize JSX elements after all hooks
+  const header = useMemo(() => (
+    <CommunityChatHeader
+      communityId={communityId}
+      channelId={channelId}
+      onToggleMemberList={onToggleMemberList}
+    />
+  ), [communityId, channelId, onToggleMemberList]);
+
+  const additionalContent = useMemo(() => (
+    <div className="flex-shrink-0">
+      <TypingIndicator channelId={channelId} />
+    </div>
+  ), [channelId]);
+
+  // Now we can do early returns and computed values
+  const channel = channels?.find((c) => c.id === channelId);
+  const channelName = channel?.name || channelId;
+  const isVoiceChannel = channel?.type === "voice";
+
+  // Memoize input placeholder to prevent re-renders (must be after channelName is defined)
+  const inputPlaceholder = useMemo(() => `Message #${channelName}`, [channelName]);
+
+  if (!channel) {
+    return <div>Channel not found</div>;
+  }
 
   if (isVoiceChannel) {
     return (
       <div className="flex flex-col h-full chat-container">
-        <CommunityChatHeader
-          communityId={communityId}
-          channelId={channelId}
-          onToggleMemberList={onToggleMemberList}
-        />
+        {header}
         <div className="flex-1 p-4">
           <VoiceChannel channelId={channelId} channelName={channelName} />
         </div>
@@ -274,30 +291,20 @@ function CommunityChat(
         messages={messages || []}
         isLoading={isLoading}
         onSendMessage={handleSendMessage}
-        queryKey={['messages', communityId, channelId]}
+        queryKey={queryKey}
         onPin={handlePinMessage}
         onReply={handleReply}
         onBan={handleBanUser}
         onDelete={handleDeleteMessage}
-        header={
-          <CommunityChatHeader
-            communityId={communityId}
-            channelId={channelId}
-            onToggleMemberList={onToggleMemberList}
-          />
-        }
+        header={header}
         messageListConfig={groupMessageListConfig}
         messageItemConfig={dynamicMessageItemConfig}
         messageInputConfig={groupMessageInputConfig}
-        inputPlaceholder={`Message #${channelName}`}
+        inputPlaceholder={inputPlaceholder}
         onNavigateToDMs={onNavigateToDMs}
         communityId={communityId}
         channelId={channelId}
-        additionalContent={
-          <div className="flex-shrink-0">
-            <TypingIndicator channelId={channelId} />
-          </div>
-        }
+        additionalContent={additionalContent}
       />
 
       {threadRootMessage && (
