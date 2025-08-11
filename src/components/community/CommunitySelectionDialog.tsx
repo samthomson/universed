@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { CreateCommunityDialog } from "./CreateCommunityDialog";
 import { CommunityDiscovery } from "@/components/discovery/CommunityDiscovery";
 
@@ -17,21 +16,10 @@ export function CommunitySelectionDialog({
   onOpenChange,
   onCommunitySelect
 }: CommunitySelectionDialogProps) {
-  const [view, setView] = useState<'selection' | 'create' | 'discover'>('selection');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const handleCreateCommunity = () => {
-    setView('create');
     setShowCreateDialog(true);
-  };
-
-  const handleDiscoverCommunities = () => {
-    setView('discover');
-  };
-
-  const handleBack = () => {
-    setView('selection');
-    setShowCreateDialog(false);
   };
 
   const handleCommunitySelect = (communityId: string) => {
@@ -41,9 +29,6 @@ export function CommunitySelectionDialog({
 
   const handleCreateDialogClose = (open: boolean) => {
     setShowCreateDialog(open);
-    if (!open) {
-      setView('selection');
-    }
   };
 
   const handleCommunityCreated = (communityId: string) => {
@@ -53,8 +38,8 @@ export function CommunitySelectionDialog({
     onCommunitySelect?.(communityId);
   };
 
-  // If we're in create view, show the create dialog
-  if (view === 'create') {
+  // If create dialog is open, show it instead
+  if (showCreateDialog) {
     return (
       <CreateCommunityDialog
         open={showCreateDialog}
@@ -66,84 +51,51 @@ export function CommunitySelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${view === 'discover' ? "max-w-6xl max-h-[90vh]" : "sm:max-w-md"} bg-gray-800 border-gray-700`}>
-        <DialogHeader>
-          <DialogTitle className="text-white text-xl">
-            {view === 'discover' ? 'Discover Communities' : 'Add a Community'}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-6xl max-h-[90vh] bg-slate-900/95 backdrop-blur-sm border border-slate-700/50">
+        <div className="relative z-10">
+          <DialogHeader className="pb-6">
+            <div className="mt-6 space-y-6">
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold text-white text-left mb-4">
+                  DISCOVER YOUR SPACE
+                  </h1>
+                  <p className="text-slate-300 leading-relaxed text-lg">
+                    Explore existing communities to join and connect with like-minded people.
+                    Find vibrant discussions, share interests, and become part of growing communities
+                    on the decentralized Nostr network.
+                  </p>
+                </div>
 
-        {view === 'selection' ? (
-          <div className="space-y-3">
-            <Card
-              className="cursor-pointer bg-gray-800/40 border-gray-700 hover:bg-gray-700/60 transition-all duration-200 group"
-              onClick={handleCreateCommunity}
-            >
-              <CardHeader className="pb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-green-500 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center group-hover:bg-green-400">
-                    <Plus className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg text-white group-hover:text-green-400 transition-colors">
-                      Create New Community
-                    </CardTitle>
-                    <CardDescription className="text-gray-400 text-sm mt-1">
-                      Start your own community and invite others to join
-                    </CardDescription>
+                <div className="lg:w-128">
+                  <div className="relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-lg font-semibold text-white mb-2">
+                          Can't find what you're looking for?
+                        </h4>
+                        <p className="text-slate-300 text-sm leading-relaxed">
+                          Create your own community and build the space you've always wanted.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleCreateCommunity}
+                        className="w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25"
+                      >
+                        <Plus className="w-5 h-5 mr-2" />
+                        Create Community
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </CardHeader>
-            </Card>
-
-            <Card
-              className="cursor-pointer bg-gray-800/40 border-gray-700 hover:bg-gray-700/60 transition-all duration-200 group"
-              onClick={handleDiscoverCommunities}
-            >
-              <CardHeader className="pb-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-indigo-500 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center group-hover:bg-indigo-400">
-                    <Search className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-lg text-white group-hover:text-indigo-400 transition-colors">
-                      Discover Communities
-                    </CardTitle>
-                    <CardDescription className="text-gray-400 text-sm mt-1">
-                      Browse and join existing communities
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-
-            <div className="flex justify-end pt-2">
-              <Button
-                variant="ghost"
-                onClick={() => onOpenChange(false)}
-                className="text-gray-400 hover:text-white hover:bg-gray-700"
-              >
-                Cancel
-              </Button>
+              </div>
             </div>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto pr-2">
+            <CommunityDiscovery onCommunitySelect={handleCommunitySelect} />
           </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                className="text-gray-400 hover:text-white hover:bg-gray-700"
-              >
-                ← Back
-              </Button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto pr-2">
-              <CommunityDiscovery onCommunitySelect={handleCommunitySelect} />
-            </div>
-          </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );
