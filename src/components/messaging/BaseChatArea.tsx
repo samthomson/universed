@@ -1,4 +1,5 @@
 import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { logger } from "@/lib/logger";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { BaseMessageList } from "./BaseMessageList";
@@ -38,6 +39,10 @@ interface BaseChatAreaProps {
   additionalContent?: React.ReactNode;
   communityId?: string;
   channelId?: string;
+  hasMoreMessages?: boolean;
+  loadingOlderMessages?: boolean;
+  onLoadOlderMessages?: () => Promise<void>;
+  reachedStartOfConversation?: boolean;
   membershipStatus?: 'owner' | 'moderator' | 'approved' | 'pending' | 'declined' | 'banned' | 'not-member';
   onJoinRequest?: () => void;
 }
@@ -60,6 +65,10 @@ export function BaseChatArea({
   additionalContent,
   communityId,
   channelId,
+  hasMoreMessages = false,
+  loadingOlderMessages = false,
+  onLoadOlderMessages,
+  reachedStartOfConversation = false,
   membershipStatus,
   onJoinRequest,
 }: BaseChatAreaProps) {
@@ -122,6 +131,16 @@ export function BaseChatArea({
     });
   };
 
+  // Memoize messageItemProps to prevent unnecessary re-renders
+  const messageItemProps = useMemo(() => ({
+    config: messageItemConfig,
+    onNavigateToDMs,
+    onReply,
+    onPin,
+    onDelete,
+    onBan,
+  }), [messageItemConfig, onNavigateToDMs, onReply, onPin, onDelete, onBan]);
+
   return (
     <div className="flex flex-col h-full">
       {header}
@@ -133,14 +152,11 @@ export function BaseChatArea({
           config={messageListConfig}
           communityId={communityId}
           channelId={channelId}
-          messageItemProps={{
-            config: messageItemConfig,
-            onNavigateToDMs,
-            onReply,
-            onPin,
-            onDelete,
-            onBan,
-          }}
+          messageItemProps={messageItemProps}
+          hasMore={hasMoreMessages}
+          loadingOlder={loadingOlderMessages}
+          loadOlderMessages={onLoadOlderMessages}
+          reachedStartOfConversation={reachedStartOfConversation}
         />
 
         {additionalContent}
