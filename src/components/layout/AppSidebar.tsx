@@ -164,7 +164,7 @@ export function AppSidebar({
                           </AvatarFallback>
                         </Avatar>
                       ) : (
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
+                        <div className="w-12 h-12 bg-purple-900 rounded-2xl hover:rounded-3xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
                           {community.name.slice(0, 2).toUpperCase()}
                         </div>
                       )}
@@ -223,7 +223,7 @@ export function AppSidebar({
             }) : isLoading ? (
               // Skeleton loading for communities
               Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
+                <Skeleton key={i} className="w-12 h-12 rounded-full" />
               ))
             ) : (
               // No communities found
@@ -241,7 +241,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-green-500 text-green-500"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-purple-500 text-purple-500"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
