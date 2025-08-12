@@ -3,8 +3,8 @@ import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function validateReplyEvent(event: NostrEvent, rootId: string): boolean {
-  // Must be kind 1 or 9411
-  if (![1, 9411].includes(event.kind)) return false;
+  // Must be kind 1, 9411, or 1111 (thread replies/comments)
+  if (![1, 9411, 1111].includes(event.kind)) return false;
 
   // Must have an 'e' tag pointing to the root or another reply
   const eTags = event.tags.filter(([name]) => name === 'e');
@@ -31,7 +31,7 @@ export function useMessageHasReplies(rootEventId: string) {
       // Query for events that reference the root event - we only need to know if at least one exists
       const events = await nostr.query([
         {
-          kinds: [1, 9411], // Text notes and channel messages
+          kinds: [1, 9411, 1111], // Text notes, channel messages, and thread replies
           '#e': [rootEventId],
           limit: 1, // We only need to know if there's at least one reply
         }
@@ -60,7 +60,7 @@ export function useMessageReplyCount(rootEventId: string) {
       // Query for events that reference the root event - get all to count them
       const events = await nostr.query([
         {
-          kinds: [1, 9411], // Text notes and channel messages
+          kinds: [1, 9411, 1111], // Text notes, channel messages, and thread replies
           '#e': [rootEventId],
           limit: 500, // Get up to 500 replies
         }
