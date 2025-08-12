@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useCommunityById } from '@/hooks/useCommunityById';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,7 +79,6 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const { mutateAsync: uploadFile } = useUploadFile();
-  const { data: community } = useCommunityById(communityId || null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOnlineEvent, setIsOnlineEvent] = useState(false);

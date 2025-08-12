@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Calendar, Clock, MapPin, User, Check, X, Clock3, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, User, Check, X, Clock3, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -52,15 +52,15 @@ export function CalendarEventCard({ event, className, compact = false, onEditEve
   const image = getTag('image');
   const location = getTags('location')[0]; // Just show first location
   const startTime = getTag('start');
-  const endTime = getTag('end');
-  const startTzid = getTag('start_tzid');
+  // const endTime = getTag('end');
+  // const startTzid = getTag('start_tzid');
 
   // Check if current user is the event author
   const isEventAuthor = user && user.pubkey === event.pubkey;
 
   // Determine if it's a date-based (31922) or time-based (31923) event
-  const isDateBased = event.kind === 31922;
-  const isTimeBased = event.kind === 31923;
+  // const isDateBased = event.kind === 31922;
+  // const isTimeBased = event.kind === 31923;
 
   const handleRSVP = async (status: RSVPStatus) => {
     if (!user) return;

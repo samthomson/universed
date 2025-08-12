@@ -31,13 +31,13 @@ export function TimezoneDisplay({
       if (event.kind === 31922) {
         // Date-based events (YYYY-MM-DD format)
         const startDate = new Date(startTime + 'T00:00:00');
-        
+
         if (endTime && endTime !== startTime) {
           const endDate = new Date(endTime + 'T00:00:00');
-          
+
           if (startDate.toDateString() === endDate.toDateString()) {
             return {
-              eventTime: formatEventDateTime(startDate.getTime(), eventTimezone),
+              eventTime: formatEventDateTime(startDate.getTime(), eventTimezone ?? null),
               localTime: showLocalTime && !isLocalTimezone
                 ? formatEventDateTime(startDate.getTime(), userTimezone)
                 : null,
@@ -45,7 +45,7 @@ export function TimezoneDisplay({
           }
 
           return {
-            eventTime: `${formatEventDateTime(startDate.getTime(), eventTimezone)} - ${formatEventDateTime(endDate.getTime(), eventTimezone)}`,
+            eventTime: `${formatEventDateTime(startDate.getTime(), eventTimezone ?? null)} - ${formatEventDateTime(endDate.getTime(), eventTimezone ?? null)}`,
             localTime: showLocalTime && !isLocalTimezone
               ? `${formatEventDateTime(startDate.getTime(), userTimezone)} - ${formatEventDateTime(endDate.getTime(), userTimezone)}`
               : null,
@@ -53,7 +53,7 @@ export function TimezoneDisplay({
         }
 
         return {
-          eventTime: formatEventDateTime(startDate.getTime(), eventTimezone),
+          eventTime: formatEventDateTime(startDate.getTime(), eventTimezone ?? null),
           localTime: showLocalTime && !isLocalTimezone
             ? formatEventDateTime(startDate.getTime(), userTimezone)
             : null,
@@ -61,12 +61,12 @@ export function TimezoneDisplay({
       } else {
         // Time-based events (unix timestamp)
         let timestamp = parseInt(startTime);
-        
+
         // Handle both seconds and milliseconds timestamps
         if (timestamp < 10000000000) {
           timestamp = timestamp * 1000;
         }
-        
+
         const startDate = new Date(timestamp);
         if (isNaN(startDate.getTime())) {
           throw new Error('Invalid start date');
@@ -74,16 +74,16 @@ export function TimezoneDisplay({
 
         if (endTime) {
           let endTimestamp = parseInt(endTime);
-          
+
           if (endTimestamp < 10000000000) {
             endTimestamp = endTimestamp * 1000;
           }
-          
+
           const endDate = new Date(endTimestamp);
           if (!isNaN(endDate.getTime())) {
             const startDateTime = formatEventDateTime(
               startDate.getTime(),
-              eventTimezone,
+              eventTimezone ?? null,
               {
                 hour: 'numeric',
                 minute: 'numeric',
@@ -115,7 +115,7 @@ export function TimezoneDisplay({
 
         const startDateTime = formatEventDateTime(
           startDate.getTime(),
-          eventTimezone,
+          eventTimezone ?? null,
           {
             hour: 'numeric',
             minute: 'numeric',

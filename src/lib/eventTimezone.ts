@@ -99,19 +99,6 @@ export function getUserTimezone(): string {
 }
 
 /**
- * Validates if a timezone identifier is valid
- */
-function isValidTimezone(timezone: string): boolean {
-  try {
-    // Try to create a DateTimeFormat with the timezone
-    new Intl.DateTimeFormat("en", { timeZone: timezone });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Converts a date and time in a specific timezone to a Unix timestamp
  */
 export function createTimestampInTimezone(
