@@ -75,7 +75,8 @@ export function BaseMessageList({
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
 
-  if (isLoading && messages.length === 0) {
+  const isDebuggingLoading = true;
+  if ((isLoading && messages.length === 0) || isDebuggingLoading) {
     return (
       <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
         {Array.from({ length: 10 }).map((_, i) => (
@@ -109,7 +110,7 @@ export function BaseMessageList({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">      
+    <div className="flex-1 flex flex-col min-h-0">
       {config.showPinnedMessages && communityId && channelId && (
         <PinnedMessages
           communityId={communityId}
@@ -158,7 +159,7 @@ export function BaseMessageList({
                   size="sm"
                   onClick={() => {
                     // Set loading flag first
-                    setIsLoadingOlder(true);                    
+                    setIsLoadingOlder(true);
                     // Then load older messages
                     loadOlderMessages?.();
                   }}
