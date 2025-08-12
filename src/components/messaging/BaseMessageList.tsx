@@ -4,6 +4,7 @@ import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
 import { PinnedMessages } from "@/components/chat/PinnedMessages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { Hash } from "lucide-react";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface BaseMessageListProps {
@@ -39,10 +40,10 @@ export function BaseMessageList({
       <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
         {Array.from({ length: 10 }).map((_, i) => (
           <div className="flex items-start space-x-4" key={i}>
-            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-10 w-10 rounded-full bg-blue-600/20" />
             <div className="space-y-2">
-              <Skeleton className="h-4 w-[250px]" />
-              <Skeleton className="h-4 w-[200px]" />
+              <Skeleton className="h-4 w-[250px] bg-blue-600/20" />
+              <Skeleton className="h-4 w-[200px] bg-blue-600/20" />
             </div>
           </div>
         ))}
@@ -53,11 +54,14 @@ export function BaseMessageList({
   if (messages.length === 0) {
     return (
       <div className="col-span-full flex-1 flex items-center justify-center">
-        <Card className="border-dashed w-full max-w-md mx-4">
+        <Card className="border-dashed border-purple-200 dark:border-purple-800 w-full max-w-md mx-4 bg-purple-50 dark:bg-purple-900/10 backdrop-blur-sm rounded-2xl">
           <CardContent className="py-12 px-8 text-center">
             <div className="max-w-sm mx-auto space-y-6">
-              <h3 className="text-xl font-semibold">No Messages Yet</h3>
-              <p className="text-muted-foreground">
+              <div className="p-4 bg-purple-100 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800 inline-block">
+                <Hash className="w-12 h-12 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">No Messages Yet</h3>
+              <p className="text-gray-600 dark:text-gray-400">
                 Be the first to start the conversation!
               </p>
             </div>
@@ -91,7 +95,7 @@ export function BaseMessageList({
           );
 
           return (
-            <div className="message-item w-full max-w-full overflow-hidden">
+            <div className="message-item w-full max-w-full overflow-hidden px-4">
               <BaseMessageItem
                 message={message}
                 showAvatar={showAvatar}
