@@ -78,8 +78,8 @@ export function BaseMessageList({
   const isDebuggingLoading = true;
   if ((isLoading && messages.length === 0) || isDebuggingLoading) {
     return (
-      <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4">
-        {Array.from({ length: 10 }).map((_, i) => (
+      <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 justify-end">
+        {Array.from({ length: 3 }).map((_, i) => (
           <div className="flex items-start space-x-4" key={i}>
             <Skeleton className="h-10 w-10 rounded-full" />
             <div className="space-y-2">
