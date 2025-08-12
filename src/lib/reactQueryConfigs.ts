@@ -9,7 +9,7 @@ export const reactQueryConfigs = {
     gcTime: 4 * 60 * 60 * 1000, // 4 hours (increased from 2)
   },
   messages: {
-    staleTime: 2 * 60 * 1000, // 2 minutes (increased from 1)
+    staleTime: 1 * 60 * 1000, // 2 minutes (increased from 1)
     gcTime: 20 * 60 * 1000, // 20 minutes (increased from 10)
   },
   communities: {

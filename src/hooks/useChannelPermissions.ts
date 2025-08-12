@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
@@ -215,86 +216,89 @@ export function useCanAccessChannel(communityId: string, channelId: string, acce
   const { data: members, isLoading: membersLoading } = useCommunityMembers(communityId);
   const { data: membershipStatus, isLoading: membershipLoading } = useUserCommunityMembership(communityId);
 
-  // If user is not logged in, deny access
-  if (!user) {
-    return { canAccess: false, reason: 'User not logged in' };
-  }
+  // Use useMemo to return stable object references and prevent unnecessary re-renders
+  return useMemo(() => {
+    // If user is not logged in, deny access
+    if (!user) {
+      return { canAccess: false, reason: 'User not logged in' };
+    }
 
-  // If permissions are still loading, deny access temporarily (security-first approach)
-  if (permissionsLoading || membershipLoading) {
-    return { canAccess: false, reason: 'Loading permissions...' };
-  }
+    // If permissions are still loading, deny access temporarily (security-first approach)
+    if (permissionsLoading || membershipLoading) {
+      return { canAccess: false, reason: 'Loading permissions...' };
+    }
 
-  // Check if user is already a member (owner, moderator, or approved member)
-  const isApprovedMember = membershipStatus === 'owner' || membershipStatus === 'moderator' || membershipStatus === 'approved';
+    // Check if user is already a member (owner, moderator, or approved member)
+    const isApprovedMember = membershipStatus === 'owner' || membershipStatus === 'moderator' || membershipStatus === 'approved';
 
-  // If no permissions found, use default permissions
-  if (!permissions) {
-    if (accessType === 'read') {
-      // Default: everyone can read
-      return { canAccess: true, reason: 'Default read access for everyone' };
-    } else {
-      // Default: only members can write
-      if (membersLoading) {
-        return { canAccess: false, reason: 'Loading member list...' };
+    // If no permissions found, use default permissions
+    if (!permissions) {
+      if (accessType === 'read') {
+        // Default: everyone can read
+        return { canAccess: true, reason: 'Default read access for everyone' };
+      } else {
+        // Default: only members can write
+        if (membersLoading) {
+          return { canAccess: false, reason: 'Loading member list...' };
+        }
+
+        const isMember = canModerate || isApprovedMember || (members && members.some(member => member.pubkey === user.pubkey));
+        return {
+          canAccess: !!isMember,
+          reason: isMember ? 'Default write access for members' : 'Default: only members can write'
+        };
+      }
+    }
+
+    const userPubkey = user.pubkey;
+    const permissionType = accessType === 'read' ? permissions.readPermissions : permissions.writePermissions;
+    const deniedList = accessType === 'read' ? permissions.deniedReaders : permissions.deniedWriters;
+    const allowedList = accessType === 'read' ? permissions.allowedReaders : permissions.allowedWriters;
+
+    // Check if user is explicitly denied
+    if (deniedList.includes(userPubkey)) {
+      return { canAccess: false, reason: 'User is explicitly denied access' };
+    }
+
+    // Moderators and admins always have access unless explicitly denied
+    if (canModerate) {
+      return { canAccess: true, reason: 'User has moderator access' };
+    }
+
+    switch (permissionType) {
+      case 'everyone':
+        return { canAccess: true, reason: 'Channel allows everyone' };
+
+      case 'members': {
+        // If members are still loading, deny access temporarily
+        if (membersLoading) {
+          return { canAccess: false, reason: 'Loading member list...' };
+        }
+
+        // Check if user is a community member (including approved members from membership status)
+        const isMember = isApprovedMember || members?.some(member => member.pubkey === userPubkey);
+        return {
+          canAccess: !!isMember,
+          reason: isMember ? 'User is a community member' : 'Only community members can access this channel'
+        };
       }
 
-      const isMember = canModerate || isApprovedMember || (members && members.some(member => member.pubkey === user.pubkey));
-      return {
-        canAccess: !!isMember,
-        reason: isMember ? 'Default write access for members' : 'Default: only members can write'
-      };
-    }
-  }
+      case 'moderators':
+        return {
+          canAccess: canModerate,
+          reason: canModerate ? 'User has moderator access' : 'Only moderators can access this channel'
+        };
 
-  const userPubkey = user.pubkey;
-  const permissionType = accessType === 'read' ? permissions.readPermissions : permissions.writePermissions;
-  const deniedList = accessType === 'read' ? permissions.deniedReaders : permissions.deniedWriters;
-  const allowedList = accessType === 'read' ? permissions.allowedReaders : permissions.allowedWriters;
-
-  // Check if user is explicitly denied
-  if (deniedList.includes(userPubkey)) {
-    return { canAccess: false, reason: 'User is explicitly denied access' };
-  }
-
-  // Moderators and admins always have access unless explicitly denied
-  if (canModerate) {
-    return { canAccess: true, reason: 'User has moderator access' };
-  }
-
-  switch (permissionType) {
-    case 'everyone':
-      return { canAccess: true, reason: 'Channel allows everyone' };
-
-    case 'members': {
-      // If members are still loading, deny access temporarily
-      if (membersLoading) {
-        return { canAccess: false, reason: 'Loading member list...' };
+      case 'specific': {
+        const hasSpecificAccess = allowedList.includes(userPubkey);
+        return {
+          canAccess: hasSpecificAccess,
+          reason: hasSpecificAccess ? 'User has specific access' : 'User not in allowed list'
+        };
       }
 
-      // Check if user is a community member (including approved members from membership status)
-      const isMember = isApprovedMember || members?.some(member => member.pubkey === userPubkey);
-      return {
-        canAccess: !!isMember,
-        reason: isMember ? 'User is a community member' : 'Only community members can access this channel'
-      };
+      default:
+        return { canAccess: false, reason: 'Unknown permission type' };
     }
-
-    case 'moderators':
-      return {
-        canAccess: canModerate,
-        reason: canModerate ? 'User has moderator access' : 'Only moderators can access this channel'
-      };
-
-    case 'specific': {
-      const hasSpecificAccess = allowedList.includes(userPubkey);
-      return {
-        canAccess: hasSpecificAccess,
-        reason: hasSpecificAccess ? 'User has specific access' : 'User not in allowed list'
-      };
-    }
-
-    default:
-      return { canAccess: false, reason: 'Unknown permission type' };
-  }
+  }, [user, permissions, permissionsLoading, canModerate, members, membersLoading, membershipStatus, membershipLoading, accessType]);
 }

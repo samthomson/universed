@@ -830,9 +830,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                       <UserPanel />
                     </div>
 
-                    <div className="flex-1 flex flex-col">
+                    <div className="flex-1 flex flex-col min-h-0">
                       {/* Main Content Area */}
-                      <div className="flex-1 flex flex-col">
+                      <div className="flex-1 flex flex-col min-h-0">
                         {activeTab === "channels" && (
                           <>
                             {selectedSpace

@@ -10,6 +10,7 @@ import { BaseMessageItem } from "@/components/messaging/BaseMessageItem";
 import { groupMessageItemConfig } from "@/components/messaging/configs/groupConfig";
 import { ThreadReplyInput } from "./ThreadReplyInput";
 import { useThreadReplies } from "@/hooks/useThreadReplies";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { NostrEvent } from "@nostrify/nostrify";
 
 interface MessageThreadProps {
@@ -26,12 +27,19 @@ export function MessageThread(
 ) {
   const { data: replies, isLoading } = useThreadReplies(rootMessage.id);
   const replyCount = replies?.length || 0;
+  const isMobile = useIsMobile();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        side="right"
-        className="w-[480px] sm:w-[540px] bg-background border-l flex flex-col h-full"
+        side={isMobile ? "bottom" : "right"}
+        className={`
+          ${isMobile
+            ? "w-full sm:w-[480px] md:w-[540px] h-[90vh] max-h-[90vh] rounded-t-xl border-t"
+            : "w-[480px] sm:w-[540px] h-full border-l"
+          }
+          bg-background flex flex-col
+        `}
       >
         <SheetHeader className="border-b pb-4 flex-shrink-0">
           <SheetTitle className="flex items-center space-x-2">

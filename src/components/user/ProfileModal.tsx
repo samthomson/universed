@@ -640,18 +640,18 @@ export function ProfileModal({
                     </div>
                   ) : (
                     /* Other profiles - All tabs */
-                    <TabsList className="grid w-full grid-cols-3 bg-gray-700 mx-2 sm:mx-3 mt-2 sm:mt-3 mb-0 flex-shrink-0 rounded-lg">
-                      <TabsTrigger value="activity" className="flex items-center gap-1 text-sm px-3 py-2 font-medium">
-                        <Activity className="w-4 h-4" />
-                        <span>Activity</span>
+                    <TabsList className="grid w-[97%] grid-cols-3 bg-gray-700 mx-2 sm:mx-3 mt-2 sm:mt-3 mb-0 flex-shrink-0 rounded-lg overflow-hidden">
+                      <TabsTrigger value="activity" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-2 py-2 font-medium overflow-hidden">
+                        <Activity className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="truncate">Activity</span>
                       </TabsTrigger>
-                      <TabsTrigger value="contacts" className="flex items-center gap-1 text-sm px-3 py-2 font-medium">
-                        <Users className="w-4 h-4" />
-                        <span>Contacts</span>
+                      <TabsTrigger value="contacts" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-2 py-2 font-medium overflow-hidden">
+                        <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="truncate">Contacts</span>
                       </TabsTrigger>
-                      <TabsTrigger value="spaces" className="flex items-center gap-1 text-sm px-3 py-2 font-medium">
-                        <Building className="w-4 h-4" />
-                        <span>Spaces</span>
+                      <TabsTrigger value="spaces" className="flex items-center gap-1 text-xs sm:text-sm px-1 sm:px-2 py-2 font-medium overflow-hidden">
+                        <Building className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                        <span className="truncate">Spaces</span>
                       </TabsTrigger>
                     </TabsList>
                   )}

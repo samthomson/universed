@@ -219,8 +219,8 @@ describe('CommunitySettings', () => {
       expect(screen.getByText('Are you absolutely sure?')).toBeInTheDocument();
     });
 
-    // Click confirm delete button
-    const confirmButton = screen.getByText('Delete Community', { selector: '.bg-red-600' });
+    // Click confirm delete button (the one inside the AlertDialog)
+    const confirmButton = screen.getByRole('button', { name: 'Delete Community' });
     fireEvent.click(confirmButton);
 
     // Verify that createEvent was called with correct parameters
@@ -268,8 +268,8 @@ describe('CommunitySettings', () => {
       expect(screen.getByText('Are you absolutely sure?')).toBeInTheDocument();
     });
 
-    // Click confirm delete button
-    const confirmButton = screen.getByText('Delete Community', { selector: '.bg-red-600' });
+    // Click confirm delete button (the one inside the AlertDialog)
+    const confirmButton = screen.getByRole('button', { name: 'Delete Community' });
     fireEvent.click(confirmButton);
 
     // Verify that error toast was shown
