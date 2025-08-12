@@ -75,6 +75,16 @@ export function BaseMessageList({
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
 
+  // basic af hack to scroll to bottom on load - tried ten million more normal things before this (will proab swap out from virtutoso as a result soon)
+  useEffect(() => {
+    setTimeout(() => {
+    virtuosoRef.current?.scrollToIndex({
+        index: regularMessages.length - 1,
+        behavior: 'smooth'
+      });
+    }, 2000)
+  }, [regularMessages])
+
   if (isLoading && messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 justify-end">
