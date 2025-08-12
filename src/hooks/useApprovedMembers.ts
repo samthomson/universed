@@ -24,23 +24,23 @@ export function useApprovedMembers(communityId: string | null) {
   return useQuery({
     queryKey: ['approved-members', communityId, settings?.requireApproval],
     queryFn: async (c) => {
-      if (!communityId || !communities || !settings) return new Set<string>();
+      if (!communityId || !communities || !settings) return { members: [], requireApproval: false };
 
-      // If approval is not required, return null to indicate no filtering
+      // If approval is not required, return stable object to indicate no filtering
       if (!settings.requireApproval) {
-        return null;
+        return { members: [], requireApproval: false };
       }
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(2000)]);
 
       // Find the community to get creator and moderators
       const community = communities.find(c => c.id === communityId);
-      if (!community) return new Set<string>();
+      if (!community) return { members: [], requireApproval: true };
 
       // Parse community ID to get the components
       const [kind, pubkey, identifier] = communityId.split(':');
       if (!kind || !pubkey || !identifier) {
-        return new Set<string>();
+        return { members: [], requireApproval: true };
       }
 
       // Query for approved members list
@@ -58,29 +58,33 @@ export function useApprovedMembers(communityId: string | null) {
       const latestMembershipEvent = validMembershipEvents
         .sort((a, b) => b.created_at - a.created_at)[0];
 
-      // Build set of approved members
-      const approvedMembers = new Set<string>();
-
-      // Always include the community creator as approved
-      approvedMembers.add(community.creator);
-
-      // Always include moderators as approved
-      community.moderators.forEach(modPubkey => {
-        approvedMembers.add(modPubkey);
-      });
+      // Build array of approved members for stable sorting
+      const approvedMembersList = [community.creator, ...community.moderators];
 
       // Add explicitly approved members from the membership list
       if (latestMembershipEvent) {
         latestMembershipEvent.tags
           .filter(([name]) => name === 'p')
           .forEach(([, memberPubkey]) => {
-            if (memberPubkey) approvedMembers.add(memberPubkey);
+            if (memberPubkey && !approvedMembersList.includes(memberPubkey)) {
+              approvedMembersList.push(memberPubkey);
+            }
           });
       }
 
-      return approvedMembers;
+      return { 
+        members: approvedMembersList.sort(), // Sort for stable reference
+        requireApproval: true 
+      };
     },
     enabled: !!communityId && !!communities && !!settings,
     staleTime: 1000 * 60 * 2, // 2 minutes - members don't change frequently
+    // Use select to convert stable data structure to Set for backward compatibility
+    select: (data) => {
+      if (!data.requireApproval) {
+        return null; // No filtering required
+      }
+      return new Set(data.members);
+    },
   });
 }
