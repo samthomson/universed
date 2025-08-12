@@ -172,12 +172,12 @@ export function AppSidebar({
 
                     {/* Membership status indicator */}
                     {community.membershipStatus === 'owner' && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
+                      <div className="absolute -bottom-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
                         <Crown className="w-3 h-3 text-white" />
                       </div>
                     )}
                     {community.membershipStatus === 'moderator' && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
+                      <div className="absolute -bottom-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
                         <Shield className="w-3 h-3 text-white" />
                       </div>
                     )}
