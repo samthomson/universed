@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Settings, Users, Store, FolderOpen, Share2, LogOut } from "lucide-react";
+import { MoreHorizontal, Settings, Users, Store, FolderOpen, Share2, LogOut, Shield } from "lucide-react";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
+import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { CommunitySettings } from "./CommunitySettings";
+
 import { handleInviteMembers } from "@/lib/communityUtils";
 import { cn } from "@/lib/utils";
+
 
 interface CommunityHeaderProps {
   communityId: string;
@@ -83,7 +87,10 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
   const { toast } = useToast();
   const [showSettings, setShowSettings] = useState(false);
 
+  const { data: joinRequests } = useJoinRequests(communityId);
+
   const community = communities?.find(c => c.id === communityId);
+  const pendingJoinRequests = joinRequests?.length || 0;
 
   const handleLeaveCommunity = () => {
     if (!community) return;
@@ -164,8 +171,29 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
           </div>
         </div>
 
-        {/* Right side: Settings Dropdown */}
-        <div className="flex items-center flex-shrink-0">
+        {/* Right side: Action Buttons */}
+        <div className="flex items-center flex-shrink-0 gap-2">
+          {/* Moderation Button with Notification Badge */}
+          {canModerate && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              className="relative flex-shrink-0"
+            >
+              <Shield className="w-5 h-5" />
+              {pendingJoinRequests > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
+                >
+                  {pendingJoinRequests}
+                </Badge>
+              )}
+            </Button>
+          )}
+
+          {/* Settings Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="w-8 h-8">
@@ -206,6 +234,8 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
           onOpenChange={setShowSettings}
         />
       )}
+
+
     </div>
   );
 }

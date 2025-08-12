@@ -17,10 +17,12 @@ interface MessageThreadProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  communityId?: string;
+  channelId?: string;
 }
 
 export function MessageThread(
-  { rootMessage, open, onOpenChange, onNavigateToDMs }: MessageThreadProps,
+  { rootMessage, open, onOpenChange, onNavigateToDMs, communityId, channelId }: MessageThreadProps,
 ) {
   const { data: replies, isLoading } = useThreadReplies(rootMessage.id);
   const replyCount = replies?.length || 0;
@@ -87,7 +89,7 @@ export function MessageThread(
         </ScrollArea>
 
         <div className="border-t pt-4 flex-shrink-0">
-          <ThreadReplyInput rootMessage={rootMessage} />
+          <ThreadReplyInput rootMessage={rootMessage} threadReplies={replies} communityId={communityId} channelId={channelId} />
         </div>
       </SheetContent>
     </Sheet>

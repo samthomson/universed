@@ -376,36 +376,36 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
         <div className='px-6 pt-2 pb-4 space-y-4 overflow-y-scroll flex-1 relative z-10'>
           {/* Welcome Step - Guided flow introduction */}
           {step === 'welcome' && (
-            <div className='text-center space-y-6'>
+            <div className='text-center space-y-4 sm:space-y-6'>
               {/* Hero illustration with community focus */}
-              <div className='relative p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
-                <div className='flex flex-col items-center space-y-4'>
+              <div className='relative p-4 sm:p-6 md:p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
+                <div className='flex flex-col items-center space-y-3 sm:space-y-4'>
                   {/* Central community icon */}
                   <div className='relative'>
-                    <div className='w-20 h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
-                      <Users className='w-10 h-10 text-purple-400' />
+                    <div className='w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
+                      <Users className='w-8 h-8 sm:w-10 sm:h-10 text-purple-400' />
                     </div>
-                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
-                      <Sparkles className='w-3 h-3 text-white' />
+                    <div className='absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-2.5 h-2.5 sm:w-3 sm:h-3 text-white' />
                     </div>
                   </div>
 
-                  {/* Orbiting elements */}
-                  <div className='relative w-32 h-32'>
-                    <MessageSquare className='absolute top-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-blue-400 animate-pulse' />
-                    <Hash className='absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-8 text-purple-400 animate-pulse' style={{animationDelay: '0.5s'}} />
-                    <Settings className='absolute left-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-pink-400 animate-pulse' style={{animationDelay: '1s'}} />
-                    <Share className='absolute right-0 top-1/2 transform -translate-y-1/2 w-8 h-8 text-blue-400 animate-pulse' style={{animationDelay: '1.5s'}} />
+                  {/* Orbiting elements - hidden on very small screens */}
+                  <div className='relative w-24 h-24 sm:w-32 sm:h-32 hidden sm:block'>
+                    <MessageSquare className='absolute top-0 left-1/2 transform -translate-x-1/2 w-6 h-6 sm:w-8 sm:h-8 text-blue-400 animate-pulse' />
+                    <Hash className='absolute bottom-0 left-1/2 transform -translate-x-1/2 w-6 h-6 sm:w-8 sm:h-8 text-purple-400 animate-pulse' style={{animationDelay: '0.5s'}} />
+                    <Settings className='absolute left-0 top-1/2 transform -translate-y-1/2 w-6 h-6 sm:w-8 sm:h-8 text-pink-400 animate-pulse' style={{animationDelay: '1s'}} />
+                    <Share className='absolute right-0 top-1/2 transform -translate-y-1/2 w-6 h-6 sm:w-8 sm:h-8 text-blue-400 animate-pulse' style={{animationDelay: '1.5s'}} />
                   </div>
                 </div>
               </div>
 
-              <div className='space-y-4'>
+              <div className='space-y-3 sm:space-y-4 px-2'>
                 <div className='space-y-2'>
-                  <h3 className='text-3xl font-bold text-white'>
+                  <h3 className='text-2xl sm:text-3xl font-bold text-white'>
                     CREATE YOUR SPACE
                   </h3>
-                  <p className='text-purple-200 px-4 leading-relaxed text-lg'>
+                  <p className='text-purple-200 px-2 sm:px-4 leading-relaxed text-sm sm:text-base'>
                     Build a dedicated space where your members can chat, share resources,
                     and collaborate. Your space will have organized channels,
                     moderation tools, and live on the decentralized Nostr network.
@@ -414,10 +414,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
                 <div className='space-y-3'>
                   <Button
-                    className='w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25'
+                    className='w-full rounded-full py-4 sm:py-6 text-base sm:text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25'
                     onClick={() => setStep('details')}
                   >
-                    <Plus className='w-5 h-5 mr-2' />
+                    <Plus className='w-4 h-4 sm:w-5 sm:h-5 mr-2' />
                     Create Space
                   </Button>
                 </div>
@@ -429,30 +429,30 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
           {step === 'details' && (
             <div className='text-center space-y-4'>
               {/* Form illustration */}
-              <div className='relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 overflow-hidden'>
+              <div className='relative p-4 sm:p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 overflow-hidden'>
                 {/* Sparkles */}
                 <div className='absolute inset-0 pointer-events-none'>
-                  <Sparkles className='absolute top-3 left-4 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
-                  <Sparkles className='absolute top-6 right-6 w-3 h-3 text-yellow-500 animate-pulse' style={{animationDelay: '0.5s'}} />
-                  <Sparkles className='absolute bottom-4 left-6 w-3 h-3 text-yellow-400 animate-pulse' style={{animationDelay: '1s'}} />
+                  <Sparkles className='absolute top-2 left-3 w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400 animate-pulse' style={{animationDelay: '0s'}} />
+                  <Sparkles className='absolute top-4 right-4 w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-500 animate-pulse' style={{animationDelay: '0.5s'}} />
+                  <Sparkles className='absolute bottom-3 left-4 w-2.5 h-2.5 sm:w-3 sm:h-3 text-yellow-400 animate-pulse' style={{animationDelay: '1s'}} />
                 </div>
 
                 <div className='relative z-10 flex justify-center items-center mb-3'>
                   <div className='relative'>
-                    <div className='w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
-                      <Settings className='w-8 h-8 text-purple-400' />
+                    <div className='w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-purple-500/30'>
+                      <Settings className='w-7 h-7 sm:w-8 sm:h-8 text-purple-400' />
                     </div>
-                    <div className='absolute -top-1 -right-1 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
-                      <Sparkles className='w-3 h-3 text-white' />
+                    <div className='absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-purple-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-2.5 h-2.5 sm:w-3 sm:h-3 text-white' />
                     </div>
                   </div>
                 </div>
 
-                <div className='relative z-10 space-y-2'>
-                  <p className='text-2xl font-bold text-white'>
+                <div className='relative z-10 space-y-1 sm:space-y-2'>
+                  <p className='text-xl sm:text-2xl font-bold text-white'>
                     CUSTOMIZE YOUR SPACE
                   </p>
-                  <p className='text-purple-200'>
+                  <p className='text-purple-200 text-sm sm:text-base'>
                     Give your space an identity that members will recognize
                   </p>
                 </div>
@@ -464,21 +464,21 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
               }} className="space-y-4 text-left">
                 <div className="space-y-2">
                   <Label htmlFor="community-icon" className="text-sm font-medium text-purple-200">Space Icon</Label>
-                  <div className="flex items-center gap-4">
-                    <Avatar className="w-16 h-16">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                    <Avatar className="w-14 h-14 sm:w-16 sm:h-16">
                       <AvatarImage src={imagePreview || formData.image} />
-                      <AvatarFallback className="text-lg">
+                      <AvatarFallback className="text-base sm:text-lg">
                         {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-row sm:flex-col gap-2 sm:gap-2 flex-wrap">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
-                        className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
+                        className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white flex-1 sm:flex-none"
                       >
                         <Upload className="w-4 h-4" />
                         {isUploading ? "Uploading..." : "Upload Icon"}
@@ -489,7 +489,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                           variant="outline"
                           size="sm"
                           onClick={removeImage}
-                          className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
+                          className="flex items-center gap-2 bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white flex-1 sm:flex-none"
                         >
                           <X className="w-4 h-4" />
                           Remove
@@ -521,8 +521,6 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                   />
                 </div>
 
-
-
                 <div className="space-y-2">
                   <Label htmlFor="description" className="text-sm font-medium text-purple-200">Description (optional)</Label>
                   <Textarea
@@ -535,20 +533,20 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                   />
                 </div>
 
-                <div className="flex justify-between pt-4">
+                <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => onOpenChange(false)}
                     disabled={createCommunityMutation.isPending || isUploading}
-                    className="rounded-full bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white"
+                    className="rounded-full bg-slate-800/50 border-slate-700/50 text-purple-200 hover:bg-slate-700/50 hover:text-white order-2 sm:order-1"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={createCommunityMutation.isPending || isUploading}
-                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/25"
+                    className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/25 order-1 sm:order-2"
                   >
                     Continue to Setup
                   </Button>
@@ -574,13 +572,13 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
           {/* Create Step - Community creation animation */}
           {step === 'create' && (
             <div className='text-center space-y-4'>
-              <div className='relative p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
+              <div className='relative p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 dark:from-purple-950/50 dark:to-pink-950/50 overflow-hidden'>
                 {/* Animated background elements */}
                 <div className='absolute inset-0'>
-                  {[...Array(12)].map((_, i) => (
+                  {[...Array(8)].map((_, i) => (
                     <Sparkles
                       key={i}
-                      className={`absolute w-4 h-4 text-yellow-400 animate-ping`}
+                      className={`absolute w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 animate-ping`}
                       style={{
                         left: `${Math.random() * 80 + 10}%`,
                         top: `${Math.random() * 80 + 10}%`,
@@ -593,17 +591,17 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                 <div className='relative z-10'>
                   <div className='space-y-3'>
                     <div className='relative'>
-                      <Users className='w-20 h-20 text-primary mx-auto animate-pulse' />
+                      <Users className='w-16 h-16 sm:w-20 sm:h-20 text-primary mx-auto animate-pulse' />
                       <div className='absolute inset-0 flex items-center justify-center'>
-                        <div className='w-24 h-24 border-4 border-purple-600 border-t-transparent rounded-full animate-spin'></div>
+                        <div className='w-20 h-20 sm:w-24 sm:h-24 border-4 border-purple-600 border-t-transparent rounded-full animate-spin'></div>
                       </div>
                     </div>
                     <div className='space-y-2'>
-                      <p className='text-lg font-semibold text-primary flex items-center justify-center gap-2'>
-                        <Wand2 className='w-5 h-5' />
+                      <p className='text-base sm:text-lg font-semibold text-primary flex items-center justify-center gap-2'>
+                        <Wand2 className='w-4 h-4 sm:w-5 sm:h-5' />
                         Creating your space...
                       </p>
-                      <p className='text-sm text-muted-foreground'>
+                      <p className='text-xs sm:text-sm text-muted-foreground'>
                         Setting up your space and channels
                       </p>
                     </div>
@@ -615,40 +613,40 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
 
           {/* Success Step - Share prompt */}
           {step === 'success' && (
-            <div className='text-center space-y-6'>
+            <div className='text-center space-y-4 sm:space-y-6'>
               {/* Success illustration */}
-              <div className='relative p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
-                <div className='flex flex-col items-center space-y-4'>
+              <div className='relative p-4 sm:p-6 md:p-8 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50'>
+                <div className='flex flex-col items-center space-y-3 sm:space-y-4'>
                   {/* Success icon */}
                   <div className='relative'>
-                    <div className='w-20 h-20 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-indigo-500/30'>
-                      <Users className='w-10 h-10 text-indigo-400' />
+                    <div className='w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-full flex items-center justify-center shadow-lg border border-indigo-500/30'>
+                      <Users className='w-8 h-8 sm:w-10 sm:h-10 text-indigo-400' />
                     </div>
-                    <div className='absolute -top-2 -right-2 w-6 h-6 bg-indigo-500 rounded-full flex items-center justify-center animate-bounce'>
-                      <Sparkles className='w-3 h-3 text-white' />
+                    <div className='absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 bg-indigo-500 rounded-full flex items-center justify-center animate-bounce'>
+                      <Sparkles className='w-2.5 h-2.5 sm:w-3 sm:h-3 text-white' />
                     </div>
                   </div>
 
-                  <div className='space-y-2'>
-                    <h3 className='text-2xl font-bold text-white'>
+                  <div className='space-y-1 sm:space-y-2'>
+                    <h3 className='text-xl sm:text-2xl font-bold text-white'>
                       Space Created Successfully!
                     </h3>
-                    <p className='text-indigo-200'>
+                    <p className='text-indigo-200 text-sm sm:text-base'>
                       {formData.name} is ready for members
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className='space-y-4'>
-                <p className='text-indigo-200 px-4'>
+              <div className='space-y-3 sm:space-y-4 px-2'>
+                <p className='text-indigo-200 px-2 sm:px-4 text-sm sm:text-base leading-relaxed'>
                   Your space is now live! Start by inviting members to join
                   and begin conversations in your space's channels.
                 </p>
 
                 <div className='space-y-3'>
                   <Button
-                    className='w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-indigo-500/25'
+                    className='w-full rounded-full py-4 sm:py-6 text-base sm:text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-indigo-500/25'
                     onClick={(e) => {
                       e.preventDefault();
                       // Navigate to the community using encoded naddr
@@ -673,13 +671,13 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                       }
                     }}
                   >
-                    <MessageSquare className='w-5 h-5 mr-2' />
+                    <MessageSquare className='w-4 h-4 sm:w-5 sm:h-5 mr-2' />
                     Go to Space
                   </Button>
 
                   <Button
                     variant="outline"
-                    className='w-full rounded-full py-4 bg-slate-800/50 border-slate-700/50 text-indigo-200 hover:bg-slate-700/50 hover:text-white'
+                    className='w-full rounded-full py-3 sm:py-4 bg-slate-800/50 border-slate-700/50 text-indigo-200 hover:bg-slate-700/50 hover:text-white'
                     onClick={(e) => {
                       e.preventDefault();
                       // Navigate to the community with share dialog open using encoded naddr

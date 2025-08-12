@@ -146,3 +146,6 @@ export function useCommunities() {
     }
   });
 }
+
+// Export utility functions for reuse
+export { isSpamCommunity, parseCommunityEvent };

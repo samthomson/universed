@@ -3,8 +3,8 @@ import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 function validateReplyEvent(event: NostrEvent, rootId: string): boolean {
-  // Must be kind 1 or 9411
-  if (![1, 9411].includes(event.kind)) return false;
+  // Must be kind 1, 9411, or 1111 (Comment events per NIP-22)
+  if (![1, 9411, 1111].includes(event.kind)) return false;
 
   // Must have an 'e' tag pointing to the root or another reply
   const eTags = event.tags.filter(([name]) => name === 'e');
@@ -29,7 +29,7 @@ export function useThreadReplies(rootEventId: string) {
       // Query for events that reference the root event
       const events = await nostr.query([
         {
-          kinds: [1, 9411], // Text notes and channel messages
+          kinds: [1, 9411, 1111], // Text notes, channel messages, and comment events
           '#e': [rootEventId],
           limit: 100,
         }

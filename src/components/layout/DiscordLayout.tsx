@@ -20,18 +20,22 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2, Shield } from "lucide-react";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useCommunities, type Community } from "@/hooks/useCommunities";
+import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
 import { useSendDM } from "@/hooks/useSendDM";
+import { useCanModerate } from "@/hooks/useCommunityRoles";
+import { useJoinRequests } from "@/hooks/useJoinRequests";
+import { Badge } from "@/components/ui/badge";
+
+import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { createMarketplaceItemMessage } from "@/lib/marketplaceDM";
 import { communityIdToNaddr } from "@/lib/utils";
 import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
@@ -42,7 +46,6 @@ interface DiscordLayoutProps {
 }
 
 export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }: DiscordLayoutProps = {}) {
-  const queryClient = useQueryClient();
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -55,6 +58,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const [showCommunitySelectionDialog, setShowCommunitySelectionDialog] =
     useState(false);
   const [isAutoSelected, setIsAutoSelected] = useState(false);
+
+  const [showMobileModeration, setShowMobileModeration] = useState(false);
   const initializationRef = useRef(false);
   const urlInitializationRef = useRef(false);
   const [communityBeforeJoinDialog, setCommunityBeforeJoinDialog] = useState<
@@ -73,6 +78,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const { data: communities } = useCommunities();
   const { mutate: leaveCommunity, isPending: isLeavingCommunity } = useLeaveCommunity();
   const { toast } = useToast();
+  const { canModerate } = useCanModerate(selectedCommunity || '');
+  const { data: joinRequests } = useJoinRequests(selectedCommunity);
+  const pendingJoinRequests = joinRequests?.length || 0;
 
   const isMobile = useIsMobile();
   const [mobileView, setMobileView] = useState<
@@ -151,42 +159,19 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     if (initialSpaceCommunityId && !urlInitializationRef.current) {
       urlInitializationRef.current = true;
 
-      // Check if the community exists in cache first
-      const cachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
-      const communityExists = cachedCommunities?.some(c => c.id === initialSpaceCommunityId);
+      // Always set the selected community, even if it's not in cache
+      // This allows users to navigate to communities they're not yet members of
+      setSelectedCommunity(initialSpaceCommunityId);
+      setSelectedDMConversation(null);
+      setDmTargetPubkey(null);
+      setActiveTab("channels"); // Ensure we default to channels tab
+      setSelectedSpace(null);
 
-      if (communityExists) {
-        setSelectedCommunity(initialSpaceCommunityId);
-        setSelectedDMConversation(null);
-        setDmTargetPubkey(null);
-        setActiveTab("channels"); // Ensure we default to channels tab
-        setSelectedSpace(null);
-
-        if (isMobile) {
-          setMobileView("channels");
-        }
-      } else {
-        // If community doesn't exist in cache, wait a bit and try again
-        // This handles the case where optimistic data is being set
-        setTimeout(() => {
-          const updatedCachedCommunities = queryClient.getQueryData(['communities']) as Community[] | undefined;
-          const updatedCommunityExists = updatedCachedCommunities?.some(c => c.id === initialSpaceCommunityId);
-
-          if (updatedCommunityExists) {
-            setSelectedCommunity(initialSpaceCommunityId);
-            setSelectedDMConversation(null);
-            setDmTargetPubkey(null);
-            setActiveTab("channels");
-            setSelectedSpace(null);
-
-            if (isMobile) {
-              setMobileView("channels");
-            }
-          }
-        }, 100);
+      if (isMobile) {
+        setMobileView("channels");
       }
     }
-  }, [initialSpaceCommunityId, isMobile, queryClient]);
+  }, [initialSpaceCommunityId, isMobile]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
@@ -610,29 +595,52 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                   )}
                 </div>
 
-                {/* Triple Dot Menu - only show for community chat with channels tab */}
+                {/* Action Buttons - show for community chat with channels tab */}
                 {mobileView === "chat" && selectedCommunity && activeTab === "channels" ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="flex-shrink-0">
-                        <MoreHorizontal className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={handleMobileInviteMembers}>
-                        <Share2 className="w-4 h-4 mr-2" />
-                        Invite Members
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={handleLeaveCommunity}
-                        disabled={isLeavingCommunity}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  <div className="flex items-center gap-1">
+                    {/* Moderation Button with Notification Badge */}
+                    {canModerate && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowMobileModeration(true)}
+                        className="relative flex-shrink-0"
                       >
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Leave Community
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <Shield className="h-5 w-5" />
+                        {pendingJoinRequests > 0 && (
+                          <Badge
+                            variant="destructive"
+                            className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
+                          >
+                            {pendingJoinRequests}
+                          </Badge>
+                        )}
+                      </Button>
+                    )}
+
+                    {/* Triple Dot Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="flex-shrink-0">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={handleMobileInviteMembers}>
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Invite Members
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleLeaveCommunity}
+                          disabled={isLeavingCommunity}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Leave Community
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ) : (
                   <div className="flex-shrink-0 w-9"></div>
                 )}
@@ -766,6 +774,17 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           onJoinSuccess={handleJoinSuccess}
           communityId={urlCommunityId}
         />
+
+
+
+        {/* Mobile Moderation Panel */}
+        {showMobileModeration && selectedCommunity && (
+          <CommunitySettings
+            communityId={selectedCommunity}
+            open={showMobileModeration}
+            onOpenChange={setShowMobileModeration}
+          />
+        )}
           </>
       </CommunityProvider>
     );

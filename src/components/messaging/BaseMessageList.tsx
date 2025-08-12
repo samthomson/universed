@@ -129,7 +129,8 @@ export function BaseMessageList({
       )}
       <Virtuoso
         ref={virtuosoRef}
-        className="flex-1 px-4 scrollbar-thin"
+        className={`flex-1 channel-scroll scrollbar-thin`}
+        style={{ width: "100%", maxWidth: "100%", overflowX: "hidden" }}
         data={regularMessages}
         alignToBottom
         followOutput

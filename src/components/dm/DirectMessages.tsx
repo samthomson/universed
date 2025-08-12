@@ -149,7 +149,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             </div>
 
             {/* Conversation List */}
-            <div className="flex-1 overflow-hidden bg-gray-700">
+            <div className="flex-1 overflow-hidden bg-gray-700 px-2">
               <Virtuoso
                 data={conversations || []}
                 itemContent={(index, conversation) => (
@@ -252,7 +252,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden px-1">
           <Virtuoso
             data={conversations || []}
             itemContent={(index, conversation) => (

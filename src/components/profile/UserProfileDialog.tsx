@@ -14,6 +14,7 @@ import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
 import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
 import { useIsMuted } from "@/hooks/useMutedUsers";
+import { MutualCommunities } from "@/components/profile/MutualCommunities";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from "nostr-tools";
@@ -228,6 +229,12 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
                 {about && (
                   <p className="text-gray-300 text-sm leading-relaxed">{about}</p>
                 )}
+
+                {/* Mutual Communities */}
+                <MutualCommunities
+                  targetPubkey={pubkey}
+                  onCommunityClick={() => onOpenChange(false)}
+                />
 
                 {/* Metadata */}
                 <div className="space-y-2 text-xs text-gray-400">
