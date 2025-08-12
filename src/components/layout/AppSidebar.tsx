@@ -14,7 +14,7 @@ import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface AppSidebarProps {
   selectedCommunity: string | null;
@@ -49,6 +49,8 @@ export function AppSidebar({
     if (selectedCommunity === b.id) return 1;  // b comes first
     return 0; // maintain original order for others
   }) : null;
+
+
 
   // Handle community selection with sophisticated rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
@@ -89,6 +91,114 @@ export function AppSidebar({
       setIsAnimating(false);
     };
   }, []);
+
+  // Memoize the community list rendering to avoid unnecessary re-renders
+  const communityListContent = useMemo(() => {
+    if (!isLoading && orderedCommunities) {
+      return orderedCommunities.map((community, index) => {
+        const isSelected = selectedCommunity === community.id;
+        const isLaunching = launchingCommunity === community.id;
+        const isLanding = landingCommunity === community.id;
+        const isFirstPosition = index === 0 && isSelected;
+
+        return (
+          <Tooltip key={community.id}>
+            <TooltipTrigger asChild>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`
+                    w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60
+                    transition-all duration-200 relative z-10
+                    ${isSelected ? 'bg-gray-900/80' : ''}
+                    ${isLaunching ? 'animate-rocket-launch' : ''}
+                    ${isLaunching ? 'shadow-lg shadow-purple-500/20' : ''}
+                    ${isLanding && isFirstPosition ? 'animate-rocket-landing' : ''}
+                    ${isLanding && isFirstPosition ? 'shadow-lg shadow-blue-500/20' : ''}
+                  `}
+                  onClick={() => handleCommunitySelect(community.id)}
+                  disabled={isAnimating && !isLaunching && !isLanding}
+                >
+                {community.image ? (
+                  <Avatar className="w-12 h-12">
+                    <AvatarImage src={community.image} alt={community.name} />
+                    <AvatarFallback>
+                      {community.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
+                    {community.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </Button>
+
+              {/* Membership status indicator */}
+              {community.membershipStatus === 'owner' && (
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
+                  <Crown className="w-3 h-3 text-white" />
+                </div>
+              )}
+              {community.membershipStatus === 'moderator' && (
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
+                  <Shield className="w-3 h-3 text-white" />
+                </div>
+              )}
+
+              {/* Launch phase effects */}
+              {isLaunching && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-3 bg-gradient-to-t from-red-500 to-orange-400 rounded-full animate-pulse delay-75"></div>
+                  <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 w-1 h-2 bg-gradient-to-t from-orange-600 to-red-500 rounded-full animate-pulse delay-150"></div>
+                  <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-gradient-to-t from-yellow-500 to-transparent rounded-full animate-pulse delay-200"></div>
+
+                  {/* Enhanced launch glow effect */}
+                  <div className="absolute inset-0 rounded-2xl bg-orange-500/30 animate-ping"></div>
+                  <div className="absolute inset-0 rounded-2xl bg-red-500/20 animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Landing phase effects */}
+              {isLanding && isFirstPosition && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {/* Landing sparkles */}
+                  <div className="absolute -top-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
+                  <div className="absolute -top-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-100"></div>
+                  <div className="absolute -bottom-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-200"></div>
+                  <div className="absolute -bottom-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-300"></div>
+
+                  {/* Landing glow effect */}
+                  <div className="absolute inset-0 rounded-2xl bg-blue-400/20 animate-pulse"></div>
+                </div>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <div className="space-y-1">
+              <p>{community.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+        );
+      });
+    } else if (isLoading) {
+      // Skeleton loading for communities
+      return Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
+      ));
+    } else {
+      // No communities found
+      return (
+        <div className="text-xs text-muted-foreground text-center px-2">
+          No communities
+        </div>
+      );
+    }
+  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
@@ -131,106 +241,7 @@ export function AppSidebar({
         {/* Scrollable communities section */}
         <ScrollArea className="flex-1 px-2">
           <div className="flex flex-col items-center space-y-2 pb-2">
-            {!isLoading && orderedCommunities ? orderedCommunities.map((community, index) => {
-              const isSelected = selectedCommunity === community.id;
-              const isLaunching = launchingCommunity === community.id;
-              const isLanding = landingCommunity === community.id;
-              const isFirstPosition = index === 0 && isSelected;
-
-              return (
-                <Tooltip key={community.id}>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`
-                          w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60
-                          transition-all duration-200 relative z-10
-                          ${isSelected ? 'bg-gray-900/80' : ''}
-                          ${isLaunching ? 'animate-rocket-launch' : ''}
-                          ${isLaunching ? 'shadow-lg shadow-purple-500/20' : ''}
-                          ${isLanding && isFirstPosition ? 'animate-rocket-landing' : ''}
-                          ${isLanding && isFirstPosition ? 'shadow-lg shadow-blue-500/20' : ''}
-                        `}
-                        onClick={() => handleCommunitySelect(community.id)}
-                        disabled={isAnimating && !isLaunching && !isLanding}
-                      >
-                      {community.image ? (
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={community.image} alt={community.name} />
-                          <AvatarFallback>
-                            {community.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
-                          {community.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                    </Button>
-
-                    {/* Membership status indicator */}
-                    {community.membershipStatus === 'owner' && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
-                        <Crown className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    {community.membershipStatus === 'moderator' && (
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
-                        <Shield className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-
-                    {/* Launch phase effects */}
-                    {isLaunching && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-3 bg-gradient-to-t from-red-500 to-orange-400 rounded-full animate-pulse delay-75"></div>
-                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 w-1 h-2 bg-gradient-to-t from-orange-600 to-red-500 rounded-full animate-pulse delay-150"></div>
-                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-gradient-to-t from-yellow-500 to-transparent rounded-full animate-pulse delay-200"></div>
-
-                        {/* Enhanced launch glow effect */}
-                        <div className="absolute inset-0 rounded-2xl bg-orange-500/30 animate-ping"></div>
-                        <div className="absolute inset-0 rounded-2xl bg-red-500/20 animate-pulse"></div>
-                      </div>
-                    )}
-
-                    {/* Landing phase effects */}
-                    {isLanding && isFirstPosition && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        {/* Landing sparkles */}
-                        <div className="absolute -top-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
-                        <div className="absolute -top-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-100"></div>
-                        <div className="absolute -bottom-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-200"></div>
-                        <div className="absolute -bottom-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-300"></div>
-
-                        {/* Landing glow effect */}
-                        <div className="absolute inset-0 rounded-2xl bg-blue-400/20 animate-pulse"></div>
-                      </div>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div className="space-y-1">
-                    <p>{community.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            );
-            }) : isLoading ? (
-              // Skeleton loading for communities
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
-              ))
-            ) : (
-              // No communities found
-              <div className="text-xs text-muted-foreground text-center px-2">
-                No communities
-              </div>
-            )}
+            {communityListContent}
           </div>
         </ScrollArea>
 
