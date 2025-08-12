@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Settings, Users, Store, FolderOpen, Share2, LogOut, Shield } from "lucide-react";
+import { MoreHorizontal, Users, Store, FolderOpen, Share2, LogOut, Shield } from "lucide-react";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
@@ -201,14 +201,6 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {canModerate && (
-                <>
-                  <DropdownMenuItem onClick={() => setShowSettings(true)}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Community Settings
-                  </DropdownMenuItem>
-                </>
-              )}
               <DropdownMenuItem onClick={handleDesktopInviteMembers}>
                 <Share2 className="w-4 h-4 mr-2" />
                 Invite Members

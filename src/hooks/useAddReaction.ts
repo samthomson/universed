@@ -45,10 +45,9 @@ export function useAddReaction() {
         tags,
       });
 
-      // Invalidate reactions query to refetch
-      queryClient.invalidateQueries({ 
-        queryKey: ['reactions', targetEvent.id] 
-      });
+      // Invalidate reactions queries to refetch
+      queryClient.invalidateQueries({ queryKey: ['reactions', targetEvent.id] });
+      queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', targetEvent.id] });
     },
     onError: (error) => {
       console.error('Failed to add reaction:', error);
