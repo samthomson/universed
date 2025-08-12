@@ -259,15 +259,17 @@ function BaseMessageItemComponent({
             </div>
           )}
 
-          {/* Reply Indicator - Always visible when there are replies */}
+          {/* Reply Count Display - Always show when there are replies, independent of reactions */}
           {config.showThreadReply && hasReplies && (
-            <button
-              onClick={() => setShowThreadDialog(true)}
-              className="flex items-center gap-1 mt-1 text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <button
+                onClick={() => setShowThreadDialog(true)}
+                className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer h-6"
+              >
+                <MessageSquare className="w-3 h-3" />
+                <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+              </button>
+            </div>
           )}
         </div>
 
