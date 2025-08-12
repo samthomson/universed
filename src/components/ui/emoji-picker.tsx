@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/hooks/useTheme';
 
 interface EmojiPickerComponentProps {
   onEmojiSelect: (emoji: string) => void;
@@ -23,6 +24,7 @@ export function EmojiPickerComponent({
   align = 'end'
 }: EmojiPickerComponentProps) {
   const [open, setOpen] = useState(false);
+  const { theme } = useTheme();
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
@@ -51,7 +53,7 @@ export function EmojiPickerComponent({
         {trigger || defaultTrigger}
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 shadow-sm rounded-xl"
+        className="w-auto p-0 bg-gray-800 border-purple-200 dark:border-purple-800 dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden"
         side={side}
         align={align}
         sideOffset={0}
@@ -65,20 +67,22 @@ export function EmojiPickerComponent({
           }
         }}
       >
-        <EmojiPicker
-          onEmojiClick={handleEmojiClick}
-          theme={Theme.AUTO}
-          width={350}
-          height={400}
-          searchDisabled={false}
-          skinTonesDisabled={false}
-          previewConfig={{
-            defaultEmoji: "1f60a",
-            defaultCaption: "Choose an emoji",
-            showPreview: true
-          }}
-          lazyLoadEmojis={true}
-        />
+        <div className="rounded-xl overflow-hidden">
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+            width={350}
+            height={400}
+            searchDisabled={false}
+            skinTonesDisabled={false}
+            previewConfig={{
+              defaultEmoji: "1f60a",
+              defaultCaption: "Choose an emoji",
+              showPreview: true
+            }}
+            lazyLoadEmojis={true}
+          />
+        </div>
       </PopoverContent>
     </Popover>
   );
