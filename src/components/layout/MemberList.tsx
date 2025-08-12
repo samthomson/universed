@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Crown, Shield, Users, MoreVertical, UserMinus } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -86,6 +86,8 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
     );
   };
 
+  const [isMemberCardOpen, setIsMemberCardOpen] = useState(false);
+
   return (
     <MemberCard
       pubkey={pubkey}
@@ -93,8 +95,13 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
       onFollow={onFollow}
       onMute={onMute}
       onReport={onReport}
+      open={isMemberCardOpen}
+      onOpenChange={setIsMemberCardOpen}
     >
-      <div className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-600/50 rounded group cursor-pointer">
+      <div
+        className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-600/50 rounded group cursor-pointer"
+        onClick={() => setIsMemberCardOpen(true)}
+      >
         <div className="relative">
           <Avatar className="w-8 h-8">
             <AvatarImage src={profileImage} alt={displayName} />

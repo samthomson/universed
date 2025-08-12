@@ -1,6 +1,6 @@
 import { MessageCircle, UserPlus, MoreHorizontal, Flag, VolumeX, Copy, Check, Zap, Music, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -190,16 +190,9 @@ export function MemberCard({
 
   return (
     <>
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        {children}
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-80 p-0 bg-gray-900 border-gray-700 shadow-xl"
-        align="start"
-        side="right"
-        sideOffset={8}
-      >
+      {children}
+      <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md p-0 bg-gray-900 border-gray-700 shadow-xl">
         <div className="relative">
           {/* Banner */}
           <div className="h-16 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-t-md relative overflow-hidden">
@@ -435,8 +428,8 @@ export function MemberCard({
             </div>
           </div>
         </div>
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
 
     {/* Profile Dialog */}
     <ProfileModal
