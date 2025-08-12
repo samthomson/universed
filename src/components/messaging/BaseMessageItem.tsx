@@ -282,11 +282,11 @@ function BaseMessageItemComponent({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 rounded-l-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-l-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                 onClick={() => onReply?.(message)}
                 title="Reply"
               >
-                <Reply className="w-4 h-4" />
+                <Reply className="w-4 h-4 sm:w-4 sm:h-4" />
               </Button>
             )}
             {config.showReactions && (
@@ -299,7 +299,7 @@ function BaseMessageItemComponent({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                    className="w-9 h-9 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                     title="Add Reaction"
                   >
                     😊
@@ -316,9 +316,9 @@ function BaseMessageItemComponent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-8 h-8 rounded-r-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20"
+                  className="w-9 h-9 sm:w-8 sm:h-8 rounded-r-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                 >
-                  <MoreHorizontal className="w-4 h-4" />
+                  <MoreHorizontal className="w-4 h-4 sm:w-4 sm:h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">

@@ -685,9 +685,9 @@ export function BaseMessageInput({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full"
+                className="w-10 h-10 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full mobile-button"
               >
-                <Smile className="w-4 h-4" />
+                <Smile className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
             }
           />
@@ -696,9 +696,9 @@ export function BaseMessageInput({
           onClick={handleSubmit}
           disabled={isSending || (!message.trim() && !hasPreviews)}
           size="icon"
-          className="w-8 h-8 bg-purple-600 hover:bg-purple-700 text-white rounded-full"
+          className="w-10 h-10 sm:w-8 sm:h-8 bg-purple-600 hover:bg-purple-700 text-white rounded-full mobile-button"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-5 h-5 sm:w-4 sm:h-4" />
         </Button>
       </div>
 
