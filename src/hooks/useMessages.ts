@@ -98,9 +98,9 @@ export async function fetchMessages(
     limit?: number; 
     until?: number; 
   } = {}
-): Promise<NostrEvent[]> {
+): Promise<{ events: NostrEvent[], rawCount: number }> {
   const [kind, pubkey, identifier] = communityId.split(':');
-  if (!kind || !pubkey || !identifier) return [];
+  if (!kind || !pubkey || !identifier) return { events: [], rawCount: 0 };
 
   // Always use the options as provided
   const filters = buildFilters(kind, pubkey, identifier, channelId, options);
@@ -111,7 +111,10 @@ export async function fetchMessages(
   }
 
   const validEvents = events.filter(event => validateMessageEvent(event, channelId, approvedMembers));
-  return validEvents.sort((a, b) => a.created_at - b.created_at);
+  return { 
+    events: validEvents.sort((a, b) => a.created_at - b.created_at),
+    rawCount: events.length
+  };
 }
 
 /**
@@ -145,7 +148,14 @@ export function useMessages(communityId: string, channelId: string) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]); // 3s max for messages
       // Explicitly pass the limit to ensure we get the right number of messages
-      return fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers, { limit: MESSAGES_PER_PAGE });
+      const result = await fetchMessages(communityId, channelId, nostr, cacheEvents, signal, approvedMembers, { limit: MESSAGES_PER_PAGE });
+      
+      // If initial load has less than full page of raw messages, no more messages exist
+      if (result.rawCount < MESSAGES_PER_PAGE) {
+        setHasMoreMessages(false);
+      }
+      
+      return result.events;
     },
     enabled: !!communityId && !!channelId && canRead && approvedMembers !== undefined,
     refetchInterval: false, // Use global staleTime from QueryOptimizer
@@ -314,7 +324,7 @@ export function useMessages(communityId: string, channelId: string) {
       logger.log(`[DEBUG_PAGINATION] Current messages in cache: ${currentMessages.length}`);
       
       // Use the oldest message timestamp as the 'until' parameter
-      const olderMessages = await fetchMessages(
+      const result = await fetchMessages(
         communityId,
         channelId,
         nostr,
@@ -327,20 +337,20 @@ export function useMessages(communityId: string, channelId: string) {
         }
       );
 
+      const olderMessages = result.events;
+
       // If we got zero messages, we've definitely reached the end
-      if (olderMessages.length === 0) {
-        logger.log(`[DEBUG_PAGINATION] Reached the end of history (got 0 messages)`);
+      if (result.rawCount === 0) {
+        logger.log(`[DEBUG_PAGINATION] Reached the end of history (got 0 raw messages)`);
         setHasMoreMessages(false);
         setReachedStartOfConversation(true);
-      } else if (olderMessages.length < MESSAGES_PER_PAGE) {
-        // If we got fewer messages than requested, we've probably reached the end
-        logger.log(`[DEBUG_PAGINATION] Got fewer messages (${olderMessages.length}) than requested (${MESSAGES_PER_PAGE}), probably reached the end`);
-        setHasMoreMessages(false); // No more to load
-        // But don't set reachedStartOfConversation to true unless we got zero
+      } else if (result.rawCount < MESSAGES_PER_PAGE) {
+        // If we got fewer raw messages than requested, we've reached the end
+        logger.log(`[DEBUG_PAGINATION] Got fewer raw messages (${result.rawCount}) than requested (${MESSAGES_PER_PAGE}), reached the end`);
+        setHasMoreMessages(false);
       } else {
-        // As long as we got at least one message, assume there might be more
-        // This is more reliable than checking if we got a full page
-        logger.log(`[DEBUG_PAGINATION] Got ${olderMessages.length} messages, assuming there might be more`);
+        // Got a full page of raw messages, assume there might be more
+        logger.log(`[DEBUG_PAGINATION] Got full page of raw messages (${result.rawCount}), assuming there might be more`);
         setHasMoreMessages(true);
       }
 
