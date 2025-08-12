@@ -43,12 +43,6 @@ export function AppSidebar({
   const [landingCommunity, setLandingCommunity] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Reorder communities to put the selected one first
-  const orderedCommunities = communities ? [...communities].sort((a, b) => {
-    if (selectedCommunity === a.id) return -1; // a comes first
-    if (selectedCommunity === b.id) return 1;  // b comes first
-    return 0; // maintain original order for others
-  }) : null;
 
 
 
@@ -72,7 +66,7 @@ export function AppSidebar({
       setLaunchingCommunity(null);
       setLandingCommunity(communityId);
 
-      // Actually select the community (triggers reordering)
+      // Actually select the community
       onSelectCommunity(communityId);
 
       // Phase 3: Clear landing animation after it completes (no landing sound)
@@ -94,12 +88,11 @@ export function AppSidebar({
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
-    if (!isLoading && orderedCommunities) {
-      return orderedCommunities.map((community, index) => {
+    if (!isLoading && communities) {
+      return communities.map((community) => {
         const isSelected = selectedCommunity === community.id;
         const isLaunching = launchingCommunity === community.id;
         const isLanding = landingCommunity === community.id;
-        const isFirstPosition = index === 0 && isSelected;
 
         return (
           <Tooltip key={community.id}>
@@ -114,8 +107,8 @@ export function AppSidebar({
                     ${isSelected ? 'bg-gray-900/80' : ''}
                     ${isLaunching ? 'animate-rocket-launch' : ''}
                     ${isLaunching ? 'shadow-lg shadow-purple-500/20' : ''}
-                    ${isLanding && isFirstPosition ? 'animate-rocket-landing' : ''}
-                    ${isLanding && isFirstPosition ? 'shadow-lg shadow-blue-500/20' : ''}
+                    ${isLanding ? 'animate-rocket-landing' : ''}
+                    ${isLanding ? 'shadow-lg shadow-blue-500/20' : ''}
                   `}
                   onClick={() => handleCommunitySelect(community.id)}
                   disabled={isAnimating && !isLaunching && !isLanding}
@@ -160,7 +153,7 @@ export function AppSidebar({
               )}
 
               {/* Landing phase effects */}
-              {isLanding && isFirstPosition && (
+              {isLanding && (
                 <div className="absolute inset-0 pointer-events-none">
                   {/* Landing sparkles */}
                   <div className="absolute -top-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
@@ -198,7 +191,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
+  }, [isLoading, communities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
