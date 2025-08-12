@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronUp } from "lucide-react";
 import type { NostrEvent } from "@nostrify/nostrify";
+import { logger } from "@/lib/logger";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
@@ -43,6 +44,8 @@ export function BaseMessageList({
   const [prevMessageCount, setPrevMessageCount] = useState(0);
   // Track when we're loading older messages
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  // Track if we've done the initial scroll
+  const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
   const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
   
   // Effect to manage scroll behavior when messages change
@@ -75,15 +78,24 @@ export function BaseMessageList({
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
 
-  // basic af hack to scroll to bottom on load - tried ten million more normal things before this (will proab swap out from virtutoso as a result soon)
+  // Reset scroll tracking when channel changes
   useEffect(() => {
-    setTimeout(() => {
-    virtuosoRef.current?.scrollToIndex({
-        index: regularMessages.length - 1,
-        behavior: 'smooth'
-      });
-    }, 2000)
-  }, [regularMessages])
+    setHasInitiallyScrolled(false);
+  }, [channelId]);
+
+  // Scroll to bottom on initial load only
+  useEffect(() => {
+    if (regularMessages.length > 0 && !hasInitiallyScrolled) {
+      setTimeout(() => {
+        logger.log('debug: scrolling to bottom');
+        virtuosoRef.current?.scrollToIndex({
+          index: regularMessages.length - 1,
+          behavior: 'smooth'
+        });
+        setHasInitiallyScrolled(true);
+      }, 2000);
+    }
+  }, [regularMessages, hasInitiallyScrolled]);
 
   if (isLoading && messages.length === 0) {
     return (
