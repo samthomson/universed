@@ -123,7 +123,7 @@ export function BaseChatArea({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+    <div className="flex flex-col h-full">
       {header}
 
       <div className="flex-1 flex flex-col min-h-0">

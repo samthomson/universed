@@ -88,7 +88,7 @@ function CommunityChatHeader({
 
   return (
     <>
-      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 backdrop-blur-sm">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800">
             {isVoiceChannel
