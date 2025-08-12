@@ -1,9 +1,12 @@
 import { KeyboardEvent, useRef, useState, useEffect, ClipboardEvent } from "react";
-import { Send, Smile } from "lucide-react";
+import { Send, Smile, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MediaAttachment } from "@/components/chat/MediaAttachment";
 import { MessageAttachmentMenu } from "@/components/messaging/MessageAttachmentMenu";
+import { PollCard } from "@/components/PollCard";
+import { CalendarEventCard } from "@/components/CalendarEventCard";
+import { EditEventDialog } from "@/components/EditEventDialog";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
 import { UserMentionAutocomplete } from "@/components/chat/UserMentionAutocomplete";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -12,7 +15,7 @@ import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emo
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useUserMentions } from "@/hooks/useUserMentions";
 import { replaceShortcodes } from "@/lib/emoji";
-import type { NostrEvent } from "@/types/nostr";
+import type { NostrEvent } from "@nostrify/nostrify";
 import { MembershipCTA } from "@/components/community/MembershipCTA";
 
 interface MessageInputConfig {
@@ -77,6 +80,48 @@ export function BaseMessageInput({
   const { toast } = useToast();
   const { mutateAsync: uploadFile } = useUploadFile();
 
+  // Preview states for polls and events
+  const [pollPreview, setPollPreview] = useState<{ event: NostrEvent; content: string } | null>(null);
+  const [eventPreview, setEventPreview] = useState<{ event: NostrEvent; content: string } | null>(null);
+  const [editEventOpen, setEditEventOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<NostrEvent | null>(null);
+
+  // Handle pre-populated content from polls/events
+  const handlePrePopulatedContent = (content: string, eventType: 'poll' | 'event', eventData?: NostrEvent) => {
+    if (eventType === 'poll' && eventData) {
+      setPollPreview({ event: eventData, content });
+    } else if (eventType === 'event' && eventData) {
+      setEventPreview({ event: eventData, content });
+    } else {
+      // Fallback to just setting the message content
+      setMessage(prev => prev ? `${prev}\n\n${content}` : content);
+    }
+
+    // Focus the textarea after pre-populating
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  };
+
+  // Remove poll preview
+  const removePollPreview = () => {
+    setPollPreview(null);
+  };
+
+  // Remove event preview
+  const removeEventPreview = () => {
+    setEventPreview(null);
+  };
+
+  // Handle editing events
+  const handleEditEvent = (eventToEdit: NostrEvent) => {
+    setEventToEdit(eventToEdit);
+    setEditEventOpen(true);
+  };
+
+  // Check if there are any previews or attachments
+  const hasPreviews = pollPreview || eventPreview || attachedFiles.length > 0;
+
   // User mentions functionality
   const {
     insertMention,
@@ -130,7 +175,7 @@ export function BaseMessageInput({
   };
 
   const handleSubmit = async () => {
-    if (!user || (!message.trim() && attachedFiles.length === 0) || isSending) return;
+    if (!user || (!message.trim() && !hasPreviews) || isSending) return;
 
     if (disabled) {
       toast({
@@ -178,6 +223,14 @@ export function BaseMessageInput({
         content = getFullTextWithPubkeys(content);
       }
 
+      // Add preview content (polls/events)
+      if (pollPreview) {
+        content = content ? `${content}\n\n${pollPreview.content}` : pollPreview.content;
+      }
+      if (eventPreview) {
+        content = content ? `${content}\n\n${eventPreview.content}` : eventPreview.content;
+      }
+
       // Add file URLs to content if there are attachments
       if (attachedFiles.length > 0) {
         const fileUrls = attachedFiles.map(file => file.url).join('\n');
@@ -187,6 +240,8 @@ export function BaseMessageInput({
       // Clear form immediately for responsive UX
       setMessage("");
       setAttachedFiles([]);
+      setPollPreview(null);
+      setEventPreview(null);
       setShowEmojiAutocomplete(false);
       setShortcodeContext(null);
       setShowMentionAutocomplete(false);
@@ -523,24 +578,73 @@ export function BaseMessageInput({
     <div className={`relative p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
       isFocused ? 'border-2 border-blueviolet' : 'border border-border'
     }`}>
-      {/* Attached Files Preview */}
-      {attachedFiles.length > 0 && (
-        <div className="mb-3 space-y-2">
-          <div className="text-xs text-muted-foreground">Attachments ({attachedFiles.length})</div>
-          <div className="flex flex-wrap gap-2">
-            {attachedFiles.map((file, index) => (
-              <MediaAttachment
-                key={index}
-                url={file.url}
-                mimeType={file.mimeType}
-                size={file.size}
-                name={file.name}
-                showRemove
-                onRemove={() => removeAttachedFile(index)}
-                className="max-w-32"
+      {/* Previews Area - Expands upwards */}
+      {(pollPreview || eventPreview || attachedFiles.length > 0) && (
+        <div className="mb-3 space-y-3">
+          {/* Poll Preview */}
+          {pollPreview && (
+            <div className="relative">
+              <div className="absolute top-2 right-2 z-10">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 w-6 p-0 opacity-90 hover:opacity-100"
+                  onClick={removePollPreview}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <PollCard
+                event={pollPreview.event}
+                compact={true}
+                showHeader={true}
+                className="border-border/50"
               />
-            ))}
-          </div>
+            </div>
+          )}
+
+          {/* Event Preview */}
+          {eventPreview && (
+            <div className="relative">
+              <div className="absolute top-2 right-2 z-10">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-6 w-6 p-0 opacity-90 hover:opacity-100"
+                  onClick={removeEventPreview}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <CalendarEventCard
+                event={eventPreview.event}
+                compact={true}
+                className="border-border/50"
+                onEditEvent={handleEditEvent}
+              />
+            </div>
+          )}
+
+          {/* Attached Files Preview */}
+          {attachedFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground">Attachments ({attachedFiles.length})</div>
+              <div className="flex flex-wrap gap-2">
+                {attachedFiles.map((file, index) => (
+                  <MediaAttachment
+                    key={index}
+                    url={file.url}
+                    mimeType={file.mimeType}
+                    size={file.size}
+                    name={file.name}
+                    showRemove
+                    onRemove={() => removeAttachedFile(index)}
+                    className="max-w-32"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -548,6 +652,7 @@ export function BaseMessageInput({
         {config.allowFileUpload && (
           <MessageAttachmentMenu
             onFilesUploaded={handleFilesUploaded}
+            onPrePopulatedContent={handlePrePopulatedContent}
             communityId={communityId}
             channelId={channelId}
           />
@@ -589,7 +694,7 @@ export function BaseMessageInput({
         )}
         <Button
           onClick={handleSubmit}
-          disabled={isSending || (!message.trim() && attachedFiles.length === 0)}
+          disabled={isSending || (!message.trim() && !hasPreviews)}
           size="icon"
           className="w-8 h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
         >
@@ -621,6 +726,13 @@ export function BaseMessageInput({
           onSelect={handleEmojiAutocompleteSelect}
         />
       )}
+
+      <EditEventDialog
+        open={editEventOpen}
+        onOpenChange={setEditEventOpen}
+        event={eventToEdit}
+        communityId={communityId}
+      />
 
     </div>
   );

@@ -1,29 +1,36 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
 import { CalendarEventCard } from '@/components/CalendarEventCard';
+import { EditEventDialog } from '@/components/EditEventDialog';
 import { PollCard } from '@/components/PollCard';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useEventById } from '@/hooks/useEventById';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 interface InlineEventProps {
   eventId: string;
   className?: string;
   showHeader?: boolean;
   maxContentLength?: number;
+  communityId?: string;
 }
 
 export function InlineEvent({
   eventId,
   className,
   showHeader = true,
-  maxContentLength = 300
+  maxContentLength = 300,
+  communityId
 }: InlineEventProps) {
   const { data: event, isLoading, error } = useEventById(eventId);
   const author = useAuthor(event?.pubkey);
+  const [editEventOpen, setEditEventOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<NostrEvent | null>(null);
 
   if (isLoading) {
     return (
@@ -68,14 +75,28 @@ export function InlineEvent({
   // Check if this is a NIP-88 poll event
   const isPollEvent = event.kind === 1068;
 
+  const handleEditEvent = (eventToEdit: NostrEvent) => {
+    setEventToEdit(eventToEdit);
+    setEditEventOpen(true);
+  };
+
   // If it's a calendar event, use the specialized CalendarEventCard
   if (isCalendarEvent) {
     return (
-      <CalendarEventCard 
-        event={event} 
-        className={className}
-        compact={true}
-      />
+      <>
+        <CalendarEventCard 
+          event={event} 
+          className={className}
+          compact={true}
+          onEditEvent={handleEditEvent}
+        />
+        <EditEventDialog
+          open={editEventOpen}
+          onOpenChange={setEditEventOpen}
+          event={eventToEdit}
+          communityId={communityId}
+        />
+      </>
     );
   }
 

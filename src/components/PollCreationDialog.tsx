@@ -15,6 +15,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 interface PollOption {
   id: string;
@@ -24,16 +25,16 @@ interface PollOption {
 interface PollCreationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPollCreated?: () => void;
+  onPollCreated?: (prePopulatedContent: string, eventType: 'poll', eventData: NostrEvent) => void;
   communityId?: string;
   channelId?: string;
 }
 
-export function PollCreationDialog({ open, onOpenChange, onPollCreated, communityId, channelId }: PollCreationDialogProps) {
+export function PollCreationDialog({ open, onOpenChange, onPollCreated, communityId: _communityId, channelId: _channelId }: PollCreationDialogProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
   const { toast } = useToast();
-  
+
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState<PollOption[]>([
     { id: generateOptionId(), label: '' },
@@ -60,7 +61,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
   };
 
   const updateOption = (index: number, label: string) => {
-    setOptions(prev => prev.map((option, i) => 
+    setOptions(prev => prev.map((option, i) =>
       i === index ? { ...option, label } : option
     ));
   };
@@ -125,7 +126,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
     }
 
     // Add client tag (this will be added automatically by useNostrPublish)
-    
+
     // Create the poll event
     createEvent(
       {
@@ -135,38 +136,24 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
       },
       {
         onSuccess: (pollEvent) => {
-          // If we're in a channel context, post the poll as a channel message
-          if (communityId && channelId && pollEvent) {
-            // Generate nevent for the poll
-            const nevent = nip19.neventEncode({
-              id: pollEvent.id,
-              author: pollEvent.pubkey,
-            });
+          // Generate nevent for the poll
+          const nevent = nip19.neventEncode({
+            id: pollEvent.id,
+            kind: pollEvent.kind,
+            author: pollEvent.pubkey,
+            relays: []
+          });
 
-            // Create the channel tags
-            const [kind, pubkey, identifier] = communityId.split(':');
-            const channelTags = [
-              ['t', channelId],
-              ['a', `${kind}:${pubkey}:${identifier}`],
-            ];
-
-            // Post the poll to the channel
-            createEvent({
-              kind: 9411,
-              content: `nostr:${nevent}`,
-              tags: channelTags,
-            });
-          }
+          // Pre-populate message content with poll reference (no prefix)
+          const prePopulatedContent = `nostr:${nevent}`;
 
           toast({
             title: 'Poll created!',
-            description: communityId && channelId 
-              ? 'Your poll has been created and posted to the channel!' 
-              : 'Your poll has been published successfully.',
+            description: 'Your poll has been created successfully.',
           });
           resetForm();
           onOpenChange(false);
-          onPollCreated?.();
+          onPollCreated?.(prePopulatedContent, 'poll', pollEvent);
         },
         onError: (error) => {
           console.error('Failed to create poll:', error);
@@ -189,7 +176,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-thin">
         <DialogHeader>
           <DialogTitle>Create a Poll</DialogTitle>
           <DialogDescription>
@@ -239,7 +226,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
                 </div>
               ))}
             </div>
-            
+
             {options.length < 10 && (
               <Button
                 type="button"
@@ -300,7 +287,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
                   />
                 </PopoverContent>
               </Popover>
-              
+
               {endDate && (
                 <div className="flex items-center gap-2">
                   <Label htmlFor="endTime" className="text-sm">at</Label>
@@ -313,7 +300,7 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
                   />
                 </div>
               )}
-              
+
               {endDate && (
                 <Button
                   type="button"
@@ -333,14 +320,14 @@ export function PollCreationDialog({ open, onOpenChange, onPollCreated, communit
         </div>
 
         <DialogFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => handleOpenChange(false)}
             disabled={isPending}
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             disabled={isPending}
           >

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { CheckCircle, Clock, Users } from 'lucide-react';
+import { CheckCircle, Clock, Users, MoreHorizontal, Trash2 } from 'lucide-react';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
@@ -14,6 +14,9 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { cn } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { toast } from 'sonner';
 
 interface PollOption {
   id: string;
@@ -99,6 +102,11 @@ export function PollCard({ event, className, compact = false, showHeader = true 
   const { mutate: createEvent } = useNostrPublish();
   const author = useAuthor(event.pubkey);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Check if current user is the poll author
+  const isPollAuthor = user && user.pubkey === event.pubkey;
 
   // Extract poll data from event
   const pollOptions: PollOption[] = event.tags
@@ -200,6 +208,39 @@ export function PollCard({ event, className, compact = false, showHeader = true 
     setSelectedOptions([]);
   };
 
+  const handleDeletePoll = async () => {
+    if (!user || !isPollAuthor) return;
+    
+    setIsDeleting(true);
+    
+    try {
+      // Create a deletion event (kind 5) according to NIP-09
+      const deleteReason = 'Poll deleted by author';
+      
+      createEvent({
+        kind: 5,
+        content: deleteReason,
+        tags: [
+          ['e', event.id, '', 'Poll deleted by author'],
+        ],
+      }, {
+        onSuccess: () => {
+          toast.success('Poll deleted successfully');
+          setShowDeleteDialog(false);
+        },
+        onError: (error) => {
+          console.error('Failed to delete poll:', error);
+          toast.error('Failed to delete poll');
+        }
+      });
+    } catch (error) {
+      console.error('Error deleting poll:', error);
+      toast.error('Failed to delete poll');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
   const profileImage = metadata?.picture;
@@ -236,7 +277,7 @@ export function PollCard({ event, className, compact = false, showHeader = true 
 
   return (
     <Card className={cn("hover:shadow-md transition-shadow", className)}>
-      {showHeader && !compact && (
+      {showHeader && (
         <CardHeader className="pb-3">
           <div className="flex items-center space-x-3">
             <Avatar className="h-8 w-8">
@@ -259,6 +300,26 @@ export function PollCard({ event, className, compact = false, showHeader = true 
                 <Badge variant="outline" className="text-xs">
                   Multi-choice
                 </Badge>
+              )}
+              {/* Poll Actions Menu (only for poll author) */}
+              {isPollAuthor && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      onClick={() => setShowDeleteDialog(true)} 
+                      disabled={isDeleting}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Poll
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           </div>
@@ -366,6 +427,18 @@ export function PollCard({ event, className, compact = false, showHeader = true 
           </div>
         )}
       </CardContent>
+      
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleDeletePoll}
+        title="Delete Poll"
+        description="Are you sure you want to delete this poll? This action cannot be undone and will remove the poll and all votes."
+        confirmText={isDeleting ? "Deleting..." : "Delete Poll"}
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </Card>
   );
 }
