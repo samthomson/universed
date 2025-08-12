@@ -75,8 +75,7 @@ export function BaseMessageList({
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
 
-  const isDebuggingLoading = true;
-  if ((isLoading && messages.length === 0) || isDebuggingLoading) {
+  if (isLoading && messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col min-h-0 p-4 space-y-4 justify-end">
         {Array.from({ length: 3 }).map((_, i) => (
