@@ -99,8 +99,20 @@ function SortableCommunityItem({
       "shadow-lg shadow-blue-500/30": isDragging,
       // Subtle hint that item is draggable on hover
       "hover:shadow-md hover:shadow-gray-400/20": !isDragging && !isAnimating,
+      // Selection border
+      "border-2 border-blue-500": isSelected,
+      "border-2 border-transparent": !isSelected,
     }
   ), [isSelected, isLaunching, isLanding, isDragging, isAnimating]);
+
+  // Generate container classes for opacity effects
+  const containerClasses = useMemo(() => cn(
+    "transition-opacity duration-200",
+    {
+      "opacity-100": isSelected || isDragging, // Full opacity when selected or dragging for better visibility
+      "opacity-70": !isSelected && !isDragging,
+    }
+  ), [isSelected, isDragging]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
@@ -115,7 +127,7 @@ function SortableCommunityItem({
   }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={containerClasses}>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="relative">
@@ -127,14 +139,14 @@ function SortableCommunityItem({
               disabled={isAnimating && !isLaunching && !isLanding}
             >
               {community.image ? (
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={community.image} alt={community.name} />
-                  <AvatarFallback>
+                <Avatar className="w-10 h-10 rounded-2xl">
+                  <AvatarImage src={community.image} alt={community.name} className="rounded-2xl" />
+                  <AvatarFallback className="w-10 h-10 rounded-2xl bg-indigo-600 text-white font-semibold text-sm">
                     {community.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ) : (
-                <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-semibold text-sm">
                   {community.name.slice(0, 2).toUpperCase()}
                 </div>
               )}
