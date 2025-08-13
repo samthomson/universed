@@ -73,14 +73,14 @@ function SortableCommunityItem({
   });
 
   // Restrict transform to vertical movement only, but don't interfere with rocket animations
-  const style = {
+  const style = useMemo(() => ({
     transform: !isLaunching && !isLanding && transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
     transition: !isLaunching && !isLanding ? transition : undefined,
     opacity: isDragging ? 0.7 : 1,
     zIndex: isDragging ? 1000 : 'auto',
-  };
+  }), [isLaunching, isLanding, transform, transition, isDragging]);
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
     
     // Stop propagation to prevent drag listeners from interfering
@@ -90,7 +90,7 @@ function SortableCommunityItem({
     if (!isDragging && !isAnimating) {
       onSelect(community.id);
     }
-  };
+  }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -100,7 +100,7 @@ function SortableCommunityItem({
             <Button
               variant="ghost"
               size="icon"
-              className={`
+              className={useMemo(() => `
                 w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60
                 transition-all duration-200 relative z-10
                 ${isSelected ? 'bg-gray-900/80' : ''}
@@ -110,7 +110,7 @@ function SortableCommunityItem({
                 ${isLanding ? 'shadow-lg shadow-blue-500/20' : ''}
                 ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}
                 ${isDragging ? 'shadow-lg shadow-blue-500/30' : ''}
-              `}
+              `, [isSelected, isLaunching, isLanding, isDragging])}
               onClick={handleClick}
               disabled={isAnimating && !isLaunching && !isLanding}
             >
