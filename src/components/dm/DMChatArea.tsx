@@ -142,7 +142,7 @@ export function DMChatArea(
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
-      queryKey={['dm-messages', user?.pubkey || '', conversationId]}
+      queryKey={['dm-messages', user!.pubkey, conversationId]}
       header={
         <DMChatHeader
           conversationId={conversationId}
