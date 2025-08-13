@@ -117,10 +117,8 @@ export function BaseChatArea({
       }
       logger.error('Failed to send message:', err);
     },
-    onSettled: () => {
-      // Always refetch after error or success to make sure we're in sync
-      queryClient.invalidateQueries({ queryKey });
-    },
+    // Remove onSettled - let the subscription handle real message updates
+    // onSettled invalidation was causing refetches that wiped out older messages
   });
 
   const handleSendMessage = async (content: string, _tags: string[][]) => {
