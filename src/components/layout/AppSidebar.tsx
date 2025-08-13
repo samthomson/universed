@@ -94,10 +94,13 @@ function SortableCommunityItem({
       "animate-rocket-landing": isLanding,
       "shadow-lg shadow-blue-500/20": isLanding,
       "cursor-grabbing scale-105": isDragging,
-      "cursor-grab": !isDragging,
+      "cursor-grab": !isDragging && !isAnimating, // Only show grab cursor when draggable
+      "cursor-pointer": isAnimating, // Show pointer during animations
       "shadow-lg shadow-blue-500/30": isDragging,
+      // Subtle hint that item is draggable on hover
+      "hover:shadow-md hover:shadow-gray-400/20": !isDragging && !isAnimating,
     }
-  ), [isSelected, isLaunching, isLanding, isDragging]);
+  ), [isSelected, isLaunching, isLanding, isDragging, isAnimating]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
