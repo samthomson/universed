@@ -17,7 +17,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
 import { logger } from "@/lib/logger";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -220,6 +220,7 @@ export function AppSidebar({
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
   const [landingCommunity, setLandingCommunity] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const animationTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
   // Drag and drop sensors with click/drag distinction
   const sensors = useSensors(
@@ -264,6 +265,10 @@ export function AppSidebar({
       return;
     }
 
+    // Clear any existing animation timeouts to prevent race conditions
+    animationTimeouts.current.forEach(timeoutId => clearTimeout(timeoutId));
+    animationTimeouts.current.clear();
+
     setIsAnimating(true);
 
     // Phase 1: Launch animation
@@ -274,7 +279,7 @@ export function AppSidebar({
     playSound('/sounds/rocket-launching.mp3', 0.01);
 
     // Phase 2: After launch animation starts, fade out and move to top
-    setTimeout(() => {
+    const timeoutId1 = setTimeout(() => {
       setLaunchingCommunity(null);
       setLandingCommunity(communityId);
       logger.log('🛬 Landing animation started for:', communityId);
@@ -283,16 +288,27 @@ export function AppSidebar({
       onSelectCommunity(communityId);
 
       // Phase 3: Clear landing animation after it completes (no landing sound)
-      setTimeout(() => {
-        setLandingCommunity(null);
+      const timeoutId2 = setTimeout(() => {
+        // Double-check we're still working with the same community
+        setLandingCommunity(prev => prev === communityId ? null : prev);
         setIsAnimating(false);
+        animationTimeouts.current.delete(timeoutId2);
       }, 600); // Landing animation duration
+
+      animationTimeouts.current.add(timeoutId2);
+      animationTimeouts.current.delete(timeoutId1);
     }, 400); // Launch animation duration before fade out
+
+    animationTimeouts.current.add(timeoutId1);
   }, [selectedCommunity, isAnimating, playSound, onSelectCommunity]);
 
   // Reset animation states when component unmounts
   useEffect(() => {
+    const timeouts = animationTimeouts.current;
     return () => {
+      // Clear all animation timeouts
+      timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      timeouts.clear();
       setLaunchingCommunity(null);
       setLandingCommunity(null);
       setIsAnimating(false);
