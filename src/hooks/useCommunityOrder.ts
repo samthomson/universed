@@ -24,7 +24,9 @@ export function useCommunityOrder(communities: UserCommunity[] | undefined) {
   );
 
   // Get the current user's custom order array
-  const userCustomOrder = user?.pubkey ? communityOrderStorage[user.pubkey] || [] : [];
+  const userCustomOrder = useMemo(() => {
+    return user?.pubkey ? communityOrderStorage[user.pubkey] || [] : [];
+  }, [user?.pubkey, communityOrderStorage]);
 
   // Apply custom ordering across all communities (no tier restrictions)
   const orderedCommunities = useMemo(() => {
@@ -43,7 +45,6 @@ export function useCommunityOrder(communities: UserCommunity[] | undefined) {
     // Create a map for O(1) lookup
     const communityMap = new Map(communities.map(c => [c.id, c]));
     const ordered: UserCommunity[] = [];
-    const unordered: UserCommunity[] = [];
 
     // First, add communities in custom order
     for (const communityId of userCustomOrder) {
