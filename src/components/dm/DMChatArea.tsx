@@ -82,7 +82,7 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading } = useDMMessages(conversationId);
+  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDMMessages(conversationId);
   const { mutate: sendDM } = useSendDM();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
@@ -154,6 +154,9 @@ export function DMChatArea(
       messageInputConfig={dmMessageInputConfig}
       inputPlaceholder={`Message ${displayName}`}
       onNavigateToDMs={onNavigateToDMs}
+      hasMoreMessages={hasMoreMessages}
+      loadingOlderMessages={loadingOlderMessages}
+      onLoadOlderMessages={loadOlderMessages}
     />
   );
 }

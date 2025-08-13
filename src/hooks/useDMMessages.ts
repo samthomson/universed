@@ -19,10 +19,10 @@ interface DecryptedMessage {
  * Now uses the base useAllDMs hook to avoid query duplication
  */
 export function useDMMessages(conversationId: string) {
-  const { data: allDMsData } = useAllDMs();
+  const { data: allDMsData, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useAllDMs();
   const { user } = useCurrentUser();
 
-  return useQuery<DecryptedMessage[]>({
+  const query = useQuery<DecryptedMessage[]>({
     queryKey: ["dm-messages", user?.pubkey, conversationId, allDMsData?.allDMEvents],
     queryFn: async () => {
       if (!user || !conversationId || !allDMsData || !user.signer) return [];
@@ -119,8 +119,15 @@ export function useDMMessages(conversationId: string) {
         .map((result) => result.value);
     },
     enabled: !!user && !!conversationId && !!allDMsData && !!user.signer,
-    refetchInterval: 30 * 1000, // 30 seconds for individual messages
     // IMPORTANT: Clear messages when switching conversations
     placeholderData: undefined,
   });
+
+  return {
+    ...query,
+    isLoading: isLoading || query.isLoading,
+    hasMoreMessages,
+    loadingOlderMessages,
+    loadOlderMessages,
+  };
 }
