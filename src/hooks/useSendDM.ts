@@ -1,9 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
-import { processAllDMs } from './useAllDMs';
-import type { NostrEvent } from '@nostrify/nostrify';
+import { logger } from '@/lib/logger';
 
 interface SendDMParams {
   recipientPubkey: string;
@@ -21,7 +20,6 @@ export function useSendDM() {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ recipientPubkey, content, attachments = [] }: SendDMParams) => {
@@ -54,7 +52,7 @@ export function useSendDM() {
           throw new Error('No encryption method available');
         }
       } catch (error) {
-        console.error('Failed to encrypt DM:', error);
+        logger.error('Failed to encrypt DM:', error);
         throw new Error('Failed to encrypt message');
       }
 
@@ -87,79 +85,13 @@ export function useSendDM() {
 
       return event;
     },
-    onMutate: async ({ recipientPubkey, content }) => {
-      const allDMsQueryKey = ['all-dms', user?.pubkey];
-      const dmMessagesQueryKey = ['dm-messages', user?.pubkey, recipientPubkey];
-
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: allDMsQueryKey });
-      await queryClient.cancelQueries({ queryKey: dmMessagesQueryKey });
-
-      // Snapshot the previous values
-      const previousAllDMs = queryClient.getQueryData(allDMsQueryKey);
-      const previousDMMessages = queryClient.getQueryData(dmMessagesQueryKey);
-
-      // Create optimistic message (encrypted placeholder)
-      const now = Date.now();
-      const optimisticMessage = {
-        id: `optimistic-dm-${now}`,
-        pubkey: user!.pubkey,
-        created_at: Math.floor(now / 1000),
-        kind: user!.signer.nip44 ? 1059 : 4,
-        tags: [['p', recipientPubkey]],
-        content: '[Encrypted content]', // Placeholder for encrypted content
-        sig: '',
-        isSending: true, // Mark as sending state for optimistic UI
-        clientFirstSeen: now, // Mark for animation
-      };
-
-      // Add to all DMs data
-      queryClient.setQueryData(allDMsQueryKey, (oldData: any) => {
-        if (!oldData) return { conversations: [], allDMEvents: [optimisticMessage] };
-
-        const newAllDMEvents = [...oldData.allDMEvents, optimisticMessage];
-        return processAllDMs(newAllDMEvents, user!.pubkey);
-      });
-
-      // Add optimistic decrypted message to DM messages
-      queryClient.setQueryData(dmMessagesQueryKey, (oldMessages: any) => {
-        const optimisticDecryptedMessage = {
-          id: optimisticMessage.id,
-          pubkey: optimisticMessage.pubkey,
-          created_at: optimisticMessage.created_at,
-          content, // Use original unencrypted content
-          kind: optimisticMessage.kind,
-          tags: optimisticMessage.tags,
-          sig: optimisticMessage.sig,
-          direction: 'sent' as const,
-          isSending: true,
-          clientFirstSeen: now,
-        };
-
-        return [...(oldMessages || []), optimisticDecryptedMessage];
-      });
-
-      return { previousAllDMs, previousDMMessages, optimisticMessage };
-    },
-    onError: (err, variables, context) => {
-      // Roll back optimistic updates on error
-      if (context?.previousAllDMs) {
-        queryClient.setQueryData(['all-dms', user?.pubkey], context.previousAllDMs);
-      }
-      if (context?.previousDMMessages) {
-        queryClient.setQueryData(['dm-messages', user?.pubkey, variables.recipientPubkey], context.previousDMMessages);
-      }
-
-      console.error('Failed to send DM:', err);
+    onError: (error) => {
+      logger.error('Failed to send DM:', error);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-    },
-    onSettled: () => {
-      // Invalidate queries to ensure we're in sync
-      queryClient.invalidateQueries({ queryKey: ['all-dms', user?.pubkey] });
     },
 
   });
