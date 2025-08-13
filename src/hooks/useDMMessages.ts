@@ -277,20 +277,12 @@ export function useDMMessages(conversationId: string) {
         subscriptionRef.current.close();
       }
 
-      // Real-time subscription: Get messages from the most recent message we have
-      let sinceTimestamp = Math.floor(Date.now() / 1000);
-      
+      // Real-time subscription: Get messages since the most recent message we have
       const existingMessages = queryClient.getQueryData<DecryptedMessage[]>(queryKey);
-      if (existingMessages && existingMessages.length > 0) {
-        // Only use non-optimistic messages for since timestamp to avoid excluding our own messages
-        const realMessages = existingMessages.filter(msg => !msg.isSending);
-        if (realMessages.length > 0) {
-          const mostRecent = realMessages.reduce((latest, msg) => 
-            msg.created_at > latest.created_at ? msg : latest, realMessages[0]);
-          sinceTimestamp = mostRecent.created_at + 1;
-        }
-        // If we only have optimistic messages, use current time to catch everything
-      }
+      const sinceTimestamp = (existingMessages && existingMessages.length > 0)
+        ? existingMessages.reduce((latest, msg) => 
+            msg.created_at > latest.created_at ? msg : latest, existingMessages[0]).created_at
+        : Math.floor(Date.now() / 1000);
 
       const filters = [
         {
