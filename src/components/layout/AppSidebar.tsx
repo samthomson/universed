@@ -76,7 +76,7 @@ function SortableCommunityItem({
   // Restrict transform to vertical movement only, but don't interfere with rocket animations
   const style = useMemo(() => ({
     transform: !isLaunching && !isLanding && transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
-    transition: !isLaunching && !isLanding ? transition : undefined,
+    transition: !isLaunching && !isLanding && !isDragging ? transition : 'none', // Disable transition during drag
     opacity: isDragging ? 0.7 : 1,
     zIndex: isDragging ? 1000 : 'auto',
   }), [isLaunching, isLanding, transform, transition, isDragging]);
@@ -85,7 +85,7 @@ function SortableCommunityItem({
   const buttonClasses = useMemo(() => cn(
     // Base styles
     "w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60",
-    "transition-all duration-200 relative z-10",
+    "transition-all duration-100 relative z-10", // Faster transitions for better drag feel
     // State-dependent styles
     {
       "bg-gray-900/80": isSelected,
@@ -229,7 +229,7 @@ export function AppSidebar({
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px of movement required before drag starts
+        distance: 3, // Reduced to 3px for more responsive drag feedback
       },
     }),
     useSensor(KeyboardSensor, {
