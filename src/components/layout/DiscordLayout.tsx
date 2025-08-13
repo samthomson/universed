@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { AppSidebar } from "./AppSidebar";
 import { CommunityPanel } from "./CommunityPanel";
@@ -25,7 +25,7 @@ import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Sh
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
@@ -630,6 +630,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                           <Share2 className="w-4 h-4 mr-2" />
                           Invite Members
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={handleLeaveCommunity}
                           disabled={isLeavingCommunity}
