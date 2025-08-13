@@ -425,7 +425,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-green-500 text-green-500"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-purple-500 text-purple-500"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
