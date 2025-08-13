@@ -1,10 +1,12 @@
 import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
+import { useCommunityOrder } from "@/hooks/useCommunityOrder";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
@@ -14,13 +16,203 @@ import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
-import { useState, useEffect, useCallback } from "react";
+import { logger } from "@/lib/logger";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import type { UserCommunity } from '@/hooks/useUserCommunities';
 
 interface AppSidebarProps {
   selectedCommunity: string | null;
   showCommunitySelectionDialog: boolean;
   onShowCommunitySelectionDialogChange: (open: boolean) => void;
   onSelectCommunity: (communityId: string | null) => void;
+}
+
+// Inline SortableCommunityItem component
+interface SortableCommunityItemProps {
+  community: UserCommunity;
+  isSelected: boolean;
+  isLaunching: boolean;
+  isLanding: boolean;
+  isAnimating: boolean;
+  onSelect: (communityId: string) => void;
+}
+
+function SortableCommunityItem({
+  community,
+  isSelected,
+  isLaunching,
+  isLanding,
+  isAnimating,
+  onSelect,
+}: SortableCommunityItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: community.id,
+    disabled: isAnimating, // Disable dragging during rocket animations
+    data: { community },
+  });
+
+  // Restrict transform to vertical movement only, but don't interfere with rocket animations
+  const style = useMemo(() => ({
+    transform: !isLaunching && !isLanding && transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
+    transition: !isLaunching && !isLanding && !isDragging ? transition : 'none', // Disable transition during drag
+    zIndex: isDragging ? 1000 : 'auto',
+  }), [isLaunching, isLanding, transform, transition, isDragging]);
+
+  // Generate button classes based on state
+  const buttonClasses = useMemo(() => cn(
+    // Base styles
+    "w-12 h-12 rounded-2xl hover:bg-gray-800/60",
+    "transition-all duration-100 relative z-10", // Faster transitions for better drag feel
+    // State-dependent styles
+    {
+      "bg-gray-900/80": isSelected,
+      "animate-rocket-launch": isLaunching,
+      "shadow-lg shadow-purple-500/20": isLaunching,
+      "animate-rocket-landing": isLanding,
+      "shadow-lg shadow-blue-500/20": isLanding,
+      "cursor-grabbing scale-105": isDragging,
+      "cursor-grab": !isDragging && !isAnimating, // Only show grab cursor when draggable
+      "cursor-pointer": isAnimating, // Show pointer during animations
+      "shadow-lg shadow-blue-500/30": isDragging,
+      // Subtle hint that item is draggable on hover
+      "hover:shadow-md hover:shadow-gray-400/20": !isDragging && !isAnimating,
+      // Selection border
+      "border-2 border-blue-500": isSelected,
+      "border-2 border-transparent": !isSelected,
+    }
+  ), [isSelected, isLaunching, isLanding, isDragging, isAnimating]);
+
+  // Generate container classes for opacity effects
+  const containerClasses = useMemo(() => cn(
+    "transition-opacity duration-200",
+    {
+      "opacity-100": isSelected, // Full opacity when selected
+      "opacity-60": !isSelected && !isDragging, // Reduced opacity for non-selected items
+      "opacity-50": isDragging, // Even more reduced opacity when dragging for visual feedback
+    }
+  ), [isSelected, isDragging]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
+    
+    // Stop propagation to prevent drag listeners from interfering
+    e.stopPropagation();
+    
+    // Only handle click if we're not in the middle of a drag operation
+    if (!isDragging && !isAnimating) {
+      onSelect(community.id);
+    }
+  }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={containerClasses}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={buttonClasses}
+              onClick={handleClick}
+              disabled={isAnimating && !isLaunching && !isLanding}
+            >
+              {community.image ? (
+                <Avatar className="w-10 h-10 rounded-xl">
+                  <AvatarImage src={community.image} alt={community.name} className="rounded-xl" />
+                  <AvatarFallback className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-semibold text-sm">
+                    {community.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
+                  {community.name.slice(0, 2).toUpperCase()}
+                </div>
+              )}
+            </Button>
+
+            {/* Membership status indicator */}
+            {community.membershipStatus === 'owner' && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
+                <Crown className="w-3 h-3 text-white" />
+              </div>
+            )}
+            {community.membershipStatus === 'moderator' && (
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
+                <Shield className="w-3 h-3 text-white" />
+              </div>
+            )}
+
+            {/* Launch phase effects - disabled during drag */}
+            {isLaunching && !isDragging && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-3 bg-gradient-to-t from-red-500 to-orange-400 rounded-full animate-pulse delay-75"></div>
+                <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 w-1 h-2 bg-gradient-to-t from-orange-600 to-red-500 rounded-full animate-pulse delay-150"></div>
+                <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-gradient-to-t from-yellow-500 to-transparent rounded-full animate-pulse delay-200"></div>
+
+                {/* Enhanced launch glow effect */}
+                <div className="absolute inset-0 rounded-2xl bg-orange-500/30 animate-ping"></div>
+                <div className="absolute inset-0 rounded-2xl bg-red-500/20 animate-pulse"></div>
+              </div>
+            )}
+
+            {/* Landing phase effects - disabled during drag */}
+            {isLanding && !isDragging && (
+              <div className="absolute inset-0 pointer-events-none">
+                {/* Landing sparkles */}
+                <div className="absolute -top-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
+                <div className="absolute -top-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-100"></div>
+                <div className="absolute -bottom-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-200"></div>
+                <div className="absolute -bottom-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-300"></div>
+
+                {/* Landing glow effect */}
+                <div className="absolute inset-0 rounded-2xl bg-blue-400/20 animate-pulse"></div>
+              </div>
+            )}
+
+            {/* Drag glow effect */}
+            {isDragging && (
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 rounded-2xl bg-blue-500/20 animate-pulse"></div>
+              </div>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          <div className="space-y-1">
+            <p>{community.name}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
+            </p>
+            {isDragging && (
+              <p className="text-xs text-blue-400">Dragging...</p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 export function AppSidebar({
@@ -30,6 +222,7 @@ export function AppSidebar({
   onSelectCommunity
 }: AppSidebarProps) {
   const { data: communities, isLoading } = useUserCommunities();
+  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communities);
   const { playSound } = useSoundEffect();
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
@@ -42,53 +235,129 @@ export function AppSidebar({
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
   const [landingCommunity, setLandingCommunity] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const animationTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
 
-  // Reorder communities to put the selected one first
-  const orderedCommunities = communities ? [...communities].sort((a, b) => {
-    if (selectedCommunity === a.id) return -1; // a comes first
-    if (selectedCommunity === b.id) return 1;  // b comes first
-    return 0; // maintain original order for others
-  }) : null;
+  // Drag and drop sensors with click/drag distinction
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 3, // Reduced to 3px for more responsive drag feedback
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+
+
+
+  // Handle drag end event
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      reorderCommunities(String(active.id), String(over.id));
+    }
+  }, [reorderCommunities]);
+
+  // Handle drag start to detect if we're dragging
+  const handleDragStart = useCallback(() => {
+    logger.log('Drag started');
+  }, []);
+
+  // Handle click on communities (only when not dragging)
+  const handleDragCancel = useCallback(() => {
+    logger.log('Drag cancelled');
+  }, []);
 
   // Handle community selection with sophisticated rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
+    logger.log('handleCommunitySelect called:', { communityId, selectedCommunity, isAnimating });
+    
     if (!communityId || communityId === selectedCommunity || isAnimating) {
       onSelectCommunity(communityId);
       return;
     }
 
+    // Clear any existing animation timeouts to prevent race conditions
+    animationTimeouts.current.forEach(timeoutId => clearTimeout(timeoutId));
+    animationTimeouts.current.clear();
+
     setIsAnimating(true);
 
     // Phase 1: Launch animation
     setLaunchingCommunity(communityId);
+    logger.log('🚀 Launch animation started for:', communityId);
 
     // Play launch sound immediately at very low volume
     playSound('/sounds/rocket-launching.mp3', 0.01);
 
     // Phase 2: After launch animation starts, fade out and move to top
-    setTimeout(() => {
+    const timeoutId1 = setTimeout(() => {
       setLaunchingCommunity(null);
       setLandingCommunity(communityId);
+      logger.log('🛬 Landing animation started for:', communityId);
 
-      // Actually select the community (triggers reordering)
+      // Actually select the community
       onSelectCommunity(communityId);
 
       // Phase 3: Clear landing animation after it completes (no landing sound)
-      setTimeout(() => {
-        setLandingCommunity(null);
+      const timeoutId2 = setTimeout(() => {
+        // Double-check we're still working with the same community
+        setLandingCommunity(prev => prev === communityId ? null : prev);
         setIsAnimating(false);
+        animationTimeouts.current.delete(timeoutId2);
       }, 600); // Landing animation duration
+
+      animationTimeouts.current.add(timeoutId2);
+      animationTimeouts.current.delete(timeoutId1);
     }, 400); // Launch animation duration before fade out
+
+    animationTimeouts.current.add(timeoutId1);
   }, [selectedCommunity, isAnimating, playSound, onSelectCommunity]);
 
   // Reset animation states when component unmounts
   useEffect(() => {
+    const timeouts = animationTimeouts.current;
     return () => {
+      // Clear all animation timeouts
+      timeouts.forEach(timeoutId => clearTimeout(timeoutId));
+      timeouts.clear();
       setLaunchingCommunity(null);
       setLandingCommunity(null);
       setIsAnimating(false);
     };
   }, []);
+
+  // Memoize the community list rendering to avoid unnecessary re-renders
+  const communityListContent = useMemo(() => {
+    if (!isLoading && orderedCommunities) {
+      return orderedCommunities.map((community) => (
+        <SortableCommunityItem
+          key={community.id}
+          community={community}
+          isSelected={selectedCommunity === community.id}
+          isLaunching={launchingCommunity === community.id}
+          isLanding={landingCommunity === community.id}
+          isAnimating={isAnimating}
+          onSelect={handleCommunitySelect}
+        />
+      ));
+    } else if (isLoading) {
+      // Skeleton loading for communities
+      return Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
+      ));
+    } else {
+      // No communities found
+      return (
+        <div className="text-xs text-muted-foreground text-center px-2">
+          No communities
+        </div>
+      );
+    }
+  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
@@ -130,108 +399,23 @@ export function AppSidebar({
 
         {/* Scrollable communities section */}
         <ScrollArea className="flex-1 px-2">
-          <div className="flex flex-col items-center space-y-2 pb-2">
-            {!isLoading && orderedCommunities ? orderedCommunities.map((community, index) => {
-              const isSelected = selectedCommunity === community.id;
-              const isLaunching = launchingCommunity === community.id;
-              const isLanding = landingCommunity === community.id;
-              const isFirstPosition = index === 0 && isSelected;
-
-              return (
-                <Tooltip key={community.id}>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`
-                          w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60
-                          transition-all duration-200 relative z-10
-                          ${isSelected ? 'bg-gray-900/80' : ''}
-                          ${isLaunching ? 'animate-rocket-launch' : ''}
-                          ${isLaunching ? 'shadow-lg shadow-purple-500/20' : ''}
-                          ${isLanding && isFirstPosition ? 'animate-rocket-landing' : ''}
-                          ${isLanding && isFirstPosition ? 'shadow-lg shadow-blue-500/20' : ''}
-                        `}
-                        onClick={() => handleCommunitySelect(community.id)}
-                        disabled={isAnimating && !isLaunching && !isLanding}
-                      >
-                      {community.image ? (
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={community.image} alt={community.name} />
-                          <AvatarFallback>
-                            {community.name.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="w-12 h-12 bg-purple-900 rounded-2xl hover:rounded-3xl transition-all duration-200 flex items-center justify-center text-white font-semibold">
-                          {community.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                    </Button>
-
-                    {/* Membership status indicator */}
-                    {community.membershipStatus === 'owner' && (
-                      <div className="absolute -bottom-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center z-20">
-                        <Crown className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-                    {community.membershipStatus === 'moderator' && (
-                      <div className="absolute -bottom-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center z-20">
-                        <Shield className="w-3 h-3 text-white" />
-                      </div>
-                    )}
-
-                    {/* Launch phase effects */}
-                    {isLaunching && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-3 bg-gradient-to-t from-red-500 to-orange-400 rounded-full animate-pulse delay-75"></div>
-                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 w-1 h-2 bg-gradient-to-t from-orange-600 to-red-500 rounded-full animate-pulse delay-150"></div>
-                        <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-gradient-to-t from-yellow-500 to-transparent rounded-full animate-pulse delay-200"></div>
-
-                        {/* Enhanced launch glow effect */}
-                        <div className="absolute inset-0 rounded-2xl bg-orange-500/30 animate-ping"></div>
-                        <div className="absolute inset-0 rounded-2xl bg-red-500/20 animate-pulse"></div>
-                      </div>
-                    )}
-
-                    {/* Landing phase effects */}
-                    {isLanding && isFirstPosition && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        {/* Landing sparkles */}
-                        <div className="absolute -top-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
-                        <div className="absolute -top-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-100"></div>
-                        <div className="absolute -bottom-1 left-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-200"></div>
-                        <div className="absolute -bottom-1 right-1 w-1 h-1 bg-blue-400 rounded-full animate-ping delay-300"></div>
-
-                        {/* Landing glow effect */}
-                        <div className="absolute inset-0 rounded-2xl bg-blue-400/20 animate-pulse"></div>
-                      </div>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <div className="space-y-1">
-                    <p>{community.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
-                    </p>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            );
-            }) : isLoading ? (
-              // Skeleton loading for communities
-              Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="w-12 h-12 rounded-full" />
-              ))
-            ) : (
-              // No communities found
-              <div className="text-xs text-muted-foreground text-center px-2">
-                No communities
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+            autoScroll={{ threshold: { x: 0, y: 0.2 } }}
+          >
+            <SortableContext 
+              items={orderedCommunities?.map(c => c.id) || []}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col items-center space-y-2 pb-2">
+                {communityListContent}
               </div>
-            )}
-          </div>
+            </SortableContext>
+          </DndContext>
         </ScrollArea>
 
         {/* Fixed bottom section - Add Community Button */}
@@ -241,7 +425,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-purple-500 text-purple-500"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-green-500 text-green-500"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
