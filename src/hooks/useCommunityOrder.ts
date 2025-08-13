@@ -1,6 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { useCurrentUser } from './useCurrentUser';
+import { logger } from '@/lib/logger';
 import type { UserCommunity } from './useUserCommunities';
 
 interface CommunityOrderStorage {
@@ -67,7 +68,10 @@ export function useCommunityOrder(communities: UserCommunity[] | undefined) {
 
   // Save new community order
   const updateCommunityOrder = useCallback((newOrder: string[]) => {
-    if (!user?.pubkey) return;
+    if (!user?.pubkey || typeof user.pubkey !== 'string' || user.pubkey.length === 0) {
+      logger.warn('Attempted to save community order with invalid pubkey:', user?.pubkey);
+      return;
+    }
 
     setCommunityOrderStorage(prev => ({
       ...prev,
