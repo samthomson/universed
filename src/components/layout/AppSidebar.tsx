@@ -139,14 +139,14 @@ function SortableCommunityItem({
               disabled={isAnimating && !isLaunching && !isLanding}
             >
               {community.image ? (
-                <Avatar className="w-10 h-10 rounded-2xl">
-                  <AvatarImage src={community.image} alt={community.name} className="rounded-2xl" />
-                  <AvatarFallback className="w-10 h-10 rounded-2xl bg-indigo-600 text-white font-semibold text-sm">
+                <Avatar className="w-10 h-10 rounded-xl">
+                  <AvatarImage src={community.image} alt={community.name} className="rounded-xl" />
+                  <AvatarFallback className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-semibold text-sm">
                     {community.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ) : (
-                <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-semibold text-sm">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
                   {community.name.slice(0, 2).toUpperCase()}
                 </div>
               )}
