@@ -77,7 +77,6 @@ function SortableCommunityItem({
   const style = useMemo(() => ({
     transform: !isLaunching && !isLanding && transform ? `translate3d(0, ${transform.y}px, 0)` : undefined,
     transition: !isLaunching && !isLanding && !isDragging ? transition : 'none', // Disable transition during drag
-    opacity: isDragging ? 0.7 : 1,
     zIndex: isDragging ? 1000 : 'auto',
   }), [isLaunching, isLanding, transform, transition, isDragging]);
 
@@ -109,8 +108,9 @@ function SortableCommunityItem({
   const containerClasses = useMemo(() => cn(
     "transition-opacity duration-200",
     {
-      "opacity-100": isSelected || isDragging, // Full opacity when selected or dragging for better visibility
-      "opacity-70": !isSelected && !isDragging,
+      "opacity-100": isSelected, // Full opacity when selected
+      "opacity-60": !isSelected && !isDragging, // Reduced opacity for non-selected items
+      "opacity-50": isDragging, // Even more reduced opacity when dragging for visual feedback
     }
   ), [isSelected, isDragging]);
 
