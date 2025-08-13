@@ -12,6 +12,8 @@ interface DecryptedMessage {
   tags: NostrEvent["tags"];
   sig: string; // signature from original event
   direction: "sent" | "received";
+  isSending?: boolean;
+  clientFirstSeen?: number;
 }
 
 /**

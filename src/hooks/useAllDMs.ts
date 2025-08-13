@@ -5,6 +5,12 @@ import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@nostrify/nostrify';
 
+// Extended NostrEvent type for optimistic updates
+type ExtendedNostrEvent = NostrEvent & {
+  isSending?: boolean;
+  clientFirstSeen?: number;
+};
+
 export interface DMConversation {
   id: string; // The other person's pubkey
   pubkey: string;
@@ -15,7 +21,7 @@ export interface DMConversation {
 
 export interface AllDMsData {
   conversations: DMConversation[];
-  allDMEvents: NostrEvent[];
+  allDMEvents: ExtendedNostrEvent[];
 }
 
 /**
@@ -35,44 +41,44 @@ export function validateDMEvent(event: NostrEvent): boolean {
 // Number of DMs to load per pagination request
 const DMS_PER_PAGE = 5;
 
-function processAllDMs(allDMs: NostrEvent[], userPubkey: string): AllDMsData {
-  const validDMs = allDMs.filter(validateDMEvent);
+export function processAllDMs(allDMs: ExtendedNostrEvent[], userPubkey: string): AllDMsData {
+      const validDMs = allDMs.filter(validateDMEvent);
 
-  // Group by conversation (other person's pubkey)
-  const conversationMap = new Map<string, DMConversation>();
+      // Group by conversation (other person's pubkey)
+      const conversationMap = new Map<string, DMConversation>();
 
-  validDMs.forEach(dm => {
-    // Determine the other person's pubkey
-    let otherPubkey: string;
+      validDMs.forEach(dm => {
+        // Determine the other person's pubkey
+        let otherPubkey: string;
     if (dm.pubkey === userPubkey) {
-      // We sent this DM, find the recipient
-      const pTag = dm.tags.find(([name]) => name === 'p');
-      otherPubkey = pTag?.[1] || '';
-    } else {
-      // We received this DM
-      otherPubkey = dm.pubkey;
-    }
+          // We sent this DM, find the recipient
+          const pTag = dm.tags.find(([name]) => name === 'p');
+          otherPubkey = pTag?.[1] || '';
+        } else {
+          // We received this DM
+          otherPubkey = dm.pubkey;
+        }
 
-    if (!otherPubkey) return;
+        if (!otherPubkey) return;
 
-    const existing = conversationMap.get(otherPubkey);
-    if (!existing || dm.created_at > existing.lastMessageTime) {
-      conversationMap.set(otherPubkey, {
-        id: otherPubkey,
-        pubkey: otherPubkey,
-        lastMessage: dm,
-        lastMessageTime: dm.created_at,
-        unreadCount: 0, // TODO: Implement read status tracking
+        const existing = conversationMap.get(otherPubkey);
+        if (!existing || dm.created_at > existing.lastMessageTime) {
+          conversationMap.set(otherPubkey, {
+            id: otherPubkey,
+            pubkey: otherPubkey,
+            lastMessage: dm,
+            lastMessageTime: dm.created_at,
+            unreadCount: 0, // TODO: Implement read status tracking
+          });
+        }
       });
-    }
-  });
 
-  // Convert to array and sort by last message time
-  const conversations = Array.from(conversationMap.values())
-    .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+      // Convert to array and sort by last message time
+      const conversations = Array.from(conversationMap.values())
+        .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
-  return {
-    conversations,
+      return {
+        conversations,
     allDMEvents: validDMs.sort((a, b) => a.created_at - b.created_at),
   };
 }
@@ -146,14 +152,41 @@ export function useAllDMs() {
     queryClient.setQueryData(queryKey, (oldData: AllDMsData | undefined) => {
       if (!oldData) return { conversations: [], allDMEvents: [event] };
 
-      // Check if we already have this message
-      const existingMessage = oldData.allDMEvents.find(msg => msg.id === event.id);
-      if (existingMessage) return oldData;
+      // Skip if we already have this real message (not optimistic)
+      if (oldData.allDMEvents.some(msg => msg.id === event.id && !msg.isSending)) return oldData;
 
-      const newAllDMEvents = [...oldData.allDMEvents, event]
-        .sort((a, b) => a.created_at - b.created_at);
+      // Check if this real message should replace an optimistic message
+      // Look for optimistic messages with same author and similar timestamp (within 30 seconds)
+      const optimisticMessageIndex = oldData.allDMEvents.findIndex(msg =>
+        msg.isSending &&
+        msg.pubkey === event.pubkey &&
+        Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
+      );
 
-      return processAllDMs(newAllDMEvents, user.pubkey);
+      let newAllDMEvents: ExtendedNostrEvent[];
+      
+      if (optimisticMessageIndex !== -1) {
+        // Replace the optimistic message with the real one
+        newAllDMEvents = [...oldData.allDMEvents];
+        const existingMessage = newAllDMEvents[optimisticMessageIndex];
+        newAllDMEvents[optimisticMessageIndex] = {
+          ...event,
+          clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+        };
+        logger.log(`[DMs] Replaced optimistic DM with real message: ${event.id}`);
+      } else {
+        // No optimistic message to replace, add as new message
+        const now = Date.now();
+        const eventAge = now - (event.created_at * 1000);
+        const isRecentMessage = eventAge < 10000; // 10 seconds threshold
+        
+        newAllDMEvents = [...oldData.allDMEvents, {
+          ...event,
+          clientFirstSeen: isRecentMessage ? now : undefined
+        }];
+      }
+
+      return processAllDMs(newAllDMEvents.sort((a, b) => a.created_at - b.created_at), user.pubkey);
     });
 
     logger.log(`[DMs] New DM message: ${event.id}`);
@@ -201,7 +234,9 @@ export function useAllDMs() {
         try {
           for await (const message of subscription) {
             if (!isActive) break;
-            handleNewMessage(message.event);
+            if ('event' in message && message.event) {
+              handleNewMessage(message.event as NostrEvent);
+            }
           }
         } catch (error) {
           if (isActive) {
@@ -213,7 +248,9 @@ export function useAllDMs() {
       subscriptionRef.current = {
         close: () => {
           isActive = false;
-          subscription.close();
+          if (typeof subscription === 'object' && subscription && 'close' in subscription && typeof (subscription as { close?: () => void }).close === 'function') {
+            (subscription as { close: () => void }).close();
+          }
         },
       };
     } catch (error) {
