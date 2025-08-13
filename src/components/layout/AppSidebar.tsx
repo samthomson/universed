@@ -1,4 +1,5 @@
 import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -80,6 +81,24 @@ function SortableCommunityItem({
     zIndex: isDragging ? 1000 : 'auto',
   }), [isLaunching, isLanding, transform, transition, isDragging]);
 
+  // Generate button classes based on state
+  const buttonClasses = useMemo(() => cn(
+    // Base styles
+    "w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60",
+    "transition-all duration-200 relative z-10",
+    // State-dependent styles
+    {
+      "bg-gray-900/80": isSelected,
+      "animate-rocket-launch": isLaunching,
+      "shadow-lg shadow-purple-500/20": isLaunching,
+      "animate-rocket-landing": isLanding,
+      "shadow-lg shadow-blue-500/20": isLanding,
+      "cursor-grabbing scale-105": isDragging,
+      "cursor-grab": !isDragging,
+      "shadow-lg shadow-blue-500/30": isDragging,
+    }
+  ), [isSelected, isLaunching, isLanding, isDragging]);
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
     
@@ -100,17 +119,7 @@ function SortableCommunityItem({
             <Button
               variant="ghost"
               size="icon"
-              className={useMemo(() => `
-                w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60
-                transition-all duration-200 relative z-10
-                ${isSelected ? 'bg-gray-900/80' : ''}
-                ${isLaunching ? 'animate-rocket-launch' : ''}
-                ${isLaunching ? 'shadow-lg shadow-purple-500/20' : ''}
-                ${isLanding ? 'animate-rocket-landing' : ''}
-                ${isLanding ? 'shadow-lg shadow-blue-500/20' : ''}
-                ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}
-                ${isDragging ? 'shadow-lg shadow-blue-500/30' : ''}
-              `, [isSelected, isLaunching, isLanding, isDragging])}
+              className={buttonClasses}
               onClick={handleClick}
               disabled={isAnimating && !isLaunching && !isLanding}
             >
