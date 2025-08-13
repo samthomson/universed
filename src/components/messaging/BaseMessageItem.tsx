@@ -131,7 +131,7 @@ function BaseMessageItemComponent({
   return (
     <div
       className={cn(
-        "group relative hover:bg-secondary/50 transition-all duration-200 w-full px-4 py-1",
+        "group relative hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all duration-200 w-full px-4 py-2 rounded-2xl",
         {
           "mt-4": showAvatar,
           "opacity-50": isSending,
@@ -153,9 +153,9 @@ function BaseMessageItemComponent({
                   className="relative cursor-pointer"
                   onClick={handleProfileClick}
                 >
-                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity">
+                  <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity ring-2 ring-purple-200 dark:ring-purple-800">
                     <AvatarImage src={profileImage} alt={displayName} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                    <AvatarFallback className="bg-purple-600 text-white">
                       {displayName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -165,7 +165,7 @@ function BaseMessageItemComponent({
             : (
               <div className="h-5 flex items-center justify-center w-10">
                 {shouldShowActions && (
-                  <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
+                  <span className="text-xs text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                     {timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -184,24 +184,24 @@ function BaseMessageItemComponent({
                 displayName={displayName}
               >
                 <span
-                  className="font-semibold hover:underline cursor-pointer"
+                  className="font-semibold text-gray-900 dark:text-gray-100 hover:text-purple-600 dark:hover:text-purple-400 hover:underline cursor-pointer"
                   onClick={handleProfileClick}
                 >
                   {displayName}
                 </span>
               </UserContextMenu>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-gray-600 dark:text-gray-400">
                 {formatDistanceToNowShort(timestamp, { addSuffix: true })}
                 {isSending && (
                   <div className="flex items-center space-x-1 inline-flex ml-2">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    <span className="text-xs">Sending...</span>
+                    <Loader2 className="w-3 h-3 animate-spin text-purple-600 dark:text-purple-400" />
+                    <span className="text-xs text-purple-600 dark:text-purple-400">Sending...</span>
                   </div>
                 )}
               </span>
             </div>
           )}
-          <div className="text-foreground break-words">
+          <div className="text-gray-900 dark:text-gray-100 break-words">
             <div className="flex items-center gap-2">
               {(() => {
                 // Check if this is a marketplace item message
@@ -259,21 +259,23 @@ function BaseMessageItemComponent({
             </div>
           )}
 
-          {/* Reply Indicator - Always visible when there are replies */}
+          {/* Reply Count Display - Always show when there are replies, independent of reactions */}
           {config.showThreadReply && hasReplies && (
-            <button
-              onClick={() => setShowThreadDialog(true)}
-              className="flex items-center gap-1 mt-1 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <button
+                onClick={() => setShowThreadDialog(true)}
+                className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer h-6"
+              >
+                <MessageSquare className="w-3 h-3" />
+                <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+              </button>
+            </div>
           )}
         </div>
 
         {shouldShowActions && (
           <div className={cn(
-            "absolute bg-background border rounded-md shadow-lg flex items-center right-4 z-10",
+            "absolute bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center right-4 z-10",
             showAvatar
               ? "-top-2"
               : "top-1/2 -translate-y-1/2"
@@ -282,11 +284,11 @@ function BaseMessageItemComponent({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 rounded-r-none"
+                className="w-9 h-9 sm:w-8 sm:h-8 rounded-l-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                 onClick={() => onReply?.(message)}
                 title="Reply"
               >
-                <Reply className="w-4 h-4" />
+                <Reply className="w-4 h-4 sm:w-4 sm:h-4" />
               </Button>
             )}
             {config.showReactions && (
@@ -299,7 +301,7 @@ function BaseMessageItemComponent({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-8 h-8 rounded-none"
+                    className="w-9 h-9 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                     title="Add Reaction"
                   >
                     😊
@@ -316,37 +318,37 @@ function BaseMessageItemComponent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-8 h-8 rounded-l-none"
+                  className="w-9 h-9 sm:w-8 sm:h-8 rounded-r-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
                 >
-                  <MoreHorizontal className="w-4 h-4" />
+                  <MoreHorizontal className="w-4 h-4 sm:w-4 sm:h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
                 {config.showPin && (
-                  <DropdownMenuItem onClick={() => onPin?.(message)}>
-                    <Pin className="mr-2 h-4 w-4" />
+                  <DropdownMenuItem onClick={() => onPin?.(message)} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <Pin className="mr-2 h-4 w-4 text-purple-600 dark:text-purple-400" />
                     {isPinned ? 'Unpin Message' : 'Pin Message'}
                   </DropdownMenuItem>
                 )}
                 {config.showDelete && user?.pubkey === message.pubkey && (
-                  <DropdownMenuItem onClick={() => onDelete?.(message)}>
-                    <Trash2 className="mr-2 h-4 w-4" />Delete
+                  <DropdownMenuItem onClick={() => onDelete?.(message)} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />Delete
                   </DropdownMenuItem>
                 )}
                 {config.showBan && isAdmin && (
                   <DropdownMenuItem
                     onClick={() => onBan?.(message.pubkey)}
-                    className="text-destructive"
+                    className="text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 focus:bg-red-100 dark:hover:bg-red-900/20 rounded-lg"
                   >
-                    <Ban className="mr-2 h-4 w-4" />Ban User
+                    <Ban className="mr-2 h-4 w-4 text-red-500" />Ban User
                   </DropdownMenuItem>
                 )}
                 {config.showReport && user?.pubkey !== message.pubkey && (
                   <DropdownMenuItem
                     onClick={() => setShowReportDialog(true)}
-                    className="text-destructive"
+                    className="text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 focus:bg-red-100 dark:hover:bg-red-900/20 rounded-lg"
                   >
-                    <Flag className="mr-2 h-4 w-4" />Report User
+                    <Flag className="mr-2 h-4 w-4 text-red-500" />Report User
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

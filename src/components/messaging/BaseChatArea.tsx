@@ -161,7 +161,7 @@ export function BaseChatArea({
 
         {additionalContent}
 
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 p-4">
           <BaseMessageInput
             onSendMessage={handleSendMessage}
             config={messageInputConfig}

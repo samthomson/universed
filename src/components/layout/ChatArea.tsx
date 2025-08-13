@@ -88,18 +88,20 @@ function CommunityChatHeader({
 
   return (
     <>
-      <div className="h-12 border-b flex items-center justify-between px-4">
-        <div className="flex items-center space-x-2">
-          {isVoiceChannel
-            ? <Volume2 className="w-5 h-5 text-green-500" />
-            : <Hash className="w-5 h-5 text-muted-foreground" />}
-          <span className="font-semibold">{channelName}</span>
+      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 backdrop-blur-sm">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800">
+            {isVoiceChannel
+              ? <Volume2 className="w-4 h-4 text-green-500" />
+              : <Hash className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+          </div>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{channelName}</span>
         </div>
         <div className="flex items-center space-x-2">
           <Button
             variant="ghost"
             size="icon"
-            className="w-6 h-6"
+            className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full"
             onClick={() => navigate("/search")}
           >
             <Search className="w-4 h-4" />
@@ -107,7 +109,7 @@ function CommunityChatHeader({
           <Button
             variant="ghost"
             size="icon"
-            className="w-6 h-6"
+            className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full"
             onClick={onToggleMemberList}
           >
             <Users className="w-4 h-4" />
@@ -116,26 +118,27 @@ function CommunityChatHeader({
             ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-6 h-6">
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full">
                     <Settings className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
                   <DropdownMenuItem
                     onClick={() => setShowChannelSettings(true)}
+                    className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg"
                   >
-                    <Settings className="w-4 h-4 mr-2" />
+                    <Settings className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                     Edit Channel
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyChannelLink}>
-                    <Copy className="w-4 h-4 mr-2" />
+                  <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <Copy className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                     Copy Channel Link
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )
             : (
-              <Button variant="ghost" size="icon" className="w-6 h-6">
+              <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full">
                 <HelpCircle className="w-4 h-4" />
               </Button>
             )}
@@ -363,18 +366,20 @@ export function ChatArea(props: ChatAreaProps) {
 
   if (!props.communityId || !props.channelId) {
     return (
-      <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
-        <div className="h-12 border-b flex items-center justify-between px-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-5 h-5 bg-secondary rounded animate-pulse" />
-            <div className="w-24 h-5 bg-secondary rounded animate-pulse" />
+      <div className="flex flex-col h-full w-full max-w-full overflow-hidden bg-white dark:bg-gray-900">
+        <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <div className="w-5 h-5 bg-blue-600/20 rounded-full animate-pulse" />
+            <div className="w-24 h-5 bg-blue-600/20 rounded-full animate-pulse" />
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <Hash className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">Select a channel</h3>
-            <p className="text-sm">Choose a channel to start chatting!</p>
+          <div className="text-center text-gray-600 dark:text-gray-400">
+            <div className="p-4 bg-purple-100 dark:bg-purple-900/20 rounded-full border border-purple-200 dark:border-purple-800 inline-block mb-6">
+              <Hash className="w-16 h-16 text-purple-600 dark:text-purple-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Select a channel</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Choose a channel to start chatting!</p>
           </div>
         </div>
       </div>

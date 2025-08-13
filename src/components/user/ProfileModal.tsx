@@ -977,6 +977,13 @@ function ActivityNoteItem({ event }: ActivityItemProps) {
       }
       return match;
     })
+    .replace(/(https?:\/\/[^\s]+)/g, (url) => {
+      // Wrap long URLs to prevent breaking layout
+      if (url.length > 30) {
+        return url.slice(0, 25) + '...';
+      }
+      return url;
+    })
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
 

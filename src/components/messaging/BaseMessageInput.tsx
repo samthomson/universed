@@ -566,8 +566,8 @@ export function BaseMessageInput({
 
   if (disabled) {
     return (
-      <div className="p-3 bg-secondary rounded-lg opacity-60">
-        <p className="text-center text-sm text-muted-foreground">
+      <div className="p-4 bg-gray-100 dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-2xl opacity-60">
+        <p className="text-center text-sm text-gray-600 dark:text-gray-400">
           {disabledReason || "Messaging is disabled."}
         </p>
       </div>
@@ -575,8 +575,8 @@ export function BaseMessageInput({
   }
 
   return (
-    <div className={`relative p-3 bg-secondary rounded-lg w-full transition-colors duration-200 ${
-      isFocused ? 'border-2 border-blueviolet' : 'border border-border'
+    <div className={`relative p-4 bg-gray-100 dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-2xl w-full transition-all duration-200 ${
+      isFocused ? 'border-purple-400 dark:border-purple-600' : 'border-purple-200 dark:border-purple-800'
     }`}>
       {/* Previews Area - Expands upwards */}
       {(pollPreview || eventPreview || attachedFiles.length > 0) && (
@@ -673,7 +673,7 @@ export function BaseMessageInput({
           }}
           placeholder={placeholder || "Type a message..."}
           className="min-h-[24px] max-h-[64px] w-full resize-none bg-transparent border-none
-          focus:outline-none focus:ring-0 text-foreground placeholder:text-muted-foreground
+          focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-500
           p-0 leading-tight scrollbar-thin overflow-y-auto"
           disabled={isSending}
           rows={1}
@@ -685,9 +685,9 @@ export function BaseMessageInput({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-8 h-8 text-muted-foreground hover:text-foreground"
+                className="w-10 h-10 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full mobile-button"
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="w-5 h-5 sm:w-4 sm:h-4" />
               </Button>
             }
           />
@@ -696,9 +696,9 @@ export function BaseMessageInput({
           onClick={handleSubmit}
           disabled={isSending || (!message.trim() && !hasPreviews)}
           size="icon"
-          className="w-8 h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="w-10 h-10 sm:w-8 sm:h-8 bg-purple-600 hover:bg-purple-700 text-white rounded-full mobile-button"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-5 h-5 sm:w-4 sm:h-4" />
         </Button>
       </div>
 

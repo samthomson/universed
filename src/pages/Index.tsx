@@ -69,6 +69,23 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
           <div className="stars3"></div>
         </div>
 
+        {/* Header with Theme Switcher */}
+        <div className="relative z-20">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center space-x-4">
+                <img 
+                  src="/universes-logo.png" 
+                  alt="Universes Logo"
+                  className="w-8 h-8"
+                  style={{ filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.3))' }}
+                />
+                <span className="text-white font-semibold text-lg">Universes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Hero Section */}
         <div className="relative z-10 min-h-screen">
           <div className="container mx-auto px-4 pt-16 pb-24">

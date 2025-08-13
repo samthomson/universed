@@ -9,6 +9,8 @@ import { genUserName } from '@/lib/genUserName';
 import { MediaAttachment } from '@/components/chat/MediaAttachment';
 import { ProfileModal } from '@/components/user/ProfileModal';
 import { InlineEvent } from '@/components/InlineEvent';
+import { LinkPreview } from '@/components/LinkPreview';
+import { extractUrls } from '@/lib/urlUtils';
 import { cn } from '@/lib/utils';
 
 // Helper function to check if a URL is an image
@@ -112,6 +114,12 @@ export function NoteContent({
 
   // Check if content contains markdown
   const hasMarkdown = useMemo(() => containsMarkdown(event.content), [event.content]);
+
+  // Extract URLs for link preview (only first URL)
+  const firstUrl = useMemo(() => {
+    const urls = extractUrls(event.content);
+    return urls[0]; // Only get the first URL
+  }, [event.content]);
 
   // Process the content to render mentions, links, etc.
   const content = useMemo(() => {
@@ -438,11 +446,18 @@ export function NoteContent({
   }, [event.content, mediaAttachments, hasMarkdown]);
 
   return (
-    <div className={cn("space-y-1 force-wrap", className)}>
+    <div className={cn("space-y-3 force-wrap", className)}>
       {/* Text content */}
       {(content || event.content) && (
         <div className="whitespace-pre-wrap break-all-words">
           {content || event.content}
+        </div>
+      )}
+
+      {/* Link preview for first URL (only if not an image) */}
+      {firstUrl && !isImageURL(firstUrl) && (
+        <div className="mt-2">
+          <LinkPreview url={firstUrl} />
         </div>
       )}
 

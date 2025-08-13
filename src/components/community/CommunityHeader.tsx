@@ -138,7 +138,7 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
     <div className="h-16 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
       <div className="flex items-center justify-between h-full px-4 sm:px-6">
         {/* Left side: Avatar and Community Name */}
-        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+        <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0 min-w-0">
           {community.image ? (
             <Avatar className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0">
               <AvatarImage src={community.image} alt={community.name} />
@@ -152,12 +152,12 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
             </div>
           )}
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 max-w-[180px] sm:max-w-[240px] lg:max-w-[280px]">
             <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
               {community.name}
             </h1>
             {community.description && (
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate max-w-[200px] sm:max-w-md">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate">
                 {community.description}
               </p>
             )}
@@ -165,7 +165,7 @@ export function CommunityHeader({ communityId, activeTab, onTabChange }: Communi
         </div>
 
         {/* Center: Tab Navigation - Hidden on mobile, shown on desktop */}
-        <div className="hidden sm:block absolute left-1/2 transform -translate-x-1/2">
+        <div className="hidden sm:flex flex-1 justify-center items-center px-4">
           <div className="w-full max-w-md">
             <RadioTabs activeTab={activeTab} onTabChange={onTabChange} />
           </div>

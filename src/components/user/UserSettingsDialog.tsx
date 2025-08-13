@@ -1,4 +1,4 @@
-import { LogOut, Wifi, Activity, Wallet } from "lucide-react";
+import { LogOut, Wifi, Activity, Wallet, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { useLoginActions } from "@/hooks/useLoginActions";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useTheme } from "@/hooks/useTheme";
 import { genUserName } from "@/lib/genUserName";
 
 interface UserSettingsDialogProps {
@@ -25,6 +26,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   const { logout } = useLoginActions();
   const { user } = useCurrentUser();
   const { config, updateConfig } = useAppContext();
+  const { theme, setTheme } = useTheme();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
 
@@ -55,6 +57,48 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Theme Settings */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Sun className="h-4 w-4" />
+              <h3 className="text-sm font-medium">Theme</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Choose your preferred theme for the application.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant={theme === "light" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("light")}
+                className="flex items-center gap-2"
+              >
+                <Sun className="h-4 w-4" />
+                Light
+              </Button>
+              <Button
+                variant={theme === "dark" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("dark")}
+                className="flex items-center gap-2"
+              >
+                <Moon className="h-4 w-4" />
+                Dark
+              </Button>
+              <Button
+                variant={theme === "system" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTheme("system")}
+                className="flex items-center gap-2"
+              >
+                <Monitor className="h-4 w-4" />
+                System
+              </Button>
+            </div>
+          </div>
+
+          <Separator />
+
           {/* Relay Settings */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
