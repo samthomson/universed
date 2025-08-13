@@ -234,12 +234,17 @@ export function useDMMessages(conversationId: string) {
 
       // Check if this real message should replace an optimistic message
       // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
-      const optimisticMessageIndex = oldMessages.findIndex(msg =>
-        msg.isSending &&
-        msg.pubkey === event.pubkey &&
-        msg.content === decryptedEvent.content &&
-        Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
-      );
+      logger.log(`[DMs] Looking for optimistic message to replace. Real message content: "${decryptedEvent.content}", pubkey: ${event.pubkey}, timestamp: ${event.created_at}`);
+      
+      const optimisticMessageIndex = oldMessages.findIndex((msg, index) => {
+        const isMatch = msg.isSending &&
+          msg.pubkey === event.pubkey &&
+          msg.content === decryptedEvent.content &&
+          Math.abs(msg.created_at - event.created_at) <= 30;
+        
+        logger.log(`[DMs] Checking optimistic message ${index}: isSending=${msg.isSending}, content="${msg.content}", pubkey=${msg.pubkey}, timestamp=${msg.created_at}, match=${isMatch}`);
+        return isMatch;
+      });
 
       if (optimisticMessageIndex !== -1) {
         // Replace the optimistic message with the real one (keep existing animation timestamp)
@@ -277,9 +282,14 @@ export function useDMMessages(conversationId: string) {
       
       const existingMessages = queryClient.getQueryData<DecryptedMessage[]>(queryKey);
       if (existingMessages && existingMessages.length > 0) {
-        const mostRecent = existingMessages.reduce((latest, msg) => 
-          msg.created_at > latest.created_at ? msg : latest, existingMessages[0]);
-        sinceTimestamp = mostRecent.created_at + 1;
+        // Only use non-optimistic messages for since timestamp to avoid excluding our own messages
+        const realMessages = existingMessages.filter(msg => !msg.isSending);
+        if (realMessages.length > 0) {
+          const mostRecent = realMessages.reduce((latest, msg) => 
+            msg.created_at > latest.created_at ? msg : latest, realMessages[0]);
+          sinceTimestamp = mostRecent.created_at + 1;
+        }
+        // If we only have optimistic messages, use current time to catch everything
       }
 
       const filters = [
@@ -298,6 +308,8 @@ export function useDMMessages(conversationId: string) {
       ];
 
       logger.log(`[DMs] Starting subscription for conversation ${conversationId}`);
+      logger.log(`[DMs] Subscription since timestamp: ${sinceTimestamp} (${new Date(sinceTimestamp * 1000).toISOString()})`);
+      logger.log(`[DMs] Subscription filters:`, filters);
 
       const subscription = nostr.req(filters);
       let isActive = true;
@@ -307,7 +319,9 @@ export function useDMMessages(conversationId: string) {
         try {
           for await (const msg of subscription) {
             if (!isActive) break;
+            logger.log(`[DMs] Subscription received message:`, msg);
             if (msg[0] === 'EVENT') {
+              logger.log(`[DMs] Processing DM event:`, msg[2]);
               handleNewMessage(msg[2]);
             }
           }
