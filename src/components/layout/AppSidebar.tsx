@@ -83,7 +83,7 @@ function SortableCommunityItem({
   // Generate button classes based on state
   const buttonClasses = useMemo(() => cn(
     // Base styles
-    "w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60",
+    "w-12 h-12 rounded-2xl hover:bg-gray-800/60",
     "transition-all duration-100 relative z-10", // Faster transitions for better drag feel
     // State-dependent styles
     {
