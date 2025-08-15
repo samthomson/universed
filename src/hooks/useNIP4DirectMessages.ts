@@ -24,13 +24,11 @@ const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
 /**
  * Hook for NIP-4 (Kind 4) direct messages.
  * Handles legacy encrypted DMs with efficient participant filtering.
- * Can also discover all conversations when conversationId is '__ALL__'
+ * Can also discover all conversations when isDiscoveryMode is true.
  */
-export function useNIP4DirectMessages(conversationId: string) {
+export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = false) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  
-  const isDiscoveryMode = conversationId === '__ALL__';
   
   // Query for all NIP-4 messages (discovery mode) or specific conversation
   const query = useQuery({
