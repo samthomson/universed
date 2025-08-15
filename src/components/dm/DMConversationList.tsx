@@ -34,14 +34,26 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
-  // Only decrypt if there's a last message
+  // Check if message is already decrypted (NIP-04 has ?iv= format, NIP-17 is already decrypted)
+  const isAlreadyDecrypted = conversation.lastMessage && 
+    !conversation.lastMessage.content.includes('?iv=') && 
+    conversation.lastMessage.kind !== 4; // Kind 4 should always be encrypted
+
+  // Only decrypt if there's a last message AND it's not already decrypted
   const { data: decryptedContent, isLoading: isDecrypting, error: decryptError } = useDMDecrypt(
-    conversation.lastMessage
+    isAlreadyDecrypted ? undefined : conversation.lastMessage
   );
 
   // Get the display content
   const getDisplayContent = () => {
     if (!conversation.lastMessage) return "";
+    
+    // If already decrypted, show content directly
+    if (isAlreadyDecrypted) {
+      return conversation.lastMessage.content;
+    }
+    
+    // Otherwise use normal decryption flow
     if (isDecrypting) return "Decrypting...";
     if (decryptError) return "Unable to decrypt message";
     if (decryptedContent) return decryptedContent;
@@ -202,10 +214,20 @@ function SearchableConversationItem({
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(conversation.pubkey);
 
+  // Check if message is already decrypted
+  const isAlreadyDecrypted = conversation.lastMessage && 
+    !conversation.lastMessage.content.includes('?iv=') && 
+    conversation.lastMessage.kind !== 4;
+
   // Get decrypted content for search
   const { data: decryptedContent } = useDMDecrypt(
-    conversation.lastMessage
+    isAlreadyDecrypted ? undefined : conversation.lastMessage
   );
+  
+  // Get final content for search
+  const searchableContent = isAlreadyDecrypted 
+    ? conversation.lastMessage?.content 
+    : decryptedContent;
 
   // Filter by display name if search query exists
   if (searchQuery) {
@@ -214,8 +236,8 @@ function SearchableConversationItem({
     // Check if display name matches
     const nameMatches = displayName.toLowerCase().includes(query);
 
-    // Check if decrypted content matches (only if we have decrypted content)
-    const contentMatches = decryptedContent && decryptedContent.toLowerCase().includes(query);
+    // Check if content matches (use searchableContent which handles both encrypted and decrypted)
+    const contentMatches = searchableContent && searchableContent.toLowerCase().includes(query);
 
     // If neither name nor content matches, don't show this conversation
     if (!nameMatches && !contentMatches) {

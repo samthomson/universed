@@ -105,7 +105,19 @@ export function useDMMessages(conversationId: string) {
           );
         } else {
           logger.error(`No decryption method available for message ${message.id}`);
-          return null;
+          // SHOW ENCRYPTED MESSAGES INSTEAD OF HIDING THEM
+          return {
+            id: message.id,
+            pubkey: message.pubkey,
+            created_at: message.created_at,
+            content: `[No decryption method available - Kind ${message.kind}]`,
+            kind: message.kind,
+            tags: message.tags,
+            sig: message.sig,
+            direction: message.pubkey === currentUser.pubkey ? "sent" : "received",
+            isSending: message.isSending,
+            clientFirstSeen: message.clientFirstSeen,
+          };
         }
 
         // Return decrypted message
@@ -123,7 +135,20 @@ export function useDMMessages(conversationId: string) {
         };
       } catch (error) {
         logger.error(`Failed to decrypt DM ${message.id}:`, error);
-        return null;
+        
+        // SHOW ENCRYPTED MESSAGES INSTEAD OF HIDING THEM
+        return {
+          id: message.id,
+          pubkey: message.pubkey,
+          created_at: message.created_at,
+          content: `[Unable to decrypt message - Kind ${message.kind}]`,
+          kind: message.kind,
+          tags: message.tags,
+          sig: message.sig,
+          direction: message.pubkey === currentUser.pubkey ? "sent" : "received",
+          isSending: message.isSending,
+          clientFirstSeen: message.clientFirstSeen,
+        };
       }
     } catch (error) {
       logger.error(`Error processing DM ${message.id}:`, error);

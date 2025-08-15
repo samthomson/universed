@@ -3,7 +3,7 @@ import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
 import { useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useSendDM } from './useSendDM';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 
 // Configuration for messaging and conversation discovery
@@ -30,8 +30,41 @@ export function useDirectMessages() {
   // Get comprehensive NIP-17 conversation discovery if user has enabled it
   const nip17AllConversations = useNIP17DirectMessages('', isNIP17Enabled, true);
   
-  // Debug logging for NIP-17 status
-  logger.log(`[DirectMessages] NIP-17 scan enabled: ${isNIP17Enabled}`);
+  // Extract dependency values to satisfy linter
+  const nip4ConversationsLength = Array.isArray(nip4AllConversations.conversations) ? nip4AllConversations.conversations.length : 0;
+  
+  // Debug logging for NIP-17 status (only log when data changes)
+  useEffect(() => {
+    logger.log(`[DirectMessages] NIP-17 scan enabled: ${isNIP17Enabled}`);
+    logger.log(`[DirectMessages] Friend-based conversations:`, conversationList.conversations?.length || 0);
+    logger.log(`[DirectMessages] NIP-4 comprehensive conversations:`, nip4ConversationsLength);
+    logger.log(`[DirectMessages] NIP-17 comprehensive conversations:`, nip17AllConversations.conversations?.length || 0);
+    
+    // Log detailed NIP-17 conversation data
+    if (nip17AllConversations.conversations && nip17AllConversations.conversations.length > 0) {
+      logger.log(`[DirectMessages] NIP-17 conversations detail:`, nip17AllConversations.conversations.map(conv => ({
+        id: conv.id,
+        pubkey: conv.pubkey,
+        lastActivity: conv.lastActivity,
+        hasNIP4Messages: conv.hasNIP4Messages,
+        hasNIP17Messages: conv.hasNIP17Messages,
+        recentMessages: conv.recentMessages?.length || 0,
+        lastMessage: conv.lastMessage ? {
+          id: conv.lastMessage.id,
+          content: conv.lastMessage.content,
+          created_at: conv.lastMessage.created_at,
+          kind: conv.lastMessage.kind
+        } : null
+      })));
+    }
+  }, [
+    isNIP17Enabled,
+    conversationList.conversations?.length,
+    nip4ConversationsLength,
+    nip17AllConversations.conversations?.length,
+    nip4AllConversations.conversations,
+    nip17AllConversations.conversations
+  ]);
 
   // Note: getChatMessages functionality moved to individual conversation hooks
   // This was causing hook rule violations by calling hooks inside functions
@@ -125,8 +158,26 @@ export function useDirectMessages() {
       }
     });
     
-    return Array.from(conversationMap.values())
+    const finalConversations = Array.from(conversationMap.values())
       .sort((a, b) => b.lastActivity - a.lastActivity);
+    
+    // Log final conversations only when count changes
+    if (finalConversations.length > 0) {
+      logger.log(`[DirectMessages] Final merged conversations:`, finalConversations.length);
+      logger.log(`[DirectMessages] Merged conversations detail:`, finalConversations.map(conv => ({
+        id: conv.id,
+        lastActivity: conv.lastActivity,
+        hasNIP4Messages: conv.hasNIP4Messages,
+        hasNIP17Messages: conv.hasNIP17Messages,
+        recentMessages: conv.recentMessages?.length || 0,
+        lastMessage: conv.lastMessage ? {
+          content: conv.lastMessage.content,
+          kind: conv.lastMessage.kind
+        } : null
+      })));
+    }
+    
+    return finalConversations;
   }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled]);
 
   const getConversationList = () => ({

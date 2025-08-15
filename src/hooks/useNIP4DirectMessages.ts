@@ -104,12 +104,33 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         // Sort all messages by timestamp (newest first) for processing
         allDMs.sort((a, b) => b.created_at - a.created_at);
         
-        allDMs.forEach(dm => {
+        // Process messages and decrypt them
+        for (const dm of allDMs) {
           const isFromUser = dm.pubkey === user.pubkey;
           const recipientPTag = dm.tags.find(([name]) => name === 'p')?.[1];
           const otherPubkey = isFromUser ? recipientPTag : dm.pubkey;
           
-          if (!otherPubkey || otherPubkey === user.pubkey) return;
+          if (!otherPubkey || otherPubkey === user.pubkey) continue;
+          
+          // Decrypt the NIP-4 message content
+          let decryptedContent: string;
+          try {
+            if (user.signer?.nip04) {
+              decryptedContent = await user.signer.nip04.decrypt(otherPubkey, dm.content);
+            } else {
+              logger.error(`[NIP4] No NIP-04 decryption available for message ${dm.id}`);
+              decryptedContent = '[No decryption method available]';
+            }
+          } catch (error) {
+            logger.error(`[NIP4] Failed to decrypt message ${dm.id}:`, error);
+            decryptedContent = '[Unable to decrypt message]';
+          }
+          
+          // Create decrypted message
+          const decryptedMessage: NostrEvent = {
+            ...dm,
+            content: decryptedContent,
+          };
           
           const existing = conversationMap.get(otherPubkey);
           
@@ -118,21 +139,21 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
             conversationMap.set(otherPubkey, {
               id: otherPubkey,
               pubkey: otherPubkey,
-              lastMessage: dm,
+              lastMessage: decryptedMessage,
               lastActivity: dm.created_at,
               hasNIP4Messages: true,
               hasNIP17Messages: false,
-              recentMessages: [dm],
+              recentMessages: [decryptedMessage],
             });
           } else {
             // Existing conversation - add message if we have room
             if (existing.recentMessages.length < MESSAGES_PER_CHAT) {
-              existing.recentMessages.push(dm);
+              existing.recentMessages.push(decryptedMessage);
               // Keep messages sorted newest first
               existing.recentMessages.sort((a, b) => b.created_at - a.created_at);
             }
           }
-        });
+        }
         
         const conversations = Array.from(conversationMap.values())
           .sort((a, b) => b.lastActivity - a.lastActivity);

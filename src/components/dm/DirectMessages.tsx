@@ -31,16 +31,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
+  // OLD system for main conversation list (keep this working)
   const { data: categories, isLoading } = useDMCategories();
   
-  // New conversation discovery system
+  // NEW system for discovery section only
   const { getConversationList } = useDirectMessages();
   const newConversations = getConversationList();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
 
-  // Get conversations for the active tab
+  // Get conversations for the active tab (OLD system)
   const conversations = categories ?
     (activeTab === 'known' ? categories.known : categories.newRequests) :
     [];
@@ -362,18 +363,22 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       return null;
     }
 
-    // Filter and sort discovered conversations by tab
-    const filteredDiscoveredConversations = newConversations.conversations
-      .filter(_conv => {
-        // For discovered conversations, show all in "known" tab for now
-        // "Requests" tab is empty until we implement contact categorization
-        if (discoveredTab === 'known') {
-          return true; // Show all discovered conversations in Known tab
-        } else {
-          return false; // Requests tab is empty for discovered conversations
-        }
-      })
-      .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+         // Filter and sort discovered conversations by tab
+     const filteredDiscoveredConversations = newConversations.conversations
+       .filter(_conv => {
+         // For discovered conversations, show all in "known" tab for now
+         // "Requests" tab is empty until we implement contact categorization
+         if (discoveredTab === 'known') {
+           return true; // Show all discovered conversations in Known tab
+         } else {
+           return false; // Requests tab is empty for discovered conversations
+         }
+       })
+       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+       
+     console.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
+     console.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
+     console.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
 
     return (
       <div className="border-t border-gray-600 pt-4 mt-4">
@@ -406,29 +411,35 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
         {/* Tabs for discovered conversations */}
         {newConversations.conversations.length > 0 && (
-          <DMTabs activeTab={discoveredTab} onTabChange={setDiscoveredTab} idPrefix="discovered" />
+          <div className="px-2">
+            <DMTabs 
+              activeTab={discoveredTab} 
+              onTabChange={setDiscoveredTab}
+              idPrefix="discovered"
+            />
+          </div>
         )}
-        
-        <div className="space-y-1 px-1 max-h-96 overflow-y-auto scrollbar-thin">
+
+        {/* Scrollable list of discovered conversations */}
+        <div className="overflow-y-auto max-h-96 scrollbar-thin mt-2">
           {filteredDiscoveredConversations.length === 0 && discoveredTab === 'newRequests' ? (
             // Empty state for Requests tab
-            <div className="flex items-center justify-center p-8">
-              <div className="text-center text-gray-400">
-                <p className="text-sm">No message requests in discovered conversations</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  All discovered conversations appear in Known tab
-                </p>
-              </div>
+            <div className="px-4 py-6 text-center">
+              <MessageCircle className="w-8 h-8 mx-auto text-gray-500 mb-2" />
+              <p className="text-sm text-gray-500">No new requests</p>
+              <p className="text-xs text-gray-600 mt-1">
+                New conversations from unknown contacts will appear here
+              </p>
             </div>
           ) : (
-            filteredDiscoveredConversations.map((conversation) => {
+          filteredDiscoveredConversations.map((conversation) => {
             // Convert new conversation format to match DMConversation type
             const dmConversation = {
               id: conversation.id,
               pubkey: conversation.id,
               lastMessage: conversation.lastMessage,
               lastMessageTime: conversation.lastActivity,
-              unreadCount: conversation.unreadCount,
+              unreadCount: conversation.unreadCount || 0,
             };
 
             return (
@@ -448,17 +459,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   isVirtualized={true}
                 />
                 
-                {/* Protocol indicators overlay */}
+                {/* Protocol indicators overlay with updated colors */}
                 <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
                   {conversation.hasNIP4Messages && (
                     <div 
-                      className="w-2 h-2 bg-blue-400 rounded-full border border-gray-700" 
-                      title="NIP-4 messages" 
+                      className="w-2 h-2 bg-orange-500 rounded-full border border-gray-700" 
+                      title="NIP-04 messages" 
                     />
                   )}
                   {conversation.hasNIP17Messages && (
                     <div 
-                      className="w-2 h-2 bg-green-400 rounded-full border border-gray-700" 
+                      className="w-2 h-2 bg-purple-500 rounded-full border border-gray-700" 
                       title="NIP-17 private messages" 
                     />
                   )}
