@@ -1,4 +1,4 @@
-import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield, LogOut, UserIcon, UserPlus, User, Settings, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -16,6 +16,18 @@ import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
+import { UserStatusDialog } from "@/components/user/UserStatusDialog";
+import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
+import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
+import LoginDialog from "@/components/auth/LoginDialog";
+import { RelaySelector } from "@/components/RelaySelector";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
@@ -116,10 +128,10 @@ function SortableCommunityItem({
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
-    
+
     // Stop propagation to prevent drag listeners from interfering
     e.stopPropagation();
-    
+
     // Only handle click if we're not in the middle of a drag operation
     if (!isDragging && !isAnimating) {
       onSelect(community.id);
@@ -228,8 +240,12 @@ export function AppSidebar({
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
+  const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -274,7 +290,7 @@ export function AppSidebar({
   // Handle community selection with sophisticated rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
     logger.log('handleCommunitySelect called:', { communityId, selectedCommunity, isAnimating });
-    
+
     if (!communityId || communityId === selectedCommunity || isAnimating) {
       onSelectCommunity(communityId);
       return;
@@ -399,7 +415,7 @@ export function AppSidebar({
 
         {/* Scrollable communities section */}
         <ScrollArea className="flex-1 px-2">
-          <DndContext 
+          <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
@@ -407,7 +423,7 @@ export function AppSidebar({
             onDragCancel={handleDragCancel}
             autoScroll={{ threshold: { x: 0, y: 0.2 } }}
           >
-            <SortableContext 
+            <SortableContext
               items={orderedCommunities?.map(c => c.id) || []}
               strategy={verticalListSortingStrategy}
             >
@@ -438,26 +454,102 @@ export function AppSidebar({
 
           {/* User Profile Picture - Only show in mobile view */}
           {isMobile && user && (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
-                  onClick={() => setShowProfileModal(true)}
                 >
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
-                    <AvatarFallback className="bg-indigo-600 text-white text-xs">
-                      {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
+                      <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                        {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1">
+                      <UserStatusIndicator pubkey={user.pubkey} />
+                    </div>
+                  </div>
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>View Profile</p>
-              </TooltipContent>
-            </Tooltip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className='w-56 p-2 animate-scale-in' side="right" align="end" sideOffset={10}>
+                {/* My Profile - First option */}
+                <DropdownMenuItem
+                  onClick={() => setShowProfileModal(true)}
+                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+                >
+                  <User className='w-4 h-4' />
+                  <span>My Profile</span>
+                </DropdownMenuItem>
+
+                {/* Status Switcher - Second option */}
+                <DropdownMenuItem
+                  onClick={() => setShowStatusDialog(true)}
+                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+                >
+                  <MessageSquare className='w-4 h-4' />
+                  <span>Set Status</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <div className='font-medium text-sm px-2 py-1.5'>Switch Relay</div>
+                <RelaySelector className="w-full" />
+
+                <DropdownMenuSeparator />
+
+                {/* User Settings */}
+                <DropdownMenuItem
+                  onClick={() => setShowSettingsDialog(true)}
+                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+                >
+                  <Settings className='w-4 h-4' />
+                  <span>User Settings</span>
+                </DropdownMenuItem>
+
+                {/* Switch Account section - Only show if multiple accounts */}
+                {otherUsers.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
+                    {otherUsers.map((userAccount) => (
+                      <DropdownMenuItem
+                        key={userAccount.id}
+                        onClick={() => setLogin(userAccount.id)}
+                        className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+                      >
+                        <Avatar className='w-8 h-8'>
+                          <AvatarImage src={userAccount.metadata.picture} alt={userAccount.metadata.name || genUserName(userAccount.pubkey)} />
+                          <AvatarFallback>{(userAccount.metadata.name || genUserName(userAccount.pubkey))?.charAt(0) || <UserIcon />}</AvatarFallback>
+                        </Avatar>
+                        <div className='flex-1 truncate'>
+                          <p className='text-sm font-medium'>{userAccount.metadata.name || genUserName(userAccount.pubkey)}</p>
+                        </div>
+                        {userAccount.id === currentUser?.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setShowLoginDialog(true)}
+                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+                >
+                  <UserPlus className='w-4 h-4' />
+                  <span>Add another account</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => currentUser && removeLogin(currentUser.id)}
+                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
+                >
+                  <LogOut className='w-4 h-4' />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 
@@ -481,6 +573,19 @@ export function AppSidebar({
         <UserSettingsDialog
           open={showSettingsDialog}
           onOpenChange={setShowSettingsDialog}
+        />
+
+        {/* Status Dialog */}
+        <UserStatusDialog
+          open={showStatusDialog}
+          onOpenChange={setShowStatusDialog}
+        />
+
+        {/* Login Dialog */}
+        <LoginDialog
+          isOpen={showLoginDialog}
+          onClose={() => setShowLoginDialog(false)}
+          onLogin={() => setShowLoginDialog(false)}
         />
       </div>
     </TooltipProvider>
