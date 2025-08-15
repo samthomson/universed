@@ -1,4 +1,4 @@
-import { Plus, MessageCircle, Crown, Shield, LogOut, UserIcon, UserPlus, User, Settings, MessageSquare } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,20 +14,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { ProfileModal } from "@/components/user/ProfileModal";
-import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
-import { UserStatusDialog } from "@/components/user/UserStatusDialog";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
-import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
-import LoginDialog from "@/components/auth/LoginDialog";
-import { RelaySelector } from "@/components/RelaySelector";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
@@ -240,12 +228,6 @@ export function AppSidebar({
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
-
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [showLoginDialog, setShowLoginDialog] = useState(false);
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -454,8 +436,8 @@ export function AppSidebar({
 
           {/* User Profile Picture - Only show in mobile view */}
           {isMobile && user && (
-            <DropdownMenu modal={false}>
-              <DropdownMenuTrigger asChild>
+            <UserMenu
+              trigger={
                 <Button
                   variant="ghost"
                   size="icon"
@@ -473,83 +455,11 @@ export function AppSidebar({
                     </div>
                   </div>
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className='w-56 p-2 animate-scale-in' side="right" align="end" sideOffset={10}>
-                {/* My Profile - First option */}
-                <DropdownMenuItem
-                  onClick={() => setShowProfileModal(true)}
-                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-                >
-                  <User className='w-4 h-4' />
-                  <span>My Profile</span>
-                </DropdownMenuItem>
-
-                {/* Status Switcher - Second option */}
-                <DropdownMenuItem
-                  onClick={() => setShowStatusDialog(true)}
-                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-                >
-                  <MessageSquare className='w-4 h-4' />
-                  <span>Set Status</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <div className='font-medium text-sm px-2 py-1.5'>Switch Relay</div>
-                <RelaySelector className="w-full" />
-
-                <DropdownMenuSeparator />
-
-                {/* User Settings */}
-                <DropdownMenuItem
-                  onClick={() => setShowSettingsDialog(true)}
-                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-                >
-                  <Settings className='w-4 h-4' />
-                  <span>User Settings</span>
-                </DropdownMenuItem>
-
-                {/* Switch Account section - Only show if multiple accounts */}
-                {otherUsers.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
-                    {otherUsers.map((userAccount) => (
-                      <DropdownMenuItem
-                        key={userAccount.id}
-                        onClick={() => setLogin(userAccount.id)}
-                        className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-                      >
-                        <Avatar className='w-8 h-8'>
-                          <AvatarImage src={userAccount.metadata.picture} alt={userAccount.metadata.name || genUserName(userAccount.pubkey)} />
-                          <AvatarFallback>{(userAccount.metadata.name || genUserName(userAccount.pubkey))?.charAt(0) || <UserIcon />}</AvatarFallback>
-                        </Avatar>
-                        <div className='flex-1 truncate'>
-                          <p className='text-sm font-medium'>{userAccount.metadata.name || genUserName(userAccount.pubkey)}</p>
-                        </div>
-                        {userAccount.id === currentUser?.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
-                      </DropdownMenuItem>
-                    ))}
-                  </>
-                )}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setShowLoginDialog(true)}
-                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
-                >
-                  <UserPlus className='w-4 h-4' />
-                  <span>Add another account</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => currentUser && removeLogin(currentUser.id)}
-                  className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
-                >
-                  <LogOut className='w-4 h-4' />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+              side="right"
+              align="end"
+              sideOffset={10}
+            />
           )}
         </div>
 
@@ -557,35 +467,6 @@ export function AppSidebar({
           open={showCommunitySelectionDialog}
           onOpenChange={onShowCommunitySelectionDialogChange}
           onCommunitySelect={onSelectCommunity}
-        />
-
-        {/* Profile Modal */}
-        <ProfileModal
-          open={showProfileModal}
-          onOpenChange={setShowProfileModal}
-          onOpenSettings={() => {
-            setShowProfileModal(false);
-            setShowSettingsDialog(true);
-          }}
-        />
-
-        {/* Settings Dialog */}
-        <UserSettingsDialog
-          open={showSettingsDialog}
-          onOpenChange={setShowSettingsDialog}
-        />
-
-        {/* Status Dialog */}
-        <UserStatusDialog
-          open={showStatusDialog}
-          onOpenChange={setShowStatusDialog}
-        />
-
-        {/* Login Dialog */}
-        <LoginDialog
-          isOpen={showLoginDialog}
-          onClose={() => setShowLoginDialog(false)}
-          onLogin={() => setShowLoginDialog(false)}
         />
       </div>
     </TooltipProvider>
