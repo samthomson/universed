@@ -361,7 +361,7 @@ export function AppSidebar({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full z-10">
         {/* Fixed top section - Notifications and Direct Messages */}
         <div className="flex flex-col items-center pt-3 pb-2 space-y-2">
           <Tooltip>
