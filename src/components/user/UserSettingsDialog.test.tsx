@@ -38,9 +38,8 @@ describe('UserSettingsDialog', () => {
 
     expect(screen.getByText('User Settings')).toBeInTheDocument();
     expect(screen.getByText('Relay Connection')).toBeInTheDocument();
-    expect(screen.getByText('Developer Tools')).toBeInTheDocument();
-    expect(screen.getByText('Show Performance Metrics')).toBeInTheDocument();
-    expect(screen.getByText('Log Out')).toBeInTheDocument();
+    expect(screen.getByText('Theme')).toBeInTheDocument();
+    expect(screen.getByText('Wallet Configuration')).toBeInTheDocument();
   });
 
   it('does not render when closed', () => {
@@ -69,21 +68,15 @@ describe('UserSettingsDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('toggles performance dashboard when button is clicked', () => {
+  it('allows theme selection', () => {
     render(
       <TestApp>
         <UserSettingsDialog open={true} onOpenChange={() => {}} />
       </TestApp>
     );
 
-    // Initially should show "Show Performance Metrics"
-    const toggleButton = screen.getByText('Show Performance Metrics');
-    expect(toggleButton).toBeInTheDocument();
-
-    // Click to toggle
-    fireEvent.click(toggleButton);
-
-    // Should now show "Hide Performance Metrics"
-    expect(screen.getByText('Hide Performance Metrics')).toBeInTheDocument();
+    expect(screen.getByText('Light')).toBeInTheDocument();
+    expect(screen.getByText('Dark')).toBeInTheDocument();
+    expect(screen.getByText('System')).toBeInTheDocument();
   });
 });
