@@ -1,9 +1,19 @@
 import { useLocalStorage } from './useLocalStorage';
 import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
-import { useNIP17DirectMessages } from './useNIP17DirectMessages';
+import { useNIP17DirectMessages as _useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useSendDM } from './useSendDM';
 import { useMemo } from 'react';
+
+// Configuration for messaging and conversation discovery
+const MESSAGING_CONFIG = {
+  // Friend-based discovery settings
+  isWatchingMutualFollows: true,
+  isWatchingUsersFollows: true,
+  // Comprehensive scanning settings
+  isWatchingAll: true,
+  isNIP17Enabled: false,
+};
 
 /**
  * Main orchestrator hook for direct messages.
@@ -13,63 +23,74 @@ export function useDirectMessages() {
   const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', false);
   const conversationList = useConversationList();
   const { mutateAsync: sendDM } = useSendDM();
+  
+  // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
+  const nip4AllConversations = useNIP4DirectMessages('__ALL__');
+  // TODO: Add NIP-17 comprehensive discovery when isNIP17Enabled is true
 
-  const getChatMessages = (conversationId: string) => {
-    const nip4Messages = useNIP4DirectMessages(conversationId);
-    const nip17Messages = useNIP17DirectMessages(conversationId, isNIP17Enabled);
-
-    // Merge messages from both protocols
-    const allMessages = useMemo(() => {
-      const nip4Messages_ = Array.isArray(nip4Messages.messages) ? nip4Messages.messages : [];
-      const nip17Messages_ = Array.isArray(nip17Messages.messages) ? nip17Messages.messages : [];
-      
-      const nip4WithProtocol = nip4Messages_.map((msg: any) => {
-        if (!msg || typeof msg !== 'object') return null;
-        return { 
-          ...msg, 
-          protocol: 'nip04' as const 
-        };
-      }).filter(Boolean);
-      
-      const nip17WithProtocol = nip17Messages_.map((msg: any) => {
-        if (!msg || typeof msg !== 'object') return null;
-        return { 
-          ...msg, 
-          protocol: 'nip17' as const 
-        };
-      }).filter(Boolean);
-      
-      const combined = [...nip4WithProtocol, ...nip17WithProtocol];
-      return combined.sort((a, b) => a.created_at - b.created_at);
-    }, [nip4Messages.messages, nip17Messages.messages]);
-
+  // Note: getChatMessages functionality moved to individual conversation hooks
+  // This was causing hook rule violations by calling hooks inside functions
+  const getChatMessages = (_conversationId: string) => {
+    // This function now just returns a placeholder - actual implementation should use
+    // useNIP4DirectMessages and useNIP17DirectMessages directly in components
     return {
-      messages: allMessages,
-      isLoading: nip4Messages.isLoading || (isNIP17Enabled && nip17Messages.isLoading),
-      hasMoreMessages: nip4Messages.hasMoreMessages || (isNIP17Enabled && nip17Messages.hasMoreMessages),
-      loadingOlderMessages: nip4Messages.loadingOlderMessages || (isNIP17Enabled && nip17Messages.loadingOlderMessages),
-      loadOlderMessages: async () => {
-        // Load older messages from both protocols
-        await Promise.all([
-          nip4Messages.loadOlderMessages(),
-          isNIP17Enabled ? nip17Messages.loadOlderMessages() : Promise.resolve()
-        ]);
-      },
+      messages: [],
+      isLoading: false,
+      hasMoreMessages: false,
+      loadingOlderMessages: false,
+      loadOlderMessages: async () => {},
     };
   };
 
+  // Merge conversations from friend-based discovery and comprehensive scanning
+  const allConversations = useMemo(() => {
+    const friendBasedConvos = conversationList.conversations || [];
+    const nip4ComprehensiveConvos = MESSAGING_CONFIG.isWatchingAll && Array.isArray(nip4AllConversations.conversations) 
+      ? nip4AllConversations.conversations 
+      : [];
+    
+    // Merge and deduplicate by pubkey
+    const conversationMap = new Map();
+    
+    // Add friend-based conversations first (they have priority)
+    friendBasedConvos.forEach(conv => {
+      conversationMap.set(conv.pubkey, {
+        id: conv.pubkey,
+        name: undefined,
+        picture: undefined,
+        lastMessage: conv.lastMessage,
+        lastActivity: conv.lastActivity,
+        unreadCount: 0,
+        hasNIP4Messages: conv.hasNIP4Messages,
+        hasNIP17Messages: conv.hasNIP17Messages,
+        recentMessages: [], // Friend-based discovery doesn't include message content
+      });
+    });
+    
+    // Add comprehensive NIP-4 conversations (don't override existing ones)
+    nip4ComprehensiveConvos.forEach(conv => {
+      if (!conversationMap.has(conv.pubkey)) {
+        conversationMap.set(conv.pubkey, {
+          id: conv.pubkey,
+          name: undefined,
+          picture: undefined,
+          lastMessage: conv.lastMessage,
+          lastActivity: conv.lastActivity,
+          unreadCount: 0,
+          hasNIP4Messages: conv.hasNIP4Messages,
+          hasNIP17Messages: conv.hasNIP17Messages,
+          recentMessages: conv.recentMessages || [], // Include recent messages for instant loading
+        });
+      }
+    });
+    
+    return Array.from(conversationMap.values())
+      .sort((a, b) => b.lastActivity - a.lastActivity);
+  }, [conversationList.conversations, nip4AllConversations.conversations]);
+
   const getConversationList = () => ({
-    conversations: conversationList.conversations.map(conv => ({
-      id: conv.pubkey,
-      name: undefined, // Will be populated by UI with author metadata
-      picture: undefined,
-      lastMessage: conv.lastMessage,
-      lastActivity: conv.lastActivity,
-      unreadCount: 0, // Removed unread tracking per user feedback
-      hasNIP4Messages: conv.hasNIP4Messages,
-      hasNIP17Messages: conv.hasNIP17Messages,
-    })),
-    isLoading: conversationList.isLoading,
+    conversations: allConversations,
+    isLoading: conversationList.isLoading || (MESSAGING_CONFIG.isWatchingAll && nip4AllConversations.isLoading),
     processedCount: conversationList.processedCount,
     totalToProcess: conversationList.totalToProcess,
   });

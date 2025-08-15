@@ -1,16 +1,168 @@
+import { useQuery } from '@tanstack/react-query';
+import { useNostr } from '@nostrify/react';
+import { useCurrentUser } from './useCurrentUser';
+import { validateDMEvent } from './useAllDMs';
+import { logger } from '@/lib/logger';
+
+import type { NostrEvent } from '@nostrify/nostrify';
+
+interface ConversationCandidate {
+  id: string;
+  pubkey: string;
+  lastMessage?: NostrEvent;
+  lastActivity: number;
+  hasNIP4Messages: boolean;
+  hasNIP17Messages: boolean;
+  recentMessages: NostrEvent[]; // Store recent messages for instant chat loading
+}
+
+// Constants for comprehensive scanning (internal to this hook)
+const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process (increased from 5000)
+const SCAN_BATCH_SIZE = 1000;    // Messages per batch request (increased from 500)  
+const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
+
 /**
  * Hook for NIP-4 (Kind 4) direct messages.
  * Handles legacy encrypted DMs with efficient participant filtering.
+ * Can also discover all conversations when conversationId is '__ALL__'
  */
 export function useNIP4DirectMessages(conversationId: string) {
-  // TODO: Implement
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
   
-  return {
-    messages: [],
-    isLoading: false,
-    hasMoreMessages: false,
-    loadingOlderMessages: false,
-    loadOlderMessages: async () => {},
-    reachedStartOfConversation: false,
-  };
+  const isDiscoveryMode = conversationId === '__ALL__';
+  
+  // Query for all NIP-4 messages (discovery mode) or specific conversation
+  const query = useQuery({
+    queryKey: isDiscoveryMode 
+      ? ['nip4-all-conversations', user?.pubkey]
+      : ['nip4-messages', user?.pubkey, conversationId],
+    queryFn: async (c) => {
+      if (!user) return isDiscoveryMode ? [] : { messages: [], conversations: [] };
+
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(15000)]); // Longer timeout for comprehensive scan
+
+      if (isDiscoveryMode) {
+        // Discovery mode: Comprehensive batched scanning
+        logger.log(`[NIP4] Starting comprehensive scan (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+        
+        let allDMs: NostrEvent[] = [];
+        let processedMessages = 0;
+        let oldestTimestamp: number | undefined;
+        
+        // Batch processing loop
+        while (processedMessages < SCAN_TOTAL_LIMIT) {
+          const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
+          
+          // Build filters for this batch
+          const filters = [
+            { 
+              kinds: [4], 
+              '#p': [user.pubkey], 
+              limit: batchLimit,
+              ...(oldestTimestamp && { until: oldestTimestamp })
+            },
+            { 
+              kinds: [4], 
+              authors: [user.pubkey], 
+              limit: batchLimit,
+              ...(oldestTimestamp && { until: oldestTimestamp })
+            }
+          ];
+          
+          logger.log(`[NIP4] Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
+          
+          const batchDMs = await nostr.query(filters, { signal });
+          const validBatchDMs = batchDMs.filter(validateDMEvent);
+          
+          if (validBatchDMs.length === 0) {
+            logger.log('[NIP4] No more messages available, stopping scan');
+            break;
+          }
+          
+          allDMs = [...allDMs, ...validBatchDMs];
+          processedMessages += validBatchDMs.length;
+          
+          // Update oldest timestamp for next batch
+          const batchOldest = validBatchDMs.reduce((oldest, dm) => 
+            dm.created_at < oldest ? dm.created_at : oldest, 
+            validBatchDMs[0]?.created_at || 0
+          );
+          oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
+          
+          logger.log(`[NIP4] Batch complete: ${validBatchDMs.length} messages, total: ${allDMs.length}`);
+          
+          // Stop if we got fewer messages than requested (end of data)
+          if (validBatchDMs.length < batchLimit) {
+            logger.log('[NIP4] Reached end of available messages');
+            break;
+          }
+        }
+        
+        // Group by conversation partner and keep recent messages
+        const conversationMap = new Map<string, ConversationCandidate>();
+        
+        // Sort all messages by timestamp (newest first) for processing
+        allDMs.sort((a, b) => b.created_at - a.created_at);
+        
+        allDMs.forEach(dm => {
+          const isFromUser = dm.pubkey === user.pubkey;
+          const recipientPTag = dm.tags.find(([name]) => name === 'p')?.[1];
+          const otherPubkey = isFromUser ? recipientPTag : dm.pubkey;
+          
+          if (!otherPubkey || otherPubkey === user.pubkey) return;
+          
+          const existing = conversationMap.get(otherPubkey);
+          
+          if (!existing) {
+            // New conversation
+            conversationMap.set(otherPubkey, {
+              id: otherPubkey,
+              pubkey: otherPubkey,
+              lastMessage: dm,
+              lastActivity: dm.created_at,
+              hasNIP4Messages: true,
+              hasNIP17Messages: false,
+              recentMessages: [dm],
+            });
+          } else {
+            // Existing conversation - add message if we have room
+            if (existing.recentMessages.length < MESSAGES_PER_CHAT) {
+              existing.recentMessages.push(dm);
+              // Keep messages sorted newest first
+              existing.recentMessages.sort((a, b) => b.created_at - a.created_at);
+            }
+          }
+        });
+        
+        const conversations = Array.from(conversationMap.values())
+          .sort((a, b) => b.lastActivity - a.lastActivity);
+          
+        logger.log(`[NIP4] Comprehensive scan complete: ${conversations.length} conversations from ${allDMs.length} messages`);
+        return conversations;
+      } else {
+        // Specific conversation mode - return empty for now (TODO: implement)
+        return { messages: [], conversations: [] };
+      }
+    },
+    enabled: !!user,
+  });
+
+  // Return appropriate interface based on mode
+  if (isDiscoveryMode) {
+    return {
+      conversations: query.data || [],
+      isLoading: query.isLoading,
+      isError: query.isError,
+    };
+  } else {
+    return {
+      messages: [],
+      isLoading: false,
+      hasMoreMessages: false,
+      loadingOlderMessages: false,
+      loadOlderMessages: async () => {},
+      reachedStartOfConversation: false,
+    };
+  }
 }

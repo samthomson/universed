@@ -24,7 +24,7 @@ const MESSAGING_CONFIG = {
   // Check users you follow for conversations (moderately efficient)  
   isWatchingUsersFollows: true,
   // Check all messages for conversations (expensive, comprehensive - handled by NIP hooks)
-  isWatchingAll: false,
+  isWatchingAll: true,
   // Whether to include NIP-17 messages (expensive due to metadata blindness)
   isNIP17Enabled: false,
 }
