@@ -33,41 +33,8 @@ import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
+import { getMessageProtocol, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
 import type { NostrEvent } from "@/types/nostr";
-
-// Message protocol types
-const MESSAGE_PROTOCOL = {
-  NIP04: 'NIP04',
-  NIP17: 'NIP17', 
-  UNKNOWN: 'UNKNOWN'
-} as const;
-
-type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];
-
-// Helper function to determine message protocol
-function getMessageProtocol(kind: number): MessageProtocol {
-  switch (kind) {
-    case 4: return MESSAGE_PROTOCOL.NIP04;
-    case 1059: return MESSAGE_PROTOCOL.NIP17;
-    default: return MESSAGE_PROTOCOL.UNKNOWN;
-  }
-}
-
-// Protocol indicator configuration
-const PROTOCOL_CONFIG = {
-  [MESSAGE_PROTOCOL.NIP04]: {
-    color: 'bg-orange-500',
-    title: 'NIP-04 encrypted message'
-  },
-  [MESSAGE_PROTOCOL.NIP17]: {
-    color: 'bg-purple-500', 
-    title: 'NIP-44/NIP-17 encrypted message'
-  },
-  [MESSAGE_PROTOCOL.UNKNOWN]: {
-    color: 'bg-gray-400',
-    title: 'Unknown message type'
-  }
-} as const;
 
 export interface MessageItemConfig {
   showContextMenu: boolean;

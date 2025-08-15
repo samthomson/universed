@@ -6,6 +6,40 @@ import { useSendDM } from './useSendDM';
 import { useMemo, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 
+// Message protocol types
+export const MESSAGE_PROTOCOL = {
+  NIP04: 'NIP04',
+  NIP17: 'NIP17', 
+  UNKNOWN: 'UNKNOWN'
+} as const;
+
+export type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];
+
+// Helper function to determine message protocol
+export function getMessageProtocol(kind: number): MessageProtocol {
+  switch (kind) {
+    case 4: return MESSAGE_PROTOCOL.NIP04;
+    case 1059: return MESSAGE_PROTOCOL.NIP17;
+    default: return MESSAGE_PROTOCOL.UNKNOWN;
+  }
+}
+
+// Protocol indicator configuration
+export const PROTOCOL_CONFIG = {
+  [MESSAGE_PROTOCOL.NIP04]: {
+    color: 'bg-orange-500',
+    title: 'NIP-04 encrypted message'
+  },
+  [MESSAGE_PROTOCOL.NIP17]: {
+    color: 'bg-purple-500', 
+    title: 'NIP-44/NIP-17 encrypted message'
+  },
+  [MESSAGE_PROTOCOL.UNKNOWN]: {
+    color: 'bg-gray-400',
+    title: 'Unknown message type'
+  }
+} as const;
+
 // Configuration for messaging and conversation discovery
 const MESSAGING_CONFIG = {
   // Friend-based discovery settings
@@ -66,17 +100,17 @@ export function useDirectMessages() {
     nip17AllConversations.conversations
   ]);
 
-  // Note: getChatMessages functionality moved to individual conversation hooks
-  // This was causing hook rule violations by calling hooks inside functions
+  // Note: getChatMessages should not be called here due to hook rules
+  // Individual components should use useDirectMessagesForChat hook instead
   const getChatMessages = (_conversationId: string) => {
-    // This function now just returns a placeholder - actual implementation should use
-    // useNIP4DirectMessages and useNIP17DirectMessages directly in components
+    // This is a placeholder - components should use useDirectMessagesForChat hook directly
     return {
-      messages: [],
+      data: [],
       isLoading: false,
       hasMoreMessages: false,
       loadingOlderMessages: false,
       loadOlderMessages: async () => {},
+      reachedStartOfConversation: false,
     };
   };
 
@@ -204,5 +238,42 @@ export function useDirectMessages() {
     getChatMessages,
     getConversationList,
     sendMessage,
+  };
+}
+
+/**
+ * Separate hook for individual chat message loading
+ * Combines NIP-4 and NIP-17 messages for a specific conversation
+ */
+export function useDirectMessagesForChat(conversationId: string) {
+  const [isNIP17Enabled] = useLocalStorage('enableNIP17', true);
+  
+  // Get messages from both NIP-4 and NIP-17 hooks
+  const nip4Messages = useNIP4DirectMessages(conversationId, false); // Specific conversation mode
+  const nip17Messages = useNIP17DirectMessages(conversationId, isNIP17Enabled, false); // Specific conversation mode
+  
+  // Combine and sort messages from both sources
+  const allMessages = useMemo(() => {
+    const combined = [
+      ...(nip4Messages.messages || []),
+      ...(nip17Messages.messages || [])
+    ];
+    
+    // Sort by timestamp (oldest first for chronological display)
+    return combined.sort((a, b) => a.created_at - b.created_at);
+  }, [nip4Messages.messages, nip17Messages.messages]);
+
+  return {
+    data: allMessages,
+    isLoading: nip4Messages.isLoading || nip17Messages.isLoading,
+    hasMoreMessages: nip4Messages.hasMoreMessages || nip17Messages.hasMoreMessages,
+    loadingOlderMessages: nip4Messages.loadingOlderMessages || nip17Messages.loadingOlderMessages,
+    loadOlderMessages: async () => {
+      await Promise.all([
+        nip4Messages.loadOlderMessages?.(),
+        nip17Messages.loadOlderMessages?.()
+      ]);
+    },
+    reachedStartOfConversation: nip4Messages.reachedStartOfConversation && nip17Messages.reachedStartOfConversation,
   };
 }

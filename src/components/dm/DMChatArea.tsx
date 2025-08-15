@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDMMessages } from "@/hooks/useDMMessages";
+import { useDirectMessagesForChat } from "@/hooks/useDirectMessages";
 import { useSendDM } from "@/hooks/useSendDM";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
@@ -82,7 +82,7 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDMMessages(conversationId);
+  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChat(conversationId);
   const { mutate: sendDM } = useSendDM();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
@@ -142,7 +142,7 @@ export function DMChatArea(
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
-      queryKey={['dm-messages', user!.pubkey, conversationId]}
+      queryKey={user ? ['dm-unified-messages', user.pubkey, conversationId] : ['dm-unified-messages-disabled']}
       header={
         <DMChatHeader
           conversationId={conversationId}
