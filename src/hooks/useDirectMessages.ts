@@ -1,7 +1,7 @@
 import { useLocalStorage } from './useLocalStorage';
 import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
-import { useNIP17DirectMessages as _useNIP17DirectMessages } from './useNIP17DirectMessages';
+import { useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useSendDM } from './useSendDM';
 import { useMemo } from 'react';
 
@@ -27,7 +27,7 @@ export function useDirectMessages() {
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
   // Get comprehensive NIP-17 conversation discovery if both isWatchingAll and isNIP17Enabled are true
-  const nip17AllConversations = _useNIP17DirectMessages('', MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled);
+  const nip17AllConversations = useNIP17DirectMessages('', MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled);
 
   // Note: getChatMessages functionality moved to individual conversation hooks
   // This was causing hook rule violations by calling hooks inside functions
