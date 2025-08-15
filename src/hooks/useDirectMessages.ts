@@ -27,7 +27,7 @@ export function useDirectMessages() {
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
   // Get comprehensive NIP-17 conversation discovery if both isWatchingAll and isNIP17Enabled are true
-  const nip17AllConversations = useNIP17DirectMessages('', MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled);
+  const nip17AllConversations = useNIP17DirectMessages('', MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled, true);
 
   // Note: getChatMessages functionality moved to individual conversation hooks
   // This was causing hook rule violations by calling hooks inside functions
@@ -49,9 +49,9 @@ export function useDirectMessages() {
     const nip4ComprehensiveConvos = MESSAGING_CONFIG.isWatchingAll && Array.isArray(nip4AllConversations.conversations) 
       ? nip4AllConversations.conversations 
       : [];
-    // const nip17ComprehensiveConvos = (MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled && Array.isArray(nip17AllConversations.conversations))
-    //   ? nip17AllConversations.conversations 
-    //   : []; // TODO: Re-enable when NIP-17 hook is properly implemented
+    const nip17ComprehensiveConvos = (MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled && Array.isArray(nip17AllConversations.conversations))
+      ? nip17AllConversations.conversations 
+      : [];
     
     // Merge and deduplicate by pubkey
     const conversationMap = new Map();
@@ -88,36 +88,42 @@ export function useDirectMessages() {
       }
     });
     
-    // TODO: Add comprehensive NIP-17 conversations (merge with existing ones)
-    // nip17ComprehensiveConvos.forEach(conv => {
-    //   const existing = conversationMap.get(conv.pubkey);
-    //   if (!existing) {
-    //     // New conversation from NIP-17 only
-    //     conversationMap.set(conv.pubkey, {
-    //       id: conv.pubkey,
-    //       name: undefined,
-    //       picture: undefined,
-    //       lastMessage: conv.lastMessage,
-    //       lastActivity: conv.lastActivity,
-    //       unreadCount: 0,
-    //       hasNIP4Messages: conv.hasNIP4Messages,
-    //       hasNIP17Messages: conv.hasNIP17Messages,
-    //       recentMessages: conv.recentMessages || [],
-    //     });
-    //   } else {
-    //     // Merge NIP-17 data with existing conversation
-    //     existing.hasNIP17Messages = existing.hasNIP17Messages || conv.hasNIP17Messages;
-    //     // Update if NIP-17 message is more recent
-    //     if (conv.lastActivity > existing.lastActivity) {
-    //       existing.lastMessage = conv.lastMessage;
-    //       existing.lastActivity = conv.lastActivity;
-    //     }
-    //   }
-    // });
+    // Add comprehensive NIP-17 conversations (merge with existing ones)
+    nip17ComprehensiveConvos.forEach(conv => {
+      const existing = conversationMap.get(conv.pubkey);
+      if (!existing) {
+        // New conversation from NIP-17 only
+        conversationMap.set(conv.pubkey, {
+          id: conv.pubkey,
+          name: undefined,
+          picture: undefined,
+          lastMessage: conv.lastMessage,
+          lastActivity: conv.lastActivity,
+          unreadCount: 0,
+          hasNIP4Messages: conv.hasNIP4Messages,
+          hasNIP17Messages: conv.hasNIP17Messages,
+          recentMessages: conv.recentMessages || [],
+        });
+      } else {
+        // Merge NIP-17 data with existing conversation
+        existing.hasNIP17Messages = existing.hasNIP17Messages || conv.hasNIP17Messages;
+        // Update if NIP-17 message is more recent
+        if (conv.lastActivity > existing.lastActivity) {
+          existing.lastMessage = conv.lastMessage;
+          existing.lastActivity = conv.lastActivity;
+        }
+        // Merge recent messages (NIP-17 messages are valuable since they include full message content)
+        if (conv.recentMessages && conv.recentMessages.length > 0) {
+          existing.recentMessages = [...existing.recentMessages, ...conv.recentMessages]
+            .sort((a, b) => b.created_at - a.created_at)
+            .slice(0, 20); // Keep top 20 most recent messages
+        }
+      }
+    });
     
     return Array.from(conversationMap.values())
       .sort((a, b) => b.lastActivity - a.lastActivity);
-  }, [conversationList.conversations, nip4AllConversations.conversations]);
+  }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled]);
 
   const getConversationList = () => ({
     conversations: allConversations,
