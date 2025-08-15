@@ -39,7 +39,7 @@ export function validateDMEvent(event: NostrEvent): boolean {
 }
 
 // Number of DMs to load per pagination request
-const DMS_PER_PAGE = 5;
+const DMS_PER_PAGE = 5000;
 
 export function processAllDMs(allDMs: ExtendedNostrEvent[], userPubkey: string): AllDMsData {
       const validDMs = allDMs.filter(validateDMEvent);
