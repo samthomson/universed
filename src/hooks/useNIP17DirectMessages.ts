@@ -181,55 +181,8 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
               failedDecryption++;
             }
           } else {
-            // Process as NIP-44 DM (direct encrypted content)
-            // For NIP-44 DMs, determine conversation partner
-            let conversationPartner: string;
-            if (giftWrap.pubkey === user.pubkey) {
-              const pTag = giftWrap.tags.find(([name]) => name === 'p');
-              conversationPartner = pTag?.[1] || '';
-            } else {
-              conversationPartner = giftWrap.pubkey;
-            }
-            
-            if (!conversationPartner || conversationPartner === user.pubkey) {
-              failedDecryption++;
-              continue;
-            }
-            
-            // Create a synthetic Kind 14 message from the NIP-44 DM
-            const syntheticMessage: NostrEvent = {
-              id: giftWrap.id,
-              pubkey: giftWrap.pubkey,
-              created_at: giftWrap.created_at,
-              kind: 14,
-              tags: giftWrap.tags,
-              content: decryptedContent,
-              sig: giftWrap.sig,
-            };
-            
-            // Store message
-            const existingMessages = messageMap.get(conversationPartner) || [];
-            existingMessages.push(syntheticMessage);
-            messageMap.set(conversationPartner, existingMessages);
-            
-            // Update conversation summary
-            const existing = conversationMap.get(conversationPartner);
-            if (!existing || syntheticMessage.created_at > existing.lastActivity) {
-              const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
-              const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
-              
-              conversationMap.set(conversationPartner, {
-                id: conversationPartner,
-                pubkey: conversationPartner,
-                lastMessage: syntheticMessage,
-                lastActivity: syntheticMessage.created_at,
-                hasNIP4Messages: false,
-                hasNIP17Messages: true,
-                recentMessages: summaryMessages,
-              });
-            }
-            
-            decryptedCount++;
+            // Not a valid NIP-17 Gift Wrap - skip
+            failedDecryption++;
           }
           
         } catch (error) {
