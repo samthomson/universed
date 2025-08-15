@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { validateDMEvent } from './useAllDMs';
 import { logger } from '@/lib/logger';
+import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -42,7 +43,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
       if (isDiscoveryMode) {
         // Discovery mode: Comprehensive batched scanning
-        logger.log(`[NIP4] Starting comprehensive scan (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+        logger.log(`[NIP4] Starting comprehensive scan (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE}) - Fresh fetch, not from cache`);
         
         let allDMs: NostrEvent[] = [];
         let processedMessages = 0;
@@ -144,7 +145,13 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       }
     },
     enabled: !!user,
+    ...reactQueryConfigs['dm-conversation-discovery'], // Use centralized config
   });
+
+  // Log cache status for debugging
+  if (isDiscoveryMode && query.data && !query.isLoading && Array.isArray(query.data)) {
+    logger.log(`[NIP4] Using cached data: ${query.data.length} conversations found`);
+  }
 
   // Return appropriate interface based on mode
   if (isDiscoveryMode) {
