@@ -35,6 +35,40 @@ import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { NostrEvent } from "@/types/nostr";
 
+// Message protocol types
+const MESSAGE_PROTOCOL = {
+  NIP04: 'NIP04',
+  NIP17: 'NIP17', 
+  UNKNOWN: 'UNKNOWN'
+} as const;
+
+type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];
+
+// Helper function to determine message protocol
+function getMessageProtocol(kind: number): MessageProtocol {
+  switch (kind) {
+    case 4: return MESSAGE_PROTOCOL.NIP04;
+    case 1059: return MESSAGE_PROTOCOL.NIP17;
+    default: return MESSAGE_PROTOCOL.UNKNOWN;
+  }
+}
+
+// Protocol indicator configuration
+const PROTOCOL_CONFIG = {
+  [MESSAGE_PROTOCOL.NIP04]: {
+    color: 'bg-orange-500',
+    title: 'NIP-04 encrypted message'
+  },
+  [MESSAGE_PROTOCOL.NIP17]: {
+    color: 'bg-purple-500', 
+    title: 'NIP-44/NIP-17 encrypted message'
+  },
+  [MESSAGE_PROTOCOL.UNKNOWN]: {
+    color: 'bg-gray-400',
+    title: 'Unknown message type'
+  }
+} as const;
+
 export interface MessageItemConfig {
   showContextMenu: boolean;
   showReactions: boolean;
@@ -192,22 +226,16 @@ function BaseMessageItemComponent({
               </UserContextMenu>
               <span className="text-xs text-gray-600 dark:text-gray-400">
                 {formatDistanceToNowShort(timestamp, { addSuffix: true })}
-                <span 
-                  className={`inline-block w-2 h-2 rounded-full ml-2 ${
-                    message.kind === 4 
-                      ? 'bg-orange-500' // NIP-04 (Bitcoin orange)
-                      : message.kind === 1059 
-                      ? 'bg-purple-500' // NIP-44/NIP-17 (Nostr purple)
-                      : 'bg-gray-400' // Unknown
-                  }`}
-                  title={
-                    message.kind === 4 
-                      ? 'NIP-04 encrypted message' 
-                      : message.kind === 1059 
-                      ? 'NIP-44/NIP-17 encrypted message'
-                      : `Kind ${message.kind} message`
-                  }
-                />
+                {(() => {
+                  const protocol = getMessageProtocol(message.kind);
+                  const config = PROTOCOL_CONFIG[protocol];
+                  return (
+                    <span 
+                      className={`inline-block w-2 h-2 rounded-full ml-2 ${config.color}`}
+                      title={config.title}
+                    />
+                  );
+                })()}
                 {isSending && (
                   <div className="flex items-center space-x-1 inline-flex ml-2">
                     <Loader2 className="w-3 h-3 animate-spin text-purple-600 dark:text-purple-400" />
