@@ -3,8 +3,9 @@ import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
 import { useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useSendDM } from './useSendDM';
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
 import { logger } from '@/lib/logger';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 // Message protocol types
 export const MESSAGE_PROTOCOL = {
@@ -244,37 +245,125 @@ export function useDirectMessages() {
 
 /**
  * Separate hook for individual chat message loading
- * Combines NIP-4 and NIP-17 messages for a specific conversation
+ * Combines NIP-4 and NIP-17 messages for a specific conversation with timestamp-based pagination
  */
-export function useDirectMessagesForChat(conversationId: string) {
+export function useDirectMessagesForChat(conversationId: string, until?: number) {
   const [isNIP17Enabled] = useLocalStorage('enableNIP17', true);
   
-  // Get messages from both NIP-4 and NIP-17 hooks
-  const nip4Messages = useNIP4DirectMessages(conversationId, false); // Specific conversation mode
-  const nip17Messages = useNIP17DirectMessages(conversationId, isNIP17Enabled, false); // Specific conversation mode
+  // Get messages from both NIP-4 and NIP-17 hooks with timestamp filter
+  const nip4Messages = useNIP4DirectMessages(conversationId, false, until); // Specific conversation mode
+  const nip17Messages = useNIP17DirectMessages(conversationId, isNIP17Enabled, false, until); // Specific conversation mode
   
-  // Combine and sort messages from both sources
-  const allMessages = useMemo(() => {
+  logger.log(`[DMCHAT] useDirectMessagesForChat called with conversationId: "${conversationId}", until: ${until}`);
+  logger.log(`[DMCHAT] isNIP17Enabled: ${isNIP17Enabled}`);
+  logger.log(`[DMCHAT] NIP-4 messages loading: ${nip4Messages.isLoading}, count: ${nip4Messages.messages?.length || 0}`);
+  logger.log(`[DMCHAT] NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
+  
+  // Combine, sort, and limit messages from both sources
+  const combinedResult = useMemo(() => {
+    const MESSAGES_PER_PAGE = 100;
+    
+    const nip4Count = nip4Messages.messages?.length || 0;
+    const nip17Count = nip17Messages.messages?.length || 0;
+    
+    logger.log(`[DMCHAT] Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
+    
+    // Combine all messages
     const combined = [
       ...(nip4Messages.messages || []),
       ...(nip17Messages.messages || [])
     ];
     
-    // Sort by timestamp (oldest first for chronological display)
-    return combined.sort((a, b) => a.created_at - b.created_at);
-  }, [nip4Messages.messages, nip17Messages.messages]);
+    logger.log(`[DMCHAT] Total combined messages: ${combined.length}`);
+    
+    // Sort by timestamp (newest first)
+    const sorted = combined.sort((a, b) => b.created_at - a.created_at);
+    
+    // Take most recent MESSAGES_PER_PAGE messages
+    const paginated = sorted.slice(0, MESSAGES_PER_PAGE);
+    
+    // Check if either hook has more messages available
+    const hasMore = nip4Messages.hasMoreMessages || nip17Messages.hasMoreMessages || sorted.length > MESSAGES_PER_PAGE;
+    
+    // Return in chronological order (oldest first) for chat display
+    const chronological = paginated.reverse();
+    
+    logger.log(`[DMCHAT] Final result: ${chronological.length} messages, hasMore: ${hasMore}`);
+    if (chronological.length > 0) {
+      logger.log(`[DMCHAT] First (oldest) message:`, chronological[0]);
+      logger.log(`[DMCHAT] Last (newest) message:`, chronological[chronological.length - 1]);
+    }
+    
+    return {
+      messages: chronological,
+      hasMore,
+      oldestDisplayed: chronological.length > 0 ? chronological[0].created_at : undefined,
+    };
+  }, [nip4Messages.messages, nip17Messages.messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages]);
+
+  return {
+    data: combinedResult.messages,
+    isLoading: nip4Messages.isLoading || nip17Messages.isLoading,
+    hasMoreMessages: combinedResult.hasMore,
+    loadingOlderMessages: nip4Messages.loadingOlderMessages || nip17Messages.loadingOlderMessages,
+    loadOlderMessages: async () => {
+      // This will be called by the UI when user wants to load older messages
+      // The timestamp will be passed as 'until' parameter in the next call to this hook
+      logger.log(`[DMCHAT] loadOlderMessages called - next call should use until: ${combinedResult.oldestDisplayed}`);
+    },
+    reachedStartOfConversation: !combinedResult.hasMore,
+    // Expose the timestamp for the UI to use in pagination
+    oldestMessageTimestamp: combinedResult.oldestDisplayed,
+  };
+}
+
+/**
+ * Stateful wrapper hook for chat pagination
+ * Manages the 'until' timestamp internally and provides loadOlderMessages function
+ */
+export function useDirectMessagesForChatWithPagination(conversationId: string) {
+  const [until, setUntil] = useState<number | undefined>(undefined);
+  const [allMessages, setAllMessages] = useState<NostrEvent[]>([]);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+
+  // Get current page of messages
+  const currentPage = useDirectMessagesForChat(conversationId, until);
+
+  // When new messages arrive, append them to our accumulator
+  useEffect(() => {
+    if (!currentPage.isLoading && currentPage.data.length > 0) {
+      setAllMessages(prev => {
+        // If this is the first load (until is undefined), replace all messages
+        if (until === undefined) {
+          return currentPage.data;
+        }
+        // Otherwise, prepend older messages (they should be in chronological order)
+        const newOlderMessages = currentPage.data.filter(msg => 
+          !prev.some(existing => existing.id === msg.id)
+        );
+        return [...newOlderMessages, ...prev];
+      });
+      setIsLoadingOlder(false);
+    }
+  }, [currentPage.data, currentPage.isLoading, until]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (currentPage.hasMoreMessages && !isLoadingOlder) {
+      setIsLoadingOlder(true);
+      const oldestTimestamp = currentPage.oldestMessageTimestamp;
+      if (oldestTimestamp) {
+        logger.log(`[DMCHAT] Loading older messages before timestamp: ${oldestTimestamp}`);
+        setUntil(oldestTimestamp);
+      }
+    }
+  }, [currentPage.hasMoreMessages, currentPage.oldestMessageTimestamp, isLoadingOlder]);
 
   return {
     data: allMessages,
-    isLoading: nip4Messages.isLoading || nip17Messages.isLoading,
-    hasMoreMessages: nip4Messages.hasMoreMessages || nip17Messages.hasMoreMessages,
-    loadingOlderMessages: nip4Messages.loadingOlderMessages || nip17Messages.loadingOlderMessages,
-    loadOlderMessages: async () => {
-      await Promise.all([
-        nip4Messages.loadOlderMessages?.(),
-        nip17Messages.loadOlderMessages?.()
-      ]);
-    },
-    reachedStartOfConversation: nip4Messages.reachedStartOfConversation && nip17Messages.reachedStartOfConversation,
+    isLoading: currentPage.isLoading && until === undefined, // Only show loading on initial load
+    hasMoreMessages: currentPage.hasMoreMessages,
+    loadingOlderMessages: isLoadingOlder,
+    loadOlderMessages,
+    reachedStartOfConversation: !currentPage.hasMoreMessages,
   };
 }

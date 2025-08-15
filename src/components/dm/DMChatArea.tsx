@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessagesForChat } from "@/hooks/useDirectMessages";
+import { useDirectMessagesForChatWithPagination } from "@/hooks/useDirectMessages";
 import { useSendDM } from "@/hooks/useSendDM";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
@@ -82,7 +82,7 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChat(conversationId);
+  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
   const { mutate: sendDM } = useSendDM();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);

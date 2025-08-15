@@ -27,7 +27,7 @@ const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
  * Handles legacy encrypted DMs with efficient participant filtering.
  * Can also discover all conversations when isDiscoveryMode is true.
  */
-export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = false) {
+export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = false, until?: number) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   
@@ -35,7 +35,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
   const query = useQuery({
     queryKey: isDiscoveryMode 
       ? ['nip4-all-conversations', user?.pubkey]
-      : ['nip4-messages', user?.pubkey, conversationId],
+      : ['nip4-messages', user?.pubkey, conversationId, until],
     queryFn: async (c) => {
       if (!user) return isDiscoveryMode ? [] : { messages: [], conversations: [] };
 
@@ -165,21 +165,26 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         logger.log(`[DMCHAT] NIP4: Loading messages for conversation: "${conversationId}"`);
         logger.log(`[DMCHAT] NIP4: User pubkey: ${user.pubkey}`);
 
-        // Query for NIP-4 DMs between the two users (ONLY kind 4, not 1059)
-        const dmEvents = await nostr.query([
+        // Query for NIP-4 DMs between the two users with timestamp-based pagination
+        const filters = [
           {
             kinds: [4], // NIP-4 DMs sent to us
             '#p': [user.pubkey],
             authors: [conversationId],
-            limit: 50,
+            limit: 100,
+            ...(until && { until }),
           },
           {
             kinds: [4], // NIP-4 DMs sent by us
             authors: [user.pubkey],
             '#p': [conversationId],
-            limit: 50,
+            limit: 100,
+            ...(until && { until }),
           }
-        ], { signal });
+        ];
+        
+        logger.log(`[DMCHAT] NIP4: Querying with filters:`, filters);
+        const dmEvents = await nostr.query(filters, { signal });
 
         logger.log(`[DMCHAT] NIP4: Raw DM events received: ${dmEvents.length}`);
 

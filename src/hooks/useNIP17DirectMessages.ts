@@ -33,7 +33,7 @@ const _SUMMARY_MESSAGES_PER_CHAT = 5;    // Recent messages to show in conversat
  * 1. Conversation discovery (when isDiscoveryMode = true)
  * 2. Specific conversation messages (when conversationId is provided)
  */
-export function useNIP17DirectMessages(conversationId: string, enabled: boolean, isDiscoveryMode = false) {
+export function useNIP17DirectMessages(conversationId: string, enabled: boolean, isDiscoveryMode = false, until?: number) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -314,16 +314,28 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
       isError: query.isError,
     };
   } else {
-    // Specific conversation mode - return messages for this conversation
-    const conversationMessages = query.data?.allMessages.get(conversationId) || [];
+    // Specific conversation mode - return messages for this conversation with timestamp filtering
+    const allConversationMessages = query.data?.allMessages.get(conversationId) || [];
+    
+    // Apply timestamp filter if provided
+    const filteredMessages = until 
+      ? allConversationMessages.filter(msg => msg.created_at < until)
+      : allConversationMessages;
+    
+    // Sort by timestamp (oldest first) and take up to 100 messages
+    const sortedMessages = filteredMessages
+      .sort((a, b) => a.created_at - b.created_at)
+      .slice(-100); // Take the 100 most recent messages before the 'until' timestamp
+    
+    logger.log(`[DMCHAT] NIP17: Conversation ${conversationId}, until: ${until}, total: ${allConversationMessages.length}, filtered: ${filteredMessages.length}, returned: ${sortedMessages.length}`);
     
     return {
-      messages: conversationMessages,
+      messages: sortedMessages,
       isLoading: query.isLoading,
-      hasMoreMessages: false, // NIP-17 loads all messages at once
+      hasMoreMessages: filteredMessages.length > sortedMessages.length, // More available if we filtered some out
       loadingOlderMessages: false,
-      loadOlderMessages: async () => {}, // No pagination needed since we have all messages
-      reachedStartOfConversation: true,
+      loadOlderMessages: async () => {}, // Pagination is handled by the chat hook
+      reachedStartOfConversation: filteredMessages.length <= sortedMessages.length,
     };
   }
 }
