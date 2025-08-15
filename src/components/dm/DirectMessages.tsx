@@ -11,6 +11,7 @@ import { UserPanel } from "@/components/layout/UserPanel";
 import { useDMCategories, type DMTabType } from "@/hooks/useDMCategories";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 
@@ -31,6 +32,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { data: categories, isLoading } = useDMCategories();
+  
+  // New conversation discovery system
+  const { getConversationList } = useDirectMessages();
+  const newConversations = getConversationList();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
@@ -251,7 +256,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           </div>
         </div>
 
-        {/* Conversation List */}
+        {/* Current Conversation List */}
         <div className="flex-1 overflow-hidden px-1">
           <Virtuoso
             data={conversations || []}
@@ -292,7 +297,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   </div>
                 </div>
               ),
-              Footer: () => <div className="h-2" />,
+              Footer: () => <NewConversationDiscovery />,
             }}
             className="h-full scrollbar-thin"
           />
@@ -348,4 +353,79 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       />
     </div>
   );
+
+  // New conversation discovery section
+  function NewConversationDiscovery() {
+    if (!newConversations.conversations.length && !newConversations.isLoading) {
+      return null;
+    }
+
+    return (
+      <div className="border-t border-gray-600 pt-4 mt-4">
+                  <div className="px-2 mb-3">
+            <h3 className="text-sm font-medium text-blue-300 mb-1">
+              🔍 Discovered Conversations
+            </h3>
+            {newConversations.isLoading && (
+              <p className="text-xs text-gray-400">
+                Checking friends for conversations... ({newConversations.processedCount}/{newConversations.totalToProcess})
+              </p>
+            )}
+            {!newConversations.isLoading && newConversations.conversations.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Found {newConversations.conversations.length} conversations
+              </p>
+            )}
+          </div>
+        
+        <div className="space-y-1 px-1 max-h-60 overflow-y-auto scrollbar-thin">
+          {newConversations.conversations.map((conversation) => {
+            // Convert new conversation format to match DMConversation type
+            const dmConversation = {
+              id: conversation.id,
+              pubkey: conversation.id,
+              lastMessage: conversation.lastMessage,
+              lastMessageTime: conversation.lastActivity,
+              unreadCount: conversation.unreadCount,
+            };
+
+            return (
+              <div key={conversation.id} className="relative">
+                <DMConversationList
+                  conversations={[dmConversation]}
+                  selectedConversation={selectedConversation || null}
+                  onSelectConversation={(pubkey) => {
+                    if (propSelectedConversation !== undefined) {
+                      onConversationSelect?.(pubkey);
+                    } else {
+                      setInternalSelectedConversation(pubkey);
+                    }
+                  }}
+                  searchQuery={searchQuery}
+                  isLoading={false}
+                  isVirtualized={true}
+                />
+                
+                {/* Protocol indicators overlay */}
+                <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
+                  {conversation.hasNIP4Messages && (
+                    <div 
+                      className="w-2 h-2 bg-blue-400 rounded-full border border-gray-700" 
+                      title="NIP-4 messages" 
+                    />
+                  )}
+                  {conversation.hasNIP17Messages && (
+                    <div 
+                      className="w-2 h-2 bg-green-400 rounded-full border border-gray-700" 
+                      title="NIP-17 private messages" 
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 }
