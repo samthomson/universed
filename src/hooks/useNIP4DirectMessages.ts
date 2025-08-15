@@ -161,8 +161,90 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         logger.log(`[NIP4] Comprehensive scan complete: ${conversations.length} conversations from ${allDMs.length} messages`);
         return conversations;
       } else {
-        // Specific conversation mode - return empty for now (TODO: implement)
-        return { messages: [], conversations: [] };
+        // Specific conversation mode - get NIP-4 messages for this conversation
+        logger.log(`[DMCHAT] NIP4: Loading messages for conversation: "${conversationId}"`);
+        logger.log(`[DMCHAT] NIP4: User pubkey: ${user.pubkey}`);
+
+        // Query for NIP-4 DMs between the two users (ONLY kind 4, not 1059)
+        const dmEvents = await nostr.query([
+          {
+            kinds: [4], // NIP-4 DMs sent to us
+            '#p': [user.pubkey],
+            authors: [conversationId],
+            limit: 50,
+          },
+          {
+            kinds: [4], // NIP-4 DMs sent by us
+            authors: [user.pubkey],
+            '#p': [conversationId],
+            limit: 50,
+          }
+        ], { signal });
+
+        logger.log(`[DMCHAT] NIP4: Raw DM events received: ${dmEvents.length}`);
+
+        const validDMs = dmEvents.filter(validateDMEvent);
+        logger.log(`[DMCHAT] NIP4: Valid DM events after filtering: ${validDMs.length}`);
+
+        // Filter messages for this specific conversation
+        const conversationMessages = validDMs.filter((event) => {
+          const isFromUser = event.pubkey === user.pubkey;
+          const isFromPartner = event.pubkey === conversationId;
+          const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] || "";
+          const isToUser = recipientPTag === user.pubkey;
+          const isToPartner = recipientPTag === conversationId;
+
+          return (isFromUser && isToPartner) || (isFromPartner && isToUser);
+        });
+
+        // Deduplicate by event ID
+        const uniqueMessages = Array.from(
+          new Map(conversationMessages.map((event) => [event.id, event])).values(),
+        );
+
+        // Sort by created_at (oldest first for chronological order)
+        const sortedMessages = uniqueMessages.sort((a, b) => a.created_at - b.created_at);
+
+        // Decrypt all messages
+        const decryptedMessages: NostrEvent[] = [];
+
+        for (const message of sortedMessages) {
+          let decryptedContent: string;
+          try {
+            if (user.signer?.nip04) {
+              // Determine the other party's pubkey for decryption
+              const isFromUser = message.pubkey === user.pubkey;
+              const recipientPTag = message.tags.find(([name]) => name === 'p')?.[1];
+              const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+
+              if (otherPubkey) {
+                decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
+              } else {
+                decryptedContent = '[Unable to determine conversation partner]';
+              }
+            } else {
+              decryptedContent = '[No NIP-04 decryption available]';
+            }
+          } catch (error) {
+            logger.error(`[DMCHAT] NIP4: Failed to decrypt message ${message.id}:`, error);
+            decryptedContent = '[Unable to decrypt message]';
+          }
+
+          // Create decrypted message
+          const decryptedMessage: NostrEvent = {
+            ...message,
+            content: decryptedContent,
+          };
+
+          decryptedMessages.push(decryptedMessage);
+        }
+
+        logger.log(`[DMCHAT] NIP4: Final decrypted messages: ${decryptedMessages.length}`);
+        if (decryptedMessages.length > 0) {
+          logger.log(`[DMCHAT] NIP4: First message content: "${decryptedMessages[0].content}"`);
+          logger.log(`[DMCHAT] NIP4: Last message content: "${decryptedMessages[decryptedMessages.length - 1].content}"`);
+        }
+        return decryptedMessages;
       }
     },
     enabled: !!user,
@@ -182,13 +264,19 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       isError: query.isError,
     };
   } else {
+    // Specific conversation mode - return messages for this conversation
+    const messages = Array.isArray(query.data) ? query.data : [];
+    logger.log(`[DMCHAT] NIP4: Returning ${messages.length} messages, isLoading: ${query.isLoading}`);
+    if (query.error) {
+      logger.error(`[DMCHAT] NIP4: Query error:`, query.error);
+    }
     return {
-      messages: [],
-      isLoading: false,
-      hasMoreMessages: false,
+      messages,
+      isLoading: query.isLoading,
+      hasMoreMessages: false, // TODO: Implement pagination for individual chats
       loadingOlderMessages: false,
-      loadOlderMessages: async () => {},
-      reachedStartOfConversation: false,
+      loadOlderMessages: async () => {}, // TODO: Implement pagination
+      reachedStartOfConversation: true,
     };
   }
 }
