@@ -4,6 +4,7 @@ import { useNIP4DirectMessages } from './useNIP4DirectMessages';
 import { useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useSendDM } from './useSendDM';
 import { useMemo } from 'react';
+import { logger } from '@/lib/logger';
 
 // Configuration for messaging and conversation discovery
 const MESSAGING_CONFIG = {
@@ -12,7 +13,7 @@ const MESSAGING_CONFIG = {
   isWatchingUsersFollows: true,
   // Comprehensive scanning settings
   isWatchingAll: true,
-  isNIP17Enabled: false,
+  // Note: isNIP17Enabled removed - now controlled by user toggle only
 };
 
 /**
@@ -20,14 +21,17 @@ const MESSAGING_CONFIG = {
  * Combines NIP-4 and NIP-17 messages and manages global DM settings.
  */
 export function useDirectMessages() {
-  const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', false);
+  const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', true);
   const conversationList = useConversationList();
   const { mutateAsync: sendDM } = useSendDM();
   
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
-  // Get comprehensive NIP-17 conversation discovery if both isWatchingAll and isNIP17Enabled are true
-  const nip17AllConversations = useNIP17DirectMessages('', MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled, true);
+  // Get comprehensive NIP-17 conversation discovery if user has enabled it
+  const nip17AllConversations = useNIP17DirectMessages('', isNIP17Enabled, true);
+  
+  // Debug logging for NIP-17 status
+  logger.log(`[DirectMessages] NIP-17 scan enabled: ${isNIP17Enabled}`);
 
   // Note: getChatMessages functionality moved to individual conversation hooks
   // This was causing hook rule violations by calling hooks inside functions
@@ -49,7 +53,7 @@ export function useDirectMessages() {
     const nip4ComprehensiveConvos = MESSAGING_CONFIG.isWatchingAll && Array.isArray(nip4AllConversations.conversations) 
       ? nip4AllConversations.conversations 
       : [];
-    const nip17ComprehensiveConvos = (MESSAGING_CONFIG.isWatchingAll && isNIP17Enabled && Array.isArray(nip17AllConversations.conversations))
+    const nip17ComprehensiveConvos = (isNIP17Enabled && Array.isArray(nip17AllConversations.conversations))
       ? nip17AllConversations.conversations 
       : [];
     
@@ -127,12 +131,12 @@ export function useDirectMessages() {
 
   const getConversationList = () => ({
     conversations: allConversations,
-    isLoading: conversationList.isLoading || nip4AllConversations.isLoading || nip17AllConversations.isLoading,
+    isLoading: conversationList.isLoading || nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
     // Friend-based discovery progress
     friendsProcessedCount: conversationList.processedCount,
     friendsTotalToProcess: conversationList.totalToProcess,
     // Comprehensive scanning status
-    isLoadingComprehensive: nip4AllConversations.isLoading || nip17AllConversations.isLoading,
+    isLoadingComprehensive: nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
   });
 
   const sendMessage = async (_recipientPubkey: string, _content: string) => {
