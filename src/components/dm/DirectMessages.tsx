@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
+import { logger } from "@/lib/logger";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -376,9 +377,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
        })
        .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
        
-     console.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
-     console.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
-     console.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
+     logger.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
+     logger.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
+     logger.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
 
     return (
       <div className="border-t border-gray-600 pt-4 mt-4">

@@ -43,7 +43,6 @@ export interface MessageItemConfig {
   showDelete: boolean;
   showBan: boolean;
   showReport: boolean;
-  showProtocolIndicator?: boolean; // Show protocol indicators (NIP-04 vs NIP-44)
 }
 
 export interface BaseMessageItemProps {
@@ -193,24 +192,22 @@ function BaseMessageItemComponent({
               </UserContextMenu>
               <span className="text-xs text-gray-600 dark:text-gray-400">
                 {formatDistanceToNowShort(timestamp, { addSuffix: true })}
-                            {config.showProtocolIndicator && (
-              <span 
-                className={`inline-block w-2 h-2 rounded-full ml-2 ${
-                  message.kind === 4 
-                    ? 'bg-orange-500' // NIP-04 (Bitcoin orange)
-                    : message.kind === 1059 
-                    ? 'bg-purple-500' // NIP-44/NIP-17 (Nostr purple)
-                    : 'bg-gray-400' // Unknown
-                }`}
-                title={
-                  message.kind === 4 
-                    ? 'NIP-04 encrypted message' 
-                    : message.kind === 1059 
-                    ? 'NIP-44/NIP-17 encrypted message'
-                    : `Kind ${message.kind} message`
-                }
-              />
-            )}
+                <span 
+                  className={`inline-block w-2 h-2 rounded-full ml-2 ${
+                    message.kind === 4 
+                      ? 'bg-orange-500' // NIP-04 (Bitcoin orange)
+                      : message.kind === 1059 
+                      ? 'bg-purple-500' // NIP-44/NIP-17 (Nostr purple)
+                      : 'bg-gray-400' // Unknown
+                  }`}
+                  title={
+                    message.kind === 4 
+                      ? 'NIP-04 encrypted message' 
+                      : message.kind === 1059 
+                      ? 'NIP-44/NIP-17 encrypted message'
+                      : `Kind ${message.kind} message`
+                  }
+                />
                 {isSending && (
                   <div className="flex items-center space-x-1 inline-flex ml-2">
                     <Loader2 className="w-3 h-3 animate-spin text-purple-600 dark:text-purple-400" />

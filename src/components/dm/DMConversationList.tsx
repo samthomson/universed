@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useDMDecrypt } from "@/hooks/useDMDecrypt";
+
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { DMConversation } from "@/hooks/useAllDMs";
@@ -34,30 +34,10 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
-  // Check if message is already decrypted (NIP-04 has ?iv= format, NIP-17 is already decrypted)
-  const isAlreadyDecrypted = conversation.lastMessage && 
-    !conversation.lastMessage.content.includes('?iv=') && 
-    conversation.lastMessage.kind !== 4; // Kind 4 should always be encrypted
-
-  // Only decrypt if there's a last message AND it's not already decrypted
-  const { data: decryptedContent, isLoading: isDecrypting, error: decryptError } = useDMDecrypt(
-    isAlreadyDecrypted ? undefined : conversation.lastMessage
-  );
-
-  // Get the display content
+  // Get the display content - messages are now pre-decrypted
   const getDisplayContent = () => {
     if (!conversation.lastMessage) return "";
-    
-    // If already decrypted, show content directly
-    if (isAlreadyDecrypted) {
-      return conversation.lastMessage.content;
-    }
-    
-    // Otherwise use normal decryption flow
-    if (isDecrypting) return "Decrypting...";
-    if (decryptError) return "Unable to decrypt message";
-    if (decryptedContent) return decryptedContent;
-    return "";
+    return conversation.lastMessage.content;
   };
 
   // Helper function to highlight matching text
@@ -120,7 +100,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
           </div>
 
             <div className="text-sm text-gray-400 truncate mt-0.5">
-              {searchQuery && decryptedContent && decryptedContent.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+              {searchQuery && conversation.lastMessage?.content && conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ? (
                 highlightText(getDisplayContent(), searchQuery)
               ) : (
                 getDisplayContent()
@@ -214,20 +194,8 @@ function SearchableConversationItem({
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(conversation.pubkey);
 
-  // Check if message is already decrypted
-  const isAlreadyDecrypted = conversation.lastMessage && 
-    !conversation.lastMessage.content.includes('?iv=') && 
-    conversation.lastMessage.kind !== 4;
-
-  // Get decrypted content for search
-  const { data: decryptedContent } = useDMDecrypt(
-    isAlreadyDecrypted ? undefined : conversation.lastMessage
-  );
-  
-  // Get final content for search
-  const searchableContent = isAlreadyDecrypted 
-    ? conversation.lastMessage?.content 
-    : decryptedContent;
+  // Get content for search - messages are now pre-decrypted
+  const searchableContent = conversation.lastMessage?.content;
 
   // Filter by display name if search query exists
   if (searchQuery) {

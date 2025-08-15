@@ -105,122 +105,69 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
       logger.log(`[NIP17] Decrypting ${allNIP17Events.length} NIP-17 Gift Wrap messages...`);
       
       for (const giftWrap of allNIP17Events) {
-        try {
-          if (!user.signer?.nip44) {
-            continue;
-          }
+        if (!user.signer?.nip44) {
+          continue;
+        }
 
-          // Step 1: Decrypt the Gift Wrap (Kind 1059) to get the Seal (Kind 13)
-          const decryptedSealContent = await user.signer.nip44.decrypt(
+        try {
+          // Decrypt the Gift Wrap content first
+          const decryptedContent = await user.signer.nip44.decrypt(
             giftWrap.pubkey,
             giftWrap.content
           );
           
-          const sealEvent = JSON.parse(decryptedSealContent) as NostrEvent;
+          // Try to parse as JSON to determine if it's NIP-17 Gift Wrap or NIP-44 DM
+          let isNIP17GiftWrap = false;
+          let sealEvent: NostrEvent | null = null;
           
-          // Validate that we got a Seal (Kind 13)
-          if (sealEvent.kind !== 13) {
-            failedDecryption++;
-            continue;
-          }
-
-          // Step 2: Decrypt the Seal to get the actual message (Kind 14)
-          const decryptedMessageContent = await user.signer.nip44.decrypt(
-            sealEvent.pubkey,
-            sealEvent.content
-          );
-          
-          const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
-          
-          // Validate that we got a Private DM (Kind 14)
-          if (messageEvent.kind !== 14) {
-            failedDecryption++;
-            continue;
-          }
-
-          // Step 3: Extract conversation partner (author of the Seal)
-          const conversationPartner = sealEvent.pubkey;
-          
-          if (!conversationPartner || conversationPartner === user.pubkey) {
-            continue;
-          }
-
-          // Store ALL decrypted messages for this conversation
-          const existingMessages = messageMap.get(conversationPartner) || [];
-          existingMessages.push(messageEvent);
-          messageMap.set(conversationPartner, existingMessages);
-          
-          // Update conversation summary
-          const existing = conversationMap.get(conversationPartner);
-          if (!existing || messageEvent.created_at > existing.lastActivity) {
-            const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
-            const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
-            
-            conversationMap.set(conversationPartner, {
-              id: conversationPartner,
-              pubkey: conversationPartner,
-              lastMessage: messageEvent,
-              lastActivity: messageEvent.created_at,
-              hasNIP4Messages: false,
-              hasNIP17Messages: true,
-              recentMessages: summaryMessages,
-            });
+          try {
+            sealEvent = JSON.parse(decryptedContent) as NostrEvent;
+            isNIP17GiftWrap = sealEvent.kind === 13; // Valid Seal event
+          } catch {
+            // Not JSON or not a valid Seal - treat as NIP-44 DM
+            isNIP17GiftWrap = false;
           }
           
-          decryptedCount++;
-          
-        } catch (error) {
-          // If JSON parsing failed, this might be a NIP-44 DM (not NIP-17 Gift Wrap)
-          if (error instanceof SyntaxError && error.message.includes('not valid JSON')) {
-            
+          if (isNIP17GiftWrap && sealEvent) {
+            // Process as NIP-17 Gift Wrap (Kind 1059 -> Kind 13 -> Kind 14)
             try {
-              // This is a NIP-44 DM (Kind 1059) with direct message content
-              const decryptedContent = await user.signer.nip44!.decrypt(
-                giftWrap.pubkey,
-                giftWrap.content
+              // Step 2: Decrypt the Seal to get the actual message (Kind 14)
+              const decryptedMessageContent = await user.signer.nip44.decrypt(
+                sealEvent.pubkey,
+                sealEvent.content
               );
               
-              // For NIP-44 DMs, determine conversation partner
-              let conversationPartner: string;
-              if (giftWrap.pubkey === user.pubkey) {
-                const pTag = giftWrap.tags.find(([name]) => name === 'p');
-                conversationPartner = pTag?.[1] || '';
-              } else {
-                conversationPartner = giftWrap.pubkey;
-              }
+              const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
               
-              if (!conversationPartner || conversationPartner === user.pubkey) {
+              // Validate that we got a Private DM (Kind 14)
+              if (messageEvent.kind !== 14) {
                 failedDecryption++;
                 continue;
               }
+
+              // Step 3: Extract conversation partner (author of the Seal)
+              const conversationPartner = sealEvent.pubkey;
               
-              // Create a synthetic Kind 14 message from the NIP-44 DM
-              const syntheticMessage: NostrEvent = {
-                id: giftWrap.id,
-                pubkey: giftWrap.pubkey,
-                created_at: giftWrap.created_at,
-                kind: 14,
-                tags: giftWrap.tags,
-                content: decryptedContent,
-                sig: giftWrap.sig,
-              };
-              
-              // Store message
+              if (!conversationPartner || conversationPartner === user.pubkey) {
+                continue;
+              }
+
+              // Store ALL decrypted messages for this conversation
               const existingMessages = messageMap.get(conversationPartner) || [];
-              existingMessages.push(syntheticMessage);
+              existingMessages.push(messageEvent);
               messageMap.set(conversationPartner, existingMessages);
               
               // Update conversation summary
               const existing = conversationMap.get(conversationPartner);
-              if (!existing || syntheticMessage.created_at > existing.lastActivity) {
+              if (!existing || messageEvent.created_at > existing.lastActivity) {
                 const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
                 const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
                 
                 conversationMap.set(conversationPartner, {
                   id: conversationPartner,
                   pubkey: conversationPartner,
-                  lastMessage: syntheticMessage,
-                  lastActivity: syntheticMessage.created_at,
+                  lastMessage: messageEvent,
+                  lastActivity: messageEvent.created_at,
                   hasNIP4Messages: false,
                   hasNIP17Messages: true,
                   recentMessages: summaryMessages,
@@ -229,12 +176,65 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
               
               decryptedCount++;
               
-            } catch {
+            } catch (error) {
+              logger.error(`[NIP17] Failed to decrypt Seal event:`, error);
               failedDecryption++;
             }
           } else {
-            failedDecryption++;
+            // Process as NIP-44 DM (direct encrypted content)
+            // For NIP-44 DMs, determine conversation partner
+            let conversationPartner: string;
+            if (giftWrap.pubkey === user.pubkey) {
+              const pTag = giftWrap.tags.find(([name]) => name === 'p');
+              conversationPartner = pTag?.[1] || '';
+            } else {
+              conversationPartner = giftWrap.pubkey;
+            }
+            
+            if (!conversationPartner || conversationPartner === user.pubkey) {
+              failedDecryption++;
+              continue;
+            }
+            
+            // Create a synthetic Kind 14 message from the NIP-44 DM
+            const syntheticMessage: NostrEvent = {
+              id: giftWrap.id,
+              pubkey: giftWrap.pubkey,
+              created_at: giftWrap.created_at,
+              kind: 14,
+              tags: giftWrap.tags,
+              content: decryptedContent,
+              sig: giftWrap.sig,
+            };
+            
+            // Store message
+            const existingMessages = messageMap.get(conversationPartner) || [];
+            existingMessages.push(syntheticMessage);
+            messageMap.set(conversationPartner, existingMessages);
+            
+            // Update conversation summary
+            const existing = conversationMap.get(conversationPartner);
+            if (!existing || syntheticMessage.created_at > existing.lastActivity) {
+              const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
+              const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
+              
+              conversationMap.set(conversationPartner, {
+                id: conversationPartner,
+                pubkey: conversationPartner,
+                lastMessage: syntheticMessage,
+                lastActivity: syntheticMessage.created_at,
+                hasNIP4Messages: false,
+                hasNIP17Messages: true,
+                recentMessages: summaryMessages,
+              });
+            }
+            
+            decryptedCount++;
           }
+          
+        } catch (error) {
+          logger.error(`[NIP17] Failed to decrypt Gift Wrap message ${giftWrap.id}:`, error);
+          failedDecryption++;
         }
       }
       
