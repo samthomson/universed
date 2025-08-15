@@ -19,7 +19,8 @@ export type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTO
 export function getMessageProtocol(kind: number): MessageProtocol {
   switch (kind) {
     case 4: return MESSAGE_PROTOCOL.NIP04;
-    case 1059: return MESSAGE_PROTOCOL.NIP17;
+    case 1059: return MESSAGE_PROTOCOL.NIP17; // Gift Wrap
+    case 14: return MESSAGE_PROTOCOL.NIP17;   // Private DM (decrypted NIP-17)
     default: return MESSAGE_PROTOCOL.UNKNOWN;
   }
 }

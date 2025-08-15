@@ -142,7 +142,7 @@ export function DMChatArea(
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
-      queryKey={user ? ['dm-unified-messages', user.pubkey, conversationId] : ['dm-unified-messages-disabled']}
+      queryKey={['dm-unified-messages', user!.pubkey, conversationId]}
       header={
         <DMChatHeader
           conversationId={conversationId}

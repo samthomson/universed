@@ -15,6 +15,7 @@ import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 import { logger } from "@/lib/logger";
+import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -460,18 +461,18 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   isVirtualized={true}
                 />
                 
-                {/* Protocol indicators overlay with updated colors */}
+                {/* Protocol indicators overlay using centralized config */}
                 <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
                   {conversation.hasNIP4Messages && (
                     <div 
-                      className="w-2 h-2 bg-orange-500 rounded-full border border-gray-700" 
-                      title="NIP-04 messages" 
+                      className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
+                      title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
                     />
                   )}
                   {conversation.hasNIP17Messages && (
                     <div 
-                      className="w-2 h-2 bg-purple-500 rounded-full border border-gray-700" 
-                      title="NIP-17 private messages" 
+                      className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
+                      title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
                     />
                   )}
                 </div>
