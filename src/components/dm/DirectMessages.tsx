@@ -356,30 +356,72 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   // New conversation discovery section
   function NewConversationDiscovery() {
+    const [discoveredTab, setDiscoveredTab] = useState<DMTabType>('known');
+
     if (!newConversations.conversations.length && !newConversations.isLoading) {
       return null;
     }
 
+    // Filter and sort discovered conversations by tab
+    const filteredDiscoveredConversations = newConversations.conversations
+      .filter(_conv => {
+        // For discovered conversations, show all in "known" tab for now
+        // "Requests" tab is empty until we implement contact categorization
+        if (discoveredTab === 'known') {
+          return true; // Show all discovered conversations in Known tab
+        } else {
+          return false; // Requests tab is empty for discovered conversations
+        }
+      })
+      .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+
     return (
       <div className="border-t border-gray-600 pt-4 mt-4">
-                  <div className="px-2 mb-3">
-            <h3 className="text-sm font-medium text-blue-300 mb-1">
-              🔍 Discovered Conversations
-            </h3>
-            {newConversations.isLoading && (
-              <p className="text-xs text-gray-400">
-                Checking friends for conversations... ({newConversations.processedCount}/{newConversations.totalToProcess})
-              </p>
-            )}
-            {!newConversations.isLoading && newConversations.conversations.length > 0 && (
-              <p className="text-xs text-gray-400">
-                Found {newConversations.conversations.length} conversations
-              </p>
-            )}
-          </div>
+        <div className="px-2 mb-3">
+          <h3 className="text-sm font-medium text-blue-300 mb-1">
+            🔍 Discovered Conversations
+          </h3>
+          {newConversations.isLoading && (
+            <div className="space-y-1">
+              {/* Friend-based discovery progress */}
+              {newConversations.friendsTotalToProcess > 0 && (
+                <p className="text-xs text-gray-400">
+                  Checking friends... ({newConversations.friendsProcessedCount}/{newConversations.friendsTotalToProcess})
+                </p>
+              )}
+              {/* Comprehensive scanning status */}
+              {newConversations.isLoadingComprehensive && (
+                <p className="text-xs text-gray-500">
+                  🔍 Scanning all messages for additional conversations...
+                </p>
+              )}
+            </div>
+          )}
+          {!newConversations.isLoading && newConversations.conversations.length > 0 && (
+            <p className="text-xs text-gray-400">
+              Found {newConversations.conversations.length} conversations
+            </p>
+          )}
+        </div>
+
+        {/* Tabs for discovered conversations */}
+        {newConversations.conversations.length > 0 && (
+          <DMTabs activeTab={discoveredTab} onTabChange={setDiscoveredTab} idPrefix="discovered" />
+        )}
         
-        <div className="space-y-1 px-1 max-h-60 overflow-y-auto scrollbar-thin">
-          {newConversations.conversations.map((conversation) => {
+        <div className="space-y-1 px-1 max-h-96 overflow-y-auto scrollbar-thin">
+          {filteredDiscoveredConversations.length === 0 && discoveredTab === 'newRequests' ? (
+            // Empty state for Requests tab
+            <div className="flex items-center justify-center p-8">
+              <div className="text-center text-gray-400">
+                <p className="text-sm">No message requests in discovered conversations</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  All discovered conversations appear in Known tab
+                </p>
+              </div>
+            </div>
+          ) : (
+            filteredDiscoveredConversations.map((conversation) => {
             // Convert new conversation format to match DMConversation type
             const dmConversation = {
               id: conversation.id,
@@ -423,7 +465,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     );

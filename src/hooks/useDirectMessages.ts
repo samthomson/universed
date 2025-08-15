@@ -122,8 +122,11 @@ export function useDirectMessages() {
   const getConversationList = () => ({
     conversations: allConversations,
     isLoading: conversationList.isLoading || nip4AllConversations.isLoading || nip17AllConversations.isLoading,
-    processedCount: conversationList.processedCount,
-    totalToProcess: conversationList.totalToProcess,
+    // Friend-based discovery progress
+    friendsProcessedCount: conversationList.processedCount,
+    friendsTotalToProcess: conversationList.totalToProcess,
+    // Comprehensive scanning status
+    isLoadingComprehensive: nip4AllConversations.isLoading || nip17AllConversations.isLoading,
   });
 
   const sendMessage = async (_recipientPubkey: string, _content: string) => {

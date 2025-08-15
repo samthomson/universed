@@ -5,24 +5,25 @@ import type { DMTabType } from '@/hooks/useDMCategories';
 interface DMTabsProps {
   activeTab: DMTabType;
   onTabChange: (tab: DMTabType) => void;
+  idPrefix?: string; // Optional prefix for unique IDs when using multiple instances
 }
 
-export function DMTabs({ activeTab, onTabChange }: DMTabsProps) {
+export function DMTabs({ activeTab, onTabChange, idPrefix = "dm" }: DMTabsProps) {
   return (
     <div className="flex border-b border-gray-600 bg-gray-700">
       {/* Hidden radio inputs for tab control */}
       <input
         type="radio"
-        name="dm-tab-control"
-        id="dm-tab-known"
+        name={`${idPrefix}-tab-control`}
+        id={`${idPrefix}-tab-known`}
         checked={activeTab === 'known'}
         onChange={() => onTabChange('known')}
         className="hidden"
       />
       <input
         type="radio"
-        name="dm-tab-control"
-        id="dm-tab-new-requests"
+        name={`${idPrefix}-tab-control`}
+        id={`${idPrefix}-tab-new-requests`}
         checked={activeTab === 'newRequests'}
         onChange={() => onTabChange('newRequests')}
         className="hidden"
@@ -32,7 +33,7 @@ export function DMTabs({ activeTab, onTabChange }: DMTabsProps) {
       <div className="flex flex-1">
         {/* Known Tab */}
         <label
-          htmlFor="dm-tab-known"
+          htmlFor={`${idPrefix}-tab-known`}
           className={cn(
             "flex-1 flex items-center justify-center py-3 px-4 cursor-pointer transition-all duration-200 border-b-2",
             activeTab === 'known'
@@ -46,7 +47,7 @@ export function DMTabs({ activeTab, onTabChange }: DMTabsProps) {
 
         {/* Requests Tab */}
         <label
-          htmlFor="dm-tab-new-requests"
+          htmlFor={`${idPrefix}-tab-new-requests`}
           className={cn(
             "flex-1 flex items-center justify-center py-3 px-4 cursor-pointer transition-all duration-200 border-b-2",
             activeTab === 'newRequests'
