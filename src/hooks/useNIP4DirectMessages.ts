@@ -4,6 +4,7 @@ import { useCurrentUser } from './useCurrentUser';
 import { validateDMEvent } from './useAllDMs';
 import { logger } from '@/lib/logger';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
+import { useMemo } from 'react';
 
 import type { NostrEvent } from '@nostrify/nostrify';
 
@@ -261,27 +262,29 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
     logger.log(`[NIP4] Using cached data: ${query.data.length} conversations found`);
   }
 
-  // Return appropriate interface based on mode
-  if (isDiscoveryMode) {
-    return {
-      conversations: query.data || [],
-      isLoading: query.isLoading,
-      isError: query.isError,
-    };
-  } else {
-    // Specific conversation mode - return messages for this conversation
-    const messages = Array.isArray(query.data) ? query.data : [];
-    logger.log(`[DMCHAT] NIP4: Returning ${messages.length} messages, isLoading: ${query.isLoading}`);
-    if (query.error) {
-      logger.error(`[DMCHAT] NIP4: Query error:`, query.error);
+  // Return appropriate interface based on mode with memoized arrays
+  return useMemo(() => {
+    if (isDiscoveryMode) {
+      return {
+        conversations: query.data || [],
+        isLoading: query.isLoading,
+        isError: query.isError,
+      };
+    } else {
+      // Specific conversation mode - return messages for this conversation
+      const messages = Array.isArray(query.data) ? query.data : [];
+      logger.log(`[DMCHAT] NIP4: Returning ${messages.length} messages, isLoading: ${query.isLoading}`);
+      if (query.error) {
+        logger.error(`[DMCHAT] NIP4: Query error:`, query.error);
+      }
+      return {
+        messages,
+        isLoading: query.isLoading,
+        hasMoreMessages: false, // TODO: Implement pagination for individual chats
+        loadingOlderMessages: false,
+        loadOlderMessages: async () => {}, // TODO: Implement pagination
+        reachedStartOfConversation: true,
+      };
     }
-    return {
-      messages,
-      isLoading: query.isLoading,
-      hasMoreMessages: false, // TODO: Implement pagination for individual chats
-      loadingOlderMessages: false,
-      loadOlderMessages: async () => {}, // TODO: Implement pagination
-      reachedStartOfConversation: true,
-    };
-  }
+  }, [isDiscoveryMode, query.data, query.isLoading, query.isError, query.error]);
 }
