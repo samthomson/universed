@@ -1,11 +1,12 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { logger } from '@/lib/logger';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 
 import type { NostrEvent } from '@nostrify/nostrify';
+import type { NUser } from '@nostrify/react/login';
 
 interface ConversationCandidate {
   id: string;
@@ -26,6 +27,125 @@ interface NIP17MessageStore {
 const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process
 const SCAN_BATCH_SIZE = 1000;    // Messages per batch request
 const _SUMMARY_MESSAGES_PER_CHAT = 5;    // Recent messages to show in conversation summaries (same as NIP-4)
+
+/**
+ * Shared function to decrypt a NIP-17 Gift Wrap message
+ * Returns the decrypted message and conversation partner, or null if failed
+ */
+async function decryptGiftWrapMessage(
+  giftWrap: NostrEvent,
+  user: NUser
+): Promise<{ messageEvent: NostrEvent; conversationPartner: string } | null> {
+  if (!user.signer?.nip44) {
+    return null;
+  }
+
+  try {
+    // Step 1: Decrypt the Gift Wrap content
+    const decryptedContent = await user.signer.nip44.decrypt(
+      giftWrap.pubkey,
+      giftWrap.content
+    );
+    
+    // Step 2: Try to parse as JSON to determine if it's NIP-17 Gift Wrap
+    let sealEvent: NostrEvent | null = null;
+    try {
+      sealEvent = JSON.parse(decryptedContent) as NostrEvent;
+      if (sealEvent.kind !== 13) {
+        return null; // Not a valid Seal
+      }
+    } catch {
+      return null; // Not JSON or not a valid Seal
+    }
+    
+    // Step 3: Decrypt the Seal to get the actual message (Kind 14)
+    const decryptedMessageContent = await user.signer.nip44.decrypt(
+      sealEvent.pubkey,
+      sealEvent.content
+    );
+    
+    const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
+    
+    // Validate that we got a Private DM (Kind 14)
+    if (messageEvent.kind !== 14) {
+      return null;
+    }
+
+    // Extract conversation partner (author of the Seal)
+    const conversationPartner = sealEvent.pubkey;
+    
+    if (!conversationPartner || conversationPartner === user.pubkey) {
+      return null;
+    }
+
+    return { messageEvent, conversationPartner };
+  } catch (error) {
+    logger.error(`[NIP17] Failed to decrypt Gift Wrap message:`, error);
+    return null;
+  }
+}
+
+/**
+ * Process a new Gift Wrap message from real-time subscription
+ * Similar to handleNewMessage in useMessages.ts but for NIP-17 DMs
+ */
+async function processNewGiftWrapMessage(
+  giftWrap: NostrEvent, 
+  user: NUser, 
+  queryClient: QueryClient
+): Promise<void> {
+  const decrypted = await decryptGiftWrapMessage(giftWrap, user);
+  if (!decrypted) return;
+
+  const { messageEvent, conversationPartner } = decrypted;
+  
+  logger.log(`[NIP17] Processing new real-time message from ${conversationPartner}`);
+
+  // Update the cache directly (like channels do)
+  queryClient.setQueryData(['nip17-all-messages', user.pubkey], (oldData: NIP17MessageStore | undefined) => {
+    if (!oldData) return oldData;
+    
+    const updatedConversations = new Map(oldData.conversations);
+    const updatedAllMessages = new Map(oldData.allMessages);
+    
+    // Add to full message history
+    const existingMessages = updatedAllMessages.get(conversationPartner) || [];
+    const newMessages = [...existingMessages, messageEvent].sort((a, b) => a.created_at - b.created_at);
+    updatedAllMessages.set(conversationPartner, newMessages);
+    
+    // Update conversation summary
+    const existingConvo = updatedConversations.get(conversationPartner);
+    if (existingConvo) {
+      // Update existing conversation
+      existingConvo.lastMessage = messageEvent;
+      existingConvo.lastActivity = messageEvent.created_at;
+      existingConvo.recentMessages = newMessages
+        .sort((a, b) => b.created_at - a.created_at)
+        .slice(0, _SUMMARY_MESSAGES_PER_CHAT);
+    } else {
+      // Create new conversation
+      updatedConversations.set(conversationPartner, {
+        id: conversationPartner,
+        pubkey: conversationPartner,
+        lastMessage: messageEvent,
+        lastActivity: messageEvent.created_at,
+        hasNIP4Messages: false,
+        hasNIP17Messages: true,
+        recentMessages: [messageEvent],
+      });
+    }
+    
+    logger.log(`[NIP17] Updated conversation ${conversationPartner} with new message`);
+    
+    return {
+      conversations: updatedConversations,
+      allMessages: updatedAllMessages,
+    };
+  });
+
+  // Also invalidate the main discovery query to update the sidebar
+  queryClient.invalidateQueries({ queryKey: ['dm-conversation-discovery'] });
+}
 
 /**
  * Hook for NIP-17 (Kind 14 wrapped in Kind 1059) direct messages.
@@ -109,84 +229,38 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
           continue;
         }
 
-        try {
-          // Decrypt the Gift Wrap content first
-          const decryptedContent = await user.signer.nip44.decrypt(
-            giftWrap.pubkey,
-            giftWrap.content
-          );
+        // Use shared decryption function
+        const decrypted = await decryptGiftWrapMessage(giftWrap, user);
+        
+        if (decrypted) {
+          // Process as NIP-17 Gift Wrap (Kind 1059 -> Kind 13 -> Kind 14)
+          const { messageEvent, conversationPartner } = decrypted;
+
+          // Store ALL decrypted messages for this conversation
+          const existingMessages = messageMap.get(conversationPartner) || [];
+          existingMessages.push(messageEvent);
+          messageMap.set(conversationPartner, existingMessages);
           
-          // Try to parse as JSON to determine if it's NIP-17 Gift Wrap or NIP-44 DM
-          let isNIP17GiftWrap = false;
-          let sealEvent: NostrEvent | null = null;
-          
-          try {
-            sealEvent = JSON.parse(decryptedContent) as NostrEvent;
-            isNIP17GiftWrap = sealEvent.kind === 13; // Valid Seal event
-          } catch {
-            // Not JSON or not a valid Seal - treat as NIP-44 DM
-            isNIP17GiftWrap = false;
+          // Update conversation summary
+          const existing = conversationMap.get(conversationPartner);
+          if (!existing || messageEvent.created_at > existing.lastActivity) {
+            const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
+            const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
+            
+            conversationMap.set(conversationPartner, {
+              id: conversationPartner,
+              pubkey: conversationPartner,
+              lastMessage: messageEvent,
+              lastActivity: messageEvent.created_at,
+              hasNIP4Messages: false,
+              hasNIP17Messages: true,
+              recentMessages: summaryMessages,
+            });
           }
           
-          if (isNIP17GiftWrap && sealEvent) {
-            // Process as NIP-17 Gift Wrap (Kind 1059 -> Kind 13 -> Kind 14)
-            try {
-              // Step 2: Decrypt the Seal to get the actual message (Kind 14)
-              const decryptedMessageContent = await user.signer.nip44.decrypt(
-                sealEvent.pubkey,
-                sealEvent.content
-              );
-              
-              const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
-              
-              // Validate that we got a Private DM (Kind 14)
-              if (messageEvent.kind !== 14) {
-                failedDecryption++;
-                continue;
-              }
-
-              // Step 3: Extract conversation partner (author of the Seal)
-              const conversationPartner = sealEvent.pubkey;
-              
-              if (!conversationPartner || conversationPartner === user.pubkey) {
-                continue;
-              }
-
-              // Store ALL decrypted messages for this conversation
-              const existingMessages = messageMap.get(conversationPartner) || [];
-              existingMessages.push(messageEvent);
-              messageMap.set(conversationPartner, existingMessages);
-              
-              // Update conversation summary
-              const existing = conversationMap.get(conversationPartner);
-              if (!existing || messageEvent.created_at > existing.lastActivity) {
-                const allMessagesForConvo = existingMessages.sort((a, b) => b.created_at - a.created_at);
-                const summaryMessages = allMessagesForConvo.slice(0, _SUMMARY_MESSAGES_PER_CHAT);
-                
-                conversationMap.set(conversationPartner, {
-                  id: conversationPartner,
-                  pubkey: conversationPartner,
-                  lastMessage: messageEvent,
-                  lastActivity: messageEvent.created_at,
-                  hasNIP4Messages: false,
-                  hasNIP17Messages: true,
-                  recentMessages: summaryMessages,
-                });
-              }
-              
-              decryptedCount++;
-              
-            } catch (error) {
-              logger.error(`[NIP17] Failed to decrypt Seal event:`, error);
-              failedDecryption++;
-            }
-          } else {
-            // Not a valid NIP-17 Gift Wrap - skip
-            failedDecryption++;
-          }
-          
-        } catch (error) {
-          logger.error(`[NIP17] Failed to decrypt Gift Wrap message ${giftWrap.id}:`, error);
+          decryptedCount++;
+        } else {
+          // Not a valid NIP-17 Gift Wrap - skip
           failedDecryption++;
         }
       }
@@ -253,9 +327,8 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
                 logger.log(`[NIP17] Processing new Gift Wrap event:`, event);
                 
                 try {
-                  // TODO: Decrypt the Gift Wrap message and update conversations
-                  // For now, just invalidate the query to trigger a refetch
-                  queryClient.invalidateQueries({ queryKey: ['nip17-all-messages', user.pubkey] });
+                  // Decrypt and add new Gift Wrap message to cache (like channels do)
+                  await processNewGiftWrapMessage(event, user, queryClient);
                 } catch (error) {
                   logger.error(`[NIP17] Failed to process new Gift Wrap message:`, error);
                 }
@@ -290,52 +363,54 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
     };
   }, [user, enabled, query.data, nostr, queryClient]);
 
-  // Early return if not enabled
-  if (!enabled) {
-    return isDiscoveryMode ? {
-      conversations: [],
-      isLoading: false,
-      isError: false,
-    } : {
-      messages: [],
-      isLoading: false,
-      hasMoreMessages: false,
-      loadingOlderMessages: false,
-      loadOlderMessages: async () => {},
-      reachedStartOfConversation: false,
-    };
-  }
+  // Return appropriate interface based on mode with memoized arrays
+  return useMemo(() => {
+    // Early return if not enabled
+    if (!enabled) {
+      return isDiscoveryMode ? {
+        conversations: [],
+        isLoading: false,
+        isError: false,
+      } : {
+        messages: [],
+        isLoading: false,
+        hasMoreMessages: false,
+        loadingOlderMessages: false,
+        loadOlderMessages: async () => {},
+        reachedStartOfConversation: false,
+      };
+    }
 
-  // Return appropriate interface based on mode
-  if (isDiscoveryMode) {
-    return {
-      conversations: Array.from(query.data?.conversations.values() || []),
-      isLoading: query.isLoading,
-      isError: query.isError,
-    };
-  } else {
-    // Specific conversation mode - return messages for this conversation with timestamp filtering
-    const allConversationMessages = query.data?.allMessages.get(conversationId) || [];
-    
-    // Apply timestamp filter if provided
-    const filteredMessages = until 
-      ? allConversationMessages.filter(msg => msg.created_at < until)
-      : allConversationMessages;
-    
-    // Sort by timestamp (oldest first) and take up to 100 messages
-    const sortedMessages = filteredMessages
-      .sort((a, b) => a.created_at - b.created_at)
-      .slice(-100); // Take the 100 most recent messages before the 'until' timestamp
-    
-    logger.log(`[DMCHAT] NIP17: Conversation ${conversationId}, until: ${until}, total: ${allConversationMessages.length}, filtered: ${filteredMessages.length}, returned: ${sortedMessages.length}`);
-    
-    return {
-      messages: sortedMessages,
-      isLoading: query.isLoading,
-      hasMoreMessages: filteredMessages.length > sortedMessages.length, // More available if we filtered some out
-      loadingOlderMessages: false,
-      loadOlderMessages: async () => {}, // Pagination is handled by the chat hook
-      reachedStartOfConversation: filteredMessages.length <= sortedMessages.length,
-    };
-  }
+    if (isDiscoveryMode) {
+      return {
+        conversations: Array.from(query.data?.conversations.values() || []),
+        isLoading: query.isLoading,
+        isError: query.isError,
+      };
+    } else {
+      // Specific conversation mode - return messages for this conversation with timestamp filtering
+      const allConversationMessages = query.data?.allMessages.get(conversationId) || [];
+      
+      // Apply timestamp filter if provided
+      const filteredMessages = until 
+        ? allConversationMessages.filter(msg => msg.created_at < until)
+        : allConversationMessages;
+      
+      // Sort by timestamp (oldest first) and take up to 100 messages
+      const sortedMessages = filteredMessages
+        .sort((a, b) => a.created_at - b.created_at)
+        .slice(-100); // Take the 100 most recent messages before the 'until' timestamp
+      
+      logger.log(`[DMCHAT] NIP17: Conversation ${conversationId}, until: ${until}, total: ${allConversationMessages.length}, filtered: ${filteredMessages.length}, returned: ${sortedMessages.length}`);
+      
+      return {
+        messages: sortedMessages,
+        isLoading: query.isLoading,
+        hasMoreMessages: filteredMessages.length > sortedMessages.length, // More available if we filtered some out
+        loadingOlderMessages: false,
+        loadOlderMessages: async () => {}, // Pagination is handled by the chat hook
+        reachedStartOfConversation: filteredMessages.length <= sortedMessages.length,
+      };
+    }
+  }, [enabled, isDiscoveryMode, query.data, query.isLoading, query.isError, conversationId, until]);
 }
