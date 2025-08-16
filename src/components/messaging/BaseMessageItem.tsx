@@ -86,8 +86,7 @@ function BaseMessageItemComponent({
   const { mutate: addReaction } = useAddReaction();
   
   // Check if this message is from the current user for right alignment
-  const isMyMessage = user?.pubkey === message.pubkey;
-  const shouldAlignRight = config.asMyMessageRightAlign && isMyMessage;
+  const shouldAlignRight = user?.pubkey === message.pubkey;;
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
   const { data: hasReplies } = useMessageHasReplies(message.id);
@@ -145,7 +144,7 @@ function BaseMessageItemComponent({
           // Default styling for other messages
           "hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-2xl": !shouldAlignRight,
           // Special styling for my messages
-          "ml-auto max-w-[80%] bg-purple-600/50 dark:bg-purple-500/50 rounded-2xl": shouldAlignRight,
+          "ml-auto max-w-[80%] bg-purple-600/20 dark:bg-purple-500/20 rounded-2xl": shouldAlignRight,
         },
       )}
       onMouseEnter={() => setIsHovered(true)}
