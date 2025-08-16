@@ -368,6 +368,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   // New conversation discovery section
   function NewConversationDiscovery() {
     const [discoveredTab, setDiscoveredTab] = useState<DMTabType>('known');
+    const [discoveredSearchQuery, setDiscoveredSearchQuery] = useState("");
 
     // Memoize the expensive filtering and sorting operations (must be before early return)
     const filteredDiscoveredConversations = useMemo(() => {
@@ -432,6 +433,19 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           </div>
         )}
 
+        {/* Search for discovered conversations */}
+        {newConversations.conversations.length > 0 && (
+          <div className="relative mt-3 px-2">
+            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search conversations"
+              value={discoveredSearchQuery}
+              onChange={(e) => setDiscoveredSearchQuery(e.target.value)}
+              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
+            />
+          </div>
+        )}
+
         {/* Scrollable list of discovered conversations */}
         <div className="overflow-y-auto max-h-96 scrollbar-thin mt-2">
           {filteredDiscoveredConversations.length === 0 && discoveredTab === 'newRequests' ? (
@@ -466,7 +480,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                       setInternalSelectedConversation(pubkey);
                     }
                   }}
-                  searchQuery={searchQuery}
+                  searchQuery={discoveredSearchQuery}
                   isLoading={false}
                   isVirtualized={true}
                 />
