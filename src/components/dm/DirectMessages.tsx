@@ -37,8 +37,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const { data: categories, isLoading } = useDMCategories();
   
   // NEW system for discovery section only
-  const { getConversationList } = useDirectMessages();
-  const newConversations = getConversationList();
+  const { conversations: newConversations } = useDirectMessages();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;

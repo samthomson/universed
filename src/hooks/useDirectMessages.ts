@@ -216,7 +216,8 @@ export function useDirectMessages() {
     return finalConversations;
   }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled]);
 
-  const getConversationList = () => ({
+  // Memoize the conversation list data to prevent unnecessary re-renders
+  const conversationListData = useMemo(() => ({
     conversations: allConversations,
     isLoading: conversationList.isLoading || nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
     // Friend-based discovery progress
@@ -224,7 +225,15 @@ export function useDirectMessages() {
     friendsTotalToProcess: conversationList.totalToProcess,
     // Comprehensive scanning status
     isLoadingComprehensive: nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
-  });
+  }), [
+    allConversations,
+    conversationList.isLoading,
+    conversationList.processedCount,
+    conversationList.totalToProcess,
+    nip4AllConversations.isLoading,
+    nip17AllConversations.isLoading,
+    isNIP17Enabled
+  ]);
 
   const sendMessage = async (_recipientPubkey: string, _content: string) => {
     // Use existing useSendDM hook which already handles NIP-4/NIP-17 selection
@@ -235,11 +244,19 @@ export function useDirectMessages() {
   };
 
   return {
+    // Direct data access (no function calls needed)
+    conversations: conversationListData,
+    
+    // Settings
     isNIP17Enabled,
     setNIP17Enabled,
+    
+    // Methods for specific operations
     getChatMessages,
-    getConversationList,
     sendMessage,
+    
+    // Legacy function for backward compatibility (deprecated)
+    getConversationList: () => conversationListData,
   };
 }
 
