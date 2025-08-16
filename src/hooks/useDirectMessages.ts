@@ -216,23 +216,27 @@ export function useDirectMessages() {
     return finalConversations;
   }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled]);
 
-  // Memoize the conversation list data to prevent unnecessary re-renders
+  // Memoize the conversation list data separately from progress data
   const conversationListData = useMemo(() => ({
     conversations: allConversations,
     isLoading: conversationList.isLoading || nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
-    // Friend-based discovery progress
-    friendsProcessedCount: conversationList.processedCount,
-    friendsTotalToProcess: conversationList.totalToProcess,
     // Comprehensive scanning status
     isLoadingComprehensive: nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
   }), [
     allConversations,
     conversationList.isLoading,
-    conversationList.processedCount,
-    conversationList.totalToProcess,
     nip4AllConversations.isLoading,
     nip17AllConversations.isLoading,
     isNIP17Enabled
+  ]);
+
+  // Separate progress data that can update independently
+  const progressData = useMemo(() => ({
+    friendsProcessedCount: conversationList.processedCount,
+    friendsTotalToProcess: conversationList.totalToProcess,
+  }), [
+    conversationList.processedCount,
+    conversationList.totalToProcess,
   ]);
 
   const sendMessage = async (_recipientPubkey: string, _content: string) => {
@@ -246,6 +250,7 @@ export function useDirectMessages() {
   return {
     // Direct data access (no function calls needed)
     conversations: conversationListData,
+    progress: progressData,
     
     // Settings
     isNIP17Enabled,

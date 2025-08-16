@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,15 +37,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const { data: categories, isLoading } = useDMCategories();
   
   // NEW system for discovery section only
-  const { conversations: newConversations } = useDirectMessages();
+  const { conversations: newConversations, progress: discoveryProgress } = useDirectMessages();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
 
-  // Get conversations for the active tab (OLD system)
-  const conversations = categories ?
-    (activeTab === 'known' ? categories.known : categories.newRequests) :
-    [];
+  // Get conversations for the active tab (OLD system) - memoized to prevent unnecessary re-renders
+  const conversations = useMemo(() => {
+    return categories ?
+      (activeTab === 'known' ? categories.known : categories.newRequests) :
+      [];
+  }, [categories, activeTab]);
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -261,7 +263,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         {/* Current Conversation List */}
         <div className="flex-1 overflow-hidden px-1">
           <Virtuoso
-            data={conversations || []}
+            data={conversations}
             itemContent={(index, conversation) => (
               <DMConversationList
                 conversations={[conversation]}
@@ -360,26 +362,28 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   function NewConversationDiscovery() {
     const [discoveredTab, setDiscoveredTab] = useState<DMTabType>('known');
 
+    // Memoize the expensive filtering and sorting operations (must be before early return)
+    const filteredDiscoveredConversations = useMemo(() => {
+      return newConversations.conversations
+        .filter(_conv => {
+          // For discovered conversations, show all in "known" tab for now
+          // "Requests" tab is empty until we implement contact categorization
+          if (discoveredTab === 'known') {
+            return true; // Show all discovered conversations in Known tab
+          } else {
+            return false; // Requests tab is empty for discovered conversations
+          }
+        })
+        .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+    }, [discoveredTab]);
+
     if (!newConversations.conversations.length && !newConversations.isLoading) {
       return null;
     }
-
-         // Filter and sort discovered conversations by tab
-     const filteredDiscoveredConversations = newConversations.conversations
-       .filter(_conv => {
-         // For discovered conversations, show all in "known" tab for now
-         // "Requests" tab is empty until we implement contact categorization
-         if (discoveredTab === 'known') {
-           return true; // Show all discovered conversations in Known tab
-         } else {
-           return false; // Requests tab is empty for discovered conversations
-         }
-       })
-       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
-       
-     logger.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
-     logger.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
-     logger.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
+     
+    logger.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
+    logger.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
+    logger.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
 
     return (
       <div className="border-t border-gray-600 pt-4 mt-4">
@@ -390,9 +394,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           {newConversations.isLoading && (
             <div className="space-y-1">
               {/* Friend-based discovery progress */}
-              {newConversations.friendsTotalToProcess > 0 && (
+              {discoveryProgress.friendsTotalToProcess > 0 && (
                 <p className="text-xs text-gray-400">
-                  Checking friends... ({newConversations.friendsProcessedCount}/{newConversations.friendsTotalToProcess})
+                  Checking friends... ({discoveryProgress.friendsProcessedCount}/{discoveryProgress.friendsTotalToProcess})
                 </p>
               )}
               {/* Comprehensive scanning status */}
