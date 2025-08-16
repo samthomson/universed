@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Search, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 import { logger } from "@/lib/logger";
 import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
+import type { DMConversation } from "@/hooks/useAllDMs";
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -48,6 +49,100 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       (activeTab === 'known' ? categories.known : categories.newRequests) :
       [];
   }, [categories, activeTab]);
+
+  // Memoize all handlers to prevent unnecessary re-renders (like ChatArea.tsx)
+  const handleConversationSelect = useCallback((pubkey: string) => {
+    if (propSelectedConversation !== undefined) {
+      onConversationSelect?.(pubkey);
+    } else {
+      setInternalSelectedConversation(pubkey);
+    }
+  }, [propSelectedConversation, onConversationSelect]);
+
+  const handleNewDM = useCallback(() => {
+    setShowNewDM(true);
+  }, []);
+
+  const handleConversationCreated = useCallback((pubkey: string) => {
+    if (propSelectedConversation !== undefined) {
+      onConversationSelect?.(pubkey);
+    } else {
+      setInternalSelectedConversation(pubkey);
+    }
+    setShowNewDM(false);
+  }, [propSelectedConversation, onConversationSelect]);
+
+  // Memoize Virtuoso itemContent functions to prevent re-renders (must be at top level)
+  const mobileItemContent = useCallback((index: number, conversation: DMConversation) => (
+    <DMConversationList
+      conversations={[conversation]}
+      selectedConversation={selectedConversation || null}
+      onSelectConversation={handleConversationSelect}
+      searchQuery={searchQuery}
+      isLoading={isLoading}
+      isVirtualized={true}
+    />
+  ), [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
+
+  const desktopItemContent = useCallback((index: number, conversation: DMConversation) => (
+    <DMConversationList
+      conversations={[conversation]}
+      selectedConversation={selectedConversation || null}
+      onSelectConversation={handleConversationSelect}
+      searchQuery={searchQuery}
+      isLoading={isLoading}
+      isVirtualized={true}
+    />
+  ), [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
+
+  // Memoize components objects
+  const mobileComponents = useMemo(() => ({
+    EmptyPlaceholder: () => (
+      <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
+        <div className="text-center text-gray-400">
+          <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-semibold mb-2">
+            {activeTab === 'known' ? 'No known conversations' : 'No requests'}
+          </h3>
+          <p className="text-sm mb-4">
+            {activeTab === 'known'
+              ? 'Conversations from people you follow will appear here.'
+              : 'Message requests from people you don\'t follow will appear here.'
+            }
+          </p>
+          <Button onClick={handleNewDM} className="mobile-touch">
+            <Plus className="w-4 h-4 mr-2" />
+            Start New Conversation
+          </Button>
+        </div>
+      </div>
+    ),
+    Footer: () => <div className="h-2" />,
+  }), [activeTab, handleNewDM]);
+
+  const desktopComponents = useMemo(() => ({
+    EmptyPlaceholder: () => (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center text-gray-400">
+          <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+          <h3 className="text-lg font-semibold mb-2">
+            {activeTab === 'known' ? 'No known conversations' : 'No requests'}
+          </h3>
+          <p className="text-sm mb-4">
+            {activeTab === 'known'
+              ? 'Conversations from people you follow will appear here.'
+              : 'Message requests from people you don\'t follow will appear here.'
+            }
+          </p>
+          <Button onClick={handleNewDM}>
+            <Plus className="w-4 h-4 mr-2" />
+            Start New Conversation
+          </Button>
+        </div>
+      </div>
+    ),
+    Footer: () => <NewConversationDiscovery />,
+  }), [activeTab, handleNewDM, newConversations, discoveryProgress]);
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -133,7 +228,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   variant="ghost"
                   size="icon"
                   className="w-8 h-8 hover:bg-gray-800/60 mobile-touch"
-                  onClick={() => setShowNewDM(true)}
+                  onClick={handleNewDM}
                 >
                   <Plus className="w-5 h-5" />
                 </Button>
@@ -161,45 +256,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             <div className="flex-1 overflow-hidden bg-gray-700 px-2">
               <Virtuoso
                 data={conversations || []}
-                itemContent={(index, conversation) => (
-                  <DMConversationList
-                    conversations={[conversation]}
-                    selectedConversation={selectedConversation || null}
-                    onSelectConversation={(pubkey) => {
-                  if (propSelectedConversation !== undefined) {
-                    onConversationSelect?.(pubkey);
-                  } else {
-                    setInternalSelectedConversation(pubkey);
-                  }
-                }}
-                    searchQuery={searchQuery}
-                    isLoading={isLoading}
-                    isVirtualized={true}
-                  />
-                )}
-                components={{
-                  EmptyPlaceholder: () => (
-                    <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
-                      <div className="text-center text-gray-400">
-                        <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-semibold mb-2">
-                          {activeTab === 'known' ? 'No known conversations' : 'No requests'}
-                        </h3>
-                        <p className="text-sm mb-4">
-                          {activeTab === 'known'
-                            ? 'Conversations from people you follow will appear here.'
-                            : 'Message requests from people you don\'t follow will appear here.'
-                          }
-                        </p>
-                        <Button onClick={() => setShowNewDM(true)} className="mobile-touch">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Start New Conversation
-                        </Button>
-                      </div>
-                    </div>
-                  ),
-                  Footer: () => <div className="h-2" />,
-                }}
+                itemContent={mobileItemContent}
+                components={mobileComponents}
                 className="h-full scrollbar-thin"
               />
             </div>
@@ -210,14 +268,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <NewDMDrawer
           open={showNewDM}
           onOpenChange={setShowNewDM}
-          onConversationCreated={(pubkey) => {
-            if (propSelectedConversation !== undefined) {
-              onConversationSelect?.(pubkey);
-            } else {
-              setInternalSelectedConversation(pubkey);
-            }
-            setShowNewDM(false);
-          }}
+          onConversationCreated={handleConversationCreated}
         />
       </div>
     );
@@ -232,12 +283,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <div className="p-4 border-b border-gray-600">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-white">Messages</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="w-6 h-6 hover:bg-gray-800/60"
-              onClick={() => setShowNewDM(true)}
-            >
+                            <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-6 h-6 hover:bg-gray-800/60"
+                  onClick={handleNewDM}
+                >
               <Plus className="w-4 h-4" />
             </Button>
           </div>
@@ -264,45 +315,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <div className="flex-1 overflow-hidden px-1">
           <Virtuoso
             data={conversations}
-            itemContent={(index, conversation) => (
-              <DMConversationList
-                conversations={[conversation]}
-                selectedConversation={selectedConversation || null}
-                onSelectConversation={(pubkey) => {
-                  if (propSelectedConversation !== undefined) {
-                    onConversationSelect?.(pubkey);
-                  } else {
-                    setInternalSelectedConversation(pubkey);
-                  }
-                }}
-                searchQuery={searchQuery}
-                isLoading={isLoading}
-                isVirtualized={true}
-              />
-            )}
-            components={{
-              EmptyPlaceholder: () => (
-                <div className="flex items-center justify-center p-8">
-                  <div className="text-center text-gray-400">
-                    <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-semibold mb-2">
-                      {activeTab === 'known' ? 'No known conversations' : 'No requests'}
-                    </h3>
-                    <p className="text-sm mb-4">
-                      {activeTab === 'known'
-                        ? 'Conversations from people you follow will appear here.'
-                        : 'Message requests from people you don\'t follow will appear here.'
-                      }
-                    </p>
-                    <Button onClick={() => setShowNewDM(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Start New Conversation
-                    </Button>
-                  </div>
-                </div>
-              ),
-              Footer: () => <NewConversationDiscovery />,
-            }}
+            itemContent={desktopItemContent}
+            components={desktopComponents}
             className="h-full scrollbar-thin"
           />
         </div>
@@ -333,10 +347,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
               <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
-              <Button onClick={() => setShowNewDM(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Start New Conversation
-              </Button>
+                                  <Button onClick={handleNewDM}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Start New Conversation
+                    </Button>
             </div>
           </div>
         )}
@@ -346,14 +360,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       <NewDMDialog
         open={showNewDM}
         onOpenChange={setShowNewDM}
-        onConversationCreated={(pubkey) => {
-          if (propSelectedConversation !== undefined) {
-            onConversationSelect?.(pubkey);
-          } else {
-            setInternalSelectedConversation(pubkey);
-          }
-          setShowNewDM(false);
-        }}
+        onConversationCreated={handleConversationCreated}
       />
     </div>
   );

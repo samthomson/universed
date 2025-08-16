@@ -16,6 +16,7 @@ import {
 } from "@/components/messaging/configs/dmConfig";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
+import { useMemo, useCallback } from "react";
 
 
 interface DMChatAreaProps {
@@ -92,7 +93,21 @@ export function DMChatArea(
 
   const displayName = metadata?.name || genUserName(conversationId);
 
-  const handleSendMessage = async (content: string) => {
+  // Memoize query key to prevent unnecessary re-renders (like ChatArea.tsx)
+  const queryKey = useMemo(() => ['dm-unified-messages', user!.pubkey, conversationId], [user?.pubkey, conversationId]);
+
+  // Memoize input placeholder to prevent re-renders
+  const inputPlaceholder = useMemo(() => `Message ${displayName}`, [displayName]);
+
+  // Memoize header to prevent re-renders
+  const header = useMemo(() => (
+    <DMChatHeader
+      conversationId={conversationId}
+      onBack={onBack}
+    />
+  ), [conversationId, onBack]);
+
+  const handleSendMessage = useCallback(async (content: string) => {
     await sendDM({
       recipientPubkey: conversationId,
       content,
@@ -100,9 +115,9 @@ export function DMChatArea(
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  };
+  }, [sendDM, conversationId, onMessageSent]);
 
-  const handleDeleteMessage = async (message: NostrEvent) => {
+  const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
       toast({
         title: "Error",
@@ -134,7 +149,7 @@ export function DMChatArea(
         variant: "destructive",
       });
     }
-  };
+  }, [user, createEvent, toast]);
 
   return (
     <BaseChatArea
@@ -142,17 +157,12 @@ export function DMChatArea(
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
-      queryKey={['dm-unified-messages', user!.pubkey, conversationId]}
-      header={
-        <DMChatHeader
-          conversationId={conversationId}
-          onBack={onBack}
-        />
-      }
+      queryKey={queryKey}
+      header={header}
       messageListConfig={dmMessageListConfig}
       messageItemConfig={dmMessageItemConfig}
       messageInputConfig={dmMessageInputConfig}
-      inputPlaceholder={`Message ${displayName}`}
+      inputPlaceholder={inputPlaceholder}
       onNavigateToDMs={onNavigateToDMs}
       hasMoreMessages={hasMoreMessages}
       loadingOlderMessages={loadingOlderMessages}
