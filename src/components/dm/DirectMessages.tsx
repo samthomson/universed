@@ -95,6 +95,49 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     />
   ), [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
 
+  const desktopItemContenNew = useCallback((index: number, conversation) => {
+    
+    const dmConversation = {
+      id: conversation.id,
+      pubkey: conversation.id,
+      lastMessage: conversation.lastMessage,
+      lastMessageTime: conversation.lastActivity,
+      unreadCount: conversation.unreadCount || 0,
+    };
+
+    return (
+    <div key={conversation.id} className="relative">
+    <DMConversationList
+      conversations={[dmConversation]}
+      selectedConversation={selectedConversation || null}
+      onSelectConversation={(pubkey) => {
+        if (propSelectedConversation !== undefined) {
+          onConversationSelect?.(pubkey);
+        } else {
+          setInternalSelectedConversation(pubkey);
+        }
+      }}
+      searchQuery={searchQuery}
+      isLoading={false}
+      isVirtualized={true}
+    />
+      <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
+        {conversation.hasNIP4Messages && (
+          <div 
+            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
+            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
+          />
+        )}
+        {conversation.hasNIP17Messages && (
+          <div 
+            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
+            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
+          />
+        )}
+      </div>
+    </div>
+  )}, [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
+
   // Memoize components objects
   const mobileComponents = useMemo(() => ({
     EmptyPlaceholder: () => (
@@ -141,7 +184,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         </div>
       </div>
     ),
-    Footer: () => <NewConversationDiscovery />,
+    // Footer: () => <NewConversationDiscovery />,
   }), [activeTab, handleNewDM, newConversations, discoveryProgress]);
 
   // Auto-select conversation when targetPubkey is provided
@@ -182,6 +225,22 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       window.history.replaceState({}, '', url.toString());
     }
   }, [selectedConversation, targetPubkey]);
+
+  // Memoize the expensive filtering and sorting operations (must be before early return)
+  const filteredDiscoveredConversations = useMemo(() => {
+    return newConversations.conversations
+      // .filter(_conv => {
+      //   // For discovered conversations, show all in "known" tab for now
+      //   // "Requests" tab is empty until we implement contact categorization
+      //   if (discoveredTab === 'known') {
+      //     return true; // Show all discovered conversations in Known tab
+      //   } else {
+      //     return false; // Requests tab is empty for discovered conversations
+      //   }
+      // })
+      .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+  }, [newConversations.conversations]);
+  
 
   if (!user) {
     return (
@@ -316,6 +375,80 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <Virtuoso
             data={conversations}
             itemContent={desktopItemContent}
+            components={desktopComponents}
+            className="h-full scrollbar-thin"
+          />
+        </div>
+
+        {/* User Panel at the bottom */}
+        <UserPanel />
+      </div>
+      {/* sidebar 2? */}
+      <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-600">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-white">Messages</h2>
+                            <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-6 h-6 hover:bg-gray-800/60"
+                  onClick={handleNewDM}
+                >
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <div className="px-2 mb-3">
+            <h3 className="text-sm font-medium text-blue-300 mb-1">
+              🔍 Discovered Conversations
+            </h3>
+            {newConversations.isLoading && (
+              <div className="space-y-1">
+                {/* Friend-based discovery progress */}
+                {discoveryProgress.friendsTotalToProcess > 0 && (
+                  <p className="text-xs text-gray-400">
+                    Checking friends... ({discoveryProgress.friendsProcessedCount}/{discoveryProgress.friendsTotalToProcess})
+                  </p>
+                )}
+                {/* Comprehensive scanning status */}
+                {newConversations.isLoadingComprehensive && (
+                  <p className="text-xs text-gray-500">
+                    🔍 Scanning all messages for additional conversations...
+                  </p>
+                )}
+              </div>
+            )}
+            {!newConversations.isLoading && newConversations.conversations.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Found {newConversations.conversations.length} conversations
+              </p>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <DMTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+
+          {/* Search */}
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search conversations"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
+            />
+          </div>
+        </div>
+
+        {/* Current Conversation List */}
+        <div className="flex-1 overflow-hidden px-1">
+          <Virtuoso
+            data={filteredDiscoveredConversations}
+            itemContent={desktopItemContenNew}
             components={desktopComponents}
             className="h-full scrollbar-thin"
           />
