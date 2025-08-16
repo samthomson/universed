@@ -435,7 +435,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
         {/* Search for discovered conversations */}
         {newConversations.conversations.length > 0 && (
-          <div className="relative mt-3 px-2">
+          <div className="relative mt-3 px-2 pb-3 border-b border-gray-600">
             <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               placeholder="Search conversations"
