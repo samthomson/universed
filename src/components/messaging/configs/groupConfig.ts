@@ -8,6 +8,7 @@ export const groupMessageItemConfig: MessageItemConfig = {
   showDelete: true,
   showBan: false, // Will be controlled by role-based logic
   showReport: true, // Add report option
+  asMyMessageRightAlign: false // Keep all messages left-aligned in group chats
 };
 
 export const groupMessageListConfig = {

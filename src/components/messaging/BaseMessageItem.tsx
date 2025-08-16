@@ -44,6 +44,7 @@ export interface MessageItemConfig {
   showDelete: boolean;
   showBan: boolean;
   showReport: boolean;
+  asMyMessageRightAlign: boolean;
 }
 
 export interface BaseMessageItemProps {
@@ -83,6 +84,10 @@ function BaseMessageItemComponent({
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
+  
+  // Check if this message is from the current user for right alignment
+  const isMyMessage = user?.pubkey === message.pubkey;
+  const shouldAlignRight = config.asMyMessageRightAlign && isMyMessage;
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
   const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
   const { data: hasReplies } = useMessageHasReplies(message.id);
@@ -132,17 +137,23 @@ function BaseMessageItemComponent({
   return (
     <div
       className={cn(
-        "group relative hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all duration-200 w-full px-4 py-2 rounded-2xl",
+        "group relative transition-all duration-200 w-full px-4 py-2",
         {
           "mt-4": showAvatar,
           "opacity-50": isSending,
           "new-message-animation": isNew && !isSending,
+          // Default styling for other messages
+          "hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-2xl": !shouldAlignRight,
+          // Special styling for my messages
+          "ml-auto max-w-[80%] bg-purple-600/50 dark:bg-purple-500/50 rounded-2xl": shouldAlignRight,
         },
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex space-x-3">
+      <div className={cn("flex space-x-3", {
+        "flex-row-reverse space-x-reverse": shouldAlignRight, // Reverse layout for my messages
+      })}>
         <div className="w-10 flex-shrink-0">
           {showAvatar
             ? (
@@ -212,7 +223,9 @@ function BaseMessageItemComponent({
               </span>
             </div>
           )}
-          <div className="text-gray-900 dark:text-gray-100 break-words">
+          <div className={cn("text-gray-900 dark:text-gray-100 break-words", {
+            "text-right": shouldAlignRight, // Right-align content for my messages
+          })}>
             <div className="flex items-center gap-2">
               {(() => {
                 // Check if this is a marketplace item message
@@ -286,10 +299,11 @@ function BaseMessageItemComponent({
 
         {shouldShowActions && (
           <div className={cn(
-            "absolute bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center right-4 z-10",
+            "absolute bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center z-10",
             showAvatar
               ? "-top-2"
-              : "top-1/2 -translate-y-1/2"
+              : "top-1/2 -translate-y-1/2",
+            shouldAlignRight ? "left-4" : "right-4" // Position buttons on left for my messages
           )}>
             {config.showThreadReply && (
               <Button
