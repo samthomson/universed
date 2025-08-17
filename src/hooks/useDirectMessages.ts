@@ -2,6 +2,7 @@ import { useLocalStorage } from './useLocalStorage';
 import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
 import { useNIP17DirectMessages } from './useNIP17DirectMessages';
+import { useNIP17ConversationData } from './useNIP17ConversationData';
 import { useSendDM } from './useSendDM';
 import { useMemo, useEffect, useState, useCallback } from 'react';
 import { logger } from '@/lib/logger';
@@ -305,7 +306,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
   
   // Get messages from both NIP-4 and NIP-17 hooks with timestamp filter
   const nip4Messages = useNIP4DirectMessages(conversationId, false, until); // Specific conversation mode
-  const nip17Messages = useNIP17DirectMessages(conversationId, isNIP17Enabled, false, until); // Specific conversation mode
+  const nip17Messages = useNIP17ConversationData(isNIP17Enabled ? conversationId : '', until); // Lightweight data access (no subscription recreation)
   
   logger.log(`[DMCHAT] useDirectMessagesForChat called with conversationId: "${conversationId}", until: ${until}`);
   logger.log(`[DMCHAT] isNIP17Enabled: ${isNIP17Enabled}`);
@@ -313,7 +314,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
   logger.log(`[DMCHAT] NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
   
   // Memoize the message arrays to prevent unnecessary re-renders
-  const stableNip4Messages = useMemo(() => nip4Messages.messages || [], [nip4Messages.messages]);
+  const stableNip4Messages = useMemo(() => (nip4Messages.messages as NostrEvent[]) || [], [nip4Messages.messages]);
   const stableNip17Messages = useMemo(() => nip17Messages.messages || [], [nip17Messages.messages]);
 
   // Combine, sort, and limit messages from both sources
