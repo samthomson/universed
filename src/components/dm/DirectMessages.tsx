@@ -14,7 +14,6 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { logger } from "@/lib/logger";
 import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
 import type { DMConversation } from "@/hooks/useAllDMs";
 
@@ -136,7 +135,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         )}
       </div>
     </div>
-  )}, [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
+  )}, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
 
   // Memoize components objects
   const mobileComponents = useMemo(() => ({
@@ -184,8 +183,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         </div>
       </div>
     ),
-    // Footer: () => <NewConversationDiscovery />,
-  }), [activeTab, handleNewDM, newConversations, discoveryProgress]);
+  }), [activeTab, handleNewDM]);
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -498,147 +496,5 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     </div>
   );
 
-  // New conversation discovery section
-  function NewConversationDiscovery() {
-    const [discoveredTab, setDiscoveredTab] = useState<DMTabType>('known');
-    const [discoveredSearchQuery, setDiscoveredSearchQuery] = useState("");
 
-    // Memoize the expensive filtering and sorting operations (must be before early return)
-    const filteredDiscoveredConversations = useMemo(() => {
-      return newConversations.conversations
-        .filter(_conv => {
-          // For discovered conversations, show all in "known" tab for now
-          // "Requests" tab is empty until we implement contact categorization
-          if (discoveredTab === 'known') {
-            return true; // Show all discovered conversations in Known tab
-          } else {
-            return false; // Requests tab is empty for discovered conversations
-          }
-        })
-        .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
-    }, [discoveredTab]);
-
-    if (!newConversations.conversations.length && !newConversations.isLoading) {
-      return null;
-    }
-     
-    logger.log(`[NewConversationDiscovery] Tab: ${discoveredTab}, Raw conversations:`, newConversations.conversations.length);
-    logger.log(`[NewConversationDiscovery] Filtered conversations:`, filteredDiscoveredConversations.length);
-    logger.log(`[NewConversationDiscovery] First conversation:`, filteredDiscoveredConversations[0]);
-
-    return (
-      <div className="border-t border-gray-600 pt-4 mt-4">
-        <div className="px-2 mb-3">
-          <h3 className="text-sm font-medium text-blue-300 mb-1">
-            🔍 Discovered Conversations
-          </h3>
-          {newConversations.isLoading && (
-            <div className="space-y-1">
-              {/* Friend-based discovery progress */}
-              {discoveryProgress.friendsTotalToProcess > 0 && (
-                <p className="text-xs text-gray-400">
-                  Checking friends... ({discoveryProgress.friendsProcessedCount}/{discoveryProgress.friendsTotalToProcess})
-                </p>
-              )}
-              {/* Comprehensive scanning status */}
-              {newConversations.isLoadingComprehensive && (
-                <p className="text-xs text-gray-500">
-                  🔍 Scanning all messages for additional conversations...
-                </p>
-              )}
-            </div>
-          )}
-          {!newConversations.isLoading && newConversations.conversations.length > 0 && (
-            <p className="text-xs text-gray-400">
-              Found {newConversations.conversations.length} conversations
-            </p>
-          )}
-        </div>
-
-        {/* Tabs for discovered conversations */}
-        {newConversations.conversations.length > 0 && (
-          <div className="px-2">
-            <DMTabs 
-              activeTab={discoveredTab} 
-              onTabChange={setDiscoveredTab}
-              idPrefix="discovered"
-            />
-          </div>
-        )}
-
-        {/* Search for discovered conversations */}
-        {newConversations.conversations.length > 0 && (
-          <div className="relative mt-3 px-2 pb-3 border-b border-gray-600">
-            <Search className="absolute left-5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search conversations"
-              value={discoveredSearchQuery}
-              onChange={(e) => setDiscoveredSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
-            />
-          </div>
-        )}
-
-        {/* Scrollable list of discovered conversations */}
-        <div className="overflow-y-auto max-h-96 scrollbar-thin mt-2">
-          {filteredDiscoveredConversations.length === 0 && discoveredTab === 'newRequests' ? (
-            // Empty state for Requests tab
-            <div className="px-4 py-6 text-center">
-              <MessageCircle className="w-8 h-8 mx-auto text-gray-500 mb-2" />
-              <p className="text-sm text-gray-500">No new requests</p>
-              <p className="text-xs text-gray-600 mt-1">
-                New conversations from unknown contacts will appear here
-              </p>
-            </div>
-          ) : (
-          filteredDiscoveredConversations.map((conversation) => {
-            // Convert new conversation format to match DMConversation type
-            const dmConversation = {
-              id: conversation.id,
-              pubkey: conversation.id,
-              lastMessage: conversation.lastMessage,
-              lastMessageTime: conversation.lastActivity,
-              unreadCount: conversation.unreadCount || 0,
-            };
-
-            return (
-              <div key={conversation.id} className="relative">
-                <DMConversationList
-                  conversations={[dmConversation]}
-                  selectedConversation={selectedConversation || null}
-                  onSelectConversation={(pubkey) => {
-                    if (propSelectedConversation !== undefined) {
-                      onConversationSelect?.(pubkey);
-                    } else {
-                      setInternalSelectedConversation(pubkey);
-                    }
-                  }}
-                  searchQuery={discoveredSearchQuery}
-                  isLoading={false}
-                  isVirtualized={true}
-                />
-                
-                {/* Protocol indicators overlay using centralized config */}
-                <div className="absolute top-2 right-2 flex items-center space-x-1 pointer-events-none">
-                  {conversation.hasNIP4Messages && (
-                    <div 
-                      className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
-                      title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
-                    />
-                  )}
-                  {conversation.hasNIP17Messages && (
-                    <div 
-                      className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
-                      title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
-                    />
-                  )}
-                </div>
-              </div>
-            );
-          })
-          )}
-        </div>
-      </div>
-    );
-  }
 }
