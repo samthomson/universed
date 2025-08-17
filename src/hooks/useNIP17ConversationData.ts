@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import { useMemo } from 'react';
 import type { NostrEvent } from '@/types/nostr';
@@ -24,7 +24,18 @@ interface NIP17MessageStore {
  */
 export function useNIP17ConversationData(conversationId: string, until?: number) {
   const { user } = useCurrentUser();
-  const queryClient = useQueryClient();
+
+  // Use a reactive query to watch for cache changes
+  const query = useQuery({
+    queryKey: ['nip17-all-messages', user?.pubkey],
+    queryFn: () => {
+      // This should never be called since the data is managed by useNIP17DirectMessages
+      // But we need a queryFn for TypeScript
+      return { conversations: new Map(), allMessages: new Map() };
+    },
+    enabled: false, // Don't fetch, just watch cache
+    staleTime: Infinity, // Never consider stale
+  });
 
   return useMemo(() => {
     if (!user?.pubkey || !conversationId) {
@@ -38,8 +49,8 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
       };
     }
 
-    // Get the global NIP-17 data from cache (managed by the discovery mode hook)
-    const nip17Data = queryClient.getQueryData<NIP17MessageStore>(['nip17-all-messages', user.pubkey]);
+    // Get the global NIP-17 data from the reactive query
+    const nip17Data = query.data;
     
     if (!nip17Data) {
       return {
@@ -73,5 +84,5 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
       loadOlderMessages: async () => {}, // Pagination is handled by the chat hook
       reachedStartOfConversation: filteredMessages.length <= sortedMessages.length,
     };
-  }, [user?.pubkey, conversationId, until, queryClient]);
+  }, [user?.pubkey, conversationId, until, query.data]);
 }

@@ -50,6 +50,7 @@ export function useSendDM() {
   const sendNIP4Message = useMutation({
     mutationFn: async ({ recipientPubkey, content, attachments = [] }: BaseSendDMParams) => {
       if (!user?.signer?.nip04) {
+        logger.error('[SendDM] NIP-04 encryption not available');
         throw new Error('NIP-04 encryption not available');
       }
 
@@ -85,6 +86,7 @@ export function useSendDM() {
   const sendNIP17Message = useMutation({
     mutationFn: async ({ recipientPubkey, content, attachments = [] }: BaseSendDMParams) => {
       if (!user?.signer?.nip44) {
+        logger.error('[SendDM] NIP-44 encryption not available for NIP-17');
         throw new Error('NIP-44 encryption not available for NIP-17');
       }
 
@@ -105,42 +107,46 @@ export function useSendDM() {
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      logger.log('[SendDM] Created Kind 14 Private DM:', privateDM);
 
-      // Step 2: Create and sign the Kind 13 Seal event
-      const seal = await user.signer.signEvent({
+
+      // Step 2: Create TWO Kind 13 Seal events - one for recipient, one for sender
+      
+      // Seal for recipient (encrypted to them)
+      const recipientSeal = await user.signer.signEvent({
         kind: 13,
         content: await user.signer.nip44.encrypt(recipientPubkey, JSON.stringify(privateDM)),
         tags: [], // Seal events typically have no tags
         created_at: Math.floor(Date.now() / 1000),
       });
 
-      logger.log('[SendDM] Created Kind 13 Seal:', seal);
+      // Seal for sender (encrypted to us)
+      const senderSeal = await user.signer.signEvent({
+        kind: 13,
+        content: await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(privateDM)),
+        tags: [], // Seal events typically have no tags
+        created_at: Math.floor(Date.now() / 1000),
+      });
+
+
 
       // Step 3: Create TWO Kind 1059 Gift Wrap events
       // One for the recipient, one for myself (so I can see sent messages)
-      
-      // Generate a random recipient pubkey for metadata hiding
-      const randomBytes = new Uint8Array(32);
-      crypto.getRandomValues(randomBytes);
-      const randomRecipient = Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
 
-      // Gift Wrap for recipient
+      // Gift Wrap for recipient - they should be able to find it via their pubkey in p tag
       const recipientGiftWrap = await createEvent({
         kind: 1059, // Gift Wrap
-        content: await user.signer.nip44.encrypt(recipientPubkey, JSON.stringify(seal)),
-        tags: [["p", randomRecipient]], // Random recipient for metadata hiding
+        content: await user.signer.nip44.encrypt(recipientPubkey, JSON.stringify(recipientSeal)),
+        tags: [["p", recipientPubkey]], // Recipient can find this via their pubkey
       });
 
-      // Gift Wrap for myself
+      // Gift Wrap for myself - I should be able to find it via my pubkey in p tag
       const myGiftWrap = await createEvent({
         kind: 1059, // Gift Wrap
-        content: await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(seal)),
-        tags: [["p", randomRecipient]], // Random recipient for metadata hiding
+        content: await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(senderSeal)),
+        tags: [["p", user.pubkey]], // I can find this via my pubkey
       });
 
-      logger.log('[SendDM] Created NIP-17 Gift Wrap for recipient:', recipientGiftWrap);
-      logger.log('[SendDM] Created NIP-17 Gift Wrap for myself:', myGiftWrap);
+
       
       return { recipientGiftWrap, myGiftWrap };
     },

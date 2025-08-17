@@ -36,7 +36,10 @@ async function decryptGiftWrapMessage(
   giftWrap: NostrEvent,
   user: NUser
 ): Promise<{ messageEvent: NostrEvent; conversationPartner: string } | null> {
+
+  
   if (!user.signer?.nip44) {
+    logger.error('[NIP17-DECRYPT] No NIP-44 signer available');
     return null;
   }
 
@@ -52,33 +55,54 @@ async function decryptGiftWrapMessage(
     try {
       sealEvent = JSON.parse(decryptedContent) as NostrEvent;
       if (sealEvent.kind !== 13) {
+        logger.error('[NIP17-DECRYPT] Not a valid Seal (kind !== 13), got kind:', sealEvent.kind);
         return null; // Not a valid Seal
       }
-    } catch {
+    } catch (error) {
+      logger.error('[NIP17-DECRYPT] Failed to parse seal JSON:', error);
       return null; // Not JSON or not a valid Seal
     }
+  
+  // Step 3: Decrypt the Seal to get the actual message (Kind 14)
+  // The seal should be encrypted to the gift wrap recipient (the p tag)
+  const giftWrapRecipient = giftWrap.tags.find(([name]) => name === 'p')?.[1];
+  if (!giftWrapRecipient) {
+    logger.error('[NIP17-DECRYPT] No p tag found in gift wrap');
+    return null;
+  }
+  
+  const decryptedMessageContent = await user.signer.nip44.decrypt(
+    giftWrapRecipient,
+    sealEvent.content
+  );
+  
+  const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
     
-    // Step 3: Decrypt the Seal to get the actual message (Kind 14)
-    const decryptedMessageContent = await user.signer.nip44.decrypt(
-      sealEvent.pubkey,
-      sealEvent.content
-    );
-    
-    const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
-    
-    // Validate that we got a Private DM (Kind 14)
-    if (messageEvent.kind !== 14) {
-      return null;
-    }
+  // Validate that we got a Private DM (Kind 14)
+  if (messageEvent.kind !== 14) {
+    logger.error('[NIP17-DECRYPT] Not a valid Private DM (kind !== 14), got kind:', messageEvent.kind);
+    return null;
+  }
 
-    // Extract conversation partner (author of the Seal)
-    const conversationPartner = sealEvent.pubkey;
-    
-    if (!conversationPartner || conversationPartner === user.pubkey) {
-      return null;
+  // Extract conversation partner
+  // For received messages: conversation partner is the seal author (sender)
+  // For sent messages: seal author is us, so get partner from the Private DM's p tag
+  let conversationPartner: string;
+  
+  if (sealEvent.pubkey === user.pubkey) {
+    // This is a message we sent - get recipient from Private DM's p tag
+    const recipientPTag = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+    if (!recipientPTag || recipientPTag === user.pubkey) {
+      logger.error('[NIP17-DECRYPT] Invalid recipient in sent message - p tag:', recipientPTag);
+      return null; // Invalid recipient
     }
-
-    return { messageEvent, conversationPartner };
+    conversationPartner = recipientPTag;
+  } else {
+    // This is a message we received - sender is the seal author
+    conversationPartner = sealEvent.pubkey;
+  }
+  
+  return { messageEvent, conversationPartner };
   } catch (error) {
     logger.error(`[NIP17] Failed to decrypt Gift Wrap message:`, error);
     return null;
@@ -95,21 +119,42 @@ async function processNewGiftWrapMessage(
   queryClient: QueryClient
 ): Promise<void> {
   const decrypted = await decryptGiftWrapMessage(giftWrap, user);
-  if (!decrypted) return;
+  if (!decrypted) {
+    logger.error('[NIP17-PROCESS] Failed to decrypt gift wrap:', giftWrap.id);
+    return;
+  }
 
   const { messageEvent, conversationPartner } = decrypted;
-  
-  logger.log(`[NIP17] Processing new real-time message from ${conversationPartner}`);
 
   // Update the cache directly (like channels do)
   queryClient.setQueryData(['nip17-all-messages', user.pubkey], (oldData: NIP17MessageStore | undefined) => {
-    if (!oldData) return oldData;
+    // Handle case where cache doesn't exist yet
+    if (!oldData) {
+      return {
+        conversations: new Map([[conversationPartner, {
+          id: conversationPartner,
+          pubkey: conversationPartner,
+          lastMessage: messageEvent,
+          lastActivity: messageEvent.created_at,
+          hasNIP4Messages: false,
+          hasNIP17Messages: true,
+          recentMessages: [messageEvent],
+        }]]),
+        allMessages: new Map([[conversationPartner, [messageEvent]]]),
+      };
+    }
     
     const updatedConversations = new Map(oldData.conversations);
     const updatedAllMessages = new Map(oldData.allMessages);
     
     // Add to full message history with optimistic update support
     const existingMessages = updatedAllMessages.get(conversationPartner) || [];
+    
+    // Check if this message already exists (prevent duplicates)
+    const existingMessageIndex = existingMessages.findIndex(msg => msg.id === messageEvent.id);
+    if (existingMessageIndex !== -1) {
+      return oldData; // Return unchanged data
+    }
     
     // Check if this real message should replace an optimistic message
     const optimisticMessageIndex = existingMessages.findIndex(msg =>
@@ -129,7 +174,6 @@ async function processNewGiftWrapMessage(
         clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
       };
       newMessages = updatedMessages.sort((a, b) => a.created_at - b.created_at);
-      logger.log(`[NIP17] Replaced optimistic message with real message: ${messageEvent.id}`);
     } else {
       // No optimistic message to replace, add as new message
       const now = Date.now();
@@ -165,8 +209,6 @@ async function processNewGiftWrapMessage(
         recentMessages: [messageEvent],
       });
     }
-    
-    logger.log(`[NIP17] Updated conversation ${conversationPartner} with new message`);
     
     return {
       conversations: updatedConversations,
@@ -344,21 +386,26 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
         since: sinceTimestamp,
       }];
 
-      logger.log(`[NIP17] Starting real-time subscription for new Gift Wrap messages since ${sinceTimestamp}`);
+
 
       try {
         const subscription = nostr.req(subscriptionFilters);
         let isActive = true;
+        const processedEventIds = new Set<string>(); // Track processed events to prevent duplicates
 
         // Process messages
         (async () => {
           try {
             for await (const message of subscription) {
               if (!isActive) break;
-              logger.log(`[NIP17] Subscription received message:`, message);
               if (message[0] === 'EVENT') {
                 const event = message[2];
-                logger.log(`[NIP17] Processing new Gift Wrap event:`, event);
+                
+                // Skip if we've already processed this event
+                if (processedEventIds.has(event.id)) {
+                  continue;
+                }
+                processedEventIds.add(event.id);
                 
                 try {
                   // Decrypt and add new Gift Wrap message to cache (like channels do)
@@ -378,7 +425,6 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
         subscriptionRef.current = {
           close: () => {
             isActive = false;
-            logger.log('[NIP17] Subscription closed');
           }
         };
       } catch (error) {
@@ -392,7 +438,6 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
     return () => {
       if (subscriptionRef.current) {
         subscriptionRef.current.close();
-        logger.log('[NIP17] Closed subscription on cleanup');
       }
     };
   }, [user, enabled, query.data, nostr, queryClient]);
