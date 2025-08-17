@@ -41,6 +41,8 @@ interface BaseMessageInputProps {
   // Thread context props
   rootMessage?: NostrEvent;
   threadReplies?: NostrEvent[];
+  // Protocol selector for DM
+  protocolSelector?: React.ReactNode;
 }
 
 export function BaseMessageInput({
@@ -56,6 +58,7 @@ export function BaseMessageInput({
   onJoinRequest,
   rootMessage,
   threadReplies,
+  protocolSelector,
 }: BaseMessageInputProps) {
   const [message, setMessage] = useState("");
   const [showEmojiAutocomplete, setShowEmojiAutocomplete] = useState(false);
@@ -678,6 +681,7 @@ export function BaseMessageInput({
           disabled={isSending}
           rows={1}
         />
+        {protocolSelector}
         {config.allowEmoji && (
           <EmojiPickerComponent
             onEmojiSelect={handleEmojiSelect}

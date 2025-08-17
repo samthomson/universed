@@ -6,16 +6,17 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessagesForChatWithPagination, useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDirectMessagesForChatWithPagination, useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
   dmMessageItemConfig,
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
+import { ProtocolSelector } from "./ProtocolSelector";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 
 
 interface DMChatAreaProps {
@@ -89,11 +90,12 @@ export function DMChatArea(
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
+  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(MESSAGE_PROTOCOL.NIP04);
 
   const displayName = metadata?.name || genUserName(conversationId);
 
   // Memoize query key to prevent unnecessary re-renders (like ChatArea.tsx)
-  const queryKey = useMemo(() => ['dm-unified-messages', user!.pubkey, conversationId], [user?.pubkey, conversationId]);
+  const queryKey = useMemo(() => ['dm-unified-messages', user!.pubkey, conversationId], [user, conversationId]);
 
   // Memoize input placeholder to prevent re-renders
   const inputPlaceholder = useMemo(() => `Message ${displayName}`, [displayName]);
@@ -106,15 +108,24 @@ export function DMChatArea(
     />
   ), [conversationId, onBack]);
 
+  // Memoize protocol selector to prevent re-renders
+  const protocolSelector = useMemo(() => (
+    <ProtocolSelector
+      selectedProtocol={selectedProtocol}
+      onProtocolChange={setSelectedProtocol}
+    />
+  ), [selectedProtocol]);
+
   const handleSendMessage = useCallback(async (content: string) => {
     await sendMessage({
       recipientPubkey: conversationId,
       content,
+      protocol: selectedProtocol,
     });
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  }, [sendMessage, conversationId, onMessageSent]);
+  }, [sendMessage, conversationId, onMessageSent, selectedProtocol]);
 
   const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
@@ -169,6 +180,7 @@ export function DMChatArea(
       hasMoreMessages={hasMoreMessages}
       loadingOlderMessages={loadingOlderMessages}
       onLoadOlderMessages={loadOlderMessages}
+      protocolSelector={protocolSelector}
     />
   );
 }
