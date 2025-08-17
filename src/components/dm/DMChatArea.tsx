@@ -150,8 +150,11 @@ export function DMChatArea(
     }
   }, [user, createEvent, toast]);
 
+  // The key prop forces React to recreate the component when conversation changes
+  // This prevents showing previous conversation messages during transitions
   return (
     <BaseChatArea
+      key={conversationId}
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
