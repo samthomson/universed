@@ -136,8 +136,9 @@ function BaseMessageItemComponent({
   return (
     <div
       className={cn(
-        "group relative transition-all duration-200 w-full px-4 py-2",
+        "group relative transition-all duration-200 w-full px-4 py-2 flex",
         {
+          "justify-end": shouldAlignRight, // Container for right-aligned messages,
           "mt-4": showAvatar,
           "opacity-50": isSending,
           "new-message-animation": isNew && !isSending,
@@ -300,7 +301,7 @@ function BaseMessageItemComponent({
             showAvatar
               ? "-top-2"
               : "top-1/2 -translate-y-1/2",
-            shouldAlignRight ? "left-4" : "right-4" // Position buttons on left for my messages
+            shouldAlignRight ? "-left-[calc(100%-80%+1rem)]" : "right-0" // Position at the far edges
           )}>
             {config.showThreadReply && (
               <Button
