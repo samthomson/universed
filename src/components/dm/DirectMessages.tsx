@@ -120,7 +120,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       isLoading={false}
       isVirtualized={true}
     />
-      <div className="absolute bottom-4 right-2 flex items-center space-x-1 pointer-events-none">
+      <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
         {conversation.hasNIP4Messages && (
           <div 
             className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}

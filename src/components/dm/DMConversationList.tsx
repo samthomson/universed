@@ -87,7 +87,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
                 displayName
               )}
             </span>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 min-w-[50px] justify-end">
               {conversation.unreadCount > 0 && (
                 <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
                   {conversation.unreadCount}
@@ -99,7 +99,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
             </div>
           </div>
 
-            <div className="text-sm text-gray-400 truncate mt-0.5">
+            <div className="text-sm text-gray-400 truncate mt-0.5 pr-8">
               {searchQuery && conversation.lastMessage?.content && conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ? (
                 highlightText(getDisplayContent(), searchQuery)
               ) : (
