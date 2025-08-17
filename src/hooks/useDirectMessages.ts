@@ -292,20 +292,21 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
   logger.log(`[DMCHAT] NIP-4 messages loading: ${nip4Messages.isLoading}, count: ${nip4Messages.messages?.length || 0}`);
   logger.log(`[DMCHAT] NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
   
+  // Memoize the message arrays to prevent unnecessary re-renders
+  const stableNip4Messages = useMemo(() => nip4Messages.messages || [], [nip4Messages.messages]);
+  const stableNip17Messages = useMemo(() => nip17Messages.messages || [], [nip17Messages.messages]);
+
   // Combine, sort, and limit messages from both sources
   const combinedResult = useMemo(() => {
     const MESSAGES_PER_PAGE = 100;
     
-    const nip4Count = nip4Messages.messages?.length || 0;
-    const nip17Count = nip17Messages.messages?.length || 0;
+    const nip4Count = stableNip4Messages.length;
+    const nip17Count = stableNip17Messages.length;
     
     logger.log(`[DMCHAT] Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
     
     // Combine all messages
-    const combined = [
-      ...(nip4Messages.messages || []),
-      ...(nip17Messages.messages || [])
-    ];
+    const combined = [...stableNip4Messages, ...stableNip17Messages];
     
     logger.log(`[DMCHAT] Total combined messages: ${combined.length}`);
     
@@ -332,7 +333,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
       hasMore,
       oldestDisplayed: chronological.length > 0 ? chronological[0].created_at : undefined,
     };
-  }, [nip4Messages.messages, nip17Messages.messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages]);
+  }, [stableNip4Messages, stableNip17Messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages]);
 
   return {
     data: combinedResult.messages,
