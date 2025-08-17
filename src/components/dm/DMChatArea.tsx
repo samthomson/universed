@@ -90,7 +90,7 @@ export function DMChatArea(
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(MESSAGE_PROTOCOL.NIP04);
+  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(MESSAGE_PROTOCOL.NIP17);
 
   const displayName = metadata?.name || genUserName(conversationId);
 
