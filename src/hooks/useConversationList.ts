@@ -46,7 +46,7 @@ export function useConversationList() {
   // Check a batch of people for DM conversations
   const checkBatchForConversations = useCallback(async (
     people: Array<{ pubkey: string }>, 
-    batchSize = 20
+    batchSize = 20 // Back to 20 - batch size doesn't affect network load, just UI update frequency
   ): Promise<ConversationCandidate[]> => {
     if (!user) return [];
 
@@ -61,7 +61,7 @@ export function useConversationList() {
       const batchQueries = batch.map(person => nostr.query([
         { kinds, authors: [person.pubkey], '#p': [user.pubkey], limit: 1 },
         { kinds, authors: [user.pubkey], '#p': [person.pubkey], limit: 1 }
-      ]));
+      ], { signal: AbortSignal.timeout(5000) })); // 5 second timeout per query
 
       const batchResults = await Promise.allSettled(batchQueries);
       
@@ -84,6 +84,10 @@ export function useConversationList() {
               hasNIP17Messages: dmEvents.some(dm => dm.kind === 1059),
             });
           }
+        } else if (result.status === 'rejected') {
+          // Log failed queries for debugging
+          const person = batch[batchIndex];
+          logger.error(`[ConversationDiscovery] Failed to query DMs for ${person.pubkey}:`, result.reason);
         }
       });
 
@@ -92,7 +96,7 @@ export function useConversationList() {
       
       // Small delay between batches to be nice to relays
       if (i + batchSize < people.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100)); // Back to 100ms - delay doesn't help with concurrent queries
       }
     }
 
