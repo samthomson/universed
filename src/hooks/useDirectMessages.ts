@@ -5,8 +5,32 @@ import { useNIP17DirectMessages } from './useNIP17DirectMessages';
 import { useNIP17ConversationData } from './useNIP17ConversationData';
 import { useSendDM } from './useSendDM';
 import { useMemo, useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentUser } from './useCurrentUser';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@nostrify/nostrify';
+
+// Extended NostrEvent type for optimistic updates
+interface OptimisticNostrEvent extends NostrEvent {
+  isSending?: boolean;
+  clientFirstSeen?: number;
+}
+
+// NIP-17 message store interface
+interface ConversationCandidate {
+  id: string;
+  pubkey: string;
+  lastMessage?: NostrEvent;
+  lastActivity: number;
+  hasNIP4Messages: boolean;
+  hasNIP17Messages: boolean;
+  recentMessages: NostrEvent[];
+}
+
+interface NIP17MessageStore {
+  conversations: Map<string, ConversationCandidate>;
+  allMessages: Map<string, NostrEvent[]>;
+}
 
 // Message protocol types
 export const MESSAGE_PROTOCOL = {
@@ -74,6 +98,8 @@ export function useDirectMessages() {
   const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', true);
   const conversationList = useConversationList();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
+  const queryClient = useQueryClient();
+  const { user } = useCurrentUser();
   
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
@@ -267,16 +293,92 @@ export function useDirectMessages() {
   const sendMessage = async (params: SendMessageParams) => {
     const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
     
+    if (!user) {
+      throw new Error('User must be logged in to send messages');
+    }
+    
     logger.log(`[DirectMessages] Sending message via ${protocol} to ${recipientPubkey}`);
+    
+    // Add optimistic update for NIP-17 messages
+    if (protocol === MESSAGE_PROTOCOL.NIP17) {
+      // Create optimistic message event
+      const optimisticMessage: OptimisticNostrEvent = {
+        id: `optimistic-${Date.now()}-${Math.random()}`,
+        kind: 14, // Private DM
+        content,
+        tags: [['p', recipientPubkey]],
+        created_at: Math.floor(Date.now() / 1000),
+        pubkey: user.pubkey,
+        sig: '',
+        isSending: true, // Mark as optimistic
+        clientFirstSeen: Date.now(), // For animation
+      };
+
+      // Add optimistic message to NIP-17 cache
+      queryClient.setQueryData(['nip17-all-messages', user.pubkey], (oldData: NIP17MessageStore | undefined) => {
+        if (!oldData) {
+          return {
+            conversations: new Map([[recipientPubkey, {
+              id: recipientPubkey,
+              pubkey: recipientPubkey,
+              lastMessage: optimisticMessage,
+              lastActivity: optimisticMessage.created_at,
+              hasNIP4Messages: false,
+              hasNIP17Messages: true,
+              recentMessages: [optimisticMessage],
+            }]]),
+            allMessages: new Map([[recipientPubkey, [optimisticMessage]]]),
+          };
+        }
+
+        const updatedConversations = new Map(oldData.conversations);
+        const updatedAllMessages = new Map(oldData.allMessages);
+        
+        // Add to message history
+        const existingMessages = updatedAllMessages.get(recipientPubkey) || [];
+        const newMessages = [...existingMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+        updatedAllMessages.set(recipientPubkey, newMessages);
+        
+        // Update conversation summary
+        const existingConvo = updatedConversations.get(recipientPubkey);
+        if (existingConvo) {
+          const updatedConvo: ConversationCandidate = {
+            ...existingConvo,
+            lastMessage: optimisticMessage,
+            lastActivity: optimisticMessage.created_at,
+            recentMessages: newMessages
+              .sort((a, b) => b.created_at - a.created_at)
+              .slice(0, 10),
+          };
+          updatedConversations.set(recipientPubkey, updatedConvo);
+        } else {
+          updatedConversations.set(recipientPubkey, {
+            id: recipientPubkey,
+            pubkey: recipientPubkey,
+            lastMessage: optimisticMessage,
+            lastActivity: optimisticMessage.created_at,
+            hasNIP4Messages: false,
+            hasNIP17Messages: true,
+            recentMessages: [optimisticMessage],
+          });
+        }
+        
+        return {
+          conversations: updatedConversations,
+          allMessages: updatedAllMessages,
+        };
+      });
+
+      // Send the actual message
+      return await sendNIP17Message.mutateAsync({
+        recipientPubkey,
+        content,
+      });
+    }
     
     // Clean protocol selection - no messy if/else chains
     if (protocol === MESSAGE_PROTOCOL.NIP04) {
       return await sendNIP4Message.mutateAsync({
-        recipientPubkey,
-        content,
-      });
-    } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
-      return await sendNIP17Message.mutateAsync({
         recipientPubkey,
         content,
       });

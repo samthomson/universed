@@ -8,6 +8,12 @@ import { useEffect, useRef, useMemo } from 'react';
 import type { NostrEvent } from '@/types/nostr';
 import type { NUser } from '@nostrify/react/login';
 
+// Extended NostrEvent type for optimistic updates
+interface OptimisticNostrEvent extends NostrEvent {
+  isSending?: boolean;
+  clientFirstSeen?: number;
+}
+
 interface ConversationCandidate {
   id: string;
   pubkey: string;
@@ -20,7 +26,7 @@ interface ConversationCandidate {
 
 interface NIP17MessageStore {
   conversations: Map<string, ConversationCandidate>;
-  allMessages: Map<string, NostrEvent[]>; // pubkey -> messages for that conversation
+  allMessages: Map<string, OptimisticNostrEvent[]>; // pubkey -> messages for that conversation (can include optimistic)
 }
 
 // Constants for NIP-17 scanning (internal to this hook)
@@ -167,6 +173,7 @@ async function processNewGiftWrapMessage(
     let newMessages: NostrEvent[];
     if (optimisticMessageIndex !== -1) {
       // Replace the optimistic message with the real one (preserve animation timestamp)
+      logger.log(`[NIP17-PROCESS] Replacing optimistic message at index ${optimisticMessageIndex} with real message ${messageEvent.id}`);
       const updatedMessages = [...existingMessages];
       const existingMessage = updatedMessages[optimisticMessageIndex];
       updatedMessages[optimisticMessageIndex] = {
@@ -356,11 +363,8 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
   }
 
   // Real-time subscription for new NIP-17 messages
-  const hasStartedSubscription = useRef(false);
   useEffect(() => {
-    if (!user || !enabled || !query.data || hasStartedSubscription.current) return;
-    
-    hasStartedSubscription.current = true;
+    if (!user || !enabled || !query.data) return;
 
     const startSubscription = async () => {
       // Cancel existing subscription
@@ -377,8 +381,11 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
       if (allConversations.length > 0) {
         const mostRecent = allConversations.reduce((latest, conv) => 
           conv.lastActivity > latest ? conv.lastActivity : latest, 0);
-        sinceTimestamp = mostRecent;
+        // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
+        sinceTimestamp = mostRecent - 60;
       }
+      
+
 
       const subscriptionFilters = [{
         kinds: [1059], // NIP-17 Gift Wrap messages
