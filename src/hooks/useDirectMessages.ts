@@ -129,13 +129,13 @@ export function useDirectMessages() {
     // Merge and deduplicate by pubkey
     const conversationMap = new Map();
     
-    // Add friend-based conversations first (they have priority)
+    // Add friend-based conversations first (for discovery, but messages will be overridden)
     friendBasedConvos.forEach(conv => {
       conversationMap.set(conv.pubkey, {
         id: conv.pubkey,
         name: undefined,
         picture: undefined,
-        lastMessage: conv.lastMessage,
+        lastMessage: conv.lastMessage, // This is encrypted, will be overridden by comprehensive scans
         lastActivity: conv.lastActivity,
         unreadCount: 0,
         hasNIP4Messages: conv.hasNIP4Messages,
@@ -144,20 +144,31 @@ export function useDirectMessages() {
       });
     });
     
-    // Add comprehensive NIP-4 conversations (don't override existing ones)
+    // Add comprehensive NIP-4 conversations (OVERRIDE existing ones with decrypted data)
     nip4ComprehensiveConvos.forEach(conv => {
-      if (!conversationMap.has(conv.pubkey)) {
+      const existing = conversationMap.get(conv.pubkey);
+      if (!existing) {
+        // New conversation from NIP-4 only
         conversationMap.set(conv.pubkey, {
           id: conv.pubkey,
           name: undefined,
           picture: undefined,
-          lastMessage: conv.lastMessage,
+          lastMessage: conv.lastMessage, // Decrypted
           lastActivity: conv.lastActivity,
           unreadCount: 0,
           hasNIP4Messages: conv.hasNIP4Messages,
           hasNIP17Messages: conv.hasNIP17Messages,
-          recentMessages: conv.recentMessages || [], // Include recent messages for instant loading
+          recentMessages: conv.recentMessages || [],
         });
+      } else {
+        // Override friend-based data with decrypted NIP-4 data
+        existing.hasNIP4Messages = existing.hasNIP4Messages || conv.hasNIP4Messages;
+        // Update with decrypted message if NIP-4 message is more recent or if existing is encrypted
+        if (conv.lastActivity >= existing.lastActivity) {
+          existing.lastMessage = conv.lastMessage; // Use decrypted message
+          existing.lastActivity = conv.lastActivity;
+        }
+        existing.recentMessages = conv.recentMessages || [];
       }
     });
     
