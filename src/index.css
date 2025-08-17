@@ -747,6 +747,26 @@
     animation: rocketLanding 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
 
+  /* Drag and drop animations for communities */
+  @keyframes drag-feedback {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  .drag-feedback {
+    animation: drag-feedback 0.3s ease-in-out;
+  }
+
+  /* Improved cursor states for drag interactions */
+  .cursor-grab {
+    cursor: grab;
+  }
+
+  .cursor-grabbing {
+    cursor: grabbing;
+  }
+
   @keyframes rocketLanding {
     0% {
       transform: translateY(-30px) scale(1.1);
