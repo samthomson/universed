@@ -38,14 +38,20 @@ export function getMessageProtocol(kind: number): MessageProtocol {
 export const PROTOCOL_CONFIG = {
   [MESSAGE_PROTOCOL.NIP04]: {
     color: 'bg-orange-500',
+    textColor: 'text-orange-600 dark:text-orange-400',
+    label: 'NIP-04',
     title: 'NIP-04 encrypted message'
   },
   [MESSAGE_PROTOCOL.NIP17]: {
-    color: 'bg-purple-500', 
+    color: 'bg-purple-500',
+    textColor: 'text-purple-600 dark:text-purple-400',
+    label: 'NIP-17',
     title: 'NIP-44/NIP-17 encrypted message'
   },
   [MESSAGE_PROTOCOL.UNKNOWN]: {
     color: 'bg-gray-400',
+    textColor: 'text-gray-600 dark:text-gray-400',
+    label: 'Unknown',
     title: 'Unknown message type'
   }
 } as const;
