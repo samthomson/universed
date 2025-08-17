@@ -61,7 +61,7 @@ export function useConversationList() {
       const batchQueries = batch.map(person => nostr.query([
         { kinds, authors: [person.pubkey], '#p': [user.pubkey], limit: 1 },
         { kinds, authors: [user.pubkey], '#p': [person.pubkey], limit: 1 }
-      ], { signal: AbortSignal.timeout(5000) })); // 5 second timeout per query
+      ], { signal: AbortSignal.timeout(2000) })); // 2 second timeout per query - fast since we hit every contact
 
       const batchResults = await Promise.allSettled(batchQueries);
       
