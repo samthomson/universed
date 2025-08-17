@@ -222,9 +222,7 @@ function BaseMessageItemComponent({
               </span>
             </div>
           )}
-          <div className={cn("text-gray-900 dark:text-gray-100 break-words", {
-            "text-right": shouldAlignRight, // Right-align content for my messages
-          })}>
+          <div className="text-gray-900 dark:text-gray-100 break-word whitespace-pre-wrap">
             <div className="flex items-center gap-2">
               {(() => {
                 // Check if this is a marketplace item message
