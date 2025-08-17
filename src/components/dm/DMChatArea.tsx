@@ -154,7 +154,7 @@ export function DMChatArea(
   // This prevents showing previous conversation messages during transitions
   return (
     <BaseChatArea
-      key={conversationId}
+      key={conversationId} // Force component remount when conversation changes
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}

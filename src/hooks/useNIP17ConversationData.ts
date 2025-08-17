@@ -3,8 +3,18 @@ import { useCurrentUser } from './useCurrentUser';
 import { useMemo } from 'react';
 import type { NostrEvent } from '@/types/nostr';
 
+interface ConversationCandidate {
+  id: string;
+  pubkey: string;
+  lastMessage?: NostrEvent;
+  lastActivity: number;
+  hasNIP4Messages: boolean;
+  hasNIP17Messages: boolean;
+  recentMessages: NostrEvent[];
+}
+
 interface NIP17MessageStore {
-  conversations: Map<string, any>;
+  conversations: Map<string, ConversationCandidate>;
   allMessages: Map<string, NostrEvent[]>; // pubkey -> messages for that conversation
 }
 
@@ -34,11 +44,11 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
     if (!nip17Data) {
       return {
         messages: [],
-        isLoading: true, // Still loading the global data
+        isLoading: false, // Don't block on missing cache data - let NIP-4 messages show
         hasMoreMessages: false,
         loadingOlderMessages: false,
         loadOlderMessages: async () => {},
-        reachedStartOfConversation: false,
+        reachedStartOfConversation: true,
       };
     }
 
