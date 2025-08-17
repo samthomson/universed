@@ -330,57 +330,63 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       </div>
     );
   }
+  const hideOldSidebar = true;
 
   // Desktop layout
   return (
     <div className="flex h-full">
       {/* Sidebar */}
-      <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-600">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-white">Messages</h2>
-                            <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-6 h-6 hover:bg-gray-800/60"
-                  onClick={handleNewDM}
-                >
-              <Plus className="w-4 h-4" />
-            </Button>
+      {!hideOldSidebar && (
+        <>       
+          <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-600">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-white">Messages</h2>
+                                <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-6 h-6 hover:bg-gray-800/60"
+                      onClick={handleNewDM}
+                    >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Tabs */}
+              <DMTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+
+              {/* Search */}
+              <div className="relative mt-3">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search conversations"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Current Conversation List */}
+            <div className="flex-1 overflow-hidden px-1">
+              <Virtuoso
+                data={conversations}
+                itemContent={desktopItemContent}
+                components={desktopComponents}
+                className="h-full scrollbar-thin"
+              />
+            </div>
+
+            {/* User Panel at the bottom */}
+            <UserPanel />
           </div>
+        </>
+      )}
 
-          {/* Tabs */}
-          <DMTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
-
-          {/* Search */}
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search conversations"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
-            />
-          </div>
-        </div>
-
-        {/* Current Conversation List */}
-        <div className="flex-1 overflow-hidden px-1">
-          <Virtuoso
-            data={conversations}
-            itemContent={desktopItemContent}
-            components={desktopComponents}
-            className="h-full scrollbar-thin"
-          />
-        </div>
-
-        {/* User Panel at the bottom */}
-        <UserPanel />
-      </div>
       {/* sidebar 2? */}
       <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
         {/* Header */}
