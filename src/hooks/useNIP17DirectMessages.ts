@@ -5,7 +5,7 @@ import { logger } from '@/lib/logger';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 import { useEffect, useRef, useMemo } from 'react';
 
-import type { NostrEvent } from '@nostrify/nostrify';
+import type { NostrEvent } from '@/types/nostr';
 import type { NUser } from '@nostrify/react/login';
 
 interface ConversationCandidate {
@@ -108,9 +108,40 @@ async function processNewGiftWrapMessage(
     const updatedConversations = new Map(oldData.conversations);
     const updatedAllMessages = new Map(oldData.allMessages);
     
-    // Add to full message history
+    // Add to full message history with optimistic update support
     const existingMessages = updatedAllMessages.get(conversationPartner) || [];
-    const newMessages = [...existingMessages, messageEvent].sort((a, b) => a.created_at - b.created_at);
+    
+    // Check if this real message should replace an optimistic message
+    const optimisticMessageIndex = existingMessages.findIndex(msg =>
+      msg.isSending &&
+      msg.pubkey === messageEvent.pubkey &&
+      msg.content === messageEvent.content &&
+      Math.abs(msg.created_at - messageEvent.created_at) <= 30 // 30 second window
+    );
+
+    let newMessages: NostrEvent[];
+    if (optimisticMessageIndex !== -1) {
+      // Replace the optimistic message with the real one (preserve animation timestamp)
+      const updatedMessages = [...existingMessages];
+      const existingMessage = updatedMessages[optimisticMessageIndex];
+      updatedMessages[optimisticMessageIndex] = {
+        ...messageEvent,
+        clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+      };
+      newMessages = updatedMessages.sort((a, b) => a.created_at - b.created_at);
+      logger.log(`[NIP17] Replaced optimistic message with real message: ${messageEvent.id}`);
+    } else {
+      // No optimistic message to replace, add as new message
+      const now = Date.now();
+      const eventAge = now - (messageEvent.created_at * 1000);
+      const isRecentMessage = eventAge < 10000; // 10 seconds threshold
+      
+      newMessages = [...existingMessages, {
+        ...messageEvent,
+        clientFirstSeen: isRecentMessage ? now : undefined
+      }].sort((a, b) => a.created_at - b.created_at);
+    }
+    
     updatedAllMessages.set(conversationPartner, newMessages);
     
     // Update conversation summary

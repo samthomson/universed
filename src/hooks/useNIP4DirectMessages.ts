@@ -1,12 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { validateDMEvent } from './useAllDMs';
 import { logger } from '@/lib/logger';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useCallback } from 'react';
 
-import type { NostrEvent } from '@nostrify/nostrify';
+import type { NostrEvent } from '@/types/nostr';
 
 interface ConversationCandidate {
   id: string;
@@ -23,6 +23,9 @@ const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process (increased
 const SCAN_BATCH_SIZE = 1000;    // Messages per batch request (increased from 500)  
 const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
 
+// Consider messages "recent" if they're less than 10 seconds old
+const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
+
 /**
  * Hook for NIP-4 (Kind 4) direct messages.
  * Handles legacy encrypted DMs with efficient participant filtering.
@@ -31,6 +34,8 @@ const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
 export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = false, until?: number) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const subscriptionRef = useRef<{ close: () => void } | null>(null);
   
   // Query for all NIP-4 messages (discovery mode) or specific conversation
   const query = useQuery({
@@ -261,6 +266,162 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
   if (isDiscoveryMode && query.data && !query.isLoading && Array.isArray(query.data)) {
     logger.log(`[NIP4] Using cached data: ${query.data.length} conversations found`);
   }
+
+  // Handle new real-time NIP-4 messages for specific conversations (like channels do)
+  const handleNewMessage = useCallback(async (event: NostrEvent) => {
+    if (!user || isDiscoveryMode || !conversationId) return;
+    if (!validateDMEvent(event)) return;
+
+    // Check if this message is for this conversation
+    const isFromUser = event.pubkey === user.pubkey;
+    const isFromPartner = event.pubkey === conversationId;
+    const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] || "";
+    const isToUser = recipientPTag === user.pubkey;
+    const isToPartner = recipientPTag === conversationId;
+
+    if (!((isFromUser && isToPartner) || (isFromPartner && isToUser))) return;
+
+    // Decrypt the new NIP-4 message
+    let decryptedContent: string;
+    try {
+      if (user.signer?.nip04) {
+        const otherPubkey = isFromUser ? conversationId : event.pubkey;
+        decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
+      } else {
+        logger.error(`[NIP4] No NIP-04 decryption available for real-time message ${event.id}`);
+        decryptedContent = '[No decryption method available]';
+      }
+    } catch (error) {
+      logger.error(`[NIP4] Failed to decrypt real-time message ${event.id}:`, error);
+      decryptedContent = '[Unable to decrypt message]';
+    }
+
+    // Create decrypted message
+    const decryptedEvent: NostrEvent = {
+      ...event,
+      content: decryptedContent,
+    };
+
+    // Update the query cache (like channels do)
+    const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
+    queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
+      const now = Date.now();
+      const eventAge = now - (event.created_at * 1000);
+      const isRecentMessage = eventAge < RECENT_MESSAGE_THRESHOLD;
+
+      if (!oldMessages) {
+        return [{ ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }];
+      }
+
+      // Skip if we already have this real message (not optimistic)
+      if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
+
+      // Check if this real message should replace an optimistic message
+      // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
+      const optimisticMessageIndex = oldMessages.findIndex(msg =>
+        msg.isSending &&
+        msg.pubkey === event.pubkey &&
+        msg.content === decryptedEvent.content &&
+        Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
+      );
+
+      if (optimisticMessageIndex !== -1) {
+        // Replace the optimistic message with the real one (keep existing animation timestamp)
+        const updatedMessages = [...oldMessages];
+        const existingMessage = updatedMessages[optimisticMessageIndex];
+        updatedMessages[optimisticMessageIndex] = {
+          ...decryptedEvent,
+          clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+        };
+        logger.log(`[NIP4] Replaced optimistic message with real message: ${event.id}`);
+        return updatedMessages.sort((a, b) => a.created_at - b.created_at);
+      }
+
+      // No optimistic message to replace, add as new message (only animate if recent)
+      return [...oldMessages, { ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at);
+    });
+
+    logger.log(`[NIP4] New real-time message: ${event.id}`);
+  }, [user, conversationId, isDiscoveryMode, until, queryClient]);
+
+  // Start real-time subscription for specific conversations (like channels do)
+  const startSubscription = useCallback(async () => {
+    if (!user || isDiscoveryMode || !conversationId) return;
+
+    try {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.close();
+      }
+
+      // Real-time subscription: Get messages since the most recent message we have
+      const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
+      const existingMessages = queryClient.getQueryData<NostrEvent[]>(queryKey);
+      const sinceTimestamp = (existingMessages && existingMessages.length > 0)
+        ? existingMessages.reduce((latest, msg) => 
+            msg.created_at > latest.created_at ? msg : latest, existingMessages[0]).created_at
+        : Math.floor(Date.now() / 1000);
+
+      const filters = [
+        {
+          kinds: [4], // NIP-4 DMs sent to us
+          '#p': [user.pubkey],
+          authors: [conversationId],
+          since: sinceTimestamp,
+        },
+        {
+          kinds: [4], // NIP-4 DMs sent by us
+          authors: [user.pubkey],
+          '#p': [conversationId],
+          since: sinceTimestamp,
+        }
+      ];
+
+      logger.log(`[NIP4] Starting real-time subscription for conversation ${conversationId}`);
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              handleNewMessage(msg[2]);
+            }
+          }
+        } catch (error) {
+          logger.warn('[NIP4] Subscription error:', error);
+        }
+      })();
+
+      subscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log(`[NIP4] Subscription closed for conversation ${conversationId}`);
+        }
+      };
+
+    } catch (error) {
+      logger.error('[NIP4] Failed to start subscription:', error);
+    }
+  }, [user, conversationId, isDiscoveryMode, until, nostr, handleNewMessage, queryClient]);
+
+  // Stop subscription
+  const stopSubscription = useCallback(() => {
+    if (subscriptionRef.current) {
+      subscriptionRef.current.close();
+      subscriptionRef.current = null;
+    }
+  }, []);
+
+  // Manage subscription lifecycle for specific conversations
+  useEffect(() => {
+    if (query.data && !isDiscoveryMode && conversationId && user) {
+      startSubscription();
+    }
+    return stopSubscription;
+  }, [query.data, isDiscoveryMode, conversationId, user, startSubscription, stopSubscription]);
 
   // Return appropriate interface based on mode with memoized arrays
   return useMemo(() => {
