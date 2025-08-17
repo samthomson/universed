@@ -16,6 +16,13 @@ export const MESSAGE_PROTOCOL = {
 
 export type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];
 
+// Message sending parameters
+export interface SendMessageParams {
+  recipientPubkey: string;
+  content: string;
+  protocol?: MessageProtocol; // Optional - defaults to NIP-04 for now
+}
+
 // Helper function to determine message protocol
 export function getMessageProtocol(kind: number): MessageProtocol {
   switch (kind) {
@@ -59,7 +66,7 @@ const MESSAGING_CONFIG = {
 export function useDirectMessages() {
   const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', true);
   const conversationList = useConversationList();
-  const { mutateAsync: sendDM } = useSendDM();
+  const { sendNIP4Message, sendNIP17Message } = useSendDM();
   
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
@@ -250,12 +257,25 @@ export function useDirectMessages() {
     conversationList.totalToProcess,
   ]);
 
-  const sendMessage = async (_recipientPubkey: string, _content: string) => {
-    // Use existing useSendDM hook which already handles NIP-4/NIP-17 selection
-    return await sendDM({
-      recipientPubkey: _recipientPubkey,
-      content: _content,
-    });
+  const sendMessage = async (params: SendMessageParams) => {
+    const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
+    
+    logger.log(`[DirectMessages] Sending message via ${protocol} to ${recipientPubkey}`);
+    
+    // Clean protocol selection - no messy if/else chains
+    if (protocol === MESSAGE_PROTOCOL.NIP04) {
+      return await sendNIP4Message.mutateAsync({
+        recipientPubkey,
+        content,
+      });
+    } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
+      return await sendNIP17Message.mutateAsync({
+        recipientPubkey,
+        content,
+      });
+    } else {
+      throw new Error(`Unsupported protocol: ${protocol}`);
+    }
   };
 
   return {

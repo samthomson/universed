@@ -6,8 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessagesForChatWithPagination } from "@/hooks/useDirectMessages";
-import { useSendDM } from "@/hooks/useSendDM";
+import { useDirectMessagesForChatWithPagination, useDirectMessages } from "@/hooks/useDirectMessages";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
@@ -84,7 +83,7 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
-  const { mutate: sendDM } = useSendDM();
+  const { sendMessage } = useDirectMessages();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
@@ -108,14 +107,14 @@ export function DMChatArea(
   ), [conversationId, onBack]);
 
   const handleSendMessage = useCallback(async (content: string) => {
-    await sendDM({
+    await sendMessage({
       recipientPubkey: conversationId,
       content,
     });
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  }, [sendDM, conversationId, onMessageSent]);
+  }, [sendMessage, conversationId, onMessageSent]);
 
   const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
