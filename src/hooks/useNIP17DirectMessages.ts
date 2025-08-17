@@ -314,8 +314,11 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
   }
 
   // Real-time subscription for new NIP-17 messages
+  const hasStartedSubscription = useRef(false);
   useEffect(() => {
-    if (!user || !enabled || !query.data) return;
+    if (!user || !enabled || !query.data || hasStartedSubscription.current) return;
+    
+    hasStartedSubscription.current = true;
 
     const startSubscription = async () => {
       // Cancel existing subscription

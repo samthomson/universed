@@ -416,8 +416,10 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
   }, []);
 
   // Manage subscription lifecycle for specific conversations
+  const hasStartedSubscription = useRef(false);
   useEffect(() => {
-    if (query.data && !isDiscoveryMode && conversationId && user) {
+    if (query.data && !isDiscoveryMode && conversationId && user && !hasStartedSubscription.current) {
+      hasStartedSubscription.current = true;
       startSubscription();
     }
     return stopSubscription;

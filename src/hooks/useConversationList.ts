@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useFriends } from './useFriends';
@@ -161,11 +161,13 @@ export function useConversationList() {
   }, [user, friends, mutuals, checkBatchForConversations, isLoadingConversations]);
 
   // Auto-start discovery when user is available
+  const hasRunDiscovery = useRef(false);
   useEffect(() => {
-    if (user && !isLoadingConversations && conversations.length === 0) {
+    if (user && !isLoadingConversations && conversations.length === 0 && !hasRunDiscovery.current) {
+      hasRunDiscovery.current = true;
       discoverConversations();
     }
-  }, [user, discoverConversations, isLoadingConversations, conversations.length]);
+  }, [user, isLoadingConversations, conversations.length, discoverConversations]);
 
   return {
     conversations,
