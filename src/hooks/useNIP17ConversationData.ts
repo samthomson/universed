@@ -14,7 +14,7 @@ interface ConversationCandidate {
   recentMessages: NostrEvent[];
 }
 
-interface NIP17MessageStore {
+interface _NIP17MessageStore {
   conversations: Map<string, ConversationCandidate>;
   allMessages: Map<string, NostrEvent[]>; // pubkey -> messages for that conversation
 }

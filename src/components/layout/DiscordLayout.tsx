@@ -30,7 +30,7 @@ import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
-import { useSendDM } from "@/hooks/useSendDM";
+import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
@@ -108,7 +108,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
   const urlParameters = useUrlParameters();
   const { setHighlightedItemId } = useMarketplaceContext();
 
-  const { mutate: sendDM } = useSendDM();
+  const { sendMessage: sendDM } = useDirectMessages();
   const [pendingMarketplaceItem, setPendingMarketplaceItem] = useState<MarketplaceItem | null>(null);
 
   const handleNavigateToDMs = (targetPubkey?: string, marketplaceItem?: MarketplaceItem) => {
