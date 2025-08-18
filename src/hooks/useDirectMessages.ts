@@ -10,6 +10,17 @@ import { useCurrentUser } from './useCurrentUser';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@nostrify/nostrify';
 
+// Import ConversationCandidate type from NIP4 hook
+interface ConversationCandidate {
+  id: string;
+  pubkey: string;
+  lastMessage?: NostrEvent;
+  lastActivity: number;
+  hasNIP4Messages: boolean;
+  hasNIP17Messages: boolean;
+  recentMessages: NostrEvent[];
+}
+
 // Extended NostrEvent type for optimistic updates
 interface OptimisticNostrEvent extends NostrEvent {
   isSending?: boolean;
@@ -398,6 +409,50 @@ export function useDirectMessages() {
           return [optimisticMessage];
         }
         return [...oldMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+      });
+
+      // Also update NIP-4 conversation discovery cache for sidebar
+      const nip4DiscoveryQueryKey = ['nip4-all-conversations', user.pubkey];
+      queryClient.setQueryData(nip4DiscoveryQueryKey, (oldConversations: ConversationCandidate[] | undefined) => {
+        if (!oldConversations) {
+          return [{
+            id: recipientPubkey,
+            pubkey: recipientPubkey,
+            lastMessage: optimisticMessage,
+            lastActivity: optimisticMessage.created_at,
+            hasNIP4Messages: true,
+            hasNIP17Messages: false,
+            recentMessages: [optimisticMessage],
+          }];
+        }
+
+        // Find existing conversation or create new one
+        const updatedConversations = [...oldConversations];
+        const existingIndex = updatedConversations.findIndex(conv => conv.pubkey === recipientPubkey);
+        
+        if (existingIndex !== -1) {
+          // Update existing conversation
+          updatedConversations[existingIndex] = {
+            ...updatedConversations[existingIndex],
+            lastMessage: optimisticMessage,
+            lastActivity: optimisticMessage.created_at,
+            recentMessages: [optimisticMessage, ...(updatedConversations[existingIndex].recentMessages || [])].slice(0, 5),
+          };
+        } else {
+          // Add new conversation
+          updatedConversations.unshift({
+            id: recipientPubkey,
+            pubkey: recipientPubkey,
+            lastMessage: optimisticMessage,
+            lastActivity: optimisticMessage.created_at,
+            hasNIP4Messages: true,
+            hasNIP17Messages: false,
+            recentMessages: [optimisticMessage],
+          });
+        }
+
+        // Sort by most recent activity
+        return updatedConversations.sort((a, b) => b.lastActivity - a.lastActivity);
       });
 
       // Send the actual message
