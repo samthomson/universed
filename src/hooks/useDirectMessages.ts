@@ -376,15 +376,38 @@ export function useDirectMessages() {
       });
     }
     
-    // Clean protocol selection - no messy if/else chains
+    // Add optimistic update for NIP-04 messages
     if (protocol === MESSAGE_PROTOCOL.NIP04) {
+      // Create optimistic message event
+      const optimisticMessage: OptimisticNostrEvent = {
+        id: `optimistic-${Date.now()}-${Math.random()}`,
+        kind: 4, // NIP-04 encrypted DM
+        content, // Store unencrypted content for display
+        tags: [['p', recipientPubkey]],
+        created_at: Math.floor(Date.now() / 1000),
+        pubkey: user.pubkey,
+        sig: '',
+        isSending: true, // Mark as optimistic
+        clientFirstSeen: Date.now(), // For animation
+      };
+
+      // Add optimistic message to NIP-4 cache
+      const nip4QueryKey = ['nip4-messages', user.pubkey, recipientPubkey, undefined];
+      queryClient.setQueryData(nip4QueryKey, (oldMessages: OptimisticNostrEvent[] | undefined) => {
+        if (!oldMessages) {
+          return [optimisticMessage];
+        }
+        return [...oldMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+      });
+
+      // Send the actual message
       return await sendNIP4Message.mutateAsync({
         recipientPubkey,
         content,
       });
-    } else {
-      throw new Error(`Unsupported protocol: ${protocol}`);
     }
+    
+    throw new Error(`Unsupported protocol: ${protocol}`);
   };
 
   return {
