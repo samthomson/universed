@@ -36,6 +36,11 @@ interface ConversationCandidate {
   hasNIP4Messages: boolean;
   hasNIP17Messages: boolean;
   recentMessages: NostrEvent[];
+  // Conversation categorization
+  isKnown: boolean; // User has sent at least one message to this person
+  isRequest: boolean; // Other person has sent messages, but user hasn't replied
+  // Reply status tracking
+  lastMessageFromUser: boolean; // True if user sent the last message, false if other person did
 }
 
 interface NIP17MessageStore {
@@ -86,6 +91,64 @@ export function getMessageProtocol(kind: number): MessageProtocol {
   }
 }
 
+// Helper function to analyze conversation and determine categorization
+function analyzeConversation(conv: { recentMessages?: NostrEvent[]; pubkey: string; lastMessage?: NostrEvent }, userPubkey: string): {
+  isKnown: boolean;
+  isRequest: boolean;
+  lastMessageFromUser: boolean;
+} {
+  const messages = conv.recentMessages || [];
+  
+  if (!messages.length) {
+    // If no recent messages but conversation exists, assume it's known
+    // (conservative approach - better to show in Known than miss a conversation)
+    return { 
+      isKnown: true, 
+      isRequest: false, 
+      lastMessageFromUser: false 
+    };
+  }
+
+  // Check if user has sent any message in recent history
+  const userHasSentMessage = messages.some((msg: NostrEvent) => msg.pubkey === userPubkey);
+  
+  // Check if other person has sent messages
+  const otherHasSentMessage = messages.some((msg: NostrEvent) => msg.pubkey === conv.pubkey);
+  
+  // IMPORTANT: If recent messages are at the limit (10), we can't be sure about full history
+  // In this case, be conservative and assume it's "known" to avoid hiding conversations
+  const recentMessagesAtLimit = messages.length >= 10;
+  
+  // Determine categorization
+  let isKnown: boolean;
+  let isRequest: boolean;
+  
+  if (userHasSentMessage) {
+    // User has sent at least one message - it's known
+    isKnown = true;
+    isRequest = false;
+  } else if (otherHasSentMessage && !userHasSentMessage) {
+    // Other person has sent messages but user hasn't replied - it's a request
+    isKnown = false;
+    isRequest = true;
+  } else if (recentMessagesAtLimit && !userHasSentMessage) {
+    // Conservative: if we hit the limit and user hasn't sent any in recent batch,
+    // assume it's a "request" since we can't be sure
+    isKnown = false;
+    isRequest = true;
+  } else {
+    // Fallback - assume request if there are any messages
+    isKnown = false;
+    isRequest = true;
+  }
+  
+  // Who sent the last message?
+  const lastMessage = conv.lastMessage;
+  const lastMessageFromUser = lastMessage?.pubkey === userPubkey;
+
+  return { isKnown, isRequest, lastMessageFromUser };
+}
+
 // Protocol indicator configuration
 export const PROTOCOL_CONFIG = {
   [MESSAGE_PROTOCOL.NIP04]: {
@@ -124,9 +187,6 @@ const MESSAGING_CONFIG = {
  */
 export function useDirectMessages() {
   const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
-  
-  console.log('[DEBUG useDirectMessages] isNIP17Enabled:', isNIP17Enabled);
-  console.log('[DEBUG useDirectMessages] Re-render triggered');
   const conversationList = useConversationList();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
   const queryClient = useQueryClient();
@@ -277,18 +337,23 @@ export function useDirectMessages() {
     });
     
     let finalConversations = Array.from(conversationMap.values())
+      .map(conv => {
+        // Analyze conversation for categorization
+        const analysis = analyzeConversation(conv, user?.pubkey || '');
+        return {
+          ...conv,
+          isKnown: analysis.isKnown,
+          isRequest: analysis.isRequest,
+          lastMessageFromUser: analysis.lastMessageFromUser,
+        };
+      })
       .sort((a, b) => b.lastActivity - a.lastActivity);
 
     // Filter out NIP-17-only conversations when NIP-17 is disabled
     if (!isNIP17Enabled) {
-      const beforeFilter = finalConversations.length;
       finalConversations = finalConversations.filter(conv => 
         conv.hasNIP4Messages // Only keep conversations that have NIP-4 messages
       );
-      const afterFilter = finalConversations.length;
-      console.log(`[DEBUG] NIP-17 disabled - filtered ${beforeFilter} -> ${afterFilter} conversations`);
-    } else {
-      console.log(`[DEBUG] NIP-17 enabled - showing all ${finalConversations.length} conversations`);
     }
     
     // Log final conversations only when count changes
@@ -308,7 +373,7 @@ export function useDirectMessages() {
     }
     
     return finalConversations;
-  }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled]);
+  }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled, user?.pubkey]);
 
   // Memoize the conversation list data separately from progress data
   const conversationListData = useMemo(() => ({
@@ -403,6 +468,10 @@ export function useDirectMessages() {
             hasNIP4Messages: false,
             hasNIP17Messages: true,
             recentMessages: [optimisticMessage],
+            // Default values for new conversation
+            isKnown: true, // User is sending a message, so it's known
+            isRequest: false,
+            lastMessageFromUser: true, // User just sent this message
           });
         }
         
@@ -497,6 +566,10 @@ export function useDirectMessages() {
             hasNIP4Messages: true,
             hasNIP17Messages: false,
             recentMessages: [optimisticMessage],
+            // Default values for new conversation
+            isKnown: true, // User is sending a message, so it's known
+            isRequest: false,
+            lastMessageFromUser: true, // User just sent this message
           });
         }
 

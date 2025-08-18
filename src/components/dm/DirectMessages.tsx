@@ -16,7 +16,7 @@ import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
-import type { DMConversation } from "@/hooks/useAllDMs";
+
 
 interface DirectMessagesProps {
   targetPubkey?: string | null;
@@ -44,7 +44,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
 
   // Memoize all handlers to prevent unnecessary re-renders (like ChatArea.tsx)
-  const handleConversationSelect = useCallback((pubkey: string) => {
+  const _handleConversationSelect = useCallback((pubkey: string) => {
     if (propSelectedConversation !== undefined) {
       onConversationSelect?.(pubkey);
     } else {
@@ -245,16 +245,24 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   // Memoize the expensive filtering and sorting operations (must be before early return)
   const filteredDiscoveredConversations = useMemo(() => {
     return newConversations.conversations
-      // .filter(_conv => {
-      //   // For discovered conversations, show all in "known" tab for now
-      //   // "Requests" tab is empty until we implement contact categorization
-      //   if (discoveredTab === 'known') {
-      //     return true; // Show all discovered conversations in Known tab
-      //   } else {
-      //     return false; // Requests tab is empty for discovered conversations
-      //   }
-      // })
+      .filter(conv => {
+        // Filter conversations based on active tab
+        if (activeTab === 'known') {
+          return conv.isKnown; // Show conversations where user has sent messages
+        } else {
+          return conv.isRequest; // Show conversations where user hasn't replied yet
+        }
+      })
       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
+  }, [newConversations.conversations, activeTab]);
+
+  // Calculate counts for tabs
+  const knownCount = useMemo(() => {
+    return newConversations.conversations.filter(conv => conv.isKnown).length;
+  }, [newConversations.conversations]);
+
+  const requestsCount = useMemo(() => {
+    return newConversations.conversations.filter(conv => conv.isRequest).length;
   }, [newConversations.conversations]);
   
 
@@ -283,7 +291,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 setInternalSelectedConversation(null);
               }
             }}
-            onMessageSent={(recipientPubkey) => {
+            onMessageSent={(_recipientPubkey) => {
               // TODO: Implement new request handling with new system if needed
             }}
           />
@@ -317,6 +325,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <DMTabs
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
+                knownCount={knownCount}
+                requestsCount={requestsCount}
               />
 
               {/* Search */}
@@ -422,6 +432,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <DMTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            knownCount={knownCount}
+            requestsCount={requestsCount}
           />
 
           {/* Search */}
@@ -456,7 +468,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <DMChatArea
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
-            onMessageSent={(recipientPubkey) => {
+            onMessageSent={(_recipientPubkey) => {
               // TODO: Implement new request handling with new system if needed
             }}
           />

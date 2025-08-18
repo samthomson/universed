@@ -33,7 +33,7 @@ interface NIP17MessageStore {
 // Constants for NIP-17 scanning (internal to this hook)
 const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process
 const SCAN_BATCH_SIZE = 1000;    // Messages per batch request
-const _SUMMARY_MESSAGES_PER_CHAT = 5;    // Recent messages to show in conversation summaries (same as NIP-4)
+const _SUMMARY_MESSAGES_PER_CHAT = 10;    // Recent messages to show in conversation summaries (same as NIP-4)
 
 /**
  * Shared function to decrypt a NIP-17 Gift Wrap message

@@ -23,7 +23,7 @@ interface ConversationCandidate {
 // Constants for comprehensive scanning (internal to this hook)
 const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process (increased from 5000)
 const SCAN_BATCH_SIZE = 1000;    // Messages per batch request (increased from 500)  
-const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
+const MESSAGES_PER_CHAT = 10;     // Recent messages to keep per conversation
 
 // Constants for conversation pagination
 const CONVERSATION_BATCH_SIZE = 1000;  // Messages per batch for conversation mode
