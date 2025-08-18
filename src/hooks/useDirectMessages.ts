@@ -493,23 +493,36 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
   // Get current page of messages
   const currentPage = useDirectMessagesForChat(conversationId, until);
 
+  // Clear state when conversation changes
+  useEffect(() => {
+    setAllMessages([]);
+    setUntil(undefined);
+    setIsLoadingOlder(false);
+  }, [conversationId]);
+
   // When new messages arrive, append them to our accumulator
   useEffect(() => {
     if (!currentPage.isLoading && currentPage.data.length > 0) {
+      // Add logging to debug the race condition
+      console.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
+      console.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
+      
       setAllMessages(prev => {
         // If this is the first load (until is undefined), replace all messages
         if (until === undefined) {
+          console.log(`[DEBUG] First load - replacing all messages`);
           return currentPage.data;
         }
         // Otherwise, prepend older messages (they should be in chronological order)
         const newOlderMessages = currentPage.data.filter(msg => 
           !prev.some(existing => existing.id === msg.id)
         );
+        console.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
         return [...newOlderMessages, ...prev];
       });
       setIsLoadingOlder(false);
     }
-  }, [currentPage.data, currentPage.isLoading, until]);
+  }, [currentPage.data, currentPage.isLoading, until, conversationId]);
 
   const loadOlderMessages = useCallback(async () => {
     if (currentPage.hasMoreMessages && !isLoadingOlder) {

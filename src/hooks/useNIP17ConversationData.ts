@@ -37,6 +37,11 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
     staleTime: Infinity, // Never consider stale
   });
 
+  // Extract conversation-specific messages to trigger re-computation when they change
+  const conversationMessages = useMemo(() => {
+    return query.data?.allMessages.get(conversationId) || [];
+  }, [query.data, conversationId]);
+
   return useMemo(() => {
     if (!user?.pubkey || !conversationId) {
       return {
@@ -63,8 +68,8 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
       };
     }
 
-    // Get messages for this specific conversation
-    const allConversationMessages = nip17Data.allMessages.get(conversationId) || [];
+    // Use the extracted conversation messages (this will trigger re-computation when they change)
+    const allConversationMessages = conversationMessages;
     
     // Apply timestamp filter if provided (for pagination)
     const filteredMessages = until 
@@ -84,5 +89,5 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
       loadOlderMessages: async () => {}, // Pagination is handled by the chat hook
       reachedStartOfConversation: filteredMessages.length <= sortedMessages.length,
     };
-  }, [user?.pubkey, conversationId, until, query.data]);
+  }, [user?.pubkey, conversationId, until, query.data, conversationMessages]);
 }
