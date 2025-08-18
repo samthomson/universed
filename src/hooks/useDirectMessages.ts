@@ -506,7 +506,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
   // Combine, sort, and limit messages from both sources
   const combinedResult = useMemo(() => {
     // how many messages to show at first, and to fetch each time we press 'load older messages'
-    const MESSAGES_PER_PAGE = 25;
+    const MESSAGES_PER_PAGE = 5;
     
     const nip4Count = stableNip4Messages.length;
     const nip17Count = stableNip17Messages.length;
