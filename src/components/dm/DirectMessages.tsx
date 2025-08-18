@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle } from "lucide-react";
+import { Search, Plus, MessageCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -7,6 +7,7 @@ import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
+import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { UserPanel } from "@/components/layout/UserPanel";
 import { useDMCategories, type DMTabType } from "@/hooks/useDMCategories";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -28,6 +29,7 @@ interface DirectMessagesProps {
 export function DirectMessages({ targetPubkey, selectedConversation: propSelectedConversation, onTargetHandled, onNavigateToDMs, onConversationSelect }: DirectMessagesProps = {}) {
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
+  const [showMessagingSettings, setShowMessagingSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DMTabType>('known');
 
@@ -281,14 +283,24 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             <div className="p-4 border-b border-gray-600 bg-gray-700">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-white">Messages</h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-8 h-8 hover:bg-gray-800/60 mobile-touch"
-                  onClick={handleNewDM}
-                >
-                  <Plus className="w-5 h-5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 hover:bg-gray-800/60 mobile-touch"
+                    onClick={() => setShowMessagingSettings(true)}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-8 h-8 hover:bg-gray-800/60 mobile-touch"
+                    onClick={handleNewDM}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </Button>
+                </div>
               </div>
 
               {/* Tabs */}
@@ -326,6 +338,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           open={showNewDM}
           onOpenChange={setShowNewDM}
           onConversationCreated={handleConversationCreated}
+        />
+
+        {/* Messaging Settings Dialog */}
+        <MessagingSettingsDialog
+          open={showMessagingSettings}
+          onOpenChange={setShowMessagingSettings}
         />
       </div>
     );
@@ -393,14 +411,24 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <div className="p-4 border-b border-gray-600">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-white">Messages</h2>
-                            <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-6 h-6 hover:bg-gray-800/60"
-                  onClick={handleNewDM}
-                >
-              <Plus className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 hover:bg-gray-800/60"
+                onClick={() => setShowMessagingSettings(true)}
+              >
+                <Settings className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-6 h-6 hover:bg-gray-800/60"
+                onClick={handleNewDM}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           <div className="px-2 mb-3">
@@ -498,6 +526,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         open={showNewDM}
         onOpenChange={setShowNewDM}
         onConversationCreated={handleConversationCreated}
+      />
+
+      {/* Messaging Settings Dialog */}
+      <MessagingSettingsDialog
+        open={showMessagingSettings}
+        onOpenChange={setShowMessagingSettings}
       />
     </div>
   );

@@ -16,6 +16,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useTheme } from "@/hooks/useTheme";
 import { genUserName } from "@/lib/genUserName";
+import { MessagingSettings } from "@/components/dm/MessagingSettings";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -145,6 +146,11 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               Display real-time performance metrics including cache hit rates and load times.
             </p>
           </div>
+
+          <Separator />
+
+          {/* Messaging Settings */}
+          <MessagingSettings />
 
           <Separator />
 
