@@ -7,6 +7,7 @@ import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 import { useMemo, useEffect, useRef, useCallback } from 'react';
 
 import type { NostrEvent } from '@/types/nostr';
+import type { NUser } from '@nostrify/react/login';
 
 interface ConversationCandidate {
   id: string;
@@ -23,8 +24,122 @@ const SCAN_TOTAL_LIMIT = 20000;  // Maximum total messages to process (increased
 const SCAN_BATCH_SIZE = 1000;    // Messages per batch request (increased from 500)  
 const MESSAGES_PER_CHAT = 5;     // Recent messages to keep per conversation
 
+// Constants for conversation pagination
+const CONVERSATION_BATCH_SIZE = 1000;  // Messages per batch for conversation mode
+const MAX_CONVERSATION_MESSAGES = 50000; // Maximum messages to fetch per conversation
+
 // Consider messages "recent" if they're less than 10 seconds old
 const RECENT_MESSAGE_THRESHOLD = 10000; // 10 seconds
+
+/**
+ * Fetch all NIP-4 messages for a conversation up to a specific timestamp using batching
+ */
+async function fetchAllMessagesUntil(
+  conversationId: string,
+  user: NUser,
+  nostr: ReturnType<typeof useNostr>['nostr'],
+  signal: AbortSignal,
+  until?: number
+): Promise<NostrEvent[]> {
+  const allMessages: NostrEvent[] = [];
+  let oldestTimestamp: number | undefined = until;
+  
+  while (true) {
+    // Fetch both directions in parallel
+    const [toMe, fromMe] = await Promise.all([
+      nostr.query([{
+        kinds: [4],
+        '#p': [user.pubkey],
+        authors: [conversationId],
+        limit: CONVERSATION_BATCH_SIZE,
+        ...(oldestTimestamp && { until: oldestTimestamp }),
+      }], { signal }),
+      nostr.query([{
+        kinds: [4],
+        authors: [user.pubkey],
+        '#p': [conversationId],
+        limit: CONVERSATION_BATCH_SIZE,
+        ...(oldestTimestamp && { until: oldestTimestamp }),
+      }], { signal })
+    ]);
+    
+    // If both queries return no results, we're done
+    if (toMe.length === 0 && fromMe.length === 0) break;
+    
+    // Combine and validate messages
+    const batchMessages = [...toMe, ...fromMe];
+    const validBatchMessages = batchMessages.filter(validateDMEvent);
+    
+    // Filter messages for this specific conversation
+    const conversationMessages = validBatchMessages.filter((event) => {
+      const isFromUser = event.pubkey === user.pubkey;
+      const isFromPartner = event.pubkey === conversationId;
+      const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] || "";
+      const isToUser = recipientPTag === user.pubkey;
+      const isToPartner = recipientPTag === conversationId;
+
+      return (isFromUser && isToPartner) || (isFromPartner && isToUser);
+    });
+    
+    // Add to total messages
+    allMessages.push(...conversationMessages);
+    
+    // Check if we hit the 'until' timestamp
+    if (until && oldestTimestamp && oldestTimestamp <= until) break;
+    
+    // Check if we got full batches (meaning there might be more)
+    const hasMoreMessages = toMe.length === CONVERSATION_BATCH_SIZE || fromMe.length === CONVERSATION_BATCH_SIZE;
+    if (!hasMoreMessages) break;
+    
+    // Find the OLDEST timestamp from EACH query separately
+    const oldestToMe = toMe.length > 0 ? Math.min(...toMe.map(m => m.created_at)) : Infinity;
+    const oldestFromMe = fromMe.length > 0 ? Math.min(...fromMe.map(m => m.created_at)) : Infinity;
+    
+    // Use the LATEST timestamp (the one that went less far back)
+    const oldestInBatch = Math.max(oldestToMe, oldestFromMe);
+    oldestTimestamp = oldestInBatch - 1;
+    
+    // Safety: prevent infinite loops
+    if (allMessages.length > MAX_CONVERSATION_MESSAGES) break;
+  }
+  
+  // Decrypt all messages
+  const decryptedMessages: NostrEvent[] = [];
+  
+  for (const message of allMessages) {
+    let decryptedContent: string;
+    try {
+      if (user.signer?.nip04) {
+        // Determine the other party's pubkey for decryption
+        const isFromUser = message.pubkey === user.pubkey;
+        const recipientPTag = message.tags.find(([name]) => name === 'p')?.[1];
+        const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+
+        if (otherPubkey) {
+          decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
+        } else {
+          decryptedContent = '[Unable to determine conversation partner]';
+        }
+      } else {
+        decryptedContent = '[No NIP-04 decryption available]';
+      }
+    } catch (error) {
+      logger.error(`[NIP4] Failed to decrypt message ${message.id}:`, error);
+      decryptedContent = '[Unable to decrypt message]';
+    }
+
+    // Create decrypted message
+    const decryptedMessage: NostrEvent = {
+      ...message,
+      content: decryptedContent,
+    };
+
+    decryptedMessages.push(decryptedMessage);
+  }
+  
+  // Sort by created_at (oldest first for chronological order)
+  return decryptedMessages.sort((a, b) => a.created_at - b.created_at);
+}
 
 /**
  * Hook for NIP-4 (Kind 4) direct messages.
@@ -167,95 +282,19 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         logger.log(`[NIP4] Comprehensive scan complete: ${conversations.length} conversations from ${allDMs.length} messages`);
         return conversations;
       } else {
-        // Specific conversation mode - get NIP-4 messages for this conversation
-        logger.log(`[DMCHAT] NIP4: Loading messages for conversation: "${conversationId}"`);
-        logger.log(`[DMCHAT] NIP4: User pubkey: ${user.pubkey}`);
+        // Specific conversation mode - get NIP-4 messages for this conversation with pagination
+        logger.log(`[DMCHAT] NIP4: Loading messages for conversation: "${conversationId}" until: ${until}`);
 
-        // Query for NIP-4 DMs between the two users with timestamp-based pagination
-        const filters = [
-          {
-            kinds: [4], // NIP-4 DMs sent to us
-            '#p': [user.pubkey],
-            authors: [conversationId],
-            limit: 100,
-            ...(until && { until }),
-          },
-          {
-            kinds: [4], // NIP-4 DMs sent by us
-            authors: [user.pubkey],
-            '#p': [conversationId],
-            limit: 100,
-            ...(until && { until }),
-          }
-        ];
+        // Fetch all messages up to the 'until' timestamp using batching
+        const messages = await fetchAllMessagesUntil(conversationId, user, nostr, signal, until);
         
-        logger.log(`[DMCHAT] NIP4: Querying with filters:`, filters);
-        const dmEvents = await nostr.query(filters, { signal });
-
-        logger.log(`[DMCHAT] NIP4: Raw DM events received: ${dmEvents.length}`);
-
-        const validDMs = dmEvents.filter(validateDMEvent);
-        logger.log(`[DMCHAT] NIP4: Valid DM events after filtering: ${validDMs.length}`);
-
-        // Filter messages for this specific conversation
-        const conversationMessages = validDMs.filter((event) => {
-          const isFromUser = event.pubkey === user.pubkey;
-          const isFromPartner = event.pubkey === conversationId;
-          const recipientPTag = event.tags.find(([name]) => name === "p")?.[1] || "";
-          const isToUser = recipientPTag === user.pubkey;
-          const isToPartner = recipientPTag === conversationId;
-
-          return (isFromUser && isToPartner) || (isFromPartner && isToUser);
-        });
-
-        // Deduplicate by event ID
-        const uniqueMessages = Array.from(
-          new Map(conversationMessages.map((event) => [event.id, event])).values(),
-        );
-
-        // Sort by created_at (oldest first for chronological order)
-        const sortedMessages = uniqueMessages.sort((a, b) => a.created_at - b.created_at);
-
-        // Decrypt all messages
-        const decryptedMessages: NostrEvent[] = [];
-
-        for (const message of sortedMessages) {
-          let decryptedContent: string;
-          try {
-            if (user.signer?.nip04) {
-              // Determine the other party's pubkey for decryption
-              const isFromUser = message.pubkey === user.pubkey;
-              const recipientPTag = message.tags.find(([name]) => name === 'p')?.[1];
-              const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
-
-              if (otherPubkey) {
-                decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
-              } else {
-                decryptedContent = '[Unable to determine conversation partner]';
-              }
-            } else {
-              decryptedContent = '[No NIP-04 decryption available]';
-            }
-          } catch (error) {
-            logger.error(`[DMCHAT] NIP4: Failed to decrypt message ${message.id}:`, error);
-            decryptedContent = '[Unable to decrypt message]';
-          }
-
-          // Create decrypted message
-          const decryptedMessage: NostrEvent = {
-            ...message,
-            content: decryptedContent,
-          };
-
-          decryptedMessages.push(decryptedMessage);
+        logger.log(`[DMCHAT] NIP4: Final decrypted messages: ${messages.length}`);
+        if (messages.length > 0) {
+          logger.log(`[DMCHAT] NIP4: First message timestamp: ${messages[0].created_at}`);
+          logger.log(`[DMCHAT] NIP4: Last message timestamp: ${messages[messages.length - 1].created_at}`);
         }
-
-        logger.log(`[DMCHAT] NIP4: Final decrypted messages: ${decryptedMessages.length}`);
-        if (decryptedMessages.length > 0) {
-          logger.log(`[DMCHAT] NIP4: First message content: "${decryptedMessages[0].content}"`);
-          logger.log(`[DMCHAT] NIP4: Last message content: "${decryptedMessages[decryptedMessages.length - 1].content}"`);
-        }
-        return decryptedMessages;
+        
+        return messages;
       }
     },
     enabled: !!user,
@@ -440,14 +479,14 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       if (query.error) {
         logger.error(`[DMCHAT] NIP4: Query error:`, query.error);
       }
-      return {
-        messages,
-        isLoading: query.isLoading,
-        hasMoreMessages: false, // TODO: Implement pagination for individual chats
-        loadingOlderMessages: false,
-        loadOlderMessages: async () => {}, // TODO: Implement pagination
-        reachedStartOfConversation: true,
-      };
+              return {
+          messages,
+          isLoading: query.isLoading,
+          hasMoreMessages: messages.length >= CONVERSATION_BATCH_SIZE, // If we got a full batch, there might be more
+          loadingOlderMessages: false,
+          loadOlderMessages: async () => {}, // This will be handled by the pagination hook
+          reachedStartOfConversation: messages.length < CONVERSATION_BATCH_SIZE, // No more if we got less than batch size
+        };
     }
   }, [isDiscoveryMode, query.data, query.isLoading, query.isError, query.error]);
 }
