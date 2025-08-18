@@ -364,17 +364,36 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
     // Update the query cache (like channels do)
     const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
-    queryClient.setQueryData(queryKey, (oldMessages: NostrEvent[] | undefined) => {
+    queryClient.setQueryData(queryKey, (oldData: { messages: NostrEvent[], hasMore: boolean } | NostrEvent[] | undefined) => {
       const now = Date.now();
       const eventAge = now - (event.created_at * 1000);
       const isRecentMessage = eventAge < RECENT_MESSAGE_THRESHOLD;
 
-      if (!oldMessages) {
-        return [{ ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }];
+      // Handle both old format (array) and new format (object with messages/hasMore)
+      let oldMessages: NostrEvent[] = [];
+      let hasMore = false;
+      
+      if (Array.isArray(oldData)) {
+        // Legacy format - just an array
+        oldMessages = oldData;
+        hasMore = true; // Assume there might be more
+      } else if (oldData && typeof oldData === 'object' && 'messages' in oldData) {
+        // New format - object with messages and hasMore
+        oldMessages = oldData.messages || [];
+        hasMore = oldData.hasMore || false;
+      }
+
+      if (oldMessages.length === 0) {
+        return {
+          messages: [{ ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }],
+          hasMore: hasMore
+        };
       }
 
       // Skip if we already have this real message (not optimistic)
-      if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) return oldMessages;
+      if (oldMessages.some(msg => msg.id === event.id && !msg.isSending)) {
+        return { messages: oldMessages, hasMore };
+      }
 
       // Check if this real message should replace an optimistic message
       // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
@@ -399,11 +418,17 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
           clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
         };
         logger.log(`[NIP4] Replaced optimistic message with real message: ${event.id}`);
-        return updatedMessages.sort((a, b) => a.created_at - b.created_at);
+        return {
+          messages: updatedMessages.sort((a, b) => a.created_at - b.created_at),
+          hasMore
+        };
       }
 
       // No optimistic message to replace, add as new message (only animate if recent)
-      return [...oldMessages, { ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at);
+      return {
+        messages: [...oldMessages, { ...decryptedEvent, clientFirstSeen: isRecentMessage ? now : undefined }].sort((a, b) => a.created_at - b.created_at),
+        hasMore
+      };
     });
 
     logger.log(`[NIP4] New real-time message: ${event.id}`);

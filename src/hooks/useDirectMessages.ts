@@ -404,11 +404,28 @@ export function useDirectMessages() {
 
       // Add optimistic message to NIP-4 cache
       const nip4QueryKey = ['nip4-messages', user.pubkey, recipientPubkey, undefined];
-      queryClient.setQueryData(nip4QueryKey, (oldMessages: OptimisticNostrEvent[] | undefined) => {
-        if (!oldMessages) {
-          return [optimisticMessage];
+      queryClient.setQueryData(nip4QueryKey, (oldData: { messages: OptimisticNostrEvent[], hasMore: boolean } | OptimisticNostrEvent[] | undefined) => {
+        // Handle both old format (array) and new format (object with messages/hasMore)
+        let existingMessages: OptimisticNostrEvent[] = [];
+        let hasMore = false;
+        
+        if (Array.isArray(oldData)) {
+          // Legacy format - just an array
+          existingMessages = oldData;
+          hasMore = true; // Assume there might be more
+        } else if (oldData && typeof oldData === 'object' && 'messages' in oldData) {
+          // New format - object with messages and hasMore
+          existingMessages = oldData.messages || [];
+          hasMore = oldData.hasMore || false;
         }
-        return [...oldMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+        
+        const updatedMessages = [...existingMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+        
+        // Return in new format
+        return {
+          messages: updatedMessages,
+          hasMore: hasMore
+        };
       });
 
       // Also update NIP-4 conversation discovery cache for sidebar
