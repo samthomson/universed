@@ -8,7 +8,7 @@ import { useDefaultProtocolSetting } from './useDefaultProtocolSetting';
  */
 export function useDefaultProtocol(conversationId?: string) {
   const [defaultProtocolSetting] = useDefaultProtocolSetting();
-  const { isNIP17Enabled, newConversations } = useDirectMessages();
+  const { isNIP17Enabled, conversations } = useDirectMessages();
 
   return useMemo(() => {
     // If NIP-17 is disabled, always use NIP-04
@@ -26,8 +26,8 @@ export function useDefaultProtocol(conversationId?: string) {
     }
 
     // Auto mode: smart selection based on conversation history
-    if (defaultProtocolSetting === 'auto' && conversationId && newConversations?.conversations) {
-      const conversation = newConversations.conversations.find(c => c.id === conversationId);
+    if (defaultProtocolSetting === 'auto' && conversationId && conversations?.conversations) {
+      const conversation = conversations.conversations.find(c => c.id === conversationId);
       
       if (conversation) {
         // If conversation has NIP-17 messages, prefer NIP-17
@@ -47,5 +47,5 @@ export function useDefaultProtocol(conversationId?: string) {
 
     // Fallback to NIP-17 if NIP-17 is enabled
     return MESSAGE_PROTOCOL.NIP17;
-  }, [defaultProtocolSetting, isNIP17Enabled, conversationId, newConversations?.conversations]);
+  }, [defaultProtocolSetting, isNIP17Enabled, conversationId, conversations?.conversations]);
 }
