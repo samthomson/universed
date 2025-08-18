@@ -40,7 +40,7 @@ async function fetchAllMessagesUntil(
   nostr: ReturnType<typeof useNostr>['nostr'],
   signal: AbortSignal,
   until?: number
-): Promise<NostrEvent[]> {
+): Promise<{ messages: NostrEvent[], hasMore: boolean }> {
   const allMessages: NostrEvent[] = [];
   let oldestTimestamp: number | undefined = until;
   
@@ -84,8 +84,13 @@ async function fetchAllMessagesUntil(
     // Add to total messages
     allMessages.push(...conversationMessages);
     
-    // Check if we hit the 'until' timestamp
-    if (until && oldestTimestamp && oldestTimestamp <= until) break;
+    // Check if we hit the 'until' timestamp - we want messages OLDER than 'until'
+    // So we continue fetching until we have enough messages older than 'until'
+    if (until) {
+      const messagesOlderThanUntil = allMessages.filter(msg => msg.created_at < until);
+      // If we have enough messages older than 'until', we can stop
+      if (messagesOlderThanUntil.length >= CONVERSATION_BATCH_SIZE) break;
+    }
     
     // Check if we got full batches (meaning there might be more)
     const hasMoreMessages = toMe.length === CONVERSATION_BATCH_SIZE || fromMe.length === CONVERSATION_BATCH_SIZE;
@@ -138,7 +143,23 @@ async function fetchAllMessagesUntil(
   }
   
   // Sort by created_at (oldest first for chronological order)
-  return decryptedMessages.sort((a, b) => a.created_at - b.created_at);
+  const sortedMessages = decryptedMessages.sort((a, b) => a.created_at - b.created_at);
+  
+  // If 'until' is provided, return only messages older than that timestamp
+  if (until) {
+    const messagesOlderThanUntil = sortedMessages.filter(msg => msg.created_at < until);
+    logger.log(`[DMCHAT] NIP4: Filtered ${messagesOlderThanUntil.length} messages older than ${until} from ${sortedMessages.length} total`);
+    
+    // Determine if there are more messages by checking if we hit our fetch limits
+    const hasMore = allMessages.length >= MAX_CONVERSATION_MESSAGES || 
+                   (messagesOlderThanUntil.length > 0 && messagesOlderThanUntil.length >= CONVERSATION_BATCH_SIZE);
+    
+    return { messages: messagesOlderThanUntil, hasMore };
+  }
+  
+  // For initial load (no until), check if we hit limits
+  const hasMore = allMessages.length >= MAX_CONVERSATION_MESSAGES || sortedMessages.length >= CONVERSATION_BATCH_SIZE;
+  return { messages: sortedMessages, hasMore };
 }
 
 /**
@@ -286,15 +307,15 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         logger.log(`[DMCHAT] NIP4: Loading messages for conversation: "${conversationId}" until: ${until}`);
 
         // Fetch all messages up to the 'until' timestamp using batching
-        const messages = await fetchAllMessagesUntil(conversationId, user, nostr, signal, until);
+        const result = await fetchAllMessagesUntil(conversationId, user, nostr, signal, until);
         
-        logger.log(`[DMCHAT] NIP4: Final decrypted messages: ${messages.length}`);
-        if (messages.length > 0) {
-          logger.log(`[DMCHAT] NIP4: First message timestamp: ${messages[0].created_at}`);
-          logger.log(`[DMCHAT] NIP4: Last message timestamp: ${messages[messages.length - 1].created_at}`);
+        logger.log(`[DMCHAT] NIP4: Final decrypted messages: ${result.messages.length}, hasMore: ${result.hasMore}`);
+        if (result.messages.length > 0) {
+          logger.log(`[DMCHAT] NIP4: First message timestamp: ${result.messages[0].created_at}`);
+          logger.log(`[DMCHAT] NIP4: Last message timestamp: ${result.messages[result.messages.length - 1].created_at}`);
         }
         
-        return messages;
+        return result;
       }
     },
     enabled: !!user,
@@ -503,19 +524,33 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       };
     } else {
       // Specific conversation mode - return messages for this conversation
-      const messages = Array.isArray(query.data) ? query.data : [];
-      logger.log(`[DMCHAT] NIP4: Returning ${messages.length} messages, isLoading: ${query.isLoading}`);
+      const result = query.data;
+      let messages: NostrEvent[] = [];
+      let hasMore = false;
+      
+      if (result && typeof result === 'object' && 'messages' in result && 'hasMore' in result) {
+        // New format with hasMore flag
+        messages = result.messages || [];
+        hasMore = result.hasMore || false;
+      } else if (Array.isArray(result) && result.length > 0 && 'created_at' in result[0] && 'kind' in result[0]) {
+        // Legacy format - array of NostrEvent messages (not ConversationCandidate)
+        messages = result as unknown as NostrEvent[];
+        hasMore = messages.length >= CONVERSATION_BATCH_SIZE;
+      }
+      
+      logger.log(`[DMCHAT] NIP4: Returning ${messages.length} messages, hasMore: ${hasMore}, isLoading: ${query.isLoading}`);
       if (query.error) {
         logger.error(`[DMCHAT] NIP4: Query error:`, query.error);
       }
-              return {
-          messages,
-          isLoading: query.isLoading,
-          hasMoreMessages: messages.length >= CONVERSATION_BATCH_SIZE, // If we got a full batch, there might be more
-          loadingOlderMessages: false,
-          loadOlderMessages: async () => {}, // This will be handled by the pagination hook
-          reachedStartOfConversation: messages.length < CONVERSATION_BATCH_SIZE, // No more if we got less than batch size
-        };
+      
+      return {
+        messages,
+        isLoading: query.isLoading,
+        hasMoreMessages: hasMore,
+        loadingOlderMessages: false,
+        loadOlderMessages: async () => {}, // This will be handled by the pagination hook
+        reachedStartOfConversation: !hasMore,
+      };
     }
   }, [isDiscoveryMode, query.data, query.isLoading, query.isError, query.error]);
 }
