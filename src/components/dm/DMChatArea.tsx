@@ -84,13 +84,22 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
-  const { sendMessage } = useDirectMessages();
+  const { sendMessage, isNIP17Enabled } = useDirectMessages();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(MESSAGE_PROTOCOL.NIP17);
+  
+  // Default to NIP-17 if enabled, otherwise NIP-04
+  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(
+    isNIP17Enabled ? MESSAGE_PROTOCOL.NIP17 : MESSAGE_PROTOCOL.NIP04
+  );
+
+  // Auto-switch to NIP-04 if NIP-17 gets disabled while NIP-17 is selected
+  if (!isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17) {
+    setSelectedProtocol(MESSAGE_PROTOCOL.NIP04);
+  }
 
   const displayName = metadata?.name || genUserName(conversationId);
 

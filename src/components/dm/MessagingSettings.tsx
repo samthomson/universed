@@ -1,7 +1,6 @@
-import { MessageSquare, Shield } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 
 interface MessagingSettingsProps {
