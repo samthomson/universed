@@ -6,6 +6,11 @@ export interface DMConversation {
   lastMessage?: NostrEvent;
   lastMessageTime: number;
   unreadCount: number;
+  // Conversation categorization
+  isKnown?: boolean; // User has sent at least one message to this person
+  isRequest?: boolean; // Other person has sent messages, but user hasn't replied
+  // Reply status tracking
+  lastMessageFromUser?: boolean; // True if user sent the last message, false if other person did
 }
 
 /**

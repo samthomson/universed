@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
@@ -27,7 +26,6 @@ interface ConversationItemProps {
 
 function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: ConversationItemProps) {
   const author = useAuthor(conversation.pubkey);
-  const { user } = useCurrentUser();
   const metadata = author.data?.metadata;
 
   const displayName = metadata?.name || genUserName(conversation.pubkey);
@@ -103,7 +101,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
 
             <div className="text-sm text-gray-400 truncate mt-0.5 pr-8 flex items-center gap-1">
               {/* Show arrow indicator if last message was from current user */}
-              {conversation.lastMessage && conversation.lastMessage.pubkey === user?.pubkey && (
+              {conversation.lastMessageFromUser && (
                 <span className="text-xs text-gray-500 flex-shrink-0">→</span>
               )}
               <span className="truncate">
