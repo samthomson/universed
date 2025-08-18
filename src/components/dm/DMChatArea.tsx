@@ -14,9 +14,10 @@ import {
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
 import { ProtocolSelector } from "./ProtocolSelector";
+import { useDefaultProtocol } from "@/hooks/useDefaultProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 
 
 interface DMChatAreaProps {
@@ -91,10 +92,14 @@ export function DMChatArea(
   const { user } = useCurrentUser();
   const { toast } = useToast();
   
-  // Default to NIP-17 if enabled, otherwise NIP-04
-  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(
-    isNIP17Enabled ? MESSAGE_PROTOCOL.NIP17 : MESSAGE_PROTOCOL.NIP04
-  );
+  // Get smart default protocol based on user settings and conversation history
+  const defaultProtocol = useDefaultProtocol(conversationId);
+  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(defaultProtocol);
+
+  // Update selected protocol when default changes (e.g., settings change or conversation loads)
+  useEffect(() => {
+    setSelectedProtocol(defaultProtocol);
+  }, [defaultProtocol]);
 
   // Auto-switch to NIP-04 if NIP-17 gets disabled while NIP-17 is selected
   if (!isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17) {
