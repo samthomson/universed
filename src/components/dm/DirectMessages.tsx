@@ -116,6 +116,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       lastMessage: conversation.lastMessage,
       lastMessageTime: conversation.lastActivity,
       unreadCount: conversation.unreadCount || 0,
+      isKnown: conversation.isKnown,
+      isRequest: conversation.isRequest,
+      lastMessageFromUser: conversation.lastMessageFromUser,
     };
 
     return (
