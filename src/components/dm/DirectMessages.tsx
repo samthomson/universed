@@ -43,14 +43,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
 
 
-  // Memoize all handlers to prevent unnecessary re-renders (like ChatArea.tsx)
-  const _handleConversationSelect = useCallback((pubkey: string) => {
-    if (propSelectedConversation !== undefined) {
-      onConversationSelect?.(pubkey);
-    } else {
-      setInternalSelectedConversation(pubkey);
-    }
-  }, [propSelectedConversation, onConversationSelect]);
+
 
   const handleNewDM = useCallback(() => {
     setShowNewDM(true);
