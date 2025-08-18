@@ -70,15 +70,10 @@ async function decryptGiftWrapMessage(
     }
   
   // Step 3: Decrypt the Seal to get the actual message (Kind 14)
-  // The seal should be encrypted to the gift wrap recipient (the p tag)
-  const giftWrapRecipient = giftWrap.tags.find(([name]) => name === 'p')?.[1];
-  if (!giftWrapRecipient) {
-    logger.error('[NIP17-DECRYPT] No p tag found in gift wrap');
-    return null;
-  }
-  
+  // The seal is encrypted by the seal author to the gift wrap recipient
+  // So we decrypt using the seal author's pubkey
   const decryptedMessageContent = await user.signer.nip44.decrypt(
-    giftWrapRecipient,
+    sealEvent.pubkey,
     sealEvent.content
   );
   

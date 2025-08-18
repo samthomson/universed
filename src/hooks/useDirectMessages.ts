@@ -618,16 +618,39 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         const isFromPartner = msg.pubkey === conversationId;
         const isToPartner = recipientPTag === conversationId;
         
-        const isValidForConversation = (isFromUser && isToPartner) || (isFromPartner && isToUser);
+        let isValidForConversation: boolean;
+        
+        if (msg.kind === 4) {
+          // NIP-4 messages: Use p tag logic
+          isValidForConversation = (isFromUser && isToPartner) || (isFromPartner && isToUser);
+        } else if (msg.kind === 14) {
+          // NIP-17 messages: Already filtered by conversation in the NIP-17 hook
+          // Trust that filtering and just verify it involves the right participants
+          isValidForConversation = (msg.pubkey === user?.pubkey) || (msg.pubkey === conversationId);
+        } else {
+          // Unknown message type - be conservative and include it
+          isValidForConversation = true;
+        }
+        
+        console.log(`[DEBUG] Message validation:`, {
+          msgId: msg.id,
+          msgKind: msg.kind,
+          msgAuthor: msg.pubkey,
+          msgRecipient: recipientPTag,
+          msgContent: msg.content.slice(0, 30),
+          currentConversation: conversationId,
+          currentUser: user?.pubkey,
+          isFromUser,
+          isFromPartner,
+          isToUser,
+          isToPartner,
+          isValidForConversation
+        });
         
         if (!isValidForConversation) {
-          console.log(`[DEBUG] Filtering out message not for this conversation:`, {
-            msgId: msg.id,
-            msgAuthor: msg.pubkey,
-            msgRecipient: recipientPTag,
-            currentConversation: conversationId,
-            currentUser: user?.pubkey
-          });
+          console.log(`[DEBUG] ❌ FILTERING OUT message:`, msg.id);
+        } else {
+          console.log(`[DEBUG] ✅ KEEPING message:`, msg.id);
         }
         
         return isValidForConversation;
