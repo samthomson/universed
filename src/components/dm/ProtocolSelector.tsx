@@ -22,9 +22,6 @@ export function ProtocolSelector({
 }: ProtocolSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { isNIP17Enabled } = useDirectMessages();
-  
-  console.log('[ProtocolSelector] isNIP17Enabled:', isNIP17Enabled, 'selectedProtocol:', selectedProtocol);
-  const selectedConfig = PROTOCOL_CONFIG[selectedProtocol];
 
   // If NIP-17 is disabled and currently selected, show NIP-04 instead
   const effectiveProtocol = !isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17 
