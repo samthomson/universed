@@ -8,6 +8,7 @@ import { useMemo, useEffect, useRef, useCallback } from 'react';
 
 import type { NostrEvent } from '@/types/nostr';
 import type { NUser } from '@nostrify/react/login';
+import { PROTOCOL_CONSTANTS } from './useDirectMessages';
 
 interface ConversationCandidate {
   id: string;
@@ -176,8 +177,8 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
   // Query for all NIP-4 messages (discovery mode) or specific conversation
   const query = useQuery({
     queryKey: isDiscoveryMode 
-      ? ['nip4-all-conversations', user?.pubkey]
-      : ['nip4-messages', user?.pubkey, conversationId, until],
+      ? [PROTOCOL_CONSTANTS.NIP4_CONVERSATIONS_KEY, user?.pubkey]
+      : [PROTOCOL_CONSTANTS.NIP4_MESSAGES_KEY, user?.pubkey, conversationId, until],
     queryFn: async (c) => {
       if (!user) return isDiscoveryMode ? [] : { messages: [], conversations: [] };
 
@@ -363,7 +364,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
     };
 
     // Update the query cache (like channels do)
-    const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
+    const queryKey = [PROTOCOL_CONSTANTS.NIP4_MESSAGES_KEY, user.pubkey, conversationId, until];
     queryClient.setQueryData(queryKey, (oldData: { messages: NostrEvent[], hasMore: boolean } | NostrEvent[] | undefined) => {
       const now = Date.now();
       const eventAge = now - (event.created_at * 1000);
@@ -444,7 +445,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       }
 
       // Real-time subscription: Get messages since the most recent message we have
-      const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
+      const queryKey = [PROTOCOL_CONSTANTS.NIP4_MESSAGES_KEY, user.pubkey, conversationId, until];
       const existingMessages = queryClient.getQueryData<NostrEvent[]>(queryKey);
       let sinceTimestamp = Math.floor(Date.now() / 1000);
       

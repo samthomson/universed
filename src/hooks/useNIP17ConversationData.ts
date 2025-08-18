@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import { useMemo } from 'react';
 import type { NostrEvent } from '@/types/nostr';
+import { PROTOCOL_CONSTANTS } from './useDirectMessages';
 
 interface ConversationCandidate {
   id: string;
@@ -27,7 +28,7 @@ export function useNIP17ConversationData(conversationId: string, until?: number)
 
   // Use a reactive query to watch for cache changes
   const query = useQuery({
-    queryKey: ['nip17-all-messages', user?.pubkey],
+    queryKey: [PROTOCOL_CONSTANTS.NIP17_MESSAGES_KEY, user?.pubkey],
     queryFn: () => {
       // This should never be called since the data is managed by useNIP17DirectMessages
       // But we need a queryFn for TypeScript

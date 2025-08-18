@@ -7,6 +7,7 @@ import { useEffect, useRef, useMemo } from 'react';
 
 import type { NostrEvent } from '@/types/nostr';
 import type { NUser } from '@nostrify/react/login';
+import { PROTOCOL_CONSTANTS } from './useDirectMessages';
 
 // Extended NostrEvent type for optimistic updates
 interface OptimisticNostrEvent extends NostrEvent {
@@ -128,7 +129,7 @@ async function processNewGiftWrapMessage(
   const { messageEvent, conversationPartner } = decrypted;
 
   // Update the cache directly (like channels do)
-  queryClient.setQueryData(['nip17-all-messages', user.pubkey], (oldData: NIP17MessageStore | undefined) => {
+  queryClient.setQueryData([PROTOCOL_CONSTANTS.NIP17_MESSAGES_KEY, user.pubkey], (oldData: NIP17MessageStore | undefined) => {
     // Handle case where cache doesn't exist yet
     if (!oldData) {
       return {
@@ -236,7 +237,7 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
 
   // Single comprehensive query that fetches ALL NIP-17 messages for this user
   const query = useQuery({
-    queryKey: ['nip17-all-messages', user?.pubkey],
+    queryKey: [PROTOCOL_CONSTANTS.NIP17_MESSAGES_KEY, user?.pubkey],
     queryFn: async (c) => {
       if (!user) return { conversations: new Map(), allMessages: new Map() };
 

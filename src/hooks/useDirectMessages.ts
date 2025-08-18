@@ -50,6 +50,23 @@ export const MESSAGE_PROTOCOL = {
   UNKNOWN: 'UNKNOWN'
 } as const;
 
+// Constants for consistent naming across the app
+export const PROTOCOL_CONSTANTS = {
+  // localStorage keys
+  NIP17_ENABLED_KEY: 'enableNIP17',
+  
+  // Query keys
+  NIP4_MESSAGES_KEY: 'nip4-messages',
+  NIP17_MESSAGES_KEY: 'nip17-all-messages',
+  NIP4_CONVERSATIONS_KEY: 'nip4-all-conversations',
+  
+  // Logger prefixes
+  NIP4_LOG_PREFIX: '[NIP4]',
+  NIP17_LOG_PREFIX: '[NIP17]',
+  DMCHAT_LOG_PREFIX: '[DMCHAT]',
+  DIRECT_MESSAGES_LOG_PREFIX: '[DirectMessages]',
+} as const;
+
 export type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];
 
 // Message sending parameters
@@ -106,7 +123,7 @@ const MESSAGING_CONFIG = {
  * Combines NIP-4 and NIP-17 messages and manages global DM settings.
  */
 export function useDirectMessages() {
-  const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage('enableNIP17', true);
+  const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
   const conversationList = useConversationList();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
   const queryClient = useQueryClient();
@@ -122,14 +139,14 @@ export function useDirectMessages() {
   
   // Debug logging for NIP-17 status (only log when data changes)
   useEffect(() => {
-    logger.log(`[DirectMessages] NIP-17 scan enabled: ${isNIP17Enabled}`);
-    logger.log(`[DirectMessages] Friend-based conversations:`, conversationList.conversations?.length || 0);
-    logger.log(`[DirectMessages] NIP-4 comprehensive conversations:`, nip4ConversationsLength);
-    logger.log(`[DirectMessages] NIP-17 comprehensive conversations:`, nip17AllConversations.conversations?.length || 0);
+    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 scan enabled: ${isNIP17Enabled}`);
+    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Friend-based conversations:`, conversationList.conversations?.length || 0);
+    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-4 comprehensive conversations:`, nip4ConversationsLength);
+    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 comprehensive conversations:`, nip17AllConversations.conversations?.length || 0);
     
     // Log detailed NIP-17 conversation data
     if (nip17AllConversations.conversations && nip17AllConversations.conversations.length > 0) {
-      logger.log(`[DirectMessages] NIP-17 conversations detail:`, nip17AllConversations.conversations.map(conv => ({
+      logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 conversations detail:`, nip17AllConversations.conversations.map(conv => ({
         id: conv.id,
         pubkey: conv.pubkey,
         lastActivity: conv.lastActivity,
@@ -261,8 +278,8 @@ export function useDirectMessages() {
     
     // Log final conversations only when count changes
     if (finalConversations.length > 0) {
-      logger.log(`[DirectMessages] Final merged conversations:`, finalConversations.length);
-      logger.log(`[DirectMessages] Merged conversations detail:`, finalConversations.map(conv => ({
+      logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Final merged conversations:`, finalConversations.length);
+      logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Merged conversations detail:`, finalConversations.map(conv => ({
         id: conv.id,
         lastActivity: conv.lastActivity,
         hasNIP4Messages: conv.hasNIP4Messages,
@@ -308,7 +325,7 @@ export function useDirectMessages() {
       throw new Error('User must be logged in to send messages');
     }
     
-    logger.log(`[DirectMessages] Sending message via ${protocol} to ${recipientPubkey}`);
+    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Sending message via ${protocol} to ${recipientPubkey}`);
     
     // Add optimistic update for NIP-17 messages
     if (protocol === MESSAGE_PROTOCOL.NIP17) {
@@ -326,7 +343,7 @@ export function useDirectMessages() {
       };
 
       // Add optimistic message to NIP-17 cache
-      queryClient.setQueryData(['nip17-all-messages', user.pubkey], (oldData: NIP17MessageStore | undefined) => {
+      queryClient.setQueryData([PROTOCOL_CONSTANTS.NIP17_MESSAGES_KEY, user.pubkey], (oldData: NIP17MessageStore | undefined) => {
         if (!oldData) {
           return {
             conversations: new Map([[recipientPubkey, {
@@ -403,7 +420,7 @@ export function useDirectMessages() {
       };
 
       // Add optimistic message to NIP-4 cache
-      const nip4QueryKey = ['nip4-messages', user.pubkey, recipientPubkey, undefined];
+      const nip4QueryKey = [PROTOCOL_CONSTANTS.NIP4_MESSAGES_KEY, user.pubkey, recipientPubkey, undefined];
       queryClient.setQueryData(nip4QueryKey, (oldData: { messages: OptimisticNostrEvent[], hasMore: boolean } | OptimisticNostrEvent[] | undefined) => {
         // Handle both old format (array) and new format (object with messages/hasMore)
         let existingMessages: OptimisticNostrEvent[] = [];
@@ -429,7 +446,7 @@ export function useDirectMessages() {
       });
 
       // Also update NIP-4 conversation discovery cache for sidebar
-      const nip4DiscoveryQueryKey = ['nip4-all-conversations', user.pubkey];
+      const nip4DiscoveryQueryKey = [PROTOCOL_CONSTANTS.NIP4_CONVERSATIONS_KEY, user.pubkey];
       queryClient.setQueryData(nip4DiscoveryQueryKey, (oldConversations: ConversationCandidate[] | undefined) => {
         if (!oldConversations) {
           return [{
@@ -505,16 +522,16 @@ export function useDirectMessages() {
  * Combines NIP-4 and NIP-17 messages for a specific conversation with timestamp-based pagination
  */
 export function useDirectMessagesForChat(conversationId: string, until?: number) {
-  const [isNIP17Enabled] = useLocalStorage('enableNIP17', true);
+  const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
   
   // Get messages from both NIP-4 and NIP-17 hooks with timestamp filter
   const nip4Messages = useNIP4DirectMessages(conversationId, false, until); // Specific conversation mode
   const nip17Messages = useNIP17ConversationData(isNIP17Enabled ? conversationId : '', until); // Lightweight data access (no subscription recreation)
   
-  logger.log(`[DMCHAT] useDirectMessagesForChat called with conversationId: "${conversationId}", until: ${until}`);
-  logger.log(`[DMCHAT] isNIP17Enabled: ${isNIP17Enabled}`);
-  logger.log(`[DMCHAT] NIP-4 messages loading: ${nip4Messages.isLoading}, count: ${nip4Messages.messages?.length || 0}`);
-  logger.log(`[DMCHAT] NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
+  logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} useDirectMessagesForChat called with conversationId: "${conversationId}", until: ${until}`);
+  logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} isNIP17Enabled: ${isNIP17Enabled}`);
+  logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} NIP-4 messages loading: ${nip4Messages.isLoading}, count: ${nip4Messages.messages?.length || 0}`);
+  logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
   
   // Memoize the message arrays to prevent unnecessary re-renders
   const stableNip4Messages = useMemo(() => (nip4Messages.messages as NostrEvent[]) || [], [nip4Messages.messages]);
@@ -528,12 +545,12 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
     const nip4Count = stableNip4Messages.length;
     const nip17Count = stableNip17Messages.length;
     
-    logger.log(`[DMCHAT] Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
+    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
     
     // Combine all messages
     const combined = [...stableNip4Messages, ...stableNip17Messages];
     
-    logger.log(`[DMCHAT] Total combined messages: ${combined.length}`);
+    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Total combined messages: ${combined.length}`);
     
     // Sort by timestamp (newest first)
     const sorted = combined.sort((a, b) => b.created_at - a.created_at);
@@ -547,10 +564,10 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
     // Return in chronological order (oldest first) for chat display
     const chronological = paginated.reverse();
     
-    logger.log(`[DMCHAT] Final result: ${chronological.length} messages, hasMore: ${hasMore}`);
+    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Final result: ${chronological.length} messages, hasMore: ${hasMore}`);
     if (chronological.length > 0) {
-      logger.log(`[DMCHAT] First (oldest) message:`, chronological[0]);
-      logger.log(`[DMCHAT] Last (newest) message:`, chronological[chronological.length - 1]);
+      logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} First (oldest) message:`, chronological[0]);
+      logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Last (newest) message:`, chronological[chronological.length - 1]);
     }
     
     return {
@@ -568,7 +585,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
     loadOlderMessages: async () => {
       // This will be called by the UI when user wants to load older messages
       // The timestamp will be passed as 'until' parameter in the next call to this hook
-      logger.log(`[DMCHAT] loadOlderMessages called - next call should use until: ${combinedResult.oldestDisplayed}`);
+      logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} loadOlderMessages called - next call should use until: ${combinedResult.oldestDisplayed}`);
     },
     reachedStartOfConversation: !combinedResult.hasMore,
     // Expose the timestamp for the UI to use in pagination
@@ -685,7 +702,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
       setIsLoadingOlder(true);
       const oldestTimestamp = currentPage.oldestMessageTimestamp;
       if (oldestTimestamp) {
-        logger.log(`[DMCHAT] Loading older messages before timestamp: ${oldestTimestamp}`);
+        logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Loading older messages before timestamp: ${oldestTimestamp}`);
         setUntil(oldestTimestamp);
       }
     }
