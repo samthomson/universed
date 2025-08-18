@@ -6,7 +6,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import type { DMConversation } from "@/hooks/useAllDMs";
+import type { DMConversation } from "@/lib/dmUtils";
 
 interface DMConversationListProps {
   conversations: DMConversation[];

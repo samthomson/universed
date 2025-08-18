@@ -1,6 +1,6 @@
 import { Users, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DMTabType } from '@/hooks/useDMCategories';
+import type { DMTabType } from '@/types/dm';
 
 interface DMTabsProps {
   activeTab: DMTabType;

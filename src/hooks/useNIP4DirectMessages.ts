@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
-import { validateDMEvent } from './useAllDMs';
+import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 import { useMemo, useEffect, useRef, useCallback } from 'react';

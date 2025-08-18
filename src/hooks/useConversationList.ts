@@ -3,7 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useFriends } from './useFriends';
 import { useMutualFriends } from './useFollowers';
-import { validateDMEvent } from './useAllDMs';
+import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@nostrify/nostrify';
 

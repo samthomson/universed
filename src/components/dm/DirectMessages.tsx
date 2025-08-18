@@ -9,7 +9,7 @@ import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { UserPanel } from "@/components/layout/UserPanel";
-import { type DMTabType } from "@/hooks/useDMCategories";
+import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
