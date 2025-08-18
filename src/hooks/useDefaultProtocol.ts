@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from './useDirectMessages';
+import { useDirectMessages, MESSAGE_PROTOCOL } from './useDirectMessages';
 import { useDefaultProtocolSetting } from './useDefaultProtocolSetting';
 
 /**

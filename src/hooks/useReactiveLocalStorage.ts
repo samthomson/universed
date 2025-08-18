@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 
 // Global event emitter for localStorage changes within the same tab
 class LocalStorageEventEmitter {
-  private listeners = new Map<string, Set<(value: any) => void>>();
+  private listeners = new Map<string, Set<(value: unknown) => void>>();
 
-  subscribe(key: string, callback: (value: any) => void) {
+  subscribe(key: string, callback: (value: unknown) => void) {
     if (!this.listeners.has(key)) {
       this.listeners.set(key, new Set());
     }
@@ -21,7 +21,7 @@ class LocalStorageEventEmitter {
     };
   }
 
-  emit(key: string, value: any) {
+  emit(key: string, value: unknown) {
     const keyListeners = this.listeners.get(key);
     if (keyListeners) {
       keyListeners.forEach(callback => callback(value));
@@ -70,8 +70,8 @@ export function useReactiveLocalStorage<T>(
 
   // Listen for changes from other components in the same tab
   useEffect(() => {
-    const unsubscribe = localStorageEmitter.subscribe(key, (newValue: T) => {
-      setState(newValue);
+    const unsubscribe = localStorageEmitter.subscribe(key, (newValue: unknown) => {
+      setState(newValue as T);
     });
 
     return unsubscribe;
