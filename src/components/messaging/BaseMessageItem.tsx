@@ -190,7 +190,9 @@ function BaseMessageItemComponent({
 
         <div className="flex-1 min-w-0">
           {showAvatar && (
-            <div className="flex items-baseline space-x-2 mb-1">
+            <div className={cn("flex items-baseline space-x-2 mb-1", {
+              "flex-row-reverse space-x-reverse": shouldAlignRight,
+            })}>
               <UserContextMenu
                 pubkey={message.pubkey}
                 displayName={displayName}
@@ -224,7 +226,9 @@ function BaseMessageItemComponent({
               </span>
             </div>
           )}
-          <div className="text-gray-900 dark:text-gray-100 break-word whitespace-pre-wrap">
+          <div className={cn("text-gray-900 dark:text-gray-100 break-word whitespace-pre-wrap", {
+            "text-left": shouldAlignRight, // Force left alignment for content even when message is right-aligned
+          })}>
             <div className="flex items-center gap-2">
               {(() => {
                 // Check if this is a marketplace item message
@@ -236,7 +240,7 @@ function BaseMessageItemComponent({
                         item={marketplaceItem}
                         className="mb-2"
                       />
-                      <div className="text-xs text-gray-500 italic">
+                      <div className="text-xs text-gray-500 italic text-left">
                         {extractHumanReadableMessage(message.content)}
                       </div>
                     </div>
@@ -244,7 +248,7 @@ function BaseMessageItemComponent({
                 }
 
                 return (
-                  <NoteContent event={message} className="text-sm leading-relaxed" onNavigateToDMs={onNavigateToDMs} />
+                  <NoteContent event={message} className="text-sm leading-relaxed text-left" onNavigateToDMs={onNavigateToDMs} />
                 );
               })()}
               {isSending && !showAvatar && (
