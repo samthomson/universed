@@ -357,12 +357,17 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
       // Check if this real message should replace an optimistic message
       // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
+      logger.log(`[NIP4] Looking for optimistic message to replace. Event: ${event.id}, content: "${decryptedEvent.content}", author: ${event.pubkey}, timestamp: ${event.created_at}`);
+      logger.log(`[NIP4] Existing messages:`, oldMessages.map(msg => ({ id: msg.id, isSending: msg.isSending, content: msg.content.slice(0, 30), author: msg.pubkey, timestamp: msg.created_at })));
+      
       const optimisticMessageIndex = oldMessages.findIndex(msg =>
         msg.isSending &&
         msg.pubkey === event.pubkey &&
         msg.content === decryptedEvent.content &&
         Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
       );
+
+      logger.log(`[NIP4] Optimistic message index: ${optimisticMessageIndex}`);
 
       if (optimisticMessageIndex !== -1) {
         // Replace the optimistic message with the real one (keep existing animation timestamp)
@@ -395,10 +400,14 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       // Real-time subscription: Get messages since the most recent message we have
       const queryKey = ['nip4-messages', user.pubkey, conversationId, until];
       const existingMessages = queryClient.getQueryData<NostrEvent[]>(queryKey);
-      const sinceTimestamp = (existingMessages && existingMessages.length > 0)
-        ? existingMessages.reduce((latest, msg) => 
-            msg.created_at > latest.created_at ? msg : latest, existingMessages[0]).created_at
-        : Math.floor(Date.now() / 1000);
+      let sinceTimestamp = Math.floor(Date.now() / 1000);
+      
+      if (existingMessages && existingMessages.length > 0) {
+        const mostRecent = existingMessages.reduce((latest, msg) => 
+          msg.created_at > latest.created_at ? msg : latest, existingMessages[0]);
+        // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
+        sinceTimestamp = mostRecent.created_at - 60;
+      }
 
       const filters = [
         {
@@ -416,6 +425,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       ];
 
       logger.log(`[NIP4] Starting real-time subscription for conversation ${conversationId}`);
+      logger.log(`[NIP4] Subscription filters:`, filters);
 
       const subscription = nostr.req(filters);
       let isActive = true;
@@ -426,7 +436,10 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
           for await (const msg of subscription) {
             if (!isActive) break;
             if (msg[0] === 'EVENT') {
+              logger.log(`[NIP4] Received real-time event:`, msg[2]);
               handleNewMessage(msg[2]);
+            } else {
+              logger.log(`[NIP4] Received non-event message:`, msg);
             }
           }
         } catch (error) {
@@ -438,6 +451,8 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         close: () => {
           isActive = false;
           logger.log(`[NIP4] Subscription closed for conversation ${conversationId}`);
+          // Reset the flag so subscription can start again
+          hasStartedSubscription.current = false;
         }
       };
 
@@ -456,8 +471,22 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
   // Manage subscription lifecycle for specific conversations
   const hasStartedSubscription = useRef(false);
+  const lastConversationId = useRef<string>('');
+  
+  // Reset subscription flag when conversation changes
   useEffect(() => {
+    if (lastConversationId.current !== conversationId) {
+      logger.log(`[NIP4] Conversation changed from "${lastConversationId.current}" to "${conversationId}" - resetting subscription flag`);
+      hasStartedSubscription.current = false;
+      lastConversationId.current = conversationId;
+    }
+  }, [conversationId]);
+  
+  useEffect(() => {
+    logger.log(`[NIP4] Subscription effect - query.data: ${!!query.data}, isDiscoveryMode: ${isDiscoveryMode}, conversationId: ${conversationId}, user: ${!!user}, hasStarted: ${hasStartedSubscription.current}`);
+    
     if (query.data && !isDiscoveryMode && conversationId && user && !hasStartedSubscription.current) {
+      logger.log(`[NIP4] Starting subscription for conversation: ${conversationId}`);
       hasStartedSubscription.current = true;
       startSubscription();
     }
