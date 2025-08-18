@@ -124,6 +124,9 @@ const MESSAGING_CONFIG = {
  */
 export function useDirectMessages() {
   const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
+  
+  console.log('[DEBUG useDirectMessages] isNIP17Enabled:', isNIP17Enabled);
+  console.log('[DEBUG useDirectMessages] Re-render triggered');
   const conversationList = useConversationList();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
   const queryClient = useQueryClient();
@@ -273,8 +276,20 @@ export function useDirectMessages() {
       }
     });
     
-    const finalConversations = Array.from(conversationMap.values())
+    let finalConversations = Array.from(conversationMap.values())
       .sort((a, b) => b.lastActivity - a.lastActivity);
+
+    // Filter out NIP-17-only conversations when NIP-17 is disabled
+    if (!isNIP17Enabled) {
+      const beforeFilter = finalConversations.length;
+      finalConversations = finalConversations.filter(conv => 
+        conv.hasNIP4Messages // Only keep conversations that have NIP-4 messages
+      );
+      const afterFilter = finalConversations.length;
+      console.log(`[DEBUG] NIP-17 disabled - filtered ${beforeFilter} -> ${afterFilter} conversations`);
+    } else {
+      console.log(`[DEBUG] NIP-17 enabled - showing all ${finalConversations.length} conversations`);
+    }
     
     // Log final conversations only when count changes
     if (finalConversations.length > 0) {
@@ -545,10 +560,14 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
     const nip4Count = stableNip4Messages.length;
     const nip17Count = stableNip17Messages.length;
     
-    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
+    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count}), NIP-17 enabled: ${isNIP17Enabled}`);
     
-    // Combine all messages
-    const combined = [...stableNip4Messages, ...stableNip17Messages];
+    // Only include NIP-17 messages if NIP-17 is enabled
+    const combined = isNIP17Enabled 
+      ? [...stableNip4Messages, ...stableNip17Messages]
+      : [...stableNip4Messages];
+    
+    console.log(`[DEBUG] Message filtering - NIP-17 enabled: ${isNIP17Enabled}, NIP-4: ${stableNip4Messages.length}, NIP-17: ${stableNip17Messages.length}, Combined: ${combined.length}`);
     
     logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Total combined messages: ${combined.length}`);
     
@@ -558,8 +577,10 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
     // Take most recent MESSAGES_PER_PAGE messages
     const paginated = sorted.slice(0, MESSAGES_PER_PAGE);
     
-    // Check if either hook has more messages available
-    const hasMore = nip4Messages.hasMoreMessages || nip17Messages.hasMoreMessages || sorted.length > MESSAGES_PER_PAGE;
+    // Check if either hook has more messages available (only consider NIP-17 if enabled)
+    const hasMore = nip4Messages.hasMoreMessages || 
+                   (isNIP17Enabled && nip17Messages.hasMoreMessages) || 
+                   sorted.length > MESSAGES_PER_PAGE;
     
     // Return in chronological order (oldest first) for chat display
     const chronological = paginated.reverse();
@@ -575,7 +596,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
       hasMore,
       oldestDisplayed: chronological.length > 0 ? chronological[0].created_at : undefined,
     };
-  }, [stableNip4Messages, stableNip17Messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages]);
+  }, [stableNip4Messages, stableNip17Messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages, isNIP17Enabled]);
 
   return {
     data: combinedResult.messages,

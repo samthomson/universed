@@ -9,7 +9,7 @@ import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { UserPanel } from "@/components/layout/UserPanel";
-import { useDMCategories, type DMTabType } from "@/hooks/useDMCategories";
+import { type DMTabType } from "@/hooks/useDMCategories";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
@@ -35,21 +35,13 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
-  // OLD system for main conversation list (keep this working)
-  const { data: categories, isLoading } = useDMCategories();
-  
-  // NEW system for discovery section only
+  // Use the NEW system for all conversation data
   const { conversations: newConversations, progress: discoveryProgress } = useDirectMessages();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
 
-  // Get conversations for the active tab (OLD system) - memoized to prevent unnecessary re-renders
-  const conversations = useMemo(() => {
-    return categories ?
-      (activeTab === 'known' ? categories.known : categories.newRequests) :
-      [];
-  }, [categories, activeTab]);
+
 
   // Memoize all handlers to prevent unnecessary re-renders (like ChatArea.tsx)
   const handleConversationSelect = useCallback((pubkey: string) => {
@@ -74,29 +66,53 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   }, [propSelectedConversation, onConversationSelect]);
 
   // Memoize Virtuoso itemContent functions to prevent re-renders (must be at top level)
-  const mobileItemContent = useCallback((index: number, conversation: DMConversation) => (
-    <DMConversationList
-      conversations={[conversation]}
-      selectedConversation={selectedConversation || null}
-      onSelectConversation={handleConversationSelect}
-      searchQuery={searchQuery}
-      isLoading={isLoading}
-      isVirtualized={true}
-    />
-  ), [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
 
-  const desktopItemContent = useCallback((index: number, conversation: DMConversation) => (
-    <DMConversationList
-      conversations={[conversation]}
-      selectedConversation={selectedConversation || null}
-      onSelectConversation={handleConversationSelect}
-      searchQuery={searchQuery}
-      isLoading={isLoading}
-      isVirtualized={true}
-    />
-  ), [selectedConversation, handleConversationSelect, searchQuery, isLoading]);
 
   const desktopItemContenNew = useCallback((index: number, conversation) => {
+    
+    const dmConversation = {
+      id: conversation.id,
+      pubkey: conversation.id,
+      lastMessage: conversation.lastMessage,
+      lastMessageTime: conversation.lastActivity,
+      unreadCount: conversation.unreadCount || 0,
+    };
+
+    return (
+    <div key={conversation.id} className="relative">
+    <DMConversationList
+      conversations={[dmConversation]}
+      selectedConversation={selectedConversation || null}
+      onSelectConversation={(pubkey) => {
+        if (propSelectedConversation !== undefined) {
+          onConversationSelect?.(pubkey);
+        } else {
+          setInternalSelectedConversation(pubkey);
+        }
+      }}
+      searchQuery={searchQuery}
+      isLoading={false}
+      isVirtualized={true}
+    />
+      <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
+        {conversation.hasNIP4Messages && (
+          <div 
+            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
+            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
+          />
+        )}
+        {conversation.hasNIP17Messages && (
+          <div 
+            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
+            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
+          />
+        )}
+      </div>
+    </div>
+  )}, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
+
+  // Mobile version of the new item content (same as desktop but for mobile)
+  const mobileItemContentNew = useCallback((index: number, conversation) => {
     
     const dmConversation = {
       id: conversation.id,
@@ -268,13 +284,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               }
             }}
             onMessageSent={(recipientPubkey) => {
-              // Check if this conversation is currently in New Requests
-              const isNewRequest = categories?.newRequests.some(conv => conv.pubkey === recipientPubkey);
-
-              // If this was a new request, mark it as responded to move it to Known
-              if (isNewRequest && categories?.markAsResponded) {
-                categories.markAsResponded(recipientPubkey);
-              }
+              // TODO: Implement new request handling with new system if needed
             }}
           />
         ) : (
@@ -324,8 +334,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             {/* Conversation List */}
             <div className="flex-1 overflow-hidden bg-gray-700 px-2">
               <Virtuoso
-                data={conversations || []}
-                itemContent={mobileItemContent}
+                data={filteredDiscoveredConversations}
+                itemContent={mobileItemContentNew}
                 components={mobileComponents}
                 className="h-full scrollbar-thin"
               />
@@ -348,62 +358,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       </div>
     );
   }
-  const hideOldSidebar = true;
+
 
   // Desktop layout
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
-      {!hideOldSidebar && (
-        <>       
-          <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-600">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-white">Messages</h2>
-                                <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-6 h-6 hover:bg-gray-800/60"
-                      onClick={handleNewDM}
-                    >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
 
-              {/* Tabs */}
-              <DMTabs
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-
-              {/* Search */}
-              <div className="relative mt-3">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search conversations"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
-                />
-              </div>
-            </div>
-
-            {/* Current Conversation List */}
-            <div className="flex-1 overflow-hidden px-1">
-              <Virtuoso
-                data={conversations}
-                itemContent={desktopItemContent}
-                components={desktopComponents}
-                className="h-full scrollbar-thin"
-              />
-            </div>
-
-            {/* User Panel at the bottom */}
-            <UserPanel />
-          </div>
-        </>
-      )}
 
       {/* sidebar 2? */}
       <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
@@ -497,13 +457,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
             onMessageSent={(recipientPubkey) => {
-              // Check if this conversation is currently in New Requests
-              const isNewRequest = categories?.newRequests.some(conv => conv.pubkey === recipientPubkey);
-
-              // If this was a new request, mark it as responded to move it to Known
-              if (isNewRequest && categories?.markAsResponded) {
-                categories.markAsResponded(recipientPubkey);
-              }
+              // TODO: Implement new request handling with new system if needed
             }}
           />
         ) : (

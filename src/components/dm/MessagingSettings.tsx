@@ -33,7 +33,14 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
             <Switch
               id="nip17-enabled"
               checked={isNIP17Enabled}
-              onCheckedChange={setNIP17Enabled}
+              onCheckedChange={(checked) => {
+                console.log('[DEBUG] Switch toggled to:', checked);
+                console.log('[DEBUG] Before toggle - localStorage:', localStorage.getItem('enableNIP17'));
+                setNIP17Enabled(checked);
+                setTimeout(() => {
+                  console.log('[DEBUG] After toggle - localStorage:', localStorage.getItem('enableNIP17'));
+                }, 100);
+              }}
             />
           </div>
 
