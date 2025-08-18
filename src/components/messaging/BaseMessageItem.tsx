@@ -204,7 +204,8 @@ function BaseMessageItemComponent({
               </UserContextMenu>
               <span className="text-xs text-gray-600 dark:text-gray-400">
                 {formatDistanceToNowShort(timestamp, { addSuffix: true })}
-                {(() => {
+                {/* Only show protocol indicators for DM messages (kinds 4, 14, 1059) */}
+                {[4, 14, 1059].includes(message.kind) && (() => {
                   const protocol = getMessageProtocol(message.kind);
                   const config = PROTOCOL_CONFIG[protocol];
                   return (
