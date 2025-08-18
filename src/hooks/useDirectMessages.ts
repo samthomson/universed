@@ -567,6 +567,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
   const [until, setUntil] = useState<number | undefined>(undefined);
   const [allMessages, setAllMessages] = useState<NostrEvent[]>([]);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [isConversationSwitching, setIsConversationSwitching] = useState(false);
   const { user } = useCurrentUser();
 
   // Get current page of messages
@@ -577,11 +578,17 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
     setAllMessages([]);
     setUntil(undefined);
     setIsLoadingOlder(false);
+    setIsConversationSwitching(true); // Mark as switching
   }, [conversationId]);
 
   // When new messages arrive, append them to our accumulator
   useEffect(() => {
-    if (!currentPage.isLoading && currentPage.data.length > 0) {
+    if (!currentPage.isLoading) {
+      if (currentPage.data.length === 0) {
+        // No messages available - this is a legitimate empty conversation
+        setIsConversationSwitching(false);
+        return;
+      }
       // Add logging to debug the race condition
       console.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
       console.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
@@ -623,8 +630,10 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
           console.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
           return [...newOlderMessages, ...prev];
         });
+        setIsConversationSwitching(false); // We have valid messages, no longer switching
       } else if (currentPage.data.length > 0) {
         console.log(`[DEBUG] All ${currentPage.data.length} messages filtered out - not for this conversation`);
+        // Keep switching state true since we don't have valid messages yet
       }
       
       setIsLoadingOlder(false);
@@ -644,7 +653,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
 
   return {
     data: allMessages,
-    isLoading: (currentPage.isLoading && until === undefined) || (allMessages.length === 0 && currentPage.isLoading), // Show loading on initial load or when we have no messages but still loading
+    isLoading: (currentPage.isLoading && until === undefined) || (allMessages.length === 0 && isConversationSwitching), // Show loading on initial load or when switching conversations
     hasMoreMessages: currentPage.hasMoreMessages,
     loadingOlderMessages: isLoadingOlder,
     loadOlderMessages,
