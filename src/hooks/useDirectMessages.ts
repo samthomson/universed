@@ -512,6 +512,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
   const [until, setUntil] = useState<number | undefined>(undefined);
   const [allMessages, setAllMessages] = useState<NostrEvent[]>([]);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const { user } = useCurrentUser();
 
   // Get current page of messages
   const currentPage = useDirectMessagesForChat(conversationId, until);
@@ -530,22 +531,50 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
       console.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
       console.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
       
-      setAllMessages(prev => {
-        // If this is the first load (until is undefined), replace all messages
-        if (until === undefined) {
-          console.log(`[DEBUG] First load - replacing all messages`);
-          return currentPage.data;
+      // Verify messages are actually for this conversation to prevent race conditions
+      const validMessages = currentPage.data.filter(msg => {
+        const isFromUser = msg.pubkey === user?.pubkey;
+        const recipientPTag = msg.tags.find(([name]) => name === 'p')?.[1];
+        const isToUser = recipientPTag === user?.pubkey;
+        const isFromPartner = msg.pubkey === conversationId;
+        const isToPartner = recipientPTag === conversationId;
+        
+        const isValidForConversation = (isFromUser && isToPartner) || (isFromPartner && isToUser);
+        
+        if (!isValidForConversation) {
+          console.log(`[DEBUG] Filtering out message not for this conversation:`, {
+            msgId: msg.id,
+            msgAuthor: msg.pubkey,
+            msgRecipient: recipientPTag,
+            currentConversation: conversationId,
+            currentUser: user?.pubkey
+          });
         }
-        // Otherwise, prepend older messages (they should be in chronological order)
-        const newOlderMessages = currentPage.data.filter(msg => 
-          !prev.some(existing => existing.id === msg.id)
-        );
-        console.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
-        return [...newOlderMessages, ...prev];
+        
+        return isValidForConversation;
       });
+      
+      if (validMessages.length > 0) {
+        setAllMessages(prev => {
+          // If this is the first load (until is undefined), replace all messages
+          if (until === undefined) {
+            console.log(`[DEBUG] First load - replacing all messages with ${validMessages.length} valid messages`);
+            return validMessages;
+          }
+          // Otherwise, prepend older messages (they should be in chronological order)
+          const newOlderMessages = validMessages.filter(msg => 
+            !prev.some(existing => existing.id === msg.id)
+          );
+          console.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
+          return [...newOlderMessages, ...prev];
+        });
+      } else if (currentPage.data.length > 0) {
+        console.log(`[DEBUG] All ${currentPage.data.length} messages filtered out - not for this conversation`);
+      }
+      
       setIsLoadingOlder(false);
     }
-  }, [currentPage.data, currentPage.isLoading, until, conversationId]);
+  }, [currentPage.data, currentPage.isLoading, until, conversationId, user]);
 
   const loadOlderMessages = useCallback(async () => {
     if (currentPage.hasMoreMessages && !isLoadingOlder) {
@@ -560,7 +589,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
 
   return {
     data: allMessages,
-    isLoading: currentPage.isLoading && until === undefined, // Only show loading on initial load
+    isLoading: (currentPage.isLoading && until === undefined) || (allMessages.length === 0 && currentPage.isLoading), // Show loading on initial load or when we have no messages but still loading
     hasMoreMessages: currentPage.hasMoreMessages,
     loadingOlderMessages: isLoadingOlder,
     loadOlderMessages,
