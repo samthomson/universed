@@ -143,10 +143,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     </div>
   )}, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
 
-  // Memoize components objects
-  const mobileComponents = useMemo(() => ({
+  // Consolidated components object with responsive design
+  const virtuosoComponents = useMemo(() => ({
     EmptyPlaceholder: () => (
-      <div className="flex-1 flex items-center justify-center bg-gray-800 p-8">
+      <div className="flex-1 md:flex-none flex items-center justify-center bg-gray-800 md:bg-transparent p-8">
         <div className="text-center text-gray-400">
           <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
           <h3 className="text-lg font-semibold mb-2">
@@ -158,38 +158,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               : 'Message requests from people you don\'t follow will appear here.'
             }
           </p>
-          <Button onClick={handleNewDM} className="mobile-touch">
+          <Button onClick={handleNewDM} className={isMobile ? "mobile-touch" : ""}>
             <Plus className="w-4 h-4 mr-2" />
             Start New Conversation
           </Button>
         </div>
       </div>
     ),
-    Footer: () => <div className="h-2" />,
-  }), [activeTab, handleNewDM]);
-
-  const desktopComponents = useMemo(() => ({
-    EmptyPlaceholder: () => (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center text-gray-400">
-          <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">
-            {activeTab === 'known' ? 'No known conversations' : 'No requests'}
-          </h3>
-          <p className="text-sm mb-4">
-            {activeTab === 'known'
-              ? 'Conversations from people you follow will appear here.'
-              : 'Message requests from people you don\'t follow will appear here.'
-            }
-          </p>
-          <Button onClick={handleNewDM}>
-            <Plus className="w-4 h-4 mr-2" />
-            Start New Conversation
-          </Button>
-        </div>
-      </div>
-    ),
-  }), [activeTab, handleNewDM]);
+    Footer: () => <div className="h-2 md:h-0" />,
+  }), [activeTab, handleNewDM, isMobile]);
 
   // Auto-select conversation when targetPubkey is provided
   useEffect(() => {
@@ -334,7 +311,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <Virtuoso
                 data={filteredDiscoveredConversations}
                 itemContent={mobileItemContentNew}
-                components={mobileComponents}
+                components={virtuosoComponents}
                 className="h-full scrollbar-thin"
               />
             </div>
@@ -441,7 +418,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <Virtuoso
             data={filteredDiscoveredConversations}
             itemContent={desktopItemContenNew}
-            components={desktopComponents}
+            components={virtuosoComponents}
             className="h-full scrollbar-thin"
           />
         </div>
