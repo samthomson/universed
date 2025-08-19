@@ -403,10 +403,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
               <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
-                                  <Button onClick={handleNewDM}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Start New Conversation
-                    </Button>
+              <Button onClick={handleNewDM}>
+                <Plus className="w-4 h-4 mr-2" />
+                Start New Conversation
+              </Button>
             </div>
           </div>
         )}
