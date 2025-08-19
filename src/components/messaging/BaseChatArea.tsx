@@ -24,6 +24,7 @@ interface BaseChatAreaProps {
     showDelete: boolean;
     showBan: boolean;
     showReport: boolean;
+    asMyMessageRightAlign: boolean;
   };
   messageInputConfig: {
     allowMentions: boolean;
@@ -45,6 +46,7 @@ interface BaseChatAreaProps {
   reachedStartOfConversation?: boolean;
   membershipStatus?: 'owner' | 'moderator' | 'approved' | 'pending' | 'declined' | 'banned' | 'not-member';
   onJoinRequest?: () => void;
+  protocolSelector?: React.ReactNode;
 }
 
 export function BaseChatArea({
@@ -71,6 +73,7 @@ export function BaseChatArea({
   reachedStartOfConversation = false,
   membershipStatus,
   onJoinRequest,
+  protocolSelector,
 }: BaseChatAreaProps) {
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
@@ -117,10 +120,8 @@ export function BaseChatArea({
       }
       logger.error('Failed to send message:', err);
     },
-    onSettled: () => {
-      // Always refetch after error or success to make sure we're in sync
-      queryClient.invalidateQueries({ queryKey });
-    },
+    // Remove onSettled - let the subscription handle real message updates
+    // onSettled invalidation was causing refetches that wiped out older messages
   });
 
   const handleSendMessage = async (content: string, _tags: string[][]) => {
@@ -171,6 +172,7 @@ export function BaseChatArea({
             channelId={channelId}
             membershipStatus={membershipStatus}
             onJoinRequest={onJoinRequest}
+            protocolSelector={protocolSelector}
           />
         </div>
       </div>

@@ -16,6 +16,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 
 import { useTheme } from "@/hooks/useTheme";
 import { genUserName } from "@/lib/genUserName";
+import { MessagingSettings } from "@/components/dm/MessagingSettings";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -111,7 +112,10 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </p>
           </div>
 
+          {/* Messaging Settings */}
+          <MessagingSettings />
 
+          <Separator />
         </div>
       </DialogContent>
     </Dialog>

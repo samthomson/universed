@@ -53,4 +53,13 @@ export const reactQueryConfigs = {
     staleTime: 30 * 60 * 1000, // 30 minutes (same as individual authors)
     gcTime: 4 * 60 * 60 * 1000, // 4 hours (same as individual authors)
   },
+  // DM conversation discovery
+  'dm-conversation-discovery': {
+    staleTime: 5 * 60 * 1000, // 5 minutes - balance between freshness and performance
+    gcTime: 30 * 60 * 1000, // 30 minutes - keep longer for offline use
+  },
+  'dm-messages': {
+    staleTime: 1 * 60 * 1000, // 1 minute - messages change frequently
+    gcTime: 20 * 60 * 1000, // 20 minutes
+  },
 } as const;

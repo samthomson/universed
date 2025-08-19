@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useDMDecrypt } from "@/hooks/useDMDecrypt";
+
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import type { DMConversation } from "@/hooks/useAllDMs";
+import type { DMConversation } from "@/lib/dmUtils";
 
 interface DMConversationListProps {
   conversations: DMConversation[];
@@ -34,18 +34,10 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
-  // Only decrypt if there's a last message
-  const { data: decryptedContent, isLoading: isDecrypting, error: decryptError } = useDMDecrypt(
-    conversation.lastMessage
-  );
-
-  // Get the display content
+  // Get the display content - messages are now pre-decrypted
   const getDisplayContent = () => {
     if (!conversation.lastMessage) return "";
-    if (isDecrypting) return "Decrypting...";
-    if (decryptError) return "Unable to decrypt message";
-    if (decryptedContent) return decryptedContent;
-    return "";
+    return conversation.lastMessage.content;
   };
 
   // Helper function to highlight matching text
@@ -95,7 +87,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
                 displayName
               )}
             </span>
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 min-w-[50px] justify-end">
               {conversation.unreadCount > 0 && (
                 <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
                   {conversation.unreadCount}
@@ -107,12 +99,18 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
             </div>
           </div>
 
-            <div className="text-sm text-gray-400 truncate mt-0.5">
-              {searchQuery && decryptedContent && decryptedContent.toLowerCase().includes(searchQuery.toLowerCase()) ? (
-                highlightText(getDisplayContent(), searchQuery)
-              ) : (
-                getDisplayContent()
+            <div className="text-sm text-gray-400 truncate mt-0.5 pr-8 flex items-center gap-1">
+              {/* Show arrow indicator if last message was from current user */}
+              {conversation.lastMessageFromUser && (
+                <span className="text-xs text-gray-500 flex-shrink-0">→</span>
               )}
+              <span className="truncate">
+                {searchQuery && conversation.lastMessage?.content && conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ? (
+                  highlightText(getDisplayContent(), searchQuery)
+                ) : (
+                  getDisplayContent()
+                )}
+              </span>
             </div>
           </div>
       </div>
@@ -202,10 +200,8 @@ function SearchableConversationItem({
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(conversation.pubkey);
 
-  // Get decrypted content for search
-  const { data: decryptedContent } = useDMDecrypt(
-    conversation.lastMessage
-  );
+  // Get content for search - messages are now pre-decrypted
+  const searchableContent = conversation.lastMessage?.content;
 
   // Filter by display name if search query exists
   if (searchQuery) {
@@ -214,8 +210,8 @@ function SearchableConversationItem({
     // Check if display name matches
     const nameMatches = displayName.toLowerCase().includes(query);
 
-    // Check if decrypted content matches (only if we have decrypted content)
-    const contentMatches = decryptedContent && decryptedContent.toLowerCase().includes(query);
+    // Check if content matches (use searchableContent which handles both encrypted and decrypted)
+    const contentMatches = searchableContent && searchableContent.toLowerCase().includes(query);
 
     // If neither name nor content matches, don't show this conversation
     if (!nameMatches && !contentMatches) {

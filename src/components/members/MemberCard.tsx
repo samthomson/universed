@@ -19,7 +19,7 @@ import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
 import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
 import { useIsMuted } from "@/hooks/useMutedUsers";
-import { useSendDM } from "@/hooks/useSendDM";
+import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import { useState, KeyboardEvent } from "react";
@@ -61,7 +61,8 @@ export function MemberCard({
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
 
   // DM functionality
-  const { mutate: sendDM, isPending: isSendingDM } = useSendDM();
+  const { sendMessage: sendDM } = useDirectMessages();
+  const [isSendingDM, setIsSendingDM] = useState(false);
 
   // Follow state and actions
   const isFollowing = useIsFriend(pubkey);
@@ -167,6 +168,7 @@ export function MemberCard({
     if (!dmMessage.trim() || !user) return;
 
     try {
+      setIsSendingDM(true);
       await sendDM({
         recipientPubkey: pubkey,
         content: dmMessage.trim(),
@@ -182,6 +184,8 @@ export function MemberCard({
     } catch (error) {
       // Error is already handled by the useSendDM hook
       console.error('Failed to send quick DM:', error);
+    } finally {
+      setIsSendingDM(false);
     }
   };
 
