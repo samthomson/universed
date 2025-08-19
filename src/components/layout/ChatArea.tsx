@@ -6,6 +6,7 @@ import {
   Volume2,
   Settings,
   Copy,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -15,6 +16,8 @@ import { useChannels } from "@/hooks/useChannels";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserRole } from "@/hooks/useCommunityRoles";
+import { useJoinRequests } from "@/hooks/useJoinRequests";
+import { Badge } from "@/components/ui/badge";
 import { useMessages } from "@/hooks/useMessages";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -24,6 +27,7 @@ import { useDeleteMessage } from "@/hooks/useMessageActions";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useState, useMemo, useCallback } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
+import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { toast } from "sonner";
 import { MessageThread } from "@/components/chat/MessageThread";
 import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
@@ -65,6 +69,9 @@ function CommunityChatHeader({
   const { data: channels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [showModerationPanel, setShowModerationPanel] = useState(false);
+  const { data: joinRequests } = useJoinRequests(communityId);
+  const pendingJoinRequests = joinRequests?.length || 0;
 
   const channel = channels?.find((c) => c.id === channelId);
 
@@ -116,26 +123,47 @@ function CommunityChatHeader({
           </Button>
           {canModerate && channel
             ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full">
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
-                  <DropdownMenuItem
-                    onClick={() => setShowChannelSettings(true)}
-                    className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg"
-                  >
-                    <Settings className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
-                    Edit Channel
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
-                    <Copy className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
-                    Copy Channel Link
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <>
+                {/* Moderation Button with Notification Badge */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowModerationPanel(true)}
+                  className="relative w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full"
+                >
+                  <Shield className="w-4 h-4" />
+                  {pendingJoinRequests > 0 && (
+                    <Badge
+                      variant="destructive"
+                      className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
+                    >
+                      {pendingJoinRequests}
+                    </Badge>
+                  )}
+                </Button>
+
+                {/* Channel Settings Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full">
+                      <Settings className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
+                    <DropdownMenuItem
+                      onClick={() => setShowChannelSettings(true)}
+                      className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg"
+                    >
+                      <Settings className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
+                      Edit Channel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                      <Copy className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
+                      Copy Channel Link
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )
             : (
               <Button variant="ghost" size="icon" className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 rounded-full">
@@ -153,6 +181,15 @@ function CommunityChatHeader({
           onOpenChange={setShowChannelSettings}
         />
       )}
+
+      {/* Moderation Panel */}
+      {showModerationPanel && (
+        <CommunitySettings
+          communityId={communityId}
+          open={showModerationPanel}
+          onOpenChange={setShowModerationPanel}
+        />
+      )}
     </>
   );
 }
@@ -163,11 +200,11 @@ function CommunityChat(
     & { communityId: string; channelId: string },
 ) {
   const { data: channels } = useChannels(communityId);
-  const { 
-    data: messages, 
-    isLoading, 
-    hasMoreMessages, 
-    loadingOlderMessages, 
+  const {
+    data: messages,
+    isLoading,
+    hasMoreMessages,
+    loadingOlderMessages,
     loadOlderMessages,
     reachedStartOfConversation
   } = useMessages(communityId, channelId);
