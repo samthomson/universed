@@ -82,9 +82,13 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
                 className="w-32 h-32 mx-auto mb-8"
                 style={{ filter: 'drop-shadow(0 0 30px rgba(255, 255, 255, 0.6))' }}
               />
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-12 leading-tight">
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-4 leading-tight">
                 Welcome to Universes
               </h1>
+              
+              <p className="text-2xl md:text-3xl text-gray-300 mb-12 font-light">
+                A space for all your spaces
+              </p>
 
               {/* CTA Section */}
               <div className="flex flex-col items-center gap-6 mb-16">
