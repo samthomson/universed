@@ -12,7 +12,7 @@ interface DMTabsProps {
 
 export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, requestsCount }: DMTabsProps) {
   return (
-    <div className="flex border-b border-gray-600 bg-secondary/20">
+    <div className="flex border-b border-gray-600" style={{ backgroundColor: '#0B1322' }}>
       {/* Hidden radio inputs for tab control */}
       <input
         type="radio"
@@ -39,7 +39,7 @@ export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, re
           className={cn(
             "flex-1 flex items-center justify-center py-2.5 px-1 cursor-pointer transition-all duration-200 border-b-2 min-w-0",
             activeTab === 'known'
-              ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+              ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400"
               : "border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           )}
         >
@@ -58,7 +58,7 @@ export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, re
           className={cn(
             "flex-1 flex items-center justify-center py-2.5 px-1 cursor-pointer transition-all duration-200 border-b-2 min-w-0",
             activeTab === 'newRequests'
-              ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+              ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400"
               : "border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           )}
         >
