@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useCommunities, type Community } from './useCommunities';
 import { useUserMembership, type MembershipStatus } from './useUserMembership';
 import { useCurrentUser } from './useCurrentUser';
+import { useUserSettings } from './useUserSettings';
+import { logger } from '@/lib/logger';
 
 export interface UserCommunity extends Community {
   membershipStatus: MembershipStatus;
@@ -25,15 +27,39 @@ export function useUserCommunities() {
   const { data: allCommunities, ...communityQuery } = useCommunities();
   const { data: userMemberships } = useUserMembership();
   const { user } = useCurrentUser();
+  const { settings } = useUserSettings();
+  
+  // Log when setting changes for debugging
+  logger.log(`COMMUNITY_DISCOVERY: Show pending communities setting: ${settings.showPendingCommunities}`);
 
   const userCommunities = useMemo(() => {
     if (!allCommunities || !user?.pubkey) {
       return [];
     }
 
+    // Log the filtering process for debugging
+    logger.log(`COMMUNITY_DISCOVERY: Filtering ${allCommunities.length} communities with pending=${settings.showPendingCommunities}`);
+
     const membershipMap = new Map(
       userMemberships?.map(m => [m.communityId, m.status]) || []
     );
+
+    // Check for communities user has memberships for but that might be missing due to spam filtering
+    if (userMemberships && settings.enableSpamFiltering) {
+      const communityIds = new Set(allCommunities.map(c => c.id));
+      const missingMemberships = userMemberships.filter(m => 
+        !communityIds.has(m.communityId) && 
+        ['owner', 'moderator', 'approved', 'pending'].includes(m.status)
+      );
+      
+      if (missingMemberships.length > 0) {
+        logger.log(`COMMUNITY_DISCOVERY: ${missingMemberships.length} user memberships missing from communities (likely spam filtered):`);
+        missingMemberships.forEach(m => {
+          const communityName = m.communityId.split(':').pop() || 'Unknown';
+          logger.log(`COMMUNITY_DISCOVERY: Missing membership: "${communityName}" - Status: ${m.status}`);
+        });
+      }
+    }
 
     const communities: UserCommunity[] = [];
 
@@ -64,24 +90,36 @@ export function useUserCommunities() {
         membershipStatus = eventBasedStatus || 'not-member';
       }
 
-      // Only include communities where user is a member
-      if (['owner', 'moderator', 'approved'].includes(membershipStatus)) {
+      // Use user setting to determine if pending communities should be shown
+      const allowedStatuses = settings.showPendingCommunities 
+        ? ['owner', 'moderator', 'approved', 'pending']
+        : ['owner', 'moderator', 'approved'];
+        
+      if (allowedStatuses.includes(membershipStatus)) {
         communities.push({
           ...community,
           membershipStatus,
         });
+      } else if (membershipStatus === 'pending') {
+        logger.log(`COMMUNITY_DISCOVERY: Skipping pending community "${community.name}" (setting: ${settings.showPendingCommunities})`);
       }
     });
 
     // Sort communities by membership status priority
-    return communities.sort((a, b) => {
-      const statusOrder = { owner: 0, moderator: 1, approved: 2 };
+    const sortedCommunities = communities.sort((a, b) => {
+      const statusOrder = { owner: 0, moderator: 1, approved: 2, pending: 3 };
       return statusOrder[a.membershipStatus] - statusOrder[b.membershipStatus];
     });
-  }, [allCommunities, userMemberships, user?.pubkey]);
+
+    logger.log(`COMMUNITY_DISCOVERY: Final result: ${sortedCommunities.length} communities (${sortedCommunities.filter(c => c.membershipStatus === 'pending').length} pending)`);
+    
+    return sortedCommunities;
+  }, [allCommunities, userMemberships, user?.pubkey, settings.showPendingCommunities]);
 
   return {
     data: userCommunities,
     ...communityQuery,
+    // Force refetch when pending setting changes
+    refetch: communityQuery.refetch,
   };
 }
