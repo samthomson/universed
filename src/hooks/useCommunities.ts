@@ -235,7 +235,7 @@ export function useCommunities() {
       
       return validEvents.map(parseCommunityEvent);
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 15, // 15 mns. this query is expensive
     retry: 2,
   });
 }
