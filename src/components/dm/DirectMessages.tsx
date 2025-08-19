@@ -178,13 +178,16 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
   }, [newConversations.conversations, activeTab]);
 
-  // Calculate counts for tabs
-  const knownCount = useMemo(() => {
-    return newConversations.conversations.filter(conv => conv.isKnown).length;
-  }, [newConversations.conversations]);
-
-  const requestsCount = useMemo(() => {
-    return newConversations.conversations.filter(conv => conv.isRequest).length;
+  // Calculate counts for tabs in a single pass
+  const { knownCount, requestsCount } = useMemo(() => {
+    return newConversations.conversations.reduce(
+      (counts, conv) => {
+        if (conv.isKnown) counts.knownCount++;
+        if (conv.isRequest) counts.requestsCount++;
+        return counts;
+      },
+      { knownCount: 0, requestsCount: 0 }
+    );
   }, [newConversations.conversations]);
   
 
