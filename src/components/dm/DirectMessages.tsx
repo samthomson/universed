@@ -14,6 +14,7 @@ import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
@@ -36,8 +37,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
+  const { toast } = useToast();
   // Use the NEW system for all conversation data
-  const { conversations: newConversations, progress: discoveryProgress } = useDirectMessages();
+  const { conversations: newConversations } = useDirectMessages();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
@@ -163,6 +165,21 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       window.history.replaceState({}, '', url.toString());
     }
   }, [selectedConversation, targetPubkey]);
+
+  // Show discovery progress as toasts
+  useEffect(() => {
+    if (newConversations.isLoadingComprehensive) {
+      toast({
+        title: "🔍 Discovering Conversations",
+        description: "Scanning messages for conversations...",
+      });
+    } else if (!newConversations.isLoading && newConversations.conversations.length > 0) {
+      toast({
+        title: "✅ Discovery Complete",
+        description: `Found ${newConversations.conversations.length} conversations`,
+      });
+    }
+  }, [newConversations.isLoadingComprehensive, newConversations.isLoading, newConversations.conversations.length, toast]);
 
   // Memoize the expensive filtering and sorting operations (must be before early return)
   const filteredDiscoveredConversations = useMemo(() => {
@@ -326,32 +343,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             </Button>
           </div>
 
-          <div className="px-2 mb-3">
-            <h3 className="text-sm font-medium text-blue-300 mb-1">
-              🔍 Discovered Conversations
-            </h3>
-            {newConversations.isLoading && (
-              <div className="space-y-1">
-                {/* Friend-based discovery progress */}
-                {discoveryProgress.friendsTotalToProcess > 0 && (
-                  <p className="text-xs text-gray-400">
-                    Checking friends... ({discoveryProgress.friendsProcessedCount}/{discoveryProgress.friendsTotalToProcess})
-                  </p>
-                )}
-                {/* Comprehensive scanning status */}
-                {newConversations.isLoadingComprehensive && (
-                  <p className="text-xs text-gray-500">
-                    🔍 Scanning all messages for additional conversations...
-                  </p>
-                )}
-              </div>
-            )}
-            {!newConversations.isLoading && newConversations.conversations.length > 0 && (
-              <p className="text-xs text-gray-400">
-                Found {newConversations.conversations.length} conversations
-              </p>
-            )}
-          </div>
+
 
           {/* Tabs */}
           <DMTabs
