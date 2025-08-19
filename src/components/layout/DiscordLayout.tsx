@@ -746,7 +746,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
             ? (
               <>
                 <div className="flex flex-1 overflow-hidden">
-                    <div className="w-60 bg-secondary/30 flex flex-col">
+                    <div className="w-72 bg-secondary/30 flex flex-col">
                       <CommunityPanel
                         communityId={selectedCommunity}
                         selectedChannel={selectedChannel}
@@ -801,7 +801,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                     </div>
 
                     {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && (
-                      <div className="w-60 bg-secondary/30">
+                      <div className="w-72 bg-secondary/30">
                         <MemberList
                           communityId={selectedCommunity}
                           channelId={selectedChannel}
@@ -826,7 +826,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                   />
                 </div>
 
-                <div className="w-60 bg-secondary/30 flex flex-col">
+                <div className="w-72 bg-secondary/30 flex flex-col">
                   <Virtuoso
                     data={mutualFriends || []}
                     itemContent={(index, friend) => (
