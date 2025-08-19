@@ -44,10 +44,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
 
-
-
-
-
   const handleNewDM = useCallback(() => {
     setShowNewDM(true);
   }, []);
