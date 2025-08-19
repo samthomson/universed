@@ -8,6 +8,7 @@ import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
+import { ProtocolIndicator } from "./ProtocolIndicator";
 import { UserPanel } from "@/components/layout/UserPanel";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -15,7 +16,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
 
 
 interface DirectMessagesProps {
@@ -92,16 +93,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     />
       <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
         {conversation.hasNIP4Messages && (
-          <div 
-            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
-            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
-          />
+          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
         )}
         {conversation.hasNIP17Messages && (
-          <div 
-            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
-            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
-          />
+          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
         )}
       </div>
     </div>
@@ -139,16 +134,10 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     />
       <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
         {conversation.hasNIP4Messages && (
-          <div 
-            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full border border-gray-700`}
-            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].title}
-          />
+          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
         )}
         {conversation.hasNIP17Messages && (
-          <div 
-            className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full border border-gray-700`}
-            title={PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].title}
-          />
+          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
         )}
       </div>
     </div>

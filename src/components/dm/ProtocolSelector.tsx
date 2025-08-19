@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG, type MessageProtocol, useDirectMessages } from "@/hooks/useDirectMessages";
+import { ProtocolIndicator } from "./ProtocolIndicator";
 
 interface ProtocolSelectorProps {
   selectedProtocol: MessageProtocol;
@@ -51,7 +52,7 @@ export function ProtocolSelector({
           className={`text-xs ${selectedProtocol === MESSAGE_PROTOCOL.NIP04 ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}
         >
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].color} rounded-full`} />
+            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
             <span>{PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP04].label}</span>
           </div>
         </DropdownMenuItem>
@@ -64,7 +65,7 @@ export function ProtocolSelector({
             className={`text-xs ${selectedProtocol === MESSAGE_PROTOCOL.NIP17 ? 'bg-purple-50 dark:bg-purple-900/20' : ''}`}
           >
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 ${PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].color} rounded-full`} />
+              <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
               <span>{PROTOCOL_CONFIG[MESSAGE_PROTOCOL.NIP17].label}</span>
             </div>
           </DropdownMenuItem>

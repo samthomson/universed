@@ -33,7 +33,8 @@ import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import { getMessageProtocol, PROTOCOL_CONFIG } from "@/hooks/useDirectMessages";
+import { getMessageProtocol } from "@/hooks/useDirectMessages";
+import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { NostrEvent } from "@/types/nostr";
 
 export interface MessageItemConfig {
@@ -209,13 +210,15 @@ function BaseMessageItemComponent({
                 {/* Only show protocol indicators for DM messages (kinds 4, 14, 1059) */}
                 {[4, 14, 1059].includes(message.kind) && (() => {
                   const protocol = getMessageProtocol(message.kind);
-                  const config = PROTOCOL_CONFIG[protocol];
-                  return (
-                    <span 
-                      className={`inline-block w-2 h-2 rounded-full ml-2 ${config.color}`}
-                      title={config.title}
-                    />
-                  );
+                  // Only show indicator for known protocols
+                  if (protocol === 'NIP04' || protocol === 'NIP17') {
+                    return (
+                      <span className="inline-block ml-2">
+                        <ProtocolIndicator protocol={protocol} />
+                      </span>
+                    );
+                  }
+                  return null;
                 })()}
                 {isSending && (
                   <div className="flex items-center space-x-1 inline-flex ml-2">
