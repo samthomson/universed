@@ -16,6 +16,10 @@ export const reactQueryConfigs = {
     staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
     gcTime: 60 * 60 * 1000, // 1 hour (increased from 30)
   },
+  'channel-permissions': {
+    staleTime: 5 * 60 * 1000, // 5 minutes - permissions don't change often
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  },
   events: {
     staleTime: 20 * 60 * 1000, // 20 minutes (increased from 10)
     gcTime: 2 * 60 * 60 * 1000, // 2 hours (increased from 1)
