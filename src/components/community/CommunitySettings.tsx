@@ -340,14 +340,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="h-14 grid w-full grid-cols-3 bg-gray-900/50 border border-blue-900/20 p-1 backdrop-blur-sm rounded-full">
-            <TabsTrigger value="overview" className="flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
                 <Settings className="w-4 h-4 text-blue-400" />
               </div>
               Overview
             </TabsTrigger>
-            <TabsTrigger value="members" className="flex items-center gap-2 relative data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+            <TabsTrigger value="members" className="text-xs sm:text-sm flex items-center gap-2 relative data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
                 <Users className="w-4 h-4 text-blue-400" />
               </div>
               Members
@@ -357,8 +357,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="audit" className="flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
+            <TabsTrigger value="audit" className="text-xs sm:text-sm flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
+              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
                 <FileText className="w-4 h-4 text-blue-400" />
               </div>
               Audit
@@ -370,7 +370,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Community Overview */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
                       <Settings className="w-4 h-4 text-blue-400" />
                     </div>
@@ -381,15 +381,15 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-gradient-to-br from-blue-600/10 to-blue-800/10 rounded-2xl border border-blue-700/20 backdrop-blur-sm">
                       <div className="text-2xl font-bold text-blue-300">{totalMembers}</div>
-                      <div className="text-sm text-blue-200/70">Total Members</div>
+                      <div className="text-xs sm:text-sm text-blue-200/70">Total Members</div>
                     </div>
                     <div className="text-center p-4 bg-gradient-to-br from-amber-600/10 to-amber-800/10 rounded-2xl border border-amber-700/20 backdrop-blur-sm">
                       <div className="text-2xl font-bold text-amber-300">{pendingRequests}</div>
-                      <div className="text-sm text-amber-200/70">Pending Requests</div>
+                      <div className="text-xs sm:text-sm text-amber-200/70">Pending Requests</div>
                     </div>
                     <div className="text-center p-4 bg-gradient-to-br from-red-600/10 to-red-800/10 rounded-2xl border border-red-700/20 backdrop-blur-sm">
                       <div className="text-2xl font-bold text-red-300">{totalReports}</div>
-                      <div className="text-sm text-red-200/70">Reports</div>
+                      <div className="text-xs sm:text-sm text-red-200/70">Reports</div>
                     </div>
                   </div>
                 </CardContent>
@@ -398,7 +398,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Community Information */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
                       <Settings className="w-4 h-4 text-blue-400" />
                     </div>
@@ -519,7 +519,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Sharing Section */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
                       <Share2 className="w-4 h-4 text-blue-400" />
                     </div>
@@ -535,7 +535,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {isAdmin && (
                 <Card className="bg-red-900/10 border-red-700/30 backdrop-blur-sm rounded-2xl">
                   <CardHeader>
-                    <CardTitle className="text-red-400 flex items-center gap-3">
+                    <CardTitle className="text-lg sm:text-2xl text-red-400 flex items-center gap-3">
                       <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
                         <AlertTriangle className="w-4 h-4" />
                       </div>
@@ -582,7 +582,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {pendingRequests > 0 && (
                 <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center gap-3">
+                    <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                       <div className="p-2 bg-gradient-to-br from-amber-600/15 to-amber-800/15 rounded-full border border-amber-700/25">
                         <Clock className="w-4 h-4 text-amber-400" />
                       </div>
@@ -609,7 +609,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Member Management */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
                       <Users className="w-4 h-4 text-blue-400" />
                     </div>
@@ -645,7 +645,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Reports */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
                       <Shield className="w-4 h-4 text-red-400" />
                     </div>
@@ -679,7 +679,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               {/* Audit Log */}
               <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
                 <CardHeader>
-                  <CardTitle className="text-white flex items-center gap-3">
+                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
                       <FileText className="w-4 h-4 text-blue-400" />
                     </div>
@@ -1104,7 +1104,7 @@ function JoinRequestItem({
           )}
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-col sm:flex-row">
         <Button
           size="sm"
           variant="outline"
