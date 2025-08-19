@@ -16,31 +16,27 @@ export function useDefaultProtocol(conversationId?: string) {
       return MESSAGE_PROTOCOL.NIP04;
     }
     
+    // If user explicitly prefers NIP-17, use it
     if (defaultProtocolSetting === 'nip17') {
       return MESSAGE_PROTOCOL.NIP17;
     }
 
-    // Auto mode: smart selection based on conversation history
-    if (defaultProtocolSetting === 'auto' && conversationId && conversations?.conversations) {
-      const conversation = conversations.conversations.find(c => c.id === conversationId);
+    // Auto mode: determine protocol based on conversation history
+    if (defaultProtocolSetting === 'auto' && conversationId) {
+      const conversation = conversations?.conversations?.find(c => c.id === conversationId);
       
-      if (conversation) {
-        // If conversation has NIP-17 messages, prefer NIP-17
-        if (conversation.hasNIP17Messages) {
-          return MESSAGE_PROTOCOL.NIP17;
-        }
-        
-        // If conversation has NIP-04 messages but no NIP-17, use NIP-04
-        if (conversation.hasNIP4Messages) {
-          return MESSAGE_PROTOCOL.NIP04;
-        }
+      // Prioritize NIP-17 if conversation has NIP-17 messages
+      if (conversation?.hasNIP17Messages) {
+        return MESSAGE_PROTOCOL.NIP17;
       }
       
-      // For new conversations with no history, default to NIP-17 (highest encryption)
-      return MESSAGE_PROTOCOL.NIP17;
+      // Fall back to NIP-04 if conversation has NIP-04 messages
+      if (conversation?.hasNIP4Messages) {
+        return MESSAGE_PROTOCOL.NIP04;
+      }
     }
 
-    // Fallback to NIP-17 if NIP-17 is enabled
+    // Default to NIP-17 for new conversations or when NIP-17 is enabled
     return MESSAGE_PROTOCOL.NIP17;
   }, [defaultProtocolSetting, isNIP17Enabled, conversationId, conversations?.conversations]);
 }
