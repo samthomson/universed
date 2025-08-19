@@ -86,13 +86,13 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
                 Welcome to Universes
               </h1>
 
-              {/* CTA Buttons */}
+              {/* CTA Section */}
               <div className="flex flex-col items-center gap-6 mb-16">
-                <LoginArea className="max-w-xs" />
                 <p className="text-sm text-gray-400 text-center">
                   Ready to own your Space? <br />
                   <span className="text-purple-300">Join thousands creating their worlds.</span>
                 </p>
+                <LoginArea className="max-w-xs" />
               </div>
             </div>
 
