@@ -233,21 +233,11 @@ export function useMessages(communityId: string, channelId: string) {
 
       // Real-time subscription: Get messages from the most recent message we have
       // or from now if we don't have any messages
-      let sinceTimestamp = Math.floor(Date.now() / 1000);
-      
-      // If we have messages, use the timestamp of the most recent one
       const existingMessages = queryClient.getQueryData<NostrEvent[]>(queryKey);
-      logger.log(`[DEBUG_PAGINATION] Starting subscription with ${existingMessages?.length || 0} existing messages`);
-      
-      if (existingMessages && existingMessages.length > 0) {
-        // Find the most recent message
-        const mostRecent = existingMessages.reduce((latest, msg) => 
-          msg.created_at > latest.created_at ? msg : latest, existingMessages[0]);
-        
-        // Use that timestamp + 1 second to avoid duplicate messages
-        sinceTimestamp = mostRecent.created_at + 1;
-        logger.log(`[DEBUG_PAGINATION] Subscription since: ${new Date(sinceTimestamp * 1000).toISOString()}`);
-      }
+      const sinceTimestamp = (existingMessages && existingMessages.length > 0)
+        ? existingMessages.reduce((latest, msg) => 
+            msg.created_at > latest.created_at ? msg : latest, existingMessages[0]).created_at
+        : Math.floor(Date.now() / 1000);
       
       const filters = buildFilters(kind, pubkey, identifier, channelId).map(filter => ({
         ...filter,

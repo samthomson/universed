@@ -8,6 +8,7 @@ export const dmMessageItemConfig: MessageItemConfig = {
   showDelete: true,
   showBan: false,
   showReport: true,
+  asMyMessageRightAlign: true
 };
 
 export const dmMessageListConfig = {

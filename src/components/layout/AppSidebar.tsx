@@ -14,8 +14,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { ProfileModal } from "@/components/user/ProfileModal";
-import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
+import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
+import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
@@ -116,10 +116,10 @@ function SortableCommunityItem({
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     logger.log('Community clicked:', community.name, { isDragging, isAnimating, isLaunching, isLanding });
-    
+
     // Stop propagation to prevent drag listeners from interfering
     e.stopPropagation();
-    
+
     // Only handle click if we're not in the middle of a drag operation
     if (!isDragging && !isAnimating) {
       onSelect(community.id);
@@ -235,8 +235,6 @@ export function AppSidebar({
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -281,7 +279,7 @@ export function AppSidebar({
   // Handle community selection with sophisticated rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
     logger.log('handleCommunitySelect called:', { communityId, selectedCommunity, isAnimating });
-    
+
     if (!communityId || communityId === selectedCommunity || isAnimating) {
       onSelectCommunity(communityId);
       return;
@@ -368,7 +366,7 @@ export function AppSidebar({
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full z-10">
         {/* Fixed top section - Notifications and Direct Messages */}
         <div className="flex flex-col items-center pt-3 pb-2 space-y-2">
           <Tooltip>
@@ -406,7 +404,7 @@ export function AppSidebar({
 
         {/* Scrollable communities section */}
         <ScrollArea className="flex-1 px-2">
-          <DndContext 
+          <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragStart={handleDragStart}
@@ -414,7 +412,7 @@ export function AppSidebar({
             onDragCancel={handleDragCancel}
             autoScroll={{ threshold: { x: 0, y: 0.2 } }}
           >
-            <SortableContext 
+            <SortableContext
               items={orderedCommunities?.map(c => c.id) || []}
               strategy={verticalListSortingStrategy}
             >
@@ -445,26 +443,30 @@ export function AppSidebar({
 
           {/* User Profile Picture - Only show in mobile view */}
           {isMobile && user && (
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <UserMenu
+              trigger={
                 <Button
                   variant="ghost"
                   size="icon"
                   className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
-                  onClick={() => setShowProfileModal(true)}
                 >
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
-                    <AvatarFallback className="bg-indigo-600 text-white text-xs">
-                      {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
+                      <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                        {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="absolute -bottom-1 -right-1">
+                      <UserStatusIndicator pubkey={user.pubkey} />
+                    </div>
+                  </div>
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>View Profile</p>
-              </TooltipContent>
-            </Tooltip>
+              }
+              side="right"
+              align="end"
+              sideOffset={10}
+            />
           )}
         </div>
 
@@ -472,22 +474,6 @@ export function AppSidebar({
           open={showCommunitySelectionDialog}
           onOpenChange={onShowCommunitySelectionDialogChange}
           onCommunitySelect={onSelectCommunity}
-        />
-
-        {/* Profile Modal */}
-        <ProfileModal
-          open={showProfileModal}
-          onOpenChange={setShowProfileModal}
-          onOpenSettings={() => {
-            setShowProfileModal(false);
-            setShowSettingsDialog(true);
-          }}
-        />
-
-        {/* Settings Dialog */}
-        <UserSettingsDialog
-          open={showSettingsDialog}
-          onOpenChange={setShowSettingsDialog}
         />
       </div>
     </TooltipProvider>

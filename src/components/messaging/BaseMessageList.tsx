@@ -8,6 +8,7 @@ import { Hash, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { logger } from "@/lib/logger";
+import { getMessageProtocol } from "@/hooks/useDirectMessages";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
@@ -155,11 +156,12 @@ export function BaseMessageList({
         itemContent={(index, message) => {
           const previousMessage = index > 0 ? regularMessages[index - 1] : null;
 
-          // Logic to decide if we show the avatar, based on sender and time gap.
+          // Logic to decide if we show the avatar, based on sender, time gap, and protocol.
           const showAvatar = config.showAvatars && (
             !previousMessage ||
             previousMessage.pubkey !== message.pubkey ||
-            (message.created_at - previousMessage.created_at) > 300 // 5 minutes
+            (message.created_at - previousMessage.created_at) > 300 || // 5 minutes
+            getMessageProtocol(previousMessage.kind) !== getMessageProtocol(message.kind) // Different protocols
           );
 
           return (

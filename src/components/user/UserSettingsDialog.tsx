@@ -1,4 +1,4 @@
-import { LogOut, Wifi, Activity, Wallet, Sun, Moon, Monitor, Users } from "lucide-react";
+import {  Wifi, Activity, Wallet, Sun, Moon, Monitor, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,13 +12,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RelaySelector } from "@/components/RelaySelector";
 import { WalletConfigDialog } from "@/components/WalletConfigDialog";
-import { useLoginActions } from "@/hooks/useLoginActions";
+
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
-import { useAppContext } from "@/hooks/useAppContext";
+
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { genUserName } from "@/lib/genUserName";
+import { MessagingSettings } from "@/components/dm/MessagingSettings";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -26,9 +27,7 @@ interface UserSettingsDialogProps {
 }
 
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
-  const { logout } = useLoginActions();
   const { user } = useCurrentUser();
-  const { config, updateConfig } = useAppContext();
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const author = useAuthor(user?.pubkey || '');
@@ -37,18 +36,6 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   if (!user) return null;
 
   const displayName = metadata?.name || genUserName(user.pubkey);
-
-  const handleLogout = async () => {
-    await logout();
-    onOpenChange(false);
-  };
-
-  const handleTogglePerformanceDashboard = () => {
-    updateConfig((current) => ({
-      ...current,
-      showPerformanceDashboard: !current.showPerformanceDashboard,
-    }));
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,24 +175,10 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               Display real-time performance metrics including cache hit rates and load times.
             </p>
           </div>
+          {/* Messaging Settings */}
+          <MessagingSettings />
 
           <Separator />
-
-          {/* Account Actions */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Account</h3>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-              className="w-full"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Log Out
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              You'll need to log in again to access your account.
-            </p>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

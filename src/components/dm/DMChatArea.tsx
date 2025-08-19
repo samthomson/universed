@@ -6,16 +6,18 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDMMessages } from "@/hooks/useDMMessages";
-import { useSendDM } from "@/hooks/useSendDM";
+import { useDirectMessagesForChatWithPagination, useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
   dmMessageItemConfig,
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
+import { ProtocolSelector } from "./ProtocolSelector";
+import { useDefaultProtocol } from "@/hooks/useDefaultProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
+import { useMemo, useCallback, useState, useEffect } from "react";
 
 
 interface DMChatAreaProps {
@@ -82,27 +84,64 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading } = useDMMessages(conversationId);
-  const { mutate: sendDM } = useSendDM();
+  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
+  const { sendMessage, isNIP17Enabled } = useDirectMessages();
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
+  
+  // Get smart default protocol based on user settings and conversation history
+  const defaultProtocol = useDefaultProtocol(conversationId);
+  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(defaultProtocol);
+
+  // Update selected protocol when default changes (e.g., settings change or conversation loads)
+  useEffect(() => {
+    setSelectedProtocol(defaultProtocol);
+  }, [defaultProtocol]);
+
+  // Auto-switch to NIP-04 if NIP-17 gets disabled while NIP-17 is selected
+  if (!isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17) {
+    setSelectedProtocol(MESSAGE_PROTOCOL.NIP04);
+  }
 
   const displayName = metadata?.name || genUserName(conversationId);
 
-  const handleSendMessage = async (content: string) => {
-    await sendDM({
+  // Memoize query key to prevent unnecessary re-renders (like ChatArea.tsx)
+  const queryKey = useMemo(() => ['dm-unified-messages', user!.pubkey, conversationId], [user, conversationId]);
+
+  // Memoize input placeholder to prevent re-renders
+  const inputPlaceholder = useMemo(() => `Message ${displayName}`, [displayName]);
+
+  // Memoize header to prevent re-renders
+  const header = useMemo(() => (
+    <DMChatHeader
+      conversationId={conversationId}
+      onBack={onBack}
+    />
+  ), [conversationId, onBack]);
+
+  // Memoize protocol selector to prevent re-renders
+  const protocolSelector = useMemo(() => (
+    <ProtocolSelector
+      selectedProtocol={selectedProtocol}
+      onProtocolChange={setSelectedProtocol}
+    />
+  ), [selectedProtocol]);
+
+  const handleSendMessage = useCallback(async (content: string) => {
+    await sendMessage({
       recipientPubkey: conversationId,
       content,
+      protocol: selectedProtocol,
     });
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  };
+  }, [sendMessage, conversationId, onMessageSent, selectedProtocol]);
 
-  const handleDeleteMessage = async (message: NostrEvent) => {
+  const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
       toast({
         title: "Error",
@@ -134,26 +173,28 @@ export function DMChatArea(
         variant: "destructive",
       });
     }
-  };
+  }, [user, createEvent, toast]);
 
+  // The key prop forces React to recreate the component when conversation changes
+  // This prevents showing previous conversation messages during transitions
   return (
     <BaseChatArea
+      key={conversationId} // Force component remount when conversation changes
       messages={messages || []}
       isLoading={isLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
-      queryKey={['dm-messages', user?.pubkey || '', conversationId]}
-      header={
-        <DMChatHeader
-          conversationId={conversationId}
-          onBack={onBack}
-        />
-      }
+      queryKey={queryKey}
+      header={header}
       messageListConfig={dmMessageListConfig}
       messageItemConfig={dmMessageItemConfig}
       messageInputConfig={dmMessageInputConfig}
-      inputPlaceholder={`Message ${displayName}`}
+      inputPlaceholder={inputPlaceholder}
       onNavigateToDMs={onNavigateToDMs}
+      hasMoreMessages={hasMoreMessages}
+      loadingOlderMessages={loadingOlderMessages}
+      onLoadOlderMessages={loadOlderMessages}
+      protocolSelector={protocolSelector}
     />
   );
 }
