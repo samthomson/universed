@@ -111,6 +111,11 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               Configure your Lightning wallet connections for Nostr Wallet Connect (NWC) payments.
             </p>
           </div>
+
+          {/* Messaging Settings */}
+          <MessagingSettings />
+
+          <Separator />
         </div>
       </DialogContent>
     </Dialog>
