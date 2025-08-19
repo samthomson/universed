@@ -1,4 +1,4 @@
-import { Plus, MessageCircle, Crown, Shield } from "lucide-react";
+import { Plus, MessageCircle, Crown, Shield, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -163,6 +163,11 @@ function SortableCommunityItem({
                 <Shield className="w-3 h-3 text-white" />
               </div>
             )}
+            {community.membershipStatus === 'pending' && (
+              <div className="absolute -bottom-1 w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center z-20">
+                <Clock className="w-3 h-3 text-white" />
+              </div>
+            )}
 
             {/* Launch phase effects - disabled during drag */}
             {isLaunching && !isDragging && (
@@ -203,7 +208,9 @@ function SortableCommunityItem({
           <div className="space-y-1">
             <p>{community.name}</p>
             <p className="text-xs text-muted-foreground capitalize">
-              {community.membershipStatus === 'approved' ? 'Member' : community.membershipStatus}
+              {community.membershipStatus === 'approved' ? 'Member' : 
+               community.membershipStatus === 'pending' ? 'Pending approval' : 
+               community.membershipStatus}
             </p>
             {isDragging && (
               <p className="text-xs text-blue-400">Dragging...</p>
