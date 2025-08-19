@@ -1,4 +1,4 @@
-import {  Wifi, Activity, Wallet, Sun, Moon, Monitor, Users } from "lucide-react";
+import {  Wifi, Wallet, Sun, Moon, Monitor, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -157,28 +157,8 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
           <Separator />
 
-          {/* Developer Tools */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              <h3 className="text-sm font-medium">Developer Tools</h3>
-            </div>
-            <Button
-              variant={config.showPerformanceDashboard ? "default" : "outline"}
-              onClick={handleTogglePerformanceDashboard}
-              className="w-full"
-            >
-              <Activity className="mr-2 h-4 w-4" />
-              {config.showPerformanceDashboard ? "Hide" : "Show"} Performance Metrics
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Display real-time performance metrics including cache hit rates and load times.
-            </p>
-          </div>
           {/* Messaging Settings */}
           <MessagingSettings />
-
-          <Separator />
         </div>
       </DialogContent>
     </Dialog>
