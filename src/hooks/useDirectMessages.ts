@@ -112,35 +112,10 @@ function analyzeConversation(conv: { recentMessages?: NostrEvent[]; pubkey: stri
   // Check if user has sent any message in recent history
   const userHasSentMessage = messages.some((msg: NostrEvent) => msg.pubkey === userPubkey);
   
-  // Check if other person has sent messages
-  const otherHasSentMessage = messages.some((msg: NostrEvent) => msg.pubkey === conv.pubkey);
-  
-  // IMPORTANT: If recent messages are at the limit (10), we can't be sure about full history
-  // In this case, be conservative and assume it's "known" to avoid hiding conversations
-  const recentMessagesAtLimit = messages.length >= 10;
-  
-  // Determine categorization
-  let isKnown: boolean;
-  let isRequest: boolean;
-  
-  if (userHasSentMessage) {
-    // User has sent at least one message - it's known
-    isKnown = true;
-    isRequest = false;
-  } else if (otherHasSentMessage && !userHasSentMessage) {
-    // Other person has sent messages but user hasn't replied - it's a request
-    isKnown = false;
-    isRequest = true;
-  } else if (recentMessagesAtLimit && !userHasSentMessage) {
-    // Conservative: if we hit the limit and user hasn't sent any in recent batch,
-    // assume it's a "request" since we can't be sure
-    isKnown = false;
-    isRequest = true;
-  } else {
-    // Fallback - assume request if there are any messages
-    isKnown = false;
-    isRequest = true;
-  }
+  // Determine categorization - simplified as suggested by colleague
+  // The distinction is simply whether the user has sent a message to this person
+  const isKnown = userHasSentMessage;
+  const isRequest = !isKnown;
   
   // Who sent the last message?
   const lastMessage = conv.lastMessage;
