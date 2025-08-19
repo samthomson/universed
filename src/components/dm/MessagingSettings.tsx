@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useDefaultProtocolSetting, type DefaultProtocol } from "@/hooks/useDefaultProtocolSetting";
+import { cn } from "@/lib/utils";
 
 interface MessagingSettingsProps {
   className?: string;
@@ -71,32 +72,39 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
           </div>
         </div>
 
-        {/* Default Protocol Setting */}
-        <div className="space-y-4">
-          <div className="space-y-3">
-            <Label htmlFor="default-protocol" className="text-sm font-medium">
-              Default Messaging Protocol
-            </Label>
-            <Select 
-              value={!isNIP17Enabled ? 'nip04' : defaultProtocol} 
-              onValueChange={(value: DefaultProtocol) => setDefaultProtocol(value)}
-              disabled={!isNIP17Enabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select default protocol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">Auto (Smart Selection)</SelectItem>
-                <SelectItem value="nip17">NIP-17 (Modern)</SelectItem>
-                <SelectItem value="nip04">NIP-04 (Legacy)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {!isNIP17Enabled && "NIP-17 must be enabled to change the default protocol"}
-              {isNIP17Enabled && defaultProtocol === 'auto' && "Automatically selects the best protocol based on conversation history"}
-              {isNIP17Enabled && defaultProtocol === 'nip17' && "Always use NIP-17 for new messages"}
-              {isNIP17Enabled && defaultProtocol === 'nip04' && "Always use NIP-04 for new messages"}
-            </p>
+        {/* Default Protocol Setting - Only show when NIP-17 is enabled */}
+        <div className={cn(
+          "overflow-hidden transition-all duration-300 ease-in-out",
+          {
+            "max-h-40 opacity-100": isNIP17Enabled,
+            "max-h-0 opacity-0": !isNIP17Enabled,
+          }
+        )}>
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <Label htmlFor="default-protocol" className="text-sm font-medium">
+                Default Messaging Protocol
+              </Label>
+              <Select 
+                value={defaultProtocol} 
+                onValueChange={(value: DefaultProtocol) => setDefaultProtocol(value)}
+                disabled={!isNIP17Enabled}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select default protocol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto (Smart Selection)</SelectItem>
+                  <SelectItem value="nip17">NIP-17 (Modern)</SelectItem>
+                  <SelectItem value="nip04">NIP-04 (Legacy)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {defaultProtocol === 'auto' && "Automatically selects the best protocol based on conversation history"}
+                {defaultProtocol === 'nip17' && "Always use NIP-17 for new messages"}
+                {defaultProtocol === 'nip04' && "Always use NIP-04 for new messages"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
