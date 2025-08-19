@@ -59,11 +59,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     setShowNewDM(false);
   }, [propSelectedConversation, onConversationSelect]);
 
-  // Memoize Virtuoso itemContent functions to prevent re-renders (must be at top level)
-
-
-  const desktopItemContenNew = useCallback((index: number, conversation) => {
-    
+  // Consolidated responsive item content function
+  const conversationItemContent = useCallback((index: number, conversation) => {
     const dmConversation = {
       id: conversation.id,
       pubkey: conversation.id,
@@ -76,72 +73,32 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     };
 
     return (
-    <div key={conversation.id} className="relative">
-    <DMConversationList
-      conversations={[dmConversation]}
-      selectedConversation={selectedConversation || null}
-      onSelectConversation={(pubkey) => {
-        if (propSelectedConversation !== undefined) {
-          onConversationSelect?.(pubkey);
-        } else {
-          setInternalSelectedConversation(pubkey);
-        }
-      }}
-      searchQuery={searchQuery}
-      isLoading={false}
-      isVirtualized={true}
-    />
-      <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
-        {conversation.hasNIP4Messages && (
-          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
-        )}
-        {conversation.hasNIP17Messages && (
-          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
-        )}
+      <div key={conversation.id} className="relative">
+        <DMConversationList
+          conversations={[dmConversation]}
+          selectedConversation={selectedConversation || null}
+          onSelectConversation={(pubkey) => {
+            if (propSelectedConversation !== undefined) {
+              onConversationSelect?.(pubkey);
+            } else {
+              setInternalSelectedConversation(pubkey);
+            }
+          }}
+          searchQuery={searchQuery}
+          isLoading={false}
+          isVirtualized={true}
+        />
+        <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
+          {conversation.hasNIP4Messages && (
+            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
+          )}
+          {conversation.hasNIP17Messages && (
+            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
+          )}
+        </div>
       </div>
-    </div>
-  )}, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
-
-  // Mobile version of the new item content (same as desktop but for mobile)
-  const mobileItemContentNew = useCallback((index: number, conversation) => {
-    
-    const dmConversation = {
-      id: conversation.id,
-      pubkey: conversation.id,
-      lastMessage: conversation.lastMessage,
-      lastMessageTime: conversation.lastActivity,
-      unreadCount: conversation.unreadCount || 0,
-      isKnown: conversation.isKnown,
-      isRequest: conversation.isRequest,
-      lastMessageFromUser: conversation.lastMessageFromUser,
-    };
-
-    return (
-    <div key={conversation.id} className="relative">
-    <DMConversationList
-      conversations={[dmConversation]}
-      selectedConversation={selectedConversation || null}
-      onSelectConversation={(pubkey) => {
-        if (propSelectedConversation !== undefined) {
-          onConversationSelect?.(pubkey);
-        } else {
-          setInternalSelectedConversation(pubkey);
-        }
-      }}
-      searchQuery={searchQuery}
-      isLoading={false}
-      isVirtualized={true}
-    />
-      <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
-        {conversation.hasNIP4Messages && (
-          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
-        )}
-        {conversation.hasNIP17Messages && (
-          <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
-        )}
-      </div>
-    </div>
-  )}, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
+    );
+  }, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
 
   // Consolidated components object with responsive design
   const virtuosoComponents = useMemo(() => ({
@@ -310,7 +267,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             <div className="flex-1 overflow-hidden bg-gray-700 px-2">
               <Virtuoso
                 data={filteredDiscoveredConversations}
-                itemContent={mobileItemContentNew}
+                itemContent={conversationItemContent}
                 components={virtuosoComponents}
                 className="h-full scrollbar-thin"
               />
@@ -417,7 +374,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <div className="flex-1 overflow-hidden px-1">
           <Virtuoso
             data={filteredDiscoveredConversations}
-            itemContent={desktopItemContenNew}
+            itemContent={conversationItemContent}
             components={virtuosoComponents}
             className="h-full scrollbar-thin"
           />
