@@ -199,39 +199,33 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
 
 
       {/* Community Header */}
-      <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
+      <div className="px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0 h-14 flex items-center">
         {!community ? (
-          <div className="animate-pulse flex items-center space-x-3">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <div className="flex-1 space-y-1">
-              <Skeleton className="h-5 w-32" />
-              <Skeleton className="h-3 w-24" />
+          <div className="animate-pulse flex items-center space-x-2 w-full">
+            <Skeleton className="w-8 h-8 rounded-lg" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-24" />
             </div>
           </div>
         ) : (
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 w-full">
             {community.image ? (
-              <Avatar className="w-10 h-10 flex-shrink-0">
+              <Avatar className="w-8 h-8 flex-shrink-0">
                 <AvatarImage src={community.image} alt={community.name} />
-                <AvatarFallback className="text-base font-semibold">
+                <AvatarFallback className="text-sm font-semibold">
                   {community.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-base flex-shrink-0">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm flex-shrink-0">
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
 
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                 {community.name}
               </h1>
-              {community.description && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {community.description}
-                </p>
-              )}
             </div>
           </div>
         )}
