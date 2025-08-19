@@ -17,7 +17,7 @@ import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
-import { StarBackground } from '@/components/ui/StarBackground';
+
 
 import AppRouter from './AppRouter';
 
@@ -71,7 +71,6 @@ const presetRelays = [
 function AppContent() {
   return (
     <MessageSystemProvider>
-      <StarBackground />
       <TooltipProvider>
         <QueryOptimizer />
         <Toaster />
