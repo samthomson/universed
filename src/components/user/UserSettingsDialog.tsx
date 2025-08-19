@@ -1,4 +1,4 @@
-import { Wifi, Wallet, Sun, Moon, Monitor } from "lucide-react";
+import {  Wifi, Wallet, Sun, Moon, Monitor, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { RelaySelector } from "@/components/RelaySelector";
 import { WalletConfigDialog } from "@/components/WalletConfigDialog";
 
@@ -15,6 +17,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 
 import { useTheme } from "@/hooks/useTheme";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { genUserName } from "@/lib/genUserName";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
 
@@ -26,6 +29,7 @@ interface UserSettingsDialogProps {
 export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogProps) {
   const { user } = useCurrentUser();
   const { theme, setTheme } = useTheme();
+  const { settings, updateSetting } = useUserSettings();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
 
@@ -112,10 +116,49 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </p>
           </div>
 
-          {/* Messaging Settings */}
-          <MessagingSettings />
+          <Separator />
+
+          {/* Community Settings */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <h3 className="text-sm font-medium">Communities</h3>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="show-pending">Show Pending Communities</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Display communities you've requested to join in the sidebar
+                  </p>
+                </div>
+                <Switch
+                  id="show-pending"
+                  checked={settings.showPendingCommunities}
+                  onCheckedChange={(checked) => updateSetting('showPendingCommunities', checked)}
+                />
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="spam-filtering">Enable Spam Filtering</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Filter out communities with suspicious names or content
+                  </p>
+                </div>
+                <Switch
+                  id="spam-filtering"
+                  checked={settings.enableSpamFiltering}
+                  onCheckedChange={(checked) => updateSetting('enableSpamFiltering', checked)}
+                />
+              </div>
+            </div>
+          </div>
 
           <Separator />
+
+          {/* Messaging Settings */}
+          <MessagingSettings />
         </div>
       </DialogContent>
     </Dialog>
