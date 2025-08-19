@@ -12,7 +12,7 @@ interface DMTabsProps {
 
 export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, requestsCount }: DMTabsProps) {
   return (
-    <div className="flex border-b border-gray-600 bg-gray-700">
+    <div className="flex border-b border-gray-600 bg-secondary/20">
       {/* Hidden radio inputs for tab control */}
       <input
         type="radio"
