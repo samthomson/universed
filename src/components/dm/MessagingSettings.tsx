@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useDefaultProtocolSetting, type DefaultProtocol } from "@/hooks/useDefaultProtocolSetting";
 import { cn } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 interface MessagingSettingsProps {
   className?: string;
@@ -56,15 +57,15 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
                 id="nip17-enabled"
                 checked={isNIP17Enabled}
                 onCheckedChange={(checked) => {
-                  console.log('[DEBUG] Switch toggled to:', checked);
-                  console.log('[DEBUG] Before toggle - localStorage:', localStorage.getItem('enableNIP17'));
+                  logger.log('[DEBUG] Switch toggled to:', checked);
+                  logger.log('[DEBUG] Before toggle - localStorage:', localStorage.getItem('enableNIP17'));
                   setNIP17Enabled(checked);
                   // If disabling NIP-17, force default protocol to NIP-04
                   if (!checked && defaultProtocol === 'nip17') {
                     setDefaultProtocol('nip04');
                   }
                   setTimeout(() => {
-                    console.log('[DEBUG] After toggle - localStorage:', localStorage.getItem('enableNIP17'));
+                    logger.log('[DEBUG] After toggle - localStorage:', localStorage.getItem('enableNIP17'));
                   }, 100);
                 }}
               />

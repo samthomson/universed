@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 // Global event emitter for localStorage changes within the same tab
 class LocalStorageEventEmitter {
@@ -50,7 +51,7 @@ export function useReactiveLocalStorage<T>(
       const item = localStorage.getItem(key);
       return item ? deserialize(item) : defaultValue;
     } catch (error) {
-      console.warn(`Failed to load ${key} from localStorage:`, error);
+      logger.warn(`Failed to load ${key} from localStorage:`, error);
       return defaultValue;
     }
   });
@@ -64,7 +65,7 @@ export function useReactiveLocalStorage<T>(
       // Emit change to other components in the same tab
       localStorageEmitter.emit(key, valueToStore);
     } catch (error) {
-      console.warn(`Failed to save ${key} to localStorage:`, error);
+      logger.warn(`Failed to save ${key} to localStorage:`, error);
     }
   }, [key, serialize, state]);
 
@@ -87,7 +88,7 @@ export function useReactiveLocalStorage<T>(
           // Also emit to other components in this tab
           localStorageEmitter.emit(key, newValue);
         } catch (error) {
-          console.warn(`Failed to sync ${key} from localStorage:`, error);
+          logger.warn(`Failed to sync ${key} from localStorage:`, error);
         }
       }
     };

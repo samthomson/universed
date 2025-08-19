@@ -13,6 +13,7 @@ import { UserPanel } from "@/components/layout/UserPanel";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { logger } from "@/lib/logger";
 import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
@@ -148,7 +149,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         url.pathname = `/dm/${npub}`;
         window.history.replaceState({}, '', url.toString());
       } catch (error) {
-        console.error('Failed to encode pubkey:', error);
+        logger.error('Failed to encode pubkey:', error);
       }
     }
   }, [selectedConversation, targetPubkey, user]);

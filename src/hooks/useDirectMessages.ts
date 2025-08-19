@@ -615,7 +615,7 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
       ? [...stableNip4Messages, ...stableNip17Messages]
       : [...stableNip4Messages];
     
-    console.log(`[DEBUG] Message filtering - NIP-17 enabled: ${isNIP17Enabled}, NIP-4: ${stableNip4Messages.length}, NIP-17: ${stableNip17Messages.length}, Combined: ${combined.length}`);
+    logger.log(`[DEBUG] Message filtering - NIP-17 enabled: ${isNIP17Enabled}, NIP-4: ${stableNip4Messages.length}, NIP-17: ${stableNip17Messages.length}, Combined: ${combined.length}`);
     
     logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Total combined messages: ${combined.length}`);
     
@@ -693,8 +693,8 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         return;
       }
       // Add logging to debug the race condition
-      console.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
-      console.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
+      logger.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
+      logger.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
       
       // Verify messages are actually for this conversation to prevent race conditions
       const validMessages = currentPage.data.filter(msg => {
@@ -718,7 +718,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
           isValidForConversation = true;
         }
         
-        console.log(`[DEBUG] Message validation:`, {
+        logger.log(`[DEBUG] Message validation:`, {
           msgId: msg.id,
           msgKind: msg.kind,
           msgAuthor: msg.pubkey,
@@ -734,9 +734,9 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         });
         
         if (!isValidForConversation) {
-          console.log(`[DEBUG] ❌ FILTERING OUT message:`, msg.id);
+          logger.log(`[DEBUG] ❌ FILTERING OUT message:`, msg.id);
         } else {
-          console.log(`[DEBUG] ✅ KEEPING message:`, msg.id);
+          logger.log(`[DEBUG] ✅ KEEPING message:`, msg.id);
         }
         
         return isValidForConversation;
@@ -746,19 +746,19 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         setAllMessages(prev => {
           // If this is the first load (until is undefined), replace all messages
           if (until === undefined) {
-            console.log(`[DEBUG] First load - replacing all messages with ${validMessages.length} valid messages`);
+            logger.log(`[DEBUG] First load - replacing all messages with ${validMessages.length} valid messages`);
             return validMessages;
           }
           // Otherwise, prepend older messages (they should be in chronological order)
           const newOlderMessages = validMessages.filter(msg => 
             !prev.some(existing => existing.id === msg.id)
           );
-          console.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
+          logger.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
           return [...newOlderMessages, ...prev];
         });
         setIsConversationSwitching(false); // We have valid messages, no longer switching
       } else if (currentPage.data.length > 0) {
-        console.log(`[DEBUG] All ${currentPage.data.length} messages filtered out - not for this conversation`);
+        logger.log(`[DEBUG] All ${currentPage.data.length} messages filtered out - not for this conversation`);
         // Keep switching state true since we don't have valid messages yet
       }
       
