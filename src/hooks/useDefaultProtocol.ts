@@ -11,13 +11,8 @@ export function useDefaultProtocol(conversationId?: string) {
   const { isNIP17Enabled, conversations } = useDirectMessages();
 
   return useMemo(() => {
-    // If NIP-17 is disabled, always use NIP-04
-    if (!isNIP17Enabled) {
-      return MESSAGE_PROTOCOL.NIP04;
-    }
-
-    // Handle explicit protocol preferences
-    if (defaultProtocolSetting === 'nip04') {
+    // If NIP-17 is disabled or user explicitly prefers NIP-04, use NIP-04
+    if (!isNIP17Enabled || defaultProtocolSetting === 'nip04') {
       return MESSAGE_PROTOCOL.NIP04;
     }
     
