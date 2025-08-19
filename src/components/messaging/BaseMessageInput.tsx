@@ -675,13 +675,15 @@ export function BaseMessageInput({
             adjustTextareaHeight();
           }}
           placeholder={placeholder || "Type a message..."}
-          className="min-h-[24px] max-h-[64px] w-full resize-none bg-transparent border-none
+          className="min-h-[24px] max-h-[64px] flex-1 resize-none bg-transparent border-none
           focus:outline-none focus:ring-0 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-500
           p-0 leading-tight scrollbar-thin overflow-y-auto"
           disabled={isSending}
           rows={1}
         />
-        {protocolSelector}
+        <div className="flex-shrink-0">
+          {protocolSelector}
+        </div>
         {config.allowEmoji && (
           <EmojiPickerComponent
             onEmojiSelect={handleEmojiSelect}
