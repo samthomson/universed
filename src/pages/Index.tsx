@@ -92,7 +92,7 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
 
               {/* CTA Section */}
               <div className="flex flex-col items-center gap-6 mb-16">
-                <p className="text-sm text-gray-400 text-center">
+                <p className="text-xl text-gray-400 text-center leading-relaxed">
                   Ready to own your Space? <br />
                   <span className="text-purple-300">Join thousands creating their worlds.</span>
                 </p>
