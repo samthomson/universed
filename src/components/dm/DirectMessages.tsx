@@ -315,7 +315,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
 
       {/* sidebar 2? */}
-      <div className="w-60 bg-gray-700 flex flex-col border-r border-gray-600">
+      <div className="w-72 bg-secondary/30 flex flex-col border-r border-gray-600">
         {/* Header */}
         <div className="p-4 border-b border-gray-600">
           <div className="flex items-center justify-between mb-3">
