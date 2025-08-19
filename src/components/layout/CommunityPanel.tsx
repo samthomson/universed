@@ -14,6 +14,7 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -27,7 +28,7 @@ interface CommunityPanelProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { data: specificCommunity, isLoading: isLoadingSpecificCommunity } = useCommunityById(communityId);
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
@@ -195,9 +196,19 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Community header for mobile channels view */}
-      {isMobile && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+
+
+      {/* Community Header */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
+        {!community ? (
+          <div className="animate-pulse flex items-center space-x-3">
+            <Skeleton className="w-10 h-10 rounded-lg" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+        ) : (
           <div className="flex items-center space-x-3">
             {community.image ? (
               <Avatar className="w-10 h-10 flex-shrink-0">
@@ -211,22 +222,30 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
+
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
                 {community.name}
-              </h2>
+              </h1>
               {community.description && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {community.description}
                 </p>
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-4 w-full">
+          {/* Spaces Navigator - Marketplace and Resources */}
+          <SpacesNavigator
+            communityId={communityId}
+            selectedSpace={selectedSpace || null}
+            onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
+          />
+
           {/* Channel Organizer */}
           <ChannelOrganizer
             communityId={communityId}

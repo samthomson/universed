@@ -7,7 +7,7 @@ import { MemberList } from "./MemberList";
 import { UserPanel } from "./UserPanel";
 import { DirectMessages } from "@/components/dm/DirectMessages";
 import { SpacesArea } from "@/components/spaces/SpacesArea";
-import { CommunityHeader } from "@/components/community/CommunityHeader";
+
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 import { FriendItem } from "@/components/friends/FriendsList";
 import { MobileChannelHeader } from "@/components/layout/MobileChannelHeader";
@@ -21,7 +21,7 @@ import { useMessageSystem } from "@/hooks/useMessageSystem";
 import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageCircle, Store, FolderOpen, MoreHorizontal, LogOut, Share2, Shield } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, LogOut, Share2, Shield } from "lucide-react";
 import { useVisitHistory } from "@/hooks/useVisitHistory";
 import { CommunityProvider } from "@/contexts/CommunityContext.tsx";
 import { useMarketplaceContext } from "@/contexts/MarketplaceContext.tsx";
@@ -447,21 +447,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     }
   };
 
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
 
-    // Update selected space based on tab
-    if (tab === "marketplace") {
-      setSelectedSpace("marketplace");
-      setSelectedChannel(null);
-    } else if (tab === "resources") {
-      setSelectedSpace("resources");
-      setSelectedChannel(null);
-    } else if (tab === "channels") {
-      setSelectedSpace(null);
-      // Keep the current channel or select the first available one
-    }
-  };
 
   const handleBackNavigation = () => {
     if (isMobile) {
@@ -648,57 +634,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
               </div>
             )}
 
-            {/* Mobile Tab Navigation - only show in chat view with Lucide icons */}
-            {selectedCommunity && mobileView === "chat" && (
-              <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10 flex-shrink-0">
-                <div className="px-2 py-1">
-                  <div className="relative">
-                    {/* Hidden radio inputs for tab control */}
-                    {["channels", "marketplace", "resources"].map((tabId) => (
-                      <input
-                        key={tabId}
-                        type="radio"
-                        name="mobile-tab-control"
-                        id={`mobile-tab-${tabId}`}
-                        checked={activeTab === tabId}
-                        onChange={() => handleTabChange(tabId)}
-                        className="hidden"
-                      />
-                    ))}
 
-                    {/* Tab list - compact with Lucide icons */}
-                    <ul className="flex flex-row relative z-10 min-w-0">
-                      {[
-                        { id: "channels", label: "Chat", icon: MessageCircle },
-                        { id: "marketplace", label: "Shop", icon: Store },
-                        { id: "resources", label: "Files", icon: FolderOpen },
-                      ].map((tab) => {
-                        const Icon = tab.icon;
-                        const isActive = activeTab === tab.id;
-
-                        return (
-                          <li key={tab.id} className="flex-1 text-center min-w-0">
-                            <label
-                              htmlFor={`mobile-tab-${tab.id}`}
-                              className={`block cursor-pointer transition-all duration-300 ease-in-out py-2 rounded-md ${
-                                isActive
-                                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
-                                  : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-                              }`}
-                            >
-                              <div className="flex flex-col items-center">
-                                <Icon className="w-4 h-4 flex-shrink-0" />
-                                <span className="text-xs mt-1 truncate">{tab.label}</span>
-                              </div>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden min-w-0">
@@ -748,7 +684,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                   <CommunityPanel
                     communityId={selectedCommunity}
                     selectedChannel={selectedChannel}
+                    selectedSpace={selectedSpace}
                     onSelectChannel={handleChannelSelect}
+                    onSelectSpace={handleSpaceSelect}
                     onSelectCommunity={handleCommunitySelect}
                     onNavigateToDMs={handleNavigateToDMs}
                   />
@@ -793,7 +731,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
 
   return (
     <CommunityProvider currentCommunityId={selectedCommunity}>
-        <>
+      <>
         <div className="flex h-screen bg-background text-foreground">
           <div className="w-16 bg-background/50 flex flex-col h-full">
             <AppSidebar
@@ -807,17 +745,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           {selectedCommunity
             ? (
               <>
-                <div className="flex-1 flex flex-col">
-                  {/* Community Header - Full width top bar after sidebar */}
-                  <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
-                    <CommunityHeader
-                      communityId={selectedCommunity}
-                      activeTab={activeTab}
-                      onTabChange={handleTabChange}
-                    />
-                  </div>
-
-                  <div className="flex flex-1 overflow-hidden">
+                <div className="flex flex-1 overflow-hidden">
                     <div className="w-60 bg-secondary/30 flex flex-col">
                       <CommunityPanel
                         communityId={selectedCommunity}
@@ -882,7 +810,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                       </div>
                     )}
                   </div>
-                </div>
               </>
             )
             : (
@@ -939,7 +866,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           onJoinSuccess={handleJoinSuccess}
           communityId={urlCommunityId}
         />
-          </>
-      </CommunityProvider>
+      </>
+    </CommunityProvider>
   );
 }
