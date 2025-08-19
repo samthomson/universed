@@ -17,7 +17,7 @@ import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
-import { StarBackground } from '@/components/ui/StarBackground';
+
 
 import AppRouter from './AppRouter';
 
@@ -55,7 +55,7 @@ const queryClient = new QueryClient({
 });
 
 const defaultConfig: AppConfig = {
-  theme: "system",
+  theme: "dark",
   relayUrl: "wss://relay.chorus.community",
   showPerformanceDashboard: true, // Enable by default to show performance improvements
 };
@@ -71,7 +71,6 @@ const presetRelays = [
 function AppContent() {
   return (
     <MessageSystemProvider>
-      <StarBackground />
       <TooltipProvider>
         <QueryOptimizer />
         <Toaster />

@@ -449,7 +449,7 @@ export function NoteContent({
     <div className={cn("space-y-3 force-wrap", className)}>
       {/* Text content */}
       {(content || event.content) && (
-        <div className="whitespace-pre-wrap break-all-words">
+        <div className="whitespace-pre-wrap break-words">
           {content || event.content}
         </div>
       )}

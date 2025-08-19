@@ -14,6 +14,7 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -27,7 +28,7 @@ interface CommunityPanelProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { data: specificCommunity, isLoading: isLoadingSpecificCommunity } = useCommunityById(communityId);
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
@@ -195,38 +196,50 @@ export function CommunityPanel({ communityId, selectedChannel, onSelectChannel, 
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Community header for mobile channels view */}
-      {isMobile && (
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
-          <div className="flex items-center space-x-3">
+
+
+      {/* Community Header */}
+      <div className="px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0 h-14 flex items-center">
+        {!community ? (
+          <div className="animate-pulse flex items-center space-x-2 w-full">
+            <Skeleton className="w-8 h-8 rounded-lg" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 w-full">
             {community.image ? (
-              <Avatar className="w-10 h-10 flex-shrink-0">
+              <Avatar className="w-8 h-8 flex-shrink-0">
                 <AvatarImage src={community.image} alt={community.name} />
-                <AvatarFallback className="text-base font-semibold">
+                <AvatarFallback className="text-sm font-semibold">
                   {community.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-base flex-shrink-0">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm flex-shrink-0">
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
+
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+              <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
                 {community.name}
-              </h2>
-              {community.description && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                  {community.description}
-                </p>
-              )}
+              </h1>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-4 w-full">
+          {/* Spaces Navigator - Marketplace and Resources */}
+          <SpacesNavigator
+            communityId={communityId}
+            selectedSpace={selectedSpace || null}
+            onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
+          />
+
           {/* Channel Organizer */}
           <ChannelOrganizer
             communityId={communityId}
