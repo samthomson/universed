@@ -133,8 +133,10 @@ export function useChannelPermissions(communityId: string | null, channelId: str
       }
     },
     enabled: !!communityId && !!channelId,
-    staleTime: 1000 * 30, // 30 seconds - increased to reduce refetches
-    refetchInterval: 1000 * 60, // Refetch every minute instead of 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes - permissions don't change often
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnMount: false, // Don't refetch on mount, use cached data
+    refetchOnWindowFocus: false, // Don't refetch on focus
   });
 }
 

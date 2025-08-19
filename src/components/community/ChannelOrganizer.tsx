@@ -485,14 +485,22 @@ function ChannelItemWithPermissionCheck(props: {
   communityId: string;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
-  const { canAccess } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
+  const { canAccess, reason } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
+  const isLoadingPermissions = reason === 'Loading permissions...';
 
   // If user can't access the channel and is not a moderator, don't show it
-  if (!canAccess && !props.canModerate) {
+  // BUT: Show channels while permissions are loading (they'll be disabled)
+  if (!canAccess && !props.canModerate && !isLoadingPermissions) {
     return null;
   }
 
-  return <ChannelItem {...props} hasAccess={canAccess} />;
+  return (
+    <ChannelItem 
+      {...props} 
+      hasAccess={canAccess} 
+      isLoadingPermissions={isLoadingPermissions}
+    />
+  );
 }
 
 // Enhanced Channel Item with Discord-like styling and context menu
@@ -506,6 +514,7 @@ function ChannelItem({
   inFolder = false,
   communityId,
   hasAccess = true,
+  isLoadingPermissions = false,
   onChannelPreload
 }: {
   channel: Channel;
@@ -517,6 +526,7 @@ function ChannelItem({
   inFolder?: boolean;
   communityId?: string;
   hasAccess?: boolean;
+  isLoadingPermissions?: boolean;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
   // Get real-time voice channel status for voice channels
@@ -579,17 +589,23 @@ function ChannelItem({
             {/* Channel name - clickable area */}
             <button
               className={`
-                flex-1 text-left text-sm font-medium truncate min-w-0
+                flex-1 text-left text-sm font-medium truncate min-w-0 flex items-center gap-1
                 ${isSelected
                   ? 'text-white'
-                  : hasAccess
-                    ? 'text-gray-300 hover:text-gray-100'
-                    : 'text-gray-500 hover:text-gray-400 italic'
+                  : isLoadingPermissions
+                    ? 'text-gray-400 cursor-wait'
+                    : hasAccess
+                      ? 'text-gray-300 hover:text-gray-100'
+                      : 'text-gray-500 hover:text-gray-400 italic'
                 }
               `}
-              onClick={onSelect}
+              onClick={isLoadingPermissions ? undefined : onSelect}
+              disabled={isLoadingPermissions}
             >
               {channel.name}
+              {isLoadingPermissions && (
+                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+              )}
             </button>
 
             {/* Right side indicators - fixed width container */}

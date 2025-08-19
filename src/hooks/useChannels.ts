@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
@@ -78,6 +78,7 @@ function parseChannelEvent(event: NostrEvent, communityId: string): Channel {
 export function useChannels(communityId: string | null) {
   const { nostr } = useNostr();
   const { getCachedEventsByKind, cacheEvents } = useEventCache();
+  const queryClient = useQueryClient();
 
   return useQuery({
     queryKey: ['channels', communityId],
@@ -137,14 +138,14 @@ export function useChannels(communityId: string | null) {
 
         // Start background refresh but return cached data immediately
         setTimeout(() => {
-          refreshChannelsInBackground(communityId, nostr, cacheEvents);
+          refreshChannelsInBackground(communityId, nostr, cacheEvents, queryClient);
         }, 100);
 
         return sortedChannels;
       }
 
-      // PRIORITY 2: No cached data, fetch with very short timeout for immediate response
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1500)]); // Reduced to 1.5 seconds
+      // PRIORITY 2: No cached data, fetch with reasonable timeout for initial load
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]); // 5 seconds for initial load
 
       try {
         // Query for channel definition events with high priority
@@ -206,7 +207,7 @@ export function useChannels(communityId: string | null) {
           return a.name.localeCompare(b.name);
         });
       } catch (error) {
-        logger.warn('Failed to fetch channels quickly, returning default:', error);
+        logger.warn('Failed to fetch channels, returning default and retrying:', error);
 
         // PRIORITY 3: On error or timeout, return default channels immediately
         const defaultChannels: Channel[] = [
@@ -222,10 +223,10 @@ export function useChannels(communityId: string | null) {
           },
         ];
 
-        // Start background refresh for next time
+        // Start immediate retry with longer timeout for better chance of success
         setTimeout(() => {
           refreshChannelsInBackground(communityId, nostr, cacheEvents);
-        }, 1000);
+        }, 500); // Retry sooner
 
         return defaultChannels;
       }
@@ -241,7 +242,8 @@ export function useChannels(communityId: string | null) {
 async function refreshChannelsInBackground(
   communityId: string,
   nostr: { query: (filters: NostrFilter[], options: { signal: AbortSignal }) => Promise<NostrEvent[]> },
-  cacheEvents: (events: NostrEvent[]) => void
+  cacheEvents: (events: NostrEvent[]) => void,
+  queryClient?: QueryClient
 ) {
   try {
     const signal = AbortSignal.timeout(10000); // Longer timeout for background refresh
@@ -257,6 +259,11 @@ async function refreshChannelsInBackground(
     if (events.length > 0) {
       cacheEvents(events);
       logger.log(`Background refreshed ${events.length} channel events for ${communityId}`);
+      
+      // Invalidate the query to trigger a refetch with fresh data
+      if (queryClient) {
+        queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
+      }
     }
   } catch (error) {
     logger.warn('Background channel refresh failed:', error);
