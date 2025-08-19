@@ -69,64 +69,46 @@ const Index = ({ dmTargetPubkey, spaceCommunityId }: IndexProps) => {
           <div className="stars3"></div>
         </div>
 
-        {/* Header with Theme Switcher */}
-        <div className="relative z-20">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-4">
-                <img 
-                  src="/universes-logo.png" 
-                  alt="Universes Logo"
-                  className="w-8 h-8"
-                  style={{ filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.3))' }}
-                />
-                <span className="text-white font-semibold text-lg">Universes</span>
-              </div>
-            </div>
-          </div>
-        </div>
+
 
         {/* Hero Section */}
         <div className="relative z-10 min-h-screen">
           <div className="container mx-auto px-4 pt-16 pb-24">
-            <div className="text-center max-w-4xl mx-auto">
-              {/* Main Heading */}
-              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-                IMAGINE A PLACE...
+            {/* Welcome to Universes Hero */}
+            <div className="text-center max-w-4xl mx-auto mb-16">
+              <img 
+                src="/universes-logo.png" 
+                alt="Universes Logo"
+                className="w-32 h-32 mx-auto mb-8"
+                style={{ filter: 'drop-shadow(0 0 30px rgba(255, 255, 255, 0.6))' }}
+              />
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-4 leading-tight">
+                Welcome to Universes
               </h1>
               
-              <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed">
-                ...where you can find or build a Space that matches your vibe. Why settle for building on someone else's backyard when you can explore the galaxy? Build without limits, create without compromise. Your Space, your rules.
+              <p className="text-2xl md:text-3xl text-gray-300 mb-12 font-light">
+                A space for all your spaces
               </p>
 
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-                <LoginArea className="w-full max-w-xs" />
-              <p className="text-sm text-gray-400">
+              {/* CTA Section */}
+              <div className="flex flex-col items-center gap-6 mb-16">
+                <p className="text-xl text-gray-400 text-center leading-relaxed">
                   Ready to own your Space? <br />
                   <span className="text-purple-300">Join thousands creating their worlds.</span>
                 </p>
+                <LoginArea className="max-w-xs" />
               </div>
             </div>
 
+            {/* Tools Section Header */}
+            <div className="text-center max-w-4xl mx-auto mb-16">
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                Each Space has three powerful tools:
+              </h2>
+            </div>
+
             {/* Feature Sections */}
-            <div className="max-w-7xl mx-auto space-y-32 mt-32">
-              
-              {/* Welcome to Universes Section */}
-              <div className="text-center mb-16">
-                <img 
-                  src="/universes-logo.png" 
-                  alt="Universes Logo"
-                  className="w-24 h-24 mx-auto mb-6"
-                  style={{ filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.5))' }}
-                />
-                <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-                  Welcome to Universes
-                </h2>
-                <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-                  Each Space has three powerful tools:
-                </p>
-              </div>
+            <div className="max-w-7xl mx-auto space-y-32">
               
               {/* Community Feature */}
               <div className="grid lg:grid-cols-2 gap-12 items-center">
