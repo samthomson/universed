@@ -56,7 +56,16 @@ export function useNotifications() {
       const since = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60); // last 14 days
 
       // Fetch in parallel:
-      const [mentionsInAppContent, userAppContent, dmIncoming, memberApprovals, memberDeclines, memberBans] = await Promise.all([
+      const [
+        mentionsInAppContent,
+        userAppContent,
+        dmIncoming,
+        memberApprovals,
+        memberDeclines,
+        memberBans,
+        ownedCommunities,
+        pTaggedCommunities,
+      ] = await Promise.all([
         // Mentions that tag the user in app content only
         nostr.query([
           { kinds: APP_CONTENT_KINDS, '#p': [user.pubkey], limit: 100, since },
@@ -77,6 +86,10 @@ export function useNotifications() {
         nostr.query([{ kinds: [34551], '#p': [user.pubkey], limit: 100, since }], { signal }),
         nostr.query([{ kinds: [34552], '#p': [user.pubkey], limit: 100, since }], { signal }),
         nostr.query([{ kinds: [34553], '#p': [user.pubkey], limit: 100, since }], { signal }),
+
+        // Moderator scoping: communities you own or moderate
+        nostr.query([{ kinds: [34550], authors: [user.pubkey], limit: 200 }], { signal }),
+        nostr.query([{ kinds: [34550], '#p': [user.pubkey], limit: 500 }], { signal }),
       ]);
 
       const userEventIds = userAppContent.map(e => e.id);
@@ -200,6 +213,46 @@ export function useNotifications() {
       memberApprovals.forEach(e => pushMembershipNotification(e, 'member_approved', 'Membership approved'));
       memberDeclines.forEach(e => pushMembershipNotification(e, 'member_declined', 'Membership declined'));
       memberBans.forEach(e => pushMembershipNotification(e, 'member_banned', 'Removed from community'));
+
+      // Moderator-facing: Join requests (4552) for communities you own or moderate
+      const getCommunityId = (evt: { pubkey: string; tags: string[][] }) => {
+        const d = evt.tags.find(([n]) => n === 'd')?.[1];
+        return d ? `34550:${evt.pubkey}:${d}` : undefined;
+      };
+
+      // Determine moderated/owned community IDs
+      const ownedIds = (ownedCommunities || []).map(getCommunityId).filter(Boolean) as string[];
+      const moderatedIds = (pTaggedCommunities || [])
+        .filter(evt => evt.tags.some(t => t[0] === 'p' && t[1] === user.pubkey && t[3] === 'moderator'))
+        .map(getCommunityId)
+        .filter(Boolean) as string[];
+      const allModeratedIds = Array.from(new Set([...ownedIds, ...moderatedIds]));
+
+      if (allModeratedIds.length > 0) {
+        // Batch '#a' filters to avoid very large arrays
+        const CHUNK = 20;
+        const joinFilters = [] as { kinds: number[]; '#a': string[]; limit: number; since: number }[];
+        for (let i = 0; i < allModeratedIds.length; i += CHUNK) {
+          joinFilters.push({ kinds: [4552], '#a': allModeratedIds.slice(i, i + CHUNK), limit: 50, since });
+        }
+        const joinRequests = joinFilters.length > 0 ? await nostr.query(joinFilters, { signal }) : [];
+
+        joinRequests
+          .filter(e => e.pubkey !== user.pubkey)
+          .forEach(e => {
+            notifications.push({
+              id: `${e.id}-join_request`,
+              type: 'friend_request',
+              title: 'New join request',
+              message: '',
+              eventId: e.id,
+              fromPubkey: e.pubkey,
+              timestamp: e.created_at * 1000,
+              read: readNotifications.includes(`${e.id}-join_request`),
+              communityId: e.tags.find(([n]) => n === 'a')?.[1] || undefined,
+            });
+          });
+      }
 
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
     },
