@@ -153,7 +153,7 @@ const NotificationItem = ({ notification, onMarkRead }: {
         {getIcon()}
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 pr-6`}>
         <div className="flex items-center space-x-2">
           {notification.fromPubkey && (
             <Avatar className="w-6 h-6">
@@ -170,16 +170,18 @@ const NotificationItem = ({ notification, onMarkRead }: {
               {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
-          {!notification.read && (
-            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-          )}
+
         </div>
 
-        <p className={`text-sm text-muted-foreground mt-1 line-clamp-2 ${notification.eventId ? 'pr-10' : ''}`}>
+        <p className={`text-sm text-muted-foreground mt-1 line-clamp-2 break-words overflow-hidden`}>
           {notification.message}
         </p>
       </div>
-      {notification.eventId && (
+      <div className="flex items-center space-x-2">
+
+        {!notification.read && (
+          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mr-0 mt-2" />
+        )}
         <button
           onClick={handleCopyId}
           title="Copy event ID"
@@ -188,7 +190,7 @@ const NotificationItem = ({ notification, onMarkRead }: {
         >
           {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
         </button>
-      )}
+      </div>
     </div>
   );
 }
