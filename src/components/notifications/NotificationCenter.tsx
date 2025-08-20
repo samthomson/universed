@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings } from 'lucide-react';
+import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -18,6 +18,7 @@ function NotificationItem({ notification, onMarkRead }: {
   notification: Notification;
   onMarkRead: (id: string) => void;
 }) {
+  const [copied, setCopied] = useState(false);
   const author = useAuthor(notification.fromPubkey);
   const displayName = author.data?.metadata?.name || genUserName(notification.fromPubkey || '');
 
@@ -43,9 +44,21 @@ function NotificationItem({ notification, onMarkRead }: {
     // TODO: Navigate to the relevant event/conversation
   };
 
+  const handleCopyId = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!notification.eventId) return;
+    try {
+      await navigator.clipboard.writeText(notification.eventId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // no-op
+    }
+  };
+
   return (
     <div
-      className={`flex items-start space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
+      className={`relative group flex items-start space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
         !notification.read ? 'bg-blue-50 dark:bg-blue-950/20' : ''
       }`}
       onClick={handleClick}
@@ -71,6 +84,16 @@ function NotificationItem({ notification, onMarkRead }: {
               {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
+          {notification.eventId && (
+            <button
+              onClick={handleCopyId}
+              title="Copy event ID"
+              className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+              aria-label="Copy event ID"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
+          )}
           {!notification.read && (
             <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
           )}
