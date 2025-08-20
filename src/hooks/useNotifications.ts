@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
 import { PROTOCOL_CONSTANTS } from './useDirectMessages';
+import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 // import { logger } from '@/lib/logger';
 
 // Notifications in this app
@@ -260,8 +261,7 @@ export function useNotifications() {
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
     },
     enabled: !!user?.pubkey,
-    staleTime: 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,
+    ...reactQueryConfigs.notifications,
   });
 }
 
