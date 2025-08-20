@@ -237,7 +237,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         ) : (
           <>
             {/* Header */}
-            <div className="p-4 border-b border-gray-600 bg-gray-700">
+            <div className="p-4 border-b border-gray-600 bg-secondary/30">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1">
                   <h2 className="font-semibold text-white">Messages</h2>
@@ -281,7 +281,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             </div>
 
             {/* Conversation List */}
-            <div className="flex-1 overflow-hidden bg-gray-700 px-2">
+            <div className="flex-1 overflow-hidden bg-secondary/30 px-2">
               <Virtuoso
                 data={filteredDiscoveredConversations}
                 itemContent={conversationItemContent}
