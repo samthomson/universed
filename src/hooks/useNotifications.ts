@@ -7,7 +7,7 @@ import { PROTOCOL_CONSTANTS } from './useDirectMessages';
 
 // Notifications in this app
 // - Include: kind 1111 mentions/replies, kind 7 reactions to your 1111 events, DMs to you (kind 4; kind 1059 if NIP‑17 enabled)
-// - Exclude: generic kind 1 notes/replies/reactions, zaps (9734), and non‑app activity
+// - Exclude: generic kind 1, zaps (9734), non‑app activity
 
 export interface Notification {
   id: string;
@@ -49,9 +49,9 @@ export function useNotifications() {
        * - Generic kind:1 notes/replies/reactions
        * - Zaps (9734) and other non‑app activity
        */
+      // App-scoped kinds
       const APP_CONTENT_KINDS = [1111];
       const REACTION_KIND = 7;
-      // NIP-17 uses 1059 gift wraps on relays; actual kind 14 is derived client-side
 
       const since = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60); // last 14 days
 
@@ -115,60 +115,66 @@ export function useNotifications() {
 
       const notifications: Notification[] = [];
 
-      // Mentions in app content
-      mentionsInAppContent.forEach(event => {
-        // Skip if it's from the user themselves
-        if (event.pubkey === user.pubkey) return;
+      // Mentions in app content (community-scoped via 'a' tag)
+      mentionsInAppContent
+        .filter(e => e.tags.some(([name, value]) => name === 'a' && typeof value === 'string' && value.startsWith('34550:')))
+        .forEach(event => {
+          // Skip if it's from the user themselves
+          if (event.pubkey === user.pubkey) return;
 
-        const isMention = event.tags.some(([name, value]) => name === 'p' && value === user.pubkey);
-        const isReply = event.tags.some(([name, value]) => name === 'e' && userEventIds.includes(value));
+          const isMention = event.tags.some(([name, value]) => name === 'p' && value === user.pubkey);
+          const isReply = event.tags.some(([name, value]) => name === 'e' && userEventIds.includes(value));
 
-        if (isMention || isReply) {
+          if (isMention || isReply) {
+            notifications.push({
+              id: `${event.id}-mention`,
+              type: isReply ? 'reply' : 'mention',
+              title: isReply ? 'New Reply' : 'You were mentioned',
+              message: (event.content || '').slice(0, 140) + ((event.content || '').length > 140 ? '...' : ''),
+              eventId: event.id,
+              fromPubkey: event.pubkey,
+              timestamp: event.created_at * 1000,
+              read: readNotifications.includes(`${event.id}-mention`),
+            });
+          }
+        });
+
+      // Reactions to your app content (community-scoped)
+      reactionEvents
+        .filter(e => e.tags.some(([name, value]) => name === 'a' && typeof value === 'string' && value.startsWith('34550:')))
+        .forEach(event => {
+          // Skip if it's from the user themselves
+          if (event.pubkey === user.pubkey) return;
+
+          const reactionContent = event.content;
           notifications.push({
-            id: `${event.id}-mention`,
-            type: isReply ? 'reply' : 'mention',
-            title: isReply ? 'New Reply' : 'You were mentioned',
+            id: `${event.id}-reaction`,
+            type: 'reaction',
+            title: 'New Reaction',
+            message: `Reacted with ${reactionContent}`,
+            eventId: event.id,
+            fromPubkey: event.pubkey,
+            timestamp: event.created_at * 1000,
+            read: readNotifications.includes(`${event.id}-reaction`),
+          });
+        });
+
+      // Replies to your app content (community-scoped)
+      replyEvents
+        .filter(e => e.tags.some(([name, value]) => name === 'a' && typeof value === 'string' && value.startsWith('34550:')))
+        .forEach(event => {
+          if (event.pubkey === user.pubkey) return;
+          notifications.push({
+            id: `${event.id}-reply`,
+            type: 'reply',
+            title: 'New Reply',
             message: (event.content || '').slice(0, 140) + ((event.content || '').length > 140 ? '...' : ''),
             eventId: event.id,
             fromPubkey: event.pubkey,
             timestamp: event.created_at * 1000,
-            read: readNotifications.includes(`${event.id}-mention`),
+            read: readNotifications.includes(`${event.id}-reply`),
           });
-        }
-      });
-
-      // Reactions to your app content
-      reactionEvents.forEach(event => {
-        // Skip if it's from the user themselves
-        if (event.pubkey === user.pubkey) return;
-
-        const reactionContent = event.content || '👍';
-        notifications.push({
-          id: `${event.id}-reaction`,
-          type: 'reaction',
-          title: 'New Reaction',
-          message: `Reacted with ${reactionContent}`,
-          eventId: event.id,
-          fromPubkey: event.pubkey,
-          timestamp: event.created_at * 1000,
-          read: readNotifications.includes(`${event.id}-reaction`),
         });
-      });
-
-      // Replies to your app content (notifies only when others reply)
-      replyEvents.forEach(event => {
-        if (event.pubkey === user.pubkey) return;
-        notifications.push({
-          id: `${event.id}-reply`,
-          type: 'reply',
-          title: 'New Reply',
-          message: (event.content || '').slice(0, 140) + ((event.content || '').length > 140 ? '...' : ''),
-          eventId: event.id,
-          fromPubkey: event.pubkey,
-          timestamp: event.created_at * 1000,
-          read: readNotifications.includes(`${event.id}-reply`),
-        });
-      });
 
       // Direct messages (NIP‑04 and optionally NIP‑17 gift wraps) to the user
       dmIncoming
@@ -190,7 +196,6 @@ export function useNotifications() {
           });
         });
 
-      // Sort by timestamp (newest first)
       // Membership list updates → notifications
       const pushMembershipNotification = (
         event: { id: string; pubkey: string; created_at: number; tags: string[][] },
@@ -214,13 +219,11 @@ export function useNotifications() {
       memberDeclines.forEach(e => pushMembershipNotification(e, 'member_declined', 'Membership declined'));
       memberBans.forEach(e => pushMembershipNotification(e, 'member_banned', 'Removed from community'));
 
-      // Moderator-facing: Join requests (4552) for communities you own or moderate
+      // Moderator-facing join requests
       const getCommunityId = (evt: { pubkey: string; tags: string[][] }) => {
         const d = evt.tags.find(([n]) => n === 'd')?.[1];
         return d ? `34550:${evt.pubkey}:${d}` : undefined;
       };
-
-      // Determine moderated/owned community IDs
       const ownedIds = (ownedCommunities || []).map(getCommunityId).filter(Boolean) as string[];
       const moderatedIds = (pTaggedCommunities || [])
         .filter(evt => evt.tags.some(t => t[0] === 'p' && t[1] === user.pubkey && t[3] === 'moderator'))
@@ -229,7 +232,6 @@ export function useNotifications() {
       const allModeratedIds = Array.from(new Set([...ownedIds, ...moderatedIds]));
 
       if (allModeratedIds.length > 0) {
-        // Batch '#a' filters to avoid very large arrays
         const CHUNK = 20;
         const joinFilters = [] as { kinds: number[]; '#a': string[]; limit: number; since: number }[];
         for (let i = 0; i < allModeratedIds.length; i += CHUNK) {
@@ -254,11 +256,12 @@ export function useNotifications() {
           });
       }
 
+      // Sort by timestamp (newest first)
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
     },
     enabled: !!user?.pubkey,
-    staleTime: 60 * 1000, // 1 minute - Notifications don't need to be ultra real-time
-    refetchInterval: 2 * 60 * 1000, // 2 minutes - Reduced frequency for better performance
+    staleTime: 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
   });
 }
 
