@@ -2,7 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
-import { logger } from '@/lib/logger';
+import { PROTOCOL_CONSTANTS } from './useDirectMessages';
+// import { logger } from '@/lib/logger';
+
+// Notifications in this app
+// - Include: kind 1111 mentions/replies, kind 7 reactions to your 1111 events, DMs to you (kind 4; kind 1059 if NIP‑17 enabled)
+// - Exclude: generic kind 1 notes/replies/reactions, zaps (9734), and non‑app activity
 
 export interface Notification {
   id: string;
@@ -24,6 +29,8 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  // Respect user setting from MessagingSettings (see UserSettingsDialog -> MessagingSettings)
+  const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
 
   return useQuery({
     queryKey: ['notifications', user?.pubkey],
@@ -32,43 +39,52 @@ export function useNotifications() {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-      // Optimized parallel queries for mentions and user events
-      const since = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // Last 7 days
+      /*
+       * Notifications collected (app‑scoped):
+       * - Mentions/replies in app content: kind 1111 that tag you or reply to your 1111 events
+       * - Reactions to your app content: kind 7 where #e targets your 1111 events
+       * - Direct messages addressed to you: NIP‑04 (kind 4) and, if enabled, NIP‑17 gift wraps (kind 1059)
+       *
+       * Excluded:
+       * - Generic kind:1 notes/replies/reactions
+       * - Zaps (9734) and other non‑app activity
+       */
+      const APP_CONTENT_KINDS = [1111];
+      const REACTION_KIND = 7;
+      // NIP-17 uses 1059 gift wraps on relays; actual kind 14 is derived client-side
 
-      const [mentionEvents, userEvents, mentionNotifications] = await Promise.all([
-        // Get mentions (events that tag the current user)
-        nostr.query([{
-          kinds: [1, 1111], // Text notes and channel messages
-          '#p': [user.pubkey],
-          limit: 50,
-          since,
-        }], { signal }),
+      const since = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60); // last 14 days
 
-        // Get user's events for reaction tracking
-        nostr.query([{
-          kinds: [1, 1111],
-          authors: [user.pubkey],
-          limit: 20,
-          since,
-        }], { signal }),
+      // Fetch in parallel:
+      const [mentionsInAppContent, userAppContent, dmIncoming] = await Promise.all([
+        // Mentions that tag the user in app content only
+        nostr.query([
+          { kinds: APP_CONTENT_KINDS, '#p': [user.pubkey], limit: 100, since },
+        ], { signal }),
 
-        // Get explicit mention notifications (kind 9734)
-        nostr.query([{
-          kinds: [9734], // Mention notifications
-          '#p': [user.pubkey],
-          limit: 50,
-          since,
-        }], { signal })
+        // Your app content (for reactions/replies)
+        nostr.query([
+          { kinds: APP_CONTENT_KINDS, authors: [user.pubkey], limit: 100, since },
+        ], { signal }),
+
+        // Incoming DMs (respect NIP-17 setting). For NIP-17 we look for gift wraps (1059).
+        nostr.query([
+          { kinds: [4], '#p': [user.pubkey], limit: 100, since },
+          ...(isNIP17Enabled ? [{ kinds: [1059] as number[], '#p': [user.pubkey], limit: 100, since }] : []),
+        ], { signal }),
       ]);
 
-      const userEventIds = userEvents.map(e => e.id);
+      const userEventIds = userAppContent.map(e => e.id);
 
       // Get reactions to user's events if any exist
-      const reactionEvents = userEventIds.length > 0 ? await nostr.query([{
-        kinds: [7], // Reactions
-        '#e': userEventIds,
-        limit: 50,
-      }], { signal }) : [];
+      const reactionEvents = userEventIds.length > 0 ? await nostr.query([
+        { kinds: [REACTION_KIND], '#e': userEventIds, limit: 100 },
+      ], { signal }) : [];
+
+      // Replies to your app content
+      const replyEvents = userEventIds.length > 0 ? await nostr.query([
+        { kinds: APP_CONTENT_KINDS, '#e': userEventIds, limit: 100 },
+      ], { signal }) : [];
 
       // Convert to notifications
       // Read the latest read list directly from localStorage so invalidations pick up changes immediately
@@ -81,38 +97,8 @@ export function useNotifications() {
 
       const notifications: Notification[] = [];
 
-      // Process explicit mention notifications (kind 9734)
-      mentionNotifications.forEach(event => {
-        // Skip if it's from the user themselves
-        if (event.pubkey === user.pubkey) return;
-
-        try {
-          const notificationData = JSON.parse(event.content);
-
-          // Extract community and channel context from tags
-          const communityTag = event.tags.find(([name]) => name === 'a')?.[1];
-          const channelTag = event.tags.find(([name]) => name === 't')?.[1];
-          const originalEventId = event.tags.find(([name]) => name === 'e')?.[1];
-
-          notifications.push({
-            id: `${event.id}-mention-notification`,
-            type: 'mention',
-            title: 'You were mentioned',
-            message: notificationData.message || 'Someone mentioned you in a message',
-            eventId: originalEventId,
-            fromPubkey: event.pubkey,
-            timestamp: event.created_at * 1000,
-            read: readNotifications.includes(`${event.id}-mention-notification`),
-            communityId: communityTag,
-            channelId: channelTag,
-          });
-        } catch (error) {
-          logger.warn('Failed to parse mention notification:', error);
-        }
-      });
-
-      // Process legacy mentions (from p tags in regular messages)
-      mentionEvents.forEach(event => {
+      // Mentions in app content
+      mentionsInAppContent.forEach(event => {
         // Skip if it's from the user themselves
         if (event.pubkey === user.pubkey) return;
 
@@ -124,7 +110,7 @@ export function useNotifications() {
             id: `${event.id}-mention`,
             type: isReply ? 'reply' : 'mention',
             title: isReply ? 'New Reply' : 'You were mentioned',
-            message: event.content.slice(0, 100) + (event.content.length > 100 ? '...' : ''),
+            message: (event.content || '').slice(0, 140) + ((event.content || '').length > 140 ? '...' : ''),
             eventId: event.id,
             fromPubkey: event.pubkey,
             timestamp: event.created_at * 1000,
@@ -133,7 +119,7 @@ export function useNotifications() {
         }
       });
 
-      // Process reactions
+      // Reactions to your app content
       reactionEvents.forEach(event => {
         // Skip if it's from the user themselves
         if (event.pubkey === user.pubkey) return;
@@ -150,6 +136,41 @@ export function useNotifications() {
           read: readNotifications.includes(`${event.id}-reaction`),
         });
       });
+
+      // Replies to your app content (notifies only when others reply)
+      replyEvents.forEach(event => {
+        if (event.pubkey === user.pubkey) return;
+        notifications.push({
+          id: `${event.id}-reply`,
+          type: 'reply',
+          title: 'New Reply',
+          message: (event.content || '').slice(0, 140) + ((event.content || '').length > 140 ? '...' : ''),
+          eventId: event.id,
+          fromPubkey: event.pubkey,
+          timestamp: event.created_at * 1000,
+          read: readNotifications.includes(`${event.id}-reply`),
+        });
+      });
+
+      // Direct messages (NIP‑04 and optionally NIP‑17 gift wraps) to the user
+      dmIncoming
+        .filter(e => e.pubkey !== user.pubkey)
+        .forEach(event => {
+          const isNip04 = event.kind === 4;
+          const isGiftWrap = event.kind === 1059; // NIP‑17 gift wrap (actual payload is unwrapped elsewhere)
+          if (!isNip04 && !isGiftWrap) return;
+
+          notifications.push({
+            id: `${event.id}-dm`,
+            type: 'dm',
+            title: isNip04 ? 'New Direct Message' : 'Encrypted event',
+            message: isNip04 ? '[Encrypted message]' : '[Requires decryption]',
+            eventId: event.id,
+            fromPubkey: event.pubkey,
+            timestamp: event.created_at * 1000,
+            read: readNotifications.includes(`${event.id}-dm`),
+          });
+        });
 
       // Sort by timestamp (newest first)
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
