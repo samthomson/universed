@@ -24,7 +24,6 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const [readNotifications] = useLocalStorage<string[]>('read-notifications', []);
 
   return useQuery({
     queryKey: ['notifications', user?.pubkey],
@@ -72,6 +71,14 @@ export function useNotifications() {
       }], { signal }) : [];
 
       // Convert to notifications
+      // Read the latest read list directly from localStorage so invalidations pick up changes immediately
+      let readNotifications: string[] = [];
+      try {
+        readNotifications = JSON.parse(localStorage.getItem('read-notifications') || '[]');
+      } catch {
+        readNotifications = [];
+      }
+
       const notifications: Notification[] = [];
 
       // Process explicit mention notifications (kind 9734)
@@ -166,8 +173,34 @@ export function useMarkNotificationsRead() {
       setReadNotifications(newReadNotifications);
       return newReadNotifications;
     },
+    onMutate: async (ids: string[]) => {
+      await queryClient.cancelQueries({ queryKey: ['notifications'], exact: false });
+
+      const previousQueries = queryClient.getQueriesData({ queryKey: ['notifications'] }) as Array<[
+        readonly unknown[],
+        Notification[] | undefined
+      ]>;
+
+      previousQueries.forEach(([key, data]: [readonly unknown[], Notification[] | undefined]) => {
+        if (!data) return;
+        const updated = data.map((n) => (ids.includes(n.id) ? { ...n, read: true } : n));
+        queryClient.setQueryData(key, updated);
+      });
+
+      return { previousQueries };
+    },
+    onError: (_err, _ids, ctx) => {
+      const previousQueries = ctx?.previousQueries as Array<[
+        readonly unknown[],
+        Notification[] | undefined
+      ]> | undefined;
+      previousQueries?.forEach(([key, data]) => {
+        if (data) queryClient.setQueryData(key, data);
+      });
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      // Invalidate all notifications queries (with any additional key parts like pubkey)
+      queryClient.invalidateQueries({ queryKey: ['notifications'], exact: false });
     },
   });
 }
