@@ -153,7 +153,7 @@ const NotificationItem = ({ notification, onMarkRead }: {
         {getIcon()}
       </div>
 
-      <div className={`flex-1 min-w-0 pr-6`}>
+      <div className={`flex-1 min-w-0 pr-4`}>
         <div className="flex items-center space-x-2">
           {notification.fromPubkey && (
             <Avatar className="w-6 h-6">
