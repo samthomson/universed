@@ -239,6 +239,7 @@ const NotificationsPanel = ({
   notifications,
   isLoading,
   handleMarkRead,
+  isMutating,
 }: {
   unreadCount: number;
   onMarkAllRead: () => void;
@@ -246,6 +247,7 @@ const NotificationsPanel = ({
   notifications: Notification[];
   isLoading: boolean;
   handleMarkRead: (id: string) => void;
+  isMutating: boolean;
 }) => {
   const isMobile = useIsMobile();
   return (
@@ -254,7 +256,7 @@ const NotificationsPanel = ({
         <h2 className="font-semibold">Notifications</h2>
         <div className="flex items-center space-x-2">
           {uc > 0 && (
-            <Button variant="ghost" size="sm" onClick={onAllRead} className="text-xs">
+            <Button variant="ghost" size="sm" onClick={onAllRead} className="text-xs" disabled={isMutating}>
               Mark all read
             </Button>
           )}
@@ -277,7 +279,7 @@ export const NotificationCenter = () => {
 
   const { data: notifications = [], isLoading } = useNotifications();
   const unreadCount = useUnreadNotificationCount();
-  const { mutate: markAsRead } = useMarkNotificationsRead();
+  const { mutate: markAsRead, isPending } = useMarkNotificationsRead();
 
   const handleMarkAllRead = useCallback(() => {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
@@ -327,6 +329,7 @@ export const NotificationCenter = () => {
             notifications={notifications}
             isLoading={isLoading}
             handleMarkRead={handleMarkRead}
+            isMutating={isPending}
           />
         )}
       </PopoverContent>
