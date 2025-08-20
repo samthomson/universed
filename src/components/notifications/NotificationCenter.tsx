@@ -13,6 +13,7 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 function NotificationItem({ notification, onMarkRead }: {
   notification: Notification;
@@ -178,6 +179,7 @@ function NotificationSkeleton() {
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: notifications = [], isLoading } = useNotifications();
   const unreadCount = useUnreadNotificationCount();
@@ -194,100 +196,96 @@ export function NotificationCenter() {
     markAsRead([id]);
   };
 
+  const content = (
+    <div>
+      {showSettings ? (
+        <div>
+          <div className="flex items-center justify-between p-4 border-b">
+            <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)}>
+              ← Back
+            </Button>
+            <h2 className="font-semibold">Settings</h2>
+            <div />
+          </div>
+          <NotificationSettings />
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between p-4 border-b">
+            <h2 className="font-semibold">Notifications</h2>
+            <div className="flex items-center space-x-2">
+              {unreadCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={handleMarkAllRead} className="text-xs">
+                  Mark all read
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={() => setShowSettings(true)} className="h-8 w-8">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className={`overflow-y-auto scrollbar-thin ${isMobile ? 'max-h-[80vh]' : 'max-h-[50vh]'}`}>
+            {isLoading ? (
+              <div>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i}>
+                    <NotificationSkeleton />
+                    {i < 4 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            ) : notifications.length > 0 ? (
+              <div>
+                {notifications.map((notification, index) => (
+                  <div key={notification.id}>
+                    <NotificationItem notification={notification} onMarkRead={handleMarkRead} />
+                    {index < notifications.length - 1 && <Separator />}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Bell className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-sm text-muted-foreground">No notifications yet</p>
+                <p className="text-xs text-muted-foreground">You'll see mentions, replies, and reactions here</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const trigger = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200"
+    >
+      <Bell className="h-6 w-6" />
+      {unreadCount > 0 && (
+        <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+          {unreadCount > 99 ? '99+' : unreadCount}
+        </Badge>
+      )}
+    </Button>
+  );
+
+  // Popover sizing: wider on desktop; full width on mobile
+  const popoverWidthClass = isMobile ? 'w-[calc(100vw-1rem)]' : 'w-96';
+  const popoverMarginClass = isMobile ? 'ml-0' : 'ml-2';
+  const popoverSide = isMobile ? 'bottom' : 'right';
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200">
-          <Bell className="h-6 w-6" />
-          {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-
-      <PopoverContent className="w-80 p-0 ml-2" align="start" side="right">
-        {showSettings ? (
-          <div>
-            <div className="flex items-center justify-between p-4 border-b">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSettings(false)}
-              >
-                ← Back
-              </Button>
-              <h2 className="font-semibold">Settings</h2>
-              <div /> {/* Spacer */}
-            </div>
-            <NotificationSettings />
-          </div>
-        ) : (
-          <div>
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold">Notifications</h2>
-              <div className="flex items-center space-x-2">
-                {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleMarkAllRead}
-                    className="text-xs"
-                  >
-                    Mark all read
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowSettings(true)}
-                  className="h-8 w-8"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Notifications List */}
-            <div className="h-96 overflow-y-auto scrollbar-thin">
-              {isLoading ? (
-                <div>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i}>
-                      <NotificationSkeleton />
-                      {i < 4 && <Separator />}
-                    </div>
-                  ))}
-                </div>
-              ) : notifications.length > 0 ? (
-                <div>
-                  {notifications.map((notification, index) => (
-                    <div key={notification.id}>
-                      <NotificationItem
-                        notification={notification}
-                        onMarkRead={handleMarkRead}
-                      />
-                      {index < notifications.length - 1 && <Separator />}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Bell className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">No notifications yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    You'll see mentions, replies, and reactions here
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        className={`${popoverWidthClass} p-0 ${popoverMarginClass}`}
+        align="start"
+        side={popoverSide as 'right' | 'left' | 'top' | 'bottom'}
+        collisionPadding={8}
+      >
+        {content}
       </PopoverContent>
     </Popover>
   );
