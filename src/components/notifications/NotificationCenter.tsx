@@ -254,7 +254,7 @@ export function NotificationCenter() {
             </div>
 
             {/* Notifications List */}
-            <div className="h-96 overflow-y-auto">
+            <div className="h-96 overflow-y-auto scrollbar-thin">
               {isLoading ? (
                 <div>
                   {Array.from({ length: 5 }).map((_, i) => (
