@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -100,10 +100,7 @@ const NotificationSkeleton = () => {
   );
 }
 
-const NotificationItem = ({ notification, onMarkRead }: {
-  notification: Notification;
-  onMarkRead: (id: string) => void;
-}) => {
+const NotificationItem = memo(({ notification, onMarkRead }: { notification: Notification; onMarkRead: (id: string) => void }) => {
   const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
   const author = useAuthor(notification.fromPubkey);
@@ -124,14 +121,14 @@ const NotificationItem = ({ notification, onMarkRead }: {
     }
   };
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (!notification.read) {
       onMarkRead(notification.id);
     }
     // TODO: Navigate to the relevant event/conversation
-  };
+  }, [notification.read, notification.id, onMarkRead]);
 
-  const handleCopyId = async (e: React.MouseEvent) => {
+  const handleCopyId = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!notification.eventId) return;
     try {
@@ -141,7 +138,7 @@ const NotificationItem = ({ notification, onMarkRead }: {
     } catch {
       // no-op
     }
-  };
+  }, [notification.eventId]);
 
   return (
     <div
@@ -193,7 +190,11 @@ const NotificationItem = ({ notification, onMarkRead }: {
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  const a = prev.notification;
+  const b = next.notification;
+  return a.id === b.id && a.read === b.read && prev.onMarkRead === next.onMarkRead;
+});
 
 const NotificationsList = ({ notifications, isLoading, handleMarkRead }: { notifications: Notification[], isLoading: boolean, handleMarkRead: (id: string) => void }) => {
   if (isLoading) {
@@ -266,7 +267,7 @@ const NotificationsPanel = ({
         <NotificationsList notifications={notifications} isLoading={isLoading} handleMarkRead={handleMarkRead} />
       </div>
     </div>
-  )
+  );
 };
 
 export const NotificationCenter = () => {
@@ -278,16 +279,16 @@ export const NotificationCenter = () => {
   const unreadCount = useUnreadNotificationCount();
   const { mutate: markAsRead } = useMarkNotificationsRead();
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = useCallback(() => {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
     if (unreadIds.length > 0) {
       markAsRead(unreadIds);
     }
-  };
+  }, [notifications, markAsRead]);
 
-  const handleMarkRead = (id: string) => {
+  const handleMarkRead = useCallback((id: string) => {
     markAsRead([id]);
-  };
+  }, [markAsRead]);
 
   // Popover sizing: wider on desktop; full width on mobile
   const popoverWidthClass = isMobile ? 'w-[calc(100vw-1rem)]' : 'w-96';
