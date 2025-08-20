@@ -20,6 +20,7 @@ function NotificationItem({ notification, onMarkRead }: {
   onMarkRead: (id: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const isMobile = useIsMobile();
   const author = useAuthor(notification.fromPubkey);
   const displayName = author.data?.metadata?.name || genUserName(notification.fromPubkey || '');
 
@@ -85,25 +86,25 @@ function NotificationItem({ notification, onMarkRead }: {
               {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
-          {notification.eventId && (
-            <button
-              onClick={handleCopyId}
-              title="Copy event ID"
-              className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-              aria-label="Copy event ID"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </button>
-          )}
           {!notification.read && (
             <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
           )}
         </div>
 
-        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+        <p className={`text-sm text-muted-foreground mt-1 line-clamp-2 ${notification.eventId ? 'pr-10' : ''}`}>
           {notification.message}
         </p>
       </div>
+      {notification.eventId && (
+        <button
+          onClick={handleCopyId}
+          title="Copy event ID"
+          className={`absolute right-1 bottom-3 h-6 w-6 flex items-center justify-center rounded ${isMobile ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity text-muted-foreground hover:text-foreground`}
+          aria-label="Copy event ID"
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+        </button>
+      )}
     </div>
   );
 }
