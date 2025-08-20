@@ -269,7 +269,7 @@ const NotificationsPanel = ({
 
 export const NotificationCenter = () => {
   const [open, setOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [isShowingSettings, setIsShowingSettings] = useState(false);
   const isMobile = useIsMobile();
 
   const { data: notifications = [], isLoading } = useNotifications();
@@ -314,13 +314,13 @@ export const NotificationCenter = () => {
         side={popoverSide as 'right' | 'left' | 'top' | 'bottom'}
         collisionPadding={8}
       >
-        {showSettings ? (
-          <SettingsPanel onBack={() => setShowSettings(false)} />
+        {isShowingSettings ? (
+          <SettingsPanel onBack={() => setIsShowingSettings(false)} />
         ) : (
           <NotificationsPanel
             unreadCount={unreadCount}
             onMarkAllRead={handleMarkAllRead}
-            onOpenSettings={() => setShowSettings(true)}
+            onOpenSettings={() => setIsShowingSettings(true)}
             notifications={notifications}
             isLoading={isLoading}
             handleMarkRead={handleMarkRead}
