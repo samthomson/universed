@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -232,7 +231,7 @@ export function NotificationCenter() {
             </div>
 
             {/* Notifications List */}
-            <ScrollArea className="h-96">
+            <div className="h-96 overflow-y-auto">
               {isLoading ? (
                 <div>
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -263,7 +262,7 @@ export function NotificationCenter() {
                   </p>
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </div>
         )}
       </PopoverContent>
