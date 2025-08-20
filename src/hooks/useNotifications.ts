@@ -56,7 +56,7 @@ export function useNotifications() {
       const since = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60); // last 14 days
 
       // Fetch in parallel:
-      const [mentionsInAppContent, userAppContent, dmIncoming] = await Promise.all([
+      const [mentionsInAppContent, userAppContent, dmIncoming, memberApprovals, memberDeclines, memberBans] = await Promise.all([
         // Mentions that tag the user in app content only
         nostr.query([
           { kinds: APP_CONTENT_KINDS, '#p': [user.pubkey], limit: 100, since },
@@ -72,6 +72,11 @@ export function useNotifications() {
           { kinds: [4], '#p': [user.pubkey], limit: 100, since },
           ...(isNIP17Enabled ? [{ kinds: [1059] as number[], '#p': [user.pubkey], limit: 100, since }] : []),
         ], { signal }),
+
+        // Membership list updates targeting the user (approved/declined/banned)
+        nostr.query([{ kinds: [34551], '#p': [user.pubkey], limit: 100, since }], { signal }),
+        nostr.query([{ kinds: [34552], '#p': [user.pubkey], limit: 100, since }], { signal }),
+        nostr.query([{ kinds: [34553], '#p': [user.pubkey], limit: 100, since }], { signal }),
       ]);
 
       const userEventIds = userAppContent.map(e => e.id);
@@ -173,6 +178,29 @@ export function useNotifications() {
         });
 
       // Sort by timestamp (newest first)
+      // Membership list updates → notifications
+      const pushMembershipNotification = (
+        event: { id: string; pubkey: string; created_at: number; tags: string[][] },
+        type: 'member_approved' | 'member_declined' | 'member_banned',
+        title: string
+      ) => {
+        notifications.push({
+          id: `${event.id}-${type}`,
+          type: 'friend_request', // reuse existing union without expanding types; semantic: membership change
+          title,
+          message: '',
+          eventId: event.id,
+          fromPubkey: event.pubkey,
+          timestamp: event.created_at * 1000,
+          read: readNotifications.includes(`${event.id}-${type}`),
+          communityId: event.tags.find(([n]) => n === 'a')?.[1] || undefined,
+        });
+      };
+
+      memberApprovals.forEach(e => pushMembershipNotification(e, 'member_approved', 'Membership approved'));
+      memberDeclines.forEach(e => pushMembershipNotification(e, 'member_declined', 'Membership declined'));
+      memberBans.forEach(e => pushMembershipNotification(e, 'member_banned', 'Removed from community'));
+
       return notifications.sort((a, b) => b.timestamp - a.timestamp);
     },
     enabled: !!user?.pubkey,
