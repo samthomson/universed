@@ -17,7 +17,8 @@ import { MessageSystemProvider } from '@/contexts/MessageSystemContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
-
+import { useFaviconBadge } from '@/hooks/useFaviconBadge';
+import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 
 import AppRouter from './AppRouter';
 
@@ -69,6 +70,9 @@ const presetRelays = [
 ];
 
 function AppContent() {
+  const unreadCount = useUnreadNotificationCount();
+  useFaviconBadge(unreadCount);
+
   return (
     <MessageSystemProvider>
       <TooltipProvider>
