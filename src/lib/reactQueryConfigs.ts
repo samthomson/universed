@@ -4,6 +4,12 @@
  * OPTIMIZED: More aggressive caching to reduce network requests
  */
 export const reactQueryConfigs = {
+  notifications: {
+    staleTime: 60 * 1000, // 1 minute - notifications update frequently
+    gcTime: 20 * 60 * 1000, // 20 minutes
+    // Not standard in all configs, but useful here
+    refetchInterval: 2 * 60 * 1000, // 2 minutes
+  },
   author: {
     staleTime: 30 * 60 * 1000, // 30 minutes (increased from 15)
     gcTime: 4 * 60 * 60 * 1000, // 4 hours (increased from 2)

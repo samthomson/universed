@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings } from 'lucide-react';
+import { useState, useCallback, memo } from 'react';
+import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,11 +13,96 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
-function NotificationItem({ notification, onMarkRead }: {
-  notification: Notification;
-  onMarkRead: (id: string) => void;
-}) {
+// Small, focused building blocks to keep the file readable
+
+// (was used earlier; now replaced by NotificationsPanel)
+
+// Settings header is simple and used only once, so it's inlined where rendered
+
+
+const SettingsPanel = ({ onBack }: { onBack: () => void }) => {
+
+  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useLocalStorage('browser-notifications', false);
+  const [soundEnabled, setSoundEnabled] = useLocalStorage('notification-sound', true);
+  const { requestPermission, permission } = useBrowserNotifications();
+
+  const handleBrowserNotificationToggle = async (enabled: boolean) => {
+    if (enabled && permission !== 'granted') {
+      const granted = await requestPermission();
+      if (!granted) return;
+    }
+    setBrowserNotificationsEnabled(enabled);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between p-4 border-b">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          ← Back
+        </Button>
+        <h2 className="font-semibold">Settings</h2>
+        <div />
+      </div>
+      <div className="p-4 space-y-4">
+        <h3 className="font-medium">Notification Settings</h3>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="browser-notifications" className="text-sm">
+              Browser notifications
+            </Label>
+            <Switch
+              id="browser-notifications"
+              checked={browserNotificationsEnabled}
+              onCheckedChange={handleBrowserNotificationToggle}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="sound" className="text-sm">
+              Sound
+            </Label>
+            <Switch
+              id="sound"
+              checked={soundEnabled}
+              onCheckedChange={setSoundEnabled}
+            />
+          </div>
+        </div>
+
+        {permission === 'denied' && (
+          <p className="text-xs text-muted-foreground">
+            Browser notifications are blocked. Enable them in your browser settings.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+};
+
+const NotificationSkeleton = () => {
+  return (
+    <div className="flex items-start space-x-3 p-3">
+      <Skeleton className="w-4 h-4 rounded-full mt-1" />
+      <div className="flex-1 space-y-2">
+        <div className="flex items-center space-x-2">
+          <Skeleton className="w-6 h-6 rounded-full" />
+          <div className="flex-1 space-y-1">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-4 w-full" />
+      </div>
+    </div>
+  );
+}
+
+const NotificationItem = memo(({ notification, onMarkRead }: { notification: Notification; onMarkRead: (id: string) => void }) => {
+  const [copied, setCopied] = useState(false);
+  const isMobile = useIsMobile();
   const author = useAuthor(notification.fromPubkey);
   const displayName = author.data?.metadata?.name || genUserName(notification.fromPubkey || '');
 
@@ -37,25 +121,36 @@ function NotificationItem({ notification, onMarkRead }: {
     }
   };
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     if (!notification.read) {
       onMarkRead(notification.id);
     }
     // TODO: Navigate to the relevant event/conversation
-  };
+  }, [notification.read, notification.id, onMarkRead]);
+
+  const handleCopyId = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!notification.eventId) return;
+    try {
+      await navigator.clipboard.writeText(notification.eventId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // no-op
+    }
+  }, [notification.eventId]);
 
   return (
     <div
-      className={`flex items-start space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${
-        !notification.read ? 'bg-blue-50 dark:bg-blue-950/20' : ''
-      }`}
+      className={`relative group flex items-start space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${!notification.read ? 'bg-blue-50 dark:bg-blue-950/20' : ''
+        }`}
       onClick={handleClick}
     >
       <div className="flex-shrink-0 mt-1">
         {getIcon()}
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className={`flex-1 min-w-0 pr-4`}>
         <div className="flex items-center space-x-2">
           {notification.fromPubkey && (
             <Avatar className="w-6 h-6">
@@ -72,199 +167,170 @@ function NotificationItem({ notification, onMarkRead }: {
               {formatDistanceToNowShort(notification.timestamp, { addSuffix: true })}
             </p>
           </div>
-          {!notification.read && (
-            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />
-          )}
+
         </div>
 
-        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+        <p className={`text-sm text-muted-foreground mt-1 line-clamp-2 break-words overflow-hidden`}>
           {notification.message}
         </p>
       </div>
-    </div>
-  );
-}
+      <div className="flex items-center space-x-2">
 
-function NotificationSettings() {
-  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useLocalStorage('browser-notifications', false);
-  const [soundEnabled, setSoundEnabled] = useLocalStorage('notification-sound', true);
-  const { requestPermission, permission } = useBrowserNotifications();
-
-  const handleBrowserNotificationToggle = async (enabled: boolean) => {
-    if (enabled && permission !== 'granted') {
-      const granted = await requestPermission();
-      if (!granted) return;
-    }
-    setBrowserNotificationsEnabled(enabled);
-  };
-
-  return (
-    <div className="p-4 space-y-4">
-      <h3 className="font-medium">Notification Settings</h3>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="browser-notifications" className="text-sm">
-            Browser notifications
-          </Label>
-          <Switch
-            id="browser-notifications"
-            checked={browserNotificationsEnabled}
-            onCheckedChange={handleBrowserNotificationToggle}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <Label htmlFor="sound" className="text-sm">
-            Sound
-          </Label>
-          <Switch
-            id="sound"
-            checked={soundEnabled}
-            onCheckedChange={setSoundEnabled}
-          />
-        </div>
+        {!notification.read && (
+          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mr-0 mt-2" />
+        )}
+        <button
+          onClick={handleCopyId}
+          title="Copy event ID"
+          className={`absolute right-1 bottom-3 h-6 w-6 flex items-center justify-center rounded ${isMobile ? '' : 'opacity-0 group-hover:opacity-100'} transition-opacity text-muted-foreground hover:text-foreground`}
+          aria-label="Copy event ID"
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+        </button>
       </div>
-
-      {permission === 'denied' && (
-        <p className="text-xs text-muted-foreground">
-          Browser notifications are blocked. Enable them in your browser settings.
-        </p>
-      )}
     </div>
   );
-}
+}, (prev, next) => {
+  const a = prev.notification;
+  const b = next.notification;
+  return a.id === b.id && a.read === b.read && prev.onMarkRead === next.onMarkRead;
+});
 
-function NotificationSkeleton() {
-  return (
-    <div className="flex items-start space-x-3 p-3">
-      <Skeleton className="w-4 h-4 rounded-full mt-1" />
-      <div className="flex-1 space-y-2">
-        <div className="flex items-center space-x-2">
-          <Skeleton className="w-6 h-6 rounded-full" />
-          <div className="flex-1 space-y-1">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-24" />
+const NotificationsList = ({ notifications, isLoading, handleMarkRead }: { notifications: Notification[], isLoading: boolean, handleMarkRead: (id: string) => void }) => {
+  if (isLoading) {
+    return (
+      <div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i}>
+            <NotificationSkeleton />
+            {i < 4 && <Separator />}
           </div>
-        </div>
-        <Skeleton className="h-4 w-full" />
+        ))}
       </div>
+    );
+  }
+
+  if (notifications.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Bell className="w-12 h-12 text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground">No notifications yet</p>
+        <p className="text-xs text-muted-foreground">You'll see mentions, replies, and reactions here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {notifications.map((notification, index) => (
+        <div key={notification.id}>
+          <NotificationItem notification={notification} onMarkRead={handleMarkRead} />
+          {index < notifications.length - 1 && <Separator />}
+        </div>
+      ))}
     </div>
   );
 }
 
-export function NotificationCenter() {
+const NotificationsPanel = ({
+  unreadCount: uc,
+  onMarkAllRead: onAllRead,
+  onOpenSettings,
+  notifications,
+  isLoading,
+  handleMarkRead,
+  isMutating,
+}: {
+  unreadCount: number;
+  onMarkAllRead: () => void;
+  onOpenSettings: () => void;
+  notifications: Notification[];
+  isLoading: boolean;
+  handleMarkRead: (id: string) => void;
+  isMutating: boolean;
+}) => {
+  const isMobile = useIsMobile();
+  return (
+    <div>
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="font-semibold">Notifications</h2>
+        <div className="flex items-center space-x-2">
+          {uc > 0 && (
+            <Button variant="ghost" size="sm" onClick={onAllRead} className="text-xs" disabled={isMutating}>
+              Mark all read
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={onOpenSettings} className="h-8 w-8">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      <div className={`overflow-y-auto scrollbar-thin ${isMobile ? 'max-h-[80vh]' : 'max-h-[50vh]'}`}>
+        <NotificationsList notifications={notifications} isLoading={isLoading} handleMarkRead={handleMarkRead} />
+      </div>
+    </div>
+  );
+};
+
+export const NotificationCenter = () => {
   const [open, setOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [isShowingSettings, setIsShowingSettings] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: notifications = [], isLoading } = useNotifications();
   const unreadCount = useUnreadNotificationCount();
-  const { mutate: markAsRead } = useMarkNotificationsRead();
+  const { mutate: markAsRead, isPending } = useMarkNotificationsRead();
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = useCallback(() => {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
     if (unreadIds.length > 0) {
       markAsRead(unreadIds);
     }
-  };
+  }, [notifications, markAsRead]);
 
-  const handleMarkRead = (id: string) => {
+  const handleMarkRead = useCallback((id: string) => {
     markAsRead([id]);
-  };
+  }, [markAsRead]);
+
+  // Popover sizing: wider on desktop; full width on mobile
+  const popoverWidthClass = isMobile ? 'w-[calc(100vw-1rem)]' : 'w-96';
+  const popoverMarginClass = isMobile ? 'ml-0' : 'ml-2';
+  const popoverSide = isMobile ? 'bottom' : 'right';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200"
+        >
           <Bell className="h-6 w-6" />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
+            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
         </Button>
       </PopoverTrigger>
-
-      <PopoverContent className="w-80 p-0 ml-2" align="start" side="right">
-        {showSettings ? (
-          <div>
-            <div className="flex items-center justify-between p-4 border-b">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSettings(false)}
-              >
-                ← Back
-              </Button>
-              <h2 className="font-semibold">Settings</h2>
-              <div /> {/* Spacer */}
-            </div>
-            <NotificationSettings />
-          </div>
+      <PopoverContent
+        className={`${popoverWidthClass} p-0 ${popoverMarginClass}`}
+        align="start"
+        side={popoverSide as 'right' | 'left' | 'top' | 'bottom'}
+        collisionPadding={8}
+      >
+        {isShowingSettings ? (
+          <SettingsPanel onBack={() => setIsShowingSettings(false)} />
         ) : (
-          <div>
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold">Notifications</h2>
-              <div className="flex items-center space-x-2">
-                {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleMarkAllRead}
-                    className="text-xs"
-                  >
-                    Mark all read
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowSettings(true)}
-                  className="h-8 w-8"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Notifications List */}
-            <ScrollArea className="h-96">
-              {isLoading ? (
-                <div>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i}>
-                      <NotificationSkeleton />
-                      {i < 4 && <Separator />}
-                    </div>
-                  ))}
-                </div>
-              ) : notifications.length > 0 ? (
-                <div>
-                  {notifications.map((notification, index) => (
-                    <div key={notification.id}>
-                      <NotificationItem
-                        notification={notification}
-                        onMarkRead={handleMarkRead}
-                      />
-                      {index < notifications.length - 1 && <Separator />}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Bell className="w-12 h-12 text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">No notifications yet</p>
-                  <p className="text-xs text-muted-foreground">
-                    You'll see mentions, replies, and reactions here
-                  </p>
-                </div>
-              )}
-            </ScrollArea>
-          </div>
+          <NotificationsPanel
+            unreadCount={unreadCount}
+            onMarkAllRead={handleMarkAllRead}
+            onOpenSettings={() => setIsShowingSettings(true)}
+            notifications={notifications}
+            isLoading={isLoading}
+            handleMarkRead={handleMarkRead}
+            isMutating={isPending}
+          />
         )}
       </PopoverContent>
     </Popover>
