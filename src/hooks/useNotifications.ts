@@ -61,11 +61,8 @@ export function useNotifications() {
         mentionsInAppContent,
         userAppContent,
         dmIncoming,
-        memberApprovals,
-        memberDeclines,
-        memberBans,
-        ownedCommunities,
-        pTaggedCommunities,
+        membershipLists,
+        communityScopeEvents,
       ] = await Promise.all([
         // Mentions that tag the user in app content only
         nostr.query([
@@ -83,15 +80,28 @@ export function useNotifications() {
           ...(isNIP17Enabled ? [{ kinds: [1059] as number[], '#p': [user.pubkey], limit: 100, since }] : []),
         ], { signal }),
 
-        // Membership list updates targeting the user (approved/declined/banned)
-        nostr.query([{ kinds: [34551], '#p': [user.pubkey], limit: 100, since }], { signal }),
-        nostr.query([{ kinds: [34552], '#p': [user.pubkey], limit: 100, since }], { signal }),
-        nostr.query([{ kinds: [34553], '#p': [user.pubkey], limit: 100, since }], { signal }),
+        // Membership list updates targeting the user (approved/declined/banned) — single REQ
+        nostr.query([
+          { kinds: [34551], '#p': [user.pubkey], limit: 100, since },
+          { kinds: [34552], '#p': [user.pubkey], limit: 100, since },
+          { kinds: [34553], '#p': [user.pubkey], limit: 100, since },
+        ], { signal }),
 
-        // Moderator scoping: communities you own or moderate
-        nostr.query([{ kinds: [34550], authors: [user.pubkey], limit: 200 }], { signal }),
-        nostr.query([{ kinds: [34550], '#p': [user.pubkey], limit: 500 }], { signal }),
+        // Communities you own (authors) or are p‑tagged in (potentially moderator) — single REQ
+        nostr.query([
+          { kinds: [34550], authors: [user.pubkey], limit: 200 },
+          { kinds: [34550], '#p': [user.pubkey], limit: 500 },
+        ], { signal }),
       ]);
+
+      // Split membership lists by kind
+      const memberApprovals = (membershipLists || []).filter((e: { kind: number }) => e.kind === 34551);
+      const memberDeclines = (membershipLists || []).filter((e: { kind: number }) => e.kind === 34552);
+      const memberBans = (membershipLists || []).filter((e: { kind: number }) => e.kind === 34553);
+
+      // Derive owned vs p‑tagged community events from combined results
+      const ownedCommunities = (communityScopeEvents || []).filter((e: { kind: number; pubkey: string }) => e.kind === 34550 && e.pubkey === user.pubkey);
+      const pTaggedCommunities = (communityScopeEvents || []).filter((e: { kind: number; tags?: string[][] }) => e.kind === 34550 && e.tags?.some((t: string[]) => t[0] === 'p' && t[1] === user.pubkey));
 
       const userEventIds = userAppContent.map(e => e.id);
 
