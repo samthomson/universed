@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserMenu } from "@/components/user/UserMenu";
+import { Settings } from "lucide-react";
 import { useUserStatus, getTraditionalStatusText } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -50,6 +51,7 @@ export function UserPanel() {
                 {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
               </div>
             </div>
+            <Settings className="w-4 h-4 text-gray-400" />
           </button>
         }
         side="top"
