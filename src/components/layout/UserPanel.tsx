@@ -51,7 +51,7 @@ export function UserPanel() {
                 {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
               </div>
             </div>
-            <Settings className="w-4 h-4 text-gray-400" />
+            <Settings className="w-6 h-6 text-gray-400" />
           </button>
         }
         side="top"
