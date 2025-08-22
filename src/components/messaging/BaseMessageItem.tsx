@@ -271,7 +271,7 @@ function BaseMessageItemComponent({
               <div className="flex flex-wrap items-start gap-2 mt-1">
                 {/* Zap Count Display - Left of emojis */}
                   {reactionsAndZaps?.totalSats > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 min-h-6">
+                    <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 min-moveh-6">
                       <Zap className="h-3 w-3 flex-shrink-0" />
                       <span>{reactionsAndZaps.totalSats.toLocaleString()} sats</span>
                       {reactionsAndZaps.zapCount > 1 && (
@@ -312,7 +312,7 @@ function BaseMessageItemComponent({
               showAvatar
                 ? "-top-2"
                 : "top-1/2 -translate-y-1/2",
-              shouldAlignRight ? "-left-20" : "-right-16" // Good clearance: far left for right-aligned, much further right for left-aligned
+              shouldAlignRight ? "-left-32" : "-right-16" // More clearance for right-aligned messages to avoid reactions
             )}>
               {config.showThreadReply && (
                 <Button
