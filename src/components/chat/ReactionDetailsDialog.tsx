@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -53,6 +54,18 @@ export function ReactionDetailsDialog({
     return author?.metadata?.picture;
   };
 
+  // Create a more specific description based on the reactions
+  const getDescription = () => {
+    const emojis = Object.keys(reactionGroups);
+    if (emojis.length === 1) {
+      return `${totalReactions} ${totalReactions === 1 ? 'person' : 'people'} reacted with ${emojis[0]}`;
+    } else if (emojis.length === 2) {
+      return `Reactions with ${emojis.join(' and ')}`;
+    } else {
+      return `Reactions from ${emojis.slice(0, -1).join(', ')} to ${emojis[emojis.length - 1]}`;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -61,6 +74,9 @@ export function ReactionDetailsDialog({
             <span className="tabular-nums">{totalReactions}</span>{' '}
             {totalReactions === 1 ? 'Reaction' : 'Reactions'}
           </DialogTitle>
+          <DialogDescription className="text-center text-sm text-muted-foreground">
+            {getDescription()}
+          </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="h-48 w-full">
