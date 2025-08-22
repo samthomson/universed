@@ -537,7 +537,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
           )}
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-w-0 relative z-20">
+          <div className="flex-1 flex flex-col min-w-0">
             {/* Mobile Top Navigation Bar - only show when needed */}
             {((!selectedCommunity && dmTargetPubkey) ||
               (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ||
@@ -759,7 +759,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                       <UserPanel />
                     </div>
 
-                    <div className="flex-1 flex flex-col min-h-0 relative z-20">
+                    <div className="flex-1 flex flex-col min-h-0">
                       {/* Main Content Area */}
                       <div className="flex-1 flex flex-col min-h-0">
                         {activeTab === "channels" && (
