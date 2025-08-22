@@ -147,7 +147,7 @@ function BaseMessageItemComponent({
         const rect = targetRef.current.getBoundingClientRect();
         setButtonPosition({
           top: rect.top + rect.height / 2,
-          left: shouldAlignRight ? rect.left - 150 : rect.right + 16 // Further left to avoid overlap
+          left: shouldAlignRight ? rect.left - 150 : rect.right - 32
         });
       }
     }
