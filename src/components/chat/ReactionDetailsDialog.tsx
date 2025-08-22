@@ -62,8 +62,10 @@ export function ReactionDetailsDialog({
       return `${totalReactions} ${pluralize('person', totalReactions)} reacted with ${emojis[0]}`;
     } else if (emojis.length === 2) {
       return `Reactions with ${emojis.join(' and ')}`;
+    } else if (emojis.length <= 4) {
+      return `Reactions with ${emojis.slice(0, -1).join(', ')} and ${emojis[emojis.length - 1]}`;
     } else {
-      return `Reactions from ${emojis.slice(0, -1).join(', ')} to ${emojis[emojis.length - 1]}`;
+      return `Reactions from ${emojis[0]} to ${emojis[emojis.length - 1]}`;
     }
   };
 
