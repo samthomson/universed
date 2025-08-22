@@ -89,7 +89,7 @@ export function UserMenu({
             className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
           >
             <Settings className='w-4 h-4' />
-            <span>User Settings</span>
+            <span>Settings</span>
           </DropdownMenuItem>
 
           {/* Switch Account section - Only show if multiple accounts */}
