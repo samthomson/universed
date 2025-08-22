@@ -9,6 +9,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuthorBatch } from "@/hooks/useAuthorBatch";
 import { genUserName } from "@/lib/genUserName";
+import pluralize from "pluralize";
 import type { NostrEvent } from "@/types/nostr";
 
 interface ReactionDetailsDialogProps {
@@ -58,7 +59,7 @@ export function ReactionDetailsDialog({
   const getDescription = () => {
     const emojis = Object.keys(reactionGroups);
     if (emojis.length === 1) {
-      return `${totalReactions} ${totalReactions === 1 ? 'person' : 'people'} reacted with ${emojis[0]}`;
+      return `${totalReactions} ${pluralize('person', totalReactions)} reacted with ${emojis[0]}`;
     } else if (emojis.length === 2) {
       return `Reactions with ${emojis.join(' and ')}`;
     } else {
@@ -72,7 +73,7 @@ export function ReactionDetailsDialog({
         <DialogHeader>
           <DialogTitle className="text-center">
             <span className="tabular-nums">{totalReactions}</span>{' '}
-            {totalReactions === 1 ? 'Reaction' : 'Reactions'}
+            {pluralize('Reaction', totalReactions)}
           </DialogTitle>
           <DialogDescription className="text-center text-sm text-muted-foreground">
             {getDescription()}
