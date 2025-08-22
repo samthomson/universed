@@ -23,7 +23,7 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'} bg-gray-800/50 hover:bg-gray-700/50 transition-colors`}>
+    <div className={`${isMobile ? 'h-20' : 'h-24'} flex items-center justify-between ${isMobile ? 'px-5' : 'px-4'} bg-gray-800/50 hover:bg-gray-700/50 transition-colors`}>
       {/* User Info */}
       <UserMenu
         trigger={
@@ -32,7 +32,7 @@ export function UserPanel() {
             type="button"
           >
             <div className="relative">
-              <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
+              <Avatar className={isMobile ? "w-12 h-12" : "w-11 h-11"}>
                 <AvatarImage src={profileImage} alt={displayName} />
                 <AvatarFallback className="bg-indigo-600 text-white text-xs">
                   {displayName.slice(0, 2).toUpperCase()}
