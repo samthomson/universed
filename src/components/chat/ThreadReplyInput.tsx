@@ -4,7 +4,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { BaseMessageInput } from "@/components/messaging/BaseMessageInput";
 import { groupMessageInputConfig } from "@/components/messaging/configs/groupConfig";
-import type { NostrEvent } from "@nostrify/nostrify";
+import type { NostrEvent } from "@/types/nostr";
 
 interface ThreadReplyInputProps {
   rootMessage: NostrEvent;
@@ -23,6 +23,8 @@ export function ThreadReplyInput({ rootMessage, threadReplies, communityId, chan
   const handleSendMessage = async (content: string, additionalTags: string[][]) => {
     if (!user) return;
 
+    const queryKey = ['thread-replies', rootMessage.id];
+
     try {
       const tags = [
         // NIP-10 threading tags
@@ -35,15 +37,30 @@ export function ThreadReplyInput({ rootMessage, threadReplies, communityId, chan
       // This prevents them from appearing in the main channel feed
       // They are discovered through the e-tag reference to the root message
 
-      await createEvent({
+      const replyEvent = await createEvent({
         kind: 1111, // Thread replies should be kind 1111 (Comment) events per NIP-22
         content,
         tags,
       });
 
-      // Refresh thread replies
+      if (replyEvent) {
+        // Create optimistic version from the real event
+        const optimisticReply: NostrEvent = {
+          ...replyEvent,
+          isSending: true, // Mark as sending state for optimistic UI
+          clientFirstSeen: Date.now(), // Mark for animation
+        };
+
+        // Add optimistic reply to cache immediately
+        queryClient.setQueryData(queryKey, (old: NostrEvent[] | undefined) => {
+          const oldReplies = old || [];
+          return [...oldReplies, optimisticReply].sort((a, b) => a.created_at - b.created_at);
+        });
+      }
+
+      // Refresh thread replies to get the real reply from relay
       queryClient.invalidateQueries({
-        queryKey: ['thread-replies', rootMessage.id]
+        queryKey
       });
 
     } catch (error) {
