@@ -23,12 +23,12 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
+    <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'} bg-gray-800/50 hover:bg-gray-700/50 transition-colors`}>
       {/* User Info */}
       <UserMenu
         trigger={
           <button
-            className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch bg-transparent border-none text-left`}
+            className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer transition-colors mobile-touch bg-transparent border-none text-left`}
             type="button"
           >
             <div className="relative">
