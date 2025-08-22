@@ -268,10 +268,10 @@ function BaseMessageItemComponent({
 
             {/* Message Reactions */}
             {config.showReactions && reactionsAndZaps && (
-              <div className="flex flex-wrap items-center gap-2 mt-1">
+              <div className="flex flex-wrap items-start gap-2 mt-1">
                 {/* Zap Count Display - Left of emojis */}
                   {reactionsAndZaps?.totalSats > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 h-6">
+                    <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 min-h-6">
                       <Zap className="h-3 w-3 flex-shrink-0" />
                       <span>{reactionsAndZaps.totalSats.toLocaleString()} sats</span>
                       {reactionsAndZaps.zapCount > 1 && (
@@ -281,7 +281,7 @@ function BaseMessageItemComponent({
                   )}
                 {/* Emoji Reactions - Only render wrapper if there are reactions */}
                   {reactionsAndZaps.reactionGroups && Object.keys(reactionsAndZaps.reactionGroups).length > 0 && (
-                    <div className="flex items-center h-6">
+                    <div className="flex-1">
                       <MessageReactions
                         message={message}
                         onReactionClick={() => setIsHovered(false)}
