@@ -23,14 +23,11 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-20' : 'h-24'} flex items-center justify-between ${isMobile ? 'px-5' : 'px-4'} bg-gray-800/50 hover:bg-gray-700/50 transition-colors`}>
-      {/* User Info */}
-      <UserMenu
-        trigger={
-          <button
-            className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer transition-colors mobile-touch bg-transparent border-none text-left`}
-            type="button"
-          >
+    <UserMenu
+      trigger={
+        <div className={`${isMobile ? 'h-20' : 'h-24'} flex items-center justify-between ${isMobile ? 'px-5' : 'px-4'} bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer`}>
+          {/* User Info */}
+          <div className="flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0">
             <div className="relative">
               <Avatar className={isMobile ? "w-12 h-12" : "w-11 h-11"}>
                 <AvatarImage src={profileImage} alt={displayName} />
@@ -51,13 +48,14 @@ export function UserPanel() {
                 {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
               </div>
             </div>
-            <Settings className="w-6 h-6 text-gray-400" />
-          </button>
-        }
-        side="top"
-        align="start"
-        sideOffset={8}
-      />
-    </div>
+          </div>
+          
+          <Settings className="w-6 h-6 text-gray-400" />
+        </div>
+      }
+      side="top"
+      align="start"
+      sideOffset={8}
+    />
   );
 }
