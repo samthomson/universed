@@ -33,7 +33,7 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
     });
   };
 
-  const handleReactionClick = (emoji: string) => {
+  const handleReactionClick = () => {
     // Open reaction details dialog instead of adding reaction
     setShowReactionDetails(true);
     
@@ -60,7 +60,7 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
             className={`h-6 px-2 text-xs hover:bg-gray-600 ${
               hasUserReacted(emoji) ? 'bg-gray-800/80 text-gray-100' : ''
             }`}
-            onClick={() => handleReactionClick(emoji)}
+            onClick={handleReactionClick}
             title="Click to see who reacted"
           >
             <span className="mr-1">{emoji}</span>
