@@ -1,4 +1,5 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { Ban, MoreHorizontal, Pin, Reply, Trash2, Loader2, Flag, Zap, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -81,6 +82,9 @@ function BaseMessageItemComponent({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showThreadDialog, setShowThreadDialog] = useState(false);
+  const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
+  const messageRef = useRef<HTMLDivElement>(null);
+  const messageBubbleRef = useRef<HTMLDivElement>(null);
 
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
@@ -134,8 +138,36 @@ function BaseMessageItemComponent({
     setCurrentProfilePubkey(newPubkey);
   }, []);
 
+  // Update button position when hovering
+  const updateButtonPosition = useCallback(() => {
+    if (shouldShowActions) {
+      // Use the message bubble for right-aligned messages, container for left-aligned
+      const targetRef = shouldAlignRight ? messageBubbleRef : messageRef;
+      if (targetRef.current) {
+        const rect = targetRef.current.getBoundingClientRect();
+        setButtonPosition({
+          top: rect.top + rect.height / 2,
+          left: shouldAlignRight ? rect.left - 150 : rect.right + 16 // Further left to avoid overlap
+        });
+      }
+    }
+  }, [shouldShowActions, shouldAlignRight]);
+
+  useEffect(() => {
+    updateButtonPosition();
+  }, [updateButtonPosition]);
+
+  useEffect(() => {
+    if (shouldShowActions) {
+      const handleScroll = () => updateButtonPosition();
+      window.addEventListener('scroll', handleScroll, true);
+      return () => window.removeEventListener('scroll', handleScroll, true);
+    }
+  }, [shouldShowActions, updateButtonPosition]);
+
   return (
     <div
+      ref={messageRef}
       className={cn(
         "group relative transition-all duration-200 w-full px-4 py-2",
         {
@@ -153,11 +185,13 @@ function BaseMessageItemComponent({
         // Left-aligned messages: normal flex with hover background
         "hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-2xl": !shouldAlignRight,
       })}>
-        <div className={cn("flex space-x-3 relative", {
-          "flex-row-reverse space-x-reverse": shouldAlignRight,
-          // Message bubble styling for user's own messages
-          "max-w-[80%] bg-purple-600/20 dark:bg-purple-500/20 rounded-2xl px-3 py-2": shouldAlignRight,
-        })}>
+        <div 
+          ref={messageBubbleRef}
+          className={cn("flex space-x-3 relative", {
+            "flex-row-reverse space-x-reverse": shouldAlignRight,
+            // Message bubble styling for user's own messages
+            "max-w-[80%] bg-purple-600/20 dark:bg-purple-500/20 rounded-2xl px-3 py-2": shouldAlignRight,
+          })}>
           <div className="w-10 flex-shrink-0">
             {showAvatar
               ? (
@@ -306,14 +340,15 @@ function BaseMessageItemComponent({
             )}
           </div>
 
-          {shouldShowActions && (
-            <div className={cn(
-              "absolute bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center z-10",
-              showAvatar
-                ? "-top-2"
-                : "top-1/2 -translate-y-1/2",
-              shouldAlignRight ? "-left-32" : "-right-16" // More clearance for right-aligned messages to avoid reactions
-            )}>
+          {shouldShowActions && createPortal(
+            <div 
+              className="fixed bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center"
+              style={{ 
+                zIndex: 9999,
+                left: buttonPosition.left,
+                top: buttonPosition.top,
+                transform: 'translateY(-50%)'
+              }}>
               {config.showThreadReply && (
                 <Button
                   variant="ghost"
@@ -387,7 +422,8 @@ function BaseMessageItemComponent({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
