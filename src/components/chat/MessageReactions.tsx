@@ -55,8 +55,8 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
           key={emoji}
           variant="ghost"
           size="sm"
-          className={`h-6 px-2 text-xs hover:bg-gray-600 ${
-            hasUserReacted(emoji) ? 'bg-gray-800/80 text-gray-100' : ''
+          className={`h-6 px-2 text-xs hover:bg-nostr-purple/10 border border-transparent hover:border-nostr-purple/20 ${
+            hasUserReacted(emoji) ? 'bg-nostr-purple/20 text-nostr-purple border-nostr-purple/30' : 'text-foreground'
           }`}
           onClick={() => handleReactionClick(emoji)}
         >
@@ -72,7 +72,7 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-gray-400 hover:text-gray-300 hover:bg-gray-600"
+            className="h-6 px-2 text-muted-foreground hover:text-nostr-purple hover:bg-nostr-purple/10 border border-transparent hover:border-nostr-purple/20"
           >
             <Plus className="w-3 h-3" />
           </Button>
