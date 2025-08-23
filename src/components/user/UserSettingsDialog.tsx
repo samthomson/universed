@@ -8,6 +8,7 @@ import { WalletConfigDialog } from "@/components/WalletConfigDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useEffect, useRef, useState } from "react";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
 import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
@@ -17,6 +18,17 @@ export function UserSettingsDialog() {
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isOpen, closeSettings, activeTab, setActiveTab } = useSettings();
+  
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
+
+  // Measure content height when tab changes
+  useEffect(() => {
+    if (contentRef.current) {
+      const height = contentRef.current.scrollHeight;
+      setContentHeight(height);
+    }
+  }, [activeTab]);
 
   if (!user) return null;
 
@@ -58,9 +70,13 @@ export function UserSettingsDialog() {
           </div>
 
           {/* Right Content Area */}
-          <div className="flex-1 min-w-0 min-h-[600px]">
+          <div 
+            className="flex-1 min-w-0 overflow-hidden transition-all duration-300 ease-in-out"
+            style={{ height: contentHeight ? `${contentHeight}px` : 'auto' }}
+          >
+            <div ref={contentRef}>
             {activeTab === SETTINGS_TABS.PROFILE && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-2">Profile</h2>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -72,7 +88,7 @@ export function UserSettingsDialog() {
             )}
 
             {activeTab === SETTINGS_TABS.APPEARANCE && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-2">Appearance</h2>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -112,7 +128,7 @@ export function UserSettingsDialog() {
             )}
 
             {activeTab === SETTINGS_TABS.CONNECTION && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-2">Connection</h2>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -124,7 +140,7 @@ export function UserSettingsDialog() {
             )}
 
             {activeTab === SETTINGS_TABS.WALLET && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-2">Wallet</h2>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -136,7 +152,7 @@ export function UserSettingsDialog() {
             )}
 
             {activeTab === SETTINGS_TABS.COMMUNITIES && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-6">Communities</h2>
                   <div className="space-y-4">
@@ -173,13 +189,14 @@ export function UserSettingsDialog() {
             )}
 
             {activeTab === SETTINGS_TABS.MESSAGING && (
-              <div className="space-y-6">
+              <div className="space-y-6 animate-in fade-in-0 duration-200">
                 <div>
                   <h2 className="text-base font-semibold mb-6">Messaging</h2>
                   <MessagingSettings />
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </DialogContent>
