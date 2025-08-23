@@ -171,22 +171,22 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
     // Check if user is approved to view folder contents
     if (membershipStatus && !['owner', 'moderator', 'approved'].includes(membershipStatus)) {
       return (
-        <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
-          <div className="border-b border-gray-700 p-4 flex-shrink-0">
+        <div className="flex-1 bg-background text-foreground flex flex-col h-full">
+          <div className="border-b border-border p-4 flex-shrink-0">
             <div className="flex items-center space-x-3">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedFolder(null)}
-                className="text-gray-400 hover:text-gray-200"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ← Back to Folders
               </Button>
               <div className="flex items-center space-x-2">
-                <Folder className="w-5 h-5 text-green-400" />
+                <Folder className="w-5 h-5 text-nostr-purple" />
                 <div>
-                  <h1 className="text-xl font-semibold text-white">{selectedFolder.name}</h1>
-                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                  <h1 className="text-xl font-semibold text-foreground">{selectedFolder.name}</h1>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <span>{selectedFolder.resourceCount} resources</span>
                     <span>•</span>
                     <div className="flex items-center space-x-1">
@@ -215,24 +215,24 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
     }
 
     return (
-      <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+      <div className="flex-1 bg-background text-foreground flex flex-col h-full">
         {/* Folder Header */}
-        <div className="border-b border-gray-700 p-4 flex-shrink-0">
+        <div className="border-b border-border p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSelectedFolder(null)}
-                className="text-gray-400 hover:text-gray-200"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ← Back to Folders
               </Button>
               <div className="flex items-center space-x-2">
-                <Folder className="w-5 h-5 text-green-400" />
+                <Folder className="w-5 h-5 text-nostr-purple" />
                 <div>
-                  <h1 className="text-xl font-semibold text-white">{selectedFolder.name}</h1>
-                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                  <h1 className="text-xl font-semibold text-foreground">{selectedFolder.name}</h1>
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <span>{selectedFolder.resourceCount} resources</span>
                     <span>•</span>
                     <div className="flex items-center space-x-1">
@@ -252,7 +252,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
             )}
           </div>
           {selectedFolder.description && (
-            <p className="text-gray-400 mt-2">{selectedFolder.description}</p>
+            <p className="text-muted-foreground mt-2">{selectedFolder.description}</p>
           )}
         </div>
 
@@ -262,13 +262,13 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
             {isLoadingResources ? (
               <div className="space-y-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <Card key={i} className="bg-gray-750 border-gray-600">
+                  <Card key={i} className="bg-card border-border">
                     <CardContent className="p-4">
                       <div className="flex items-center space-x-3">
-                        <Skeleton className="w-8 h-8 bg-gray-600" />
+                        <Skeleton className="w-8 h-8 bg-muted" />
                         <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-3/4 bg-gray-600" />
-                          <Skeleton className="h-3 w-1/2 bg-gray-600" />
+                          <Skeleton className="h-4 w-3/4 bg-muted" />
+                          <Skeleton className="h-3 w-1/2 bg-muted" />
                         </div>
                       </div>
                     </CardContent>
@@ -282,11 +282,11 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
                 ))}
               </div>
             ) : (
-              <Card className="border-dashed border-gray-600 bg-gray-750">
+              <Card className="border-dashed border-border bg-card">
                 <CardContent className="py-12 px-8 text-center">
-                  <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2 text-gray-200">No resources yet</h3>
-                  <p className="text-gray-400 mb-4">
+                  <Folder className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2 text-card-foreground">No resources yet</h3>
+                  <p className="text-muted-foreground mb-4">
                     This folder is empty. Be the first to add a resource!
                   </p>
                   {canAddToSelectedFolder && (
@@ -295,7 +295,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
                       folderId={selectedFolder.id}
                       folderName={selectedFolder.name}
                       trigger={
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button className="bg-nostr-purple hover:bg-nostr-purple/80 text-nostr-purple-foreground">
                           <Plus className="w-4 h-4 mr-2" />
                           Add First Resource
                         </Button>
@@ -313,8 +313,8 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
 
   if (isLoadingFolders) {
     return (
-      <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
-        <div className="border-b border-gray-700 p-4 flex-shrink-0">
+      <div className="flex-1 bg-background text-foreground flex flex-col h-full">
+        <div className="border-b border-border p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <Skeleton className="h-8 w-48 bg-gray-700" />
             <Skeleton className="h-10 w-32 bg-gray-700" />
@@ -324,20 +324,20 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
           <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Card key={i} className="bg-gray-750 border-gray-600">
+                <Card key={i} className="bg-card border-border">
                   <CardHeader>
                     <div className="flex items-start space-x-3">
-                      <Skeleton className="w-12 h-12 bg-gray-600" />
+                      <Skeleton className="w-12 h-12 bg-muted" />
                       <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-3/4 bg-gray-600" />
-                        <Skeleton className="h-4 w-full bg-gray-600" />
+                        <Skeleton className="h-5 w-3/4 bg-muted" />
+                        <Skeleton className="h-4 w-full bg-muted" />
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    <Skeleton className="h-4 w-1/2 bg-gray-600" />
-                    <Skeleton className="h-4 w-2/3 bg-gray-600" />
-                    <Skeleton className="h-4 w-1/3 bg-gray-600" />
+                    <Skeleton className="h-4 w-1/2 bg-muted" />
+                    <Skeleton className="h-4 w-2/3 bg-muted" />
+                    <Skeleton className="h-4 w-1/3 bg-muted" />
                   </CardContent>
                 </Card>
               ))}
@@ -349,15 +349,15 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
   }
 
   return (
-    <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+    <div className="flex-1 bg-background text-foreground flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-gray-700 p-4 flex-shrink-0">
+      <div className="border-b border-border p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <BookOpen className="w-6 h-6 text-green-400" />
+            <BookOpen className="w-6 h-6 text-nostr-purple" />
             <div>
-              <h1 className="text-xl font-semibold text-white">Resource Folders</h1>
-              <p className="text-sm text-gray-400">
+              <h1 className="text-xl font-semibold text-foreground">Resource Folders</h1>
+              <p className="text-sm text-muted-foreground">
                 Organized folders of community resources
               </p>
             </div>
@@ -375,19 +375,19 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Search folders..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-green-500"
+              className="pl-10 bg-input border-border text-foreground placeholder-muted-foreground focus:border-nostr-purple"
             />
           </div>
           <Select value={selectedTag} onValueChange={setSelectedTag}>
-            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+            <SelectTrigger className="w-48 bg-input border-border text-foreground">
               <SelectValue placeholder="Filter by tag" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-700 border-gray-600">
+            <SelectContent className="bg-popover border-border">
               <SelectItem value="all">All Tags</SelectItem>
               {tags.map(tag => (
                 <SelectItem key={tag} value={tag}>
@@ -397,30 +397,38 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+            <SelectTrigger className="w-48 bg-input border-border text-foreground">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-700 border-gray-600">
+            <SelectContent className="bg-popover border-border">
               <SelectItem value="newest">Newest First</SelectItem>
               <SelectItem value="oldest">Oldest First</SelectItem>
               <SelectItem value="name">Name A-Z</SelectItem>
               <SelectItem value="resources">Most Resources</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex border border-gray-600 rounded-md">
+          <div className="flex border border-border rounded-md overflow-hidden">
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('grid')}
-              className={`rounded-r-none ${viewMode === 'grid' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'}`}
+              className={`rounded-none border-r border-border ${
+                viewMode === 'grid' 
+                  ? 'bg-nostr-purple/20 text-nostr-purple hover:bg-nostr-purple/30' 
+                  : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+              }`}
             >
               <Grid3X3 className="w-4 h-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('list')}
-              className={`rounded-l-none ${viewMode === 'list' ? 'bg-green-600 hover:bg-green-700' : 'hover:bg-gray-600'}`}
+              className={`rounded-none ${
+                viewMode === 'list' 
+                  ? 'bg-nostr-purple/20 text-nostr-purple hover:bg-nostr-purple/30' 
+                  : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+              }`}
             >
               <List className="w-4 h-4" />
             </Button>
@@ -430,11 +438,11 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
         {/* Results */}
         {filteredFolders.length === 0 ? (
           membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) ? (
-            <Card className="border-dashed border-gray-600 bg-gray-750">
+            <Card className="border-dashed border-border bg-card">
               <CardContent className="py-12 px-8 text-center">
-                <Folder className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2 text-gray-200">No resource folders found</h3>
-                <p className="text-gray-400 mb-4">
+                <Folder className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2 text-card-foreground">No resource folders found</h3>
+                <p className="text-muted-foreground mb-4">
                   {searchQuery || selectedTag !== 'all'
                     ? 'Try adjusting your search or filters'
                     : 'Create the first resource folder for this community!'
@@ -444,7 +452,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
                   <CreateResourceFolderDialog
                     communityId={communityId}
                     trigger={
-                      <Button className="bg-green-600 hover:bg-green-700 text-white">
+                      <Button className="bg-nostr-purple hover:bg-nostr-purple/80 text-nostr-purple-foreground">
                         <Plus className="w-4 h-4 mr-2" />
                         Create First Folder
                       </Button>
@@ -462,7 +470,7 @@ export function ResourcesSpace({ communityId }: ResourcesSpaceProps) {
                   description: "Join requests will be available soon. Please contact a community moderator.",
                 });
               }}
-              className="border-dashed border-gray-600 bg-gray-750"
+              className="border-dashed border-border bg-card"
             />
           )
         ) : (
@@ -515,11 +523,11 @@ function ResourceFolderCard({
 
   if (viewMode === 'list') {
     return (
-      <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors">
+      <Card className="bg-card border-border hover:bg-accent/50 transition-colors">
         <CardContent className="p-4">
           <div className="flex space-x-4">
             <div
-              className="w-16 h-16 bg-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-500 transition-colors"
+              className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
               onClick={() => onFolderClick(folder)}
             >
               {folder.image ? (
@@ -529,7 +537,7 @@ function ResourceFolderCard({
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <Folder className="w-8 h-8 text-gray-400" />
+                <Folder className="w-8 h-8 text-muted-foreground" />
               )}
             </div>
             <div className="flex-1 space-y-2">
@@ -537,18 +545,18 @@ function ResourceFolderCard({
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
                     <h3
-                      className="font-semibold text-lg text-gray-100 cursor-pointer hover:text-green-400 transition-colors"
+                      className="font-semibold text-lg text-card-foreground cursor-pointer hover:text-nostr-purple transition-colors"
                       onClick={() => onFolderClick(folder)}
                     >
                       {folder.name}
                     </h3>
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
-                  <p className="text-gray-400 text-sm line-clamp-2">
+                  <p className="text-muted-foreground text-sm line-clamp-2">
                     {folder.description}
                   </p>
                 </div>
-                <div className="text-right text-sm text-gray-400">
+                <div className="text-right text-sm text-muted-foreground">
                   <div className="flex items-center space-x-1">
                     <Calendar className="w-3 h-3" />
                     <span>{timeAgo}</span>
@@ -557,20 +565,20 @@ function ResourceFolderCard({
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="bg-gray-600 text-gray-200">
+                  <Badge variant="secondary" className="bg-muted text-card-foreground">
                     {folder.resourceCount} resources
                   </Badge>
-                  <div className="flex items-center space-x-1 text-xs text-gray-400">
+                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                     {getPermissionIcon(folder.addPermission)}
                     <span>{getPermissionLabel(folder.addPermission)}</span>
                   </div>
                   {folder.tags.slice(0, 2).map(tag => (
-                    <Badge key={tag} variant="outline" className="text-xs border-gray-500 text-gray-300">
+                    <Badge key={tag} variant="outline" className="text-xs border-border text-card-foreground">
                       #{tag}
                     </Badge>
                   ))}
                   {folder.tags.length > 2 && (
-                    <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+                    <Badge variant="outline" className="text-xs border-border text-card-foreground">
                       +{folder.tags.length - 2}
                     </Badge>
                   )}
@@ -591,11 +599,11 @@ function ResourceFolderCard({
   }
 
   return (
-    <Card className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors">
+    <Card className="bg-card border-border hover:bg-accent/50 transition-colors">
       <CardHeader>
         <div className="flex items-start space-x-3">
           <div
-            className="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center cursor-pointer hover:bg-gray-500 transition-colors"
+            className="w-12 h-12 bg-muted rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
             onClick={() => onFolderClick(folder)}
           >
             {folder.image ? (
@@ -605,20 +613,20 @@ function ResourceFolderCard({
                 className="w-full h-full object-cover rounded-lg"
               />
             ) : (
-              <Folder className="w-6 h-6 text-gray-400" />
+              <Folder className="w-6 h-6 text-muted-foreground" />
             )}
           </div>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <CardTitle
-                className="text-lg line-clamp-1 text-gray-100 cursor-pointer hover:text-green-400 transition-colors"
+                className="text-lg line-clamp-1 text-card-foreground cursor-pointer hover:text-nostr-purple transition-colors"
                 onClick={() => onFolderClick(folder)}
               >
                 {folder.name}
               </CardTitle>
-              <ChevronRight className="w-4 h-4 text-gray-400" />
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </div>
-            <p className="text-gray-400 text-sm line-clamp-2 mt-1">
+            <p className="text-muted-foreground text-sm line-clamp-2 mt-1">
               {folder.description}
             </p>
           </div>
@@ -626,17 +634,17 @@ function ResourceFolderCard({
       </CardHeader>
       <CardContent className="pt-0 space-y-4">
         <div className="flex items-center justify-between">
-          <Badge variant="secondary" className="bg-gray-600 text-gray-200">
+          <Badge variant="secondary" className="bg-muted text-card-foreground">
             {folder.resourceCount} resources
           </Badge>
-          <div className="flex items-center space-x-1 text-sm text-gray-400">
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
             <Calendar className="w-3 h-3" />
             <span>{timeAgo}</span>
           </div>
         </div>
 
         {/* Permission indicator */}
-        <div className="flex items-center space-x-1 text-xs text-gray-400">
+        <div className="flex items-center space-x-1 text-xs text-muted-foreground">
           {getPermissionIcon(folder.addPermission)}
           <span>{getPermissionLabel(folder.addPermission)}</span>
         </div>
@@ -645,12 +653,12 @@ function ResourceFolderCard({
         {folder.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {folder.tags.slice(0, 3).map(tag => (
-              <Badge key={tag} variant="outline" className="text-xs border-gray-500 text-gray-300">
+              <Badge key={tag} variant="outline" className="text-xs border-border text-card-foreground">
                 #{tag}
               </Badge>
             ))}
             {folder.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+              <Badge variant="outline" className="text-xs border-border text-card-foreground">
                 +{folder.tags.length - 3}
               </Badge>
             )}
@@ -659,7 +667,7 @@ function ResourceFolderCard({
 
         {/* Add Resource Button */}
         {canAddToFolder && isApprovedMember && (
-          <div className="pt-2 border-t border-gray-600">
+          <div className="pt-2 border-t border-border">
             <AddResourceToFolderDialog
               communityId={communityId}
               folderId={folder.id}
@@ -690,25 +698,25 @@ function FolderResourceCard({
 
   return (
     <Card
-      className="bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer"
+      className="bg-card border-border hover:bg-accent/50 transition-colors cursor-pointer"
       onClick={handleResourceClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
-          <div className="text-gray-400 mt-1">
+          <div className="text-muted-foreground mt-1">
             {getResourceIcon(resource.type)}
           </div>
           <div className="flex-1">
-            <h4 className="font-medium text-gray-200 hover:text-green-400 transition-colors">
+            <h4 className="font-medium text-card-foreground hover:text-nostr-purple transition-colors">
               {resource.title}
             </h4>
             {resource.description && (
-              <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                 {resource.description}
               </p>
             )}
             <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center space-x-2 text-xs text-gray-500">
+              <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                 <span className="capitalize">{resource.type}</span>
                 {resource.type === 'url' && resource.url && (
                   <>
@@ -717,7 +725,7 @@ function FolderResourceCard({
                   </>
                 )}
               </div>
-              <div className="flex items-center space-x-1 text-xs text-gray-500">
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground">
                 <Calendar className="w-3 h-3" />
                 <span>{timeAgo}</span>
               </div>
