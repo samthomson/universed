@@ -41,7 +41,7 @@ export function UserSettingsDialog() {
 
   return (
     <Dialog open={isOpen} onOpenChange={closeSettings}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Settings</DialogTitle>
         </DialogHeader>
