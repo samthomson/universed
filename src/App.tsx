@@ -20,7 +20,7 @@ import { QueryOptimizer } from '@/components/QueryOptimizer';
 import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { SettingsProvider } from '@/contexts/settings.tsx';
-import { UserSettingsDialog } from '@/components/user/UserSettingsDialog';
+import { SettingsDialog } from '@/components/user/SettingsDialog';
 
 import AppRouter from './AppRouter';
 
@@ -85,7 +85,7 @@ function AppContent() {
           <Suspense>
             <AppRouter />
           </Suspense>
-          <UserSettingsDialog />
+          <SettingsDialog />
         </TooltipProvider>
       </MessageSystemProvider>
     </SettingsProvider>

@@ -13,7 +13,7 @@ import { MessagingSettings } from "@/components/dm/MessagingSettings";
 import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 
-export function UserSettingsDialog() {
+export function SettingsDialog() {
   const { user } = useCurrentUser();
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
