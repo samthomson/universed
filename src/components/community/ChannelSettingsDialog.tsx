@@ -361,9 +361,11 @@ export function ChannelSettingsDialog({
                 </p>
               </div>
 
-              <Button onClick={handleUpdateGeneral} disabled={isSubmitting} className="w-full">
-                {isSubmitting ? 'Updating...' : 'Update Channel'}
-              </Button>
+              <div className="flex justify-end">
+                <Button onClick={handleUpdateGeneral} disabled={isSubmitting}>
+                  {isSubmitting ? 'Updating...' : 'Update Channel'}
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="permissions" className="space-y-4">
@@ -495,9 +497,11 @@ export function ChannelSettingsDialog({
                   </>
                 )}
 
-                <Button onClick={handleUpdatePermissions} disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Updating...' : 'Update Permissions'}
-                </Button>
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdatePermissions} disabled={isSubmitting}>
+                    {isSubmitting ? 'Updating...' : 'Update Permissions'}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 
