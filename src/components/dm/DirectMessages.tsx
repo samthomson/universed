@@ -315,16 +315,16 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
 
       {/* sidebar 2? */}
-      <div className="w-72 bg-secondary/30 flex flex-col border-r border-gray-600">
+      <div className="w-72 bg-background flex flex-col border-r border-border">
         {/* Header */}
-        <div className="p-4 border-b border-gray-600">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1">
-              <h2 className="font-semibold text-white">Messages</h2>
+              <h2 className="font-semibold text-foreground">Messages</h2>
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-5 h-5 hover:bg-gray-800/60"
+                className="w-5 h-5 hover:bg-accent"
                 onClick={() => setShowMessagingSettings(true)}
               >
                 <Settings className="w-3 h-3" />
@@ -333,7 +333,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             <Button
               variant="ghost"
               size="icon"
-              className="w-6 h-6 hover:bg-gray-800/60"
+              className="w-6 h-6 hover:bg-accent"
               onClick={handleNewDM}
             >
               <Plus className="w-4 h-4" />
@@ -352,12 +352,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
           {/* Search */}
           <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search conversations"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors"
+              className="pl-9 bg-background border-border text-foreground placeholder:text-muted-foreground focus:bg-accent/50 transition-colors"
             />
           </div>
         </div>
