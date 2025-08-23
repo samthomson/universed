@@ -22,7 +22,7 @@ export function UserSettingsDialog() {
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
 
-  // Memoized height measurement function
+  // Measure content height
   const measureHeight = useCallback(() => {
     if (contentRef.current) {
       const height = contentRef.current.scrollHeight;
@@ -30,12 +30,23 @@ export function UserSettingsDialog() {
     }
   }, []);
 
-  // Measure content height when tab changes
+  // Measure height when dialog opens (initial measurement)
   useEffect(() => {
-    // Small delay to ensure content is fully rendered
-    const timeoutId = setTimeout(measureHeight, 0);
-    return () => clearTimeout(timeoutId);
-  }, [activeTab, measureHeight]);
+    if (isOpen && contentHeight === undefined) {
+      // Small delay to ensure content is rendered
+      const timer = setTimeout(measureHeight, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, contentHeight, measureHeight]);
+
+  // Measure height when tab changes
+  useEffect(() => {
+    if (contentHeight !== undefined) {
+      // Small delay to ensure content is fully rendered
+      const timer = setTimeout(measureHeight, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, contentHeight, measureHeight]);
 
   if (!user) return null;
 
@@ -82,127 +93,127 @@ export function UserSettingsDialog() {
             style={{ height: contentHeight ? `${contentHeight}px` : 'auto' }}
           >
             <div ref={contentRef}>
-            {activeTab === SETTINGS_TABS.PROFILE && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-2">Profile</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Update your profile information and settings.
-                  </p>
-                  <EditProfileForm />
-                </div>
-              </div>
-            )}
-
-            {activeTab === SETTINGS_TABS.APPEARANCE && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-2">Appearance</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Choose your preferred theme for the application.
-                  </p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Button
-                      variant={theme === "light" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme("light")}
-                      className="flex items-center gap-2"
-                    >
-                      <Sun className="h-4 w-4" />
-                      Light
-                    </Button>
-                    <Button
-                      variant={theme === "dark" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme("dark")}
-                      className="flex items-center gap-2"
-                    >
-                      <Moon className="h-4 w-4" />
-                      Dark
-                    </Button>
-                    <Button
-                      variant={theme === "system" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTheme("system")}
-                      className="flex items-center gap-2"
-                    >
-                      <Monitor className="h-4 w-4" />
-                      System
-                    </Button>
+              {activeTab === SETTINGS_TABS.PROFILE && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-2">Profile</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Update your profile information and settings.
+                    </p>
+                    <EditProfileForm />
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === SETTINGS_TABS.CONNECTION && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-2">Connection</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Choose which relay to connect to for sending and receiving messages.
-                  </p>
-                  <RelaySelector className="w-full max-w-md" />
-                </div>
-              </div>
-            )}
-
-            {activeTab === SETTINGS_TABS.WALLET && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-2">Wallet</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Configure your Lightning wallet connections for Nostr Wallet Connect (NWC) payments.
-                  </p>
-                  <WalletConfigDialog />
-                </div>
-              </div>
-            )}
-
-            {activeTab === SETTINGS_TABS.COMMUNITIES && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-6">Communities</h2>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="show-pending" className="text-base">Show Pending Communities</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Display communities you've requested to join in the sidebar
-                        </p>
-                      </div>
-                      <Switch
-                        id="show-pending"
-                        checked={settings.showPendingCommunities}
-                        onCheckedChange={(checked) => updateSetting('showPendingCommunities', checked)}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="space-y-1">
-                        <Label htmlFor="spam-filtering" className="text-base">Enable Spam Filtering</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Filter out communities with suspicious names or content
-                        </p>
-                      </div>
-                      <Switch
-                        id="spam-filtering"
-                        checked={settings.enableSpamFiltering}
-                        onCheckedChange={(checked) => updateSetting('enableSpamFiltering', checked)}
-                      />
+              {activeTab === SETTINGS_TABS.APPEARANCE && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-2">Appearance</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose your preferred theme for the application.
+                    </p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Button
+                        variant={theme === "light" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setTheme("light")}
+                        className="flex items-center gap-2"
+                      >
+                        <Sun className="h-4 w-4" />
+                        Light
+                      </Button>
+                      <Button
+                        variant={theme === "dark" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setTheme("dark")}
+                        className="flex items-center gap-2"
+                      >
+                        <Moon className="h-4 w-4" />
+                        Dark
+                      </Button>
+                      <Button
+                        variant={theme === "system" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setTheme("system")}
+                        className="flex items-center gap-2"
+                      >
+                        <Monitor className="h-4 w-4" />
+                        System
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {activeTab === SETTINGS_TABS.MESSAGING && (
-              <div className="space-y-6 animate-in fade-in-0 duration-200">
-                <div>
-                  <h2 className="text-base font-semibold mb-6">Messaging</h2>
-                  <MessagingSettings />
+              {activeTab === SETTINGS_TABS.CONNECTION && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-2">Connection</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose which relay to connect to for sending and receiving messages.
+                    </p>
+                    <RelaySelector className="w-full max-w-md" />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {activeTab === SETTINGS_TABS.WALLET && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-2">Wallet</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Configure your Lightning wallet connections for Nostr Wallet Connect (NWC) payments.
+                    </p>
+                    <WalletConfigDialog />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === SETTINGS_TABS.COMMUNITIES && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-6">Communities</h2>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <Label htmlFor="show-pending" className="text-base">Show Pending Communities</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Display communities you've requested to join in the sidebar
+                          </p>
+                        </div>
+                        <Switch
+                          id="show-pending"
+                          checked={settings.showPendingCommunities}
+                          onCheckedChange={(checked) => updateSetting('showPendingCommunities', checked)}
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="space-y-1">
+                          <Label htmlFor="spam-filtering" className="text-base">Enable Spam Filtering</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Filter out communities with suspicious names or content
+                          </p>
+                        </div>
+                        <Switch
+                          id="spam-filtering"
+                          checked={settings.enableSpamFiltering}
+                          onCheckedChange={(checked) => updateSetting('enableSpamFiltering', checked)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === SETTINGS_TABS.MESSAGING && (
+                <div className="space-y-6 animate-in fade-in-0 duration-200">
+                  <div>
+                    <h2 className="text-base font-semibold mb-6">Messaging</h2>
+                    <MessagingSettings />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
