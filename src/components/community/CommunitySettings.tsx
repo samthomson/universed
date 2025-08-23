@@ -339,7 +339,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="h-14 grid w-full grid-cols-3 mx-6 mb-4">
+          <div className="px-6">
+            <TabsList className="h-14 grid w-full grid-cols-3">
             <TabsTrigger value="overview" className="text-xs sm:text-sm flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Overview
@@ -357,7 +358,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               <FileText className="w-4 h-4" />
               Audit
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+          </div>
 
           <ScrollArea className="h-[60vh] px-6">
             <TabsContent value="overview" className="space-y-4 mt-0">
@@ -491,11 +493,11 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
                   {/* Save Button */}
                   {isAdmin && (
-                    <div className="pt-4">
+                    <div className="pt-4 flex justify-end">
                       <Button
                         onClick={handleSaveChanges}
                         disabled={isUploading}
-                        className="w-full"
+                        variant="outline"
                       >
                         {isUploading ? "Saving..." : "Save Changes"}
                       </Button>
@@ -530,13 +532,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="flex items-center gap-2">
-                          <Trash2 className="w-4 h-4" />
-                          Delete Community
-                        </Button>
-                      </AlertDialogTrigger>
+                    <div className="flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="flex items-center gap-2">
+                            <Trash2 className="w-4 h-4" />
+                            Delete Community
+                          </Button>
+                        </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -555,7 +558,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
-                    </AlertDialog>
+                      </AlertDialog>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -612,9 +616,11 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </div>
                     )}
                     {members && members.length > 10 && (
-                      <Button variant="outline" className="w-full">
-                        View All {members.length} Members
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {members.length} Members
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -646,9 +652,11 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </div>
                     )}
                     {reports && reports.length > 5 && (
-                      <Button variant="outline" className="w-full">
-                        View All {reports.length} Reports
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {reports.length} Reports
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -678,9 +686,11 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       </div>
                     )}
                     {moderationLogs && moderationLogs.length > 10 && (
-                      <Button variant="outline" className="w-full">
-                        View All {moderationLogs.length} Actions
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {moderationLogs.length} Actions
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
