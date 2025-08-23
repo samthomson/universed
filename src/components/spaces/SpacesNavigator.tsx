@@ -80,7 +80,7 @@ export function SpacesNavigator({
           <CollapsibleTrigger asChild>
             <Button
               variant="ghost"
-              className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300 hover:bg-gray-600/30 rounded-sm transition-all duration-150"
+              className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/30 rounded-sm transition-all duration-150"
             >
               <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
               <span className="tracking-wide">SPACES</span>
@@ -91,7 +91,7 @@ export function SpacesNavigator({
             <Button
               variant="ghost"
               size="icon"
-              className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-gray-600/40"
+              className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-accent"
               onClick={() => setShowManagement(true)}
             >
               <Settings className="w-3 h-3" />
@@ -176,18 +176,18 @@ function SpaceItem({
         className={`
           w-full justify-start px-2 py-1 h-auto min-h-[32px] rounded-sm transition-all duration-150 relative
           ${isSelected
-            ? 'bg-gray-600/60 text-white shadow-sm'
-            : 'text-gray-300 hover:text-gray-100 hover:bg-gray-600/40'
+            ? 'bg-nostr-purple/20 text-nostr-purple shadow-sm'
+            : 'text-foreground hover:text-nostr-purple hover:bg-accent'
           }
         `}
         onClick={onSelect}
       >
-        <IconComponent className="w-4 h-4 mr-2 text-gray-400" />
+        <IconComponent className="w-4 h-4 mr-2 text-muted-foreground" />
         <span className="text-sm font-medium truncate">{space.name}</span>
 
         {/* Selected indicator */}
         {isSelected && (
-          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>
+          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-nostr-purple rounded-r-full"></div>
         )}
       </Button>
     </div>
