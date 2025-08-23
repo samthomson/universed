@@ -65,7 +65,7 @@ export function UserSettingsDialog() {
           </div>
 
           {/* Right Content Area */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 min-h-[400px]">
             {activeTab === SETTINGS_TABS.APPEARANCE && (
               <div className="space-y-6">
                 <div>
