@@ -497,7 +497,6 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       <Button
                         onClick={handleSaveChanges}
                         disabled={isUploading}
-                        variant="outline"
                       >
                         {isUploading ? "Saving..." : "Save Changes"}
                       </Button>

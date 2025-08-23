@@ -151,12 +151,12 @@ function BaseMessageItemComponent({
         // Right-aligned messages: justify-end with proper bubble styling
         "justify-end": shouldAlignRight,
         // Left-aligned messages: normal flex with hover background
-        "hover:bg-purple-50 dark:hover:bg-purple-900/10 rounded-2xl": !shouldAlignRight,
+        "hover:bg-nostr-purple/5 rounded-2xl": !shouldAlignRight,
       })}>
         <div className={cn("flex space-x-3 relative", {
           "flex-row-reverse space-x-reverse": shouldAlignRight,
           // Message bubble styling for user's own messages
-          "max-w-[80%] bg-purple-600/20 dark:bg-purple-500/20 rounded-2xl px-3 py-2": shouldAlignRight,
+          "max-w-[80%] bg-nostr-purple/20 rounded-2xl px-3 py-2": shouldAlignRight,
         })}>
           <div className="w-10 flex-shrink-0">
             {showAvatar
@@ -169,9 +169,9 @@ function BaseMessageItemComponent({
                     className="relative cursor-pointer"
                     onClick={handleProfileClick}
                   >
-                    <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity ring-2 ring-purple-200 dark:ring-purple-800">
+                    <Avatar className="w-10 h-10 hover:opacity-80 transition-opacity ring-2 ring-nostr-purple/30">
                       <AvatarImage src={profileImage} alt={displayName} />
-                      <AvatarFallback className="bg-purple-600 text-white">
+                      <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground">
                         {displayName.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
@@ -181,7 +181,7 @@ function BaseMessageItemComponent({
               : (
                 <div className="h-5 flex items-center justify-center w-10">
                   {shouldShowActions && (
-                    <span className="text-xs text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
+                    <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-all duration-200 font-medium">
                       {timestamp.toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -202,13 +202,13 @@ function BaseMessageItemComponent({
                   displayName={displayName}
                 >
                   <span
-                    className="font-semibold text-gray-900 dark:text-gray-100 hover:text-purple-600 dark:hover:text-purple-400 hover:underline cursor-pointer"
+                    className="font-semibold text-foreground hover:text-nostr-purple hover:underline cursor-pointer"
                     onClick={handleProfileClick}
                   >
                     {displayName}
                   </span>
                 </UserContextMenu>
-                <span className="text-xs text-gray-600 dark:text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   {formatDistanceToNowShort(timestamp, { addSuffix: true })}
                   {/* Only show protocol indicators for DM messages (kinds 4, 14, 1059) */}
                   {[4, 14, 1059].includes(message.kind) && (() => {
@@ -225,14 +225,14 @@ function BaseMessageItemComponent({
                   })()}
                   {isSending && (
                     <div className="flex items-center space-x-1 inline-flex ml-2">
-                      <Loader2 className="w-3 h-3 animate-spin text-purple-600 dark:text-purple-400" />
-                      <span className="text-xs text-purple-600 dark:text-purple-400">Sending...</span>
+                      <Loader2 className="w-3 h-3 animate-spin text-nostr-purple" />
+                      <span className="text-xs text-nostr-purple">Sending...</span>
                     </div>
                   )}
                 </span>
               </div>
             )}
-            <div className={cn("text-gray-900 dark:text-gray-100 break-word whitespace-pre-wrap", {
+            <div className={cn("text-foreground break-word whitespace-pre-wrap", {
               "text-left": shouldAlignRight, // Force left alignment for content even when message is right-aligned
             })}>
               <div className="flex items-center gap-2">
@@ -246,7 +246,7 @@ function BaseMessageItemComponent({
                           item={marketplaceItem}
                           className="mb-2"
                         />
-                        <div className="text-xs text-gray-500 italic text-left">
+                        <div className="text-xs text-muted-foreground italic text-left">
                           {extractHumanReadableMessage(message.content)}
                         </div>
                       </div>
@@ -297,7 +297,7 @@ function BaseMessageItemComponent({
               <div className="flex flex-wrap items-center gap-2 mt-1">
                 <button
                   onClick={() => setShowThreadDialog(true)}
-                  className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer h-6"
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-nostr-purple transition-colors cursor-pointer h-6"
                 >
                   <MessageSquare className="w-3 h-3" />
                   <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
@@ -308,7 +308,7 @@ function BaseMessageItemComponent({
 
           {shouldShowActions && (
             <div className={cn(
-              "absolute bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm flex items-center z-10",
+              "absolute bg-background border border-border backdrop-blur-sm rounded-xl shadow-sm flex items-center z-10",
               showAvatar
                 ? "-top-2"
                 : "top-1/2 -translate-y-1/2",
@@ -318,7 +318,7 @@ function BaseMessageItemComponent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-9 h-9 sm:w-8 sm:h-8 rounded-l-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
+                  className="w-9 h-9 sm:w-8 sm:h-8 rounded-l-xl text-muted-foreground hover:text-foreground hover:bg-nostr-purple/10 mobile-button"
                   onClick={() => onReply?.(message)}
                   title="Reply"
                 >
@@ -335,7 +335,7 @@ function BaseMessageItemComponent({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-9 h-9 sm:w-8 sm:h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
+                      className="w-9 h-9 sm:w-8 sm:h-8 text-muted-foreground hover:text-foreground hover:bg-nostr-purple/10 mobile-button"
                       title="Add Reaction"
                     >
                       😊
@@ -352,20 +352,20 @@ function BaseMessageItemComponent({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-r-xl text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 mobile-button"
+                    className="w-9 h-9 sm:w-8 sm:h-8 rounded-r-xl text-muted-foreground hover:text-foreground hover:bg-nostr-purple/10 mobile-button"
                   >
                     <MoreHorizontal className="w-4 h-4 sm:w-4 sm:h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
+                <DropdownMenuContent align="end" className="backdrop-blur-sm rounded-xl shadow-sm">
                   {config.showPin && (
-                    <DropdownMenuItem onClick={() => onPin?.(message)} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
-                      <Pin className="mr-2 h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <DropdownMenuItem onClick={() => onPin?.(message)} className="rounded-lg">
+                      <Pin className="mr-2 h-4 w-4 text-nostr-purple" />
                       {isPinned ? 'Unpin Message' : 'Pin Message'}
                     </DropdownMenuItem>
                   )}
                   {config.showDelete && user?.pubkey === message.pubkey && (
-                    <DropdownMenuItem onClick={() => onDelete?.(message)} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <DropdownMenuItem onClick={() => onDelete?.(message)} className="rounded-lg">
                       <Trash2 className="mr-2 h-4 w-4 text-red-500" />Delete
                     </DropdownMenuItem>
                   )}
