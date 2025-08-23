@@ -109,7 +109,7 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
   const getIcon = () => {
     switch (notification.type) {
       case 'mention':
-        return <MessageCircle className="w-4 h-4 text-blue-500" />;
+        return <MessageCircle className="w-4 h-4 text-nostr-purple" />;
       case 'reply':
         return <Reply className="w-4 h-4 text-green-500" />;
       case 'reaction':
@@ -142,7 +142,7 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
 
   return (
     <div
-      className={`relative group flex items-start space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors ${!notification.read ? 'bg-blue-50 dark:bg-blue-950/20' : ''
+      className={`relative group flex items-start space-x-3 p-3 hover:bg-accent/50 cursor-pointer transition-colors ${!notification.read ? 'bg-accent/20' : ''
         }`}
       onClick={handleClick}
     >
@@ -177,7 +177,7 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
       <div className="flex items-center space-x-2">
 
         {!notification.read && (
-          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mr-0 mt-2" />
+          <div className="w-2 h-2 bg-nostr-purple rounded-full flex-shrink-0 mr-0 mt-2" />
         )}
         <button
           onClick={handleCopyId}
@@ -303,7 +303,7 @@ export const NotificationCenter = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200"
+          className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200"
         >
           <Bell className="h-6 w-6" />
           {unreadCount > 0 && (
@@ -314,7 +314,7 @@ export const NotificationCenter = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={`${popoverWidthClass} p-0 ${popoverMarginClass}`}
+        className={`${popoverWidthClass} p-0 ${popoverMarginClass} bg-background border-border`}
         align="start"
         side={popoverSide as 'right' | 'left' | 'top' | 'bottom'}
         collisionPadding={8}
