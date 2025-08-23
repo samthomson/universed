@@ -10,7 +10,7 @@ export function ProtocolIndicator({ protocol, className = '' }: ProtocolIndicato
   
   return (
     <div 
-      className={`w-2 h-2 ${config.color} rounded-full border border-gray-700 ${className}`}
+      className={`w-2 h-2 ${config.color} rounded-full border border-border ${className}`}
       title={config.title}
     />
   );

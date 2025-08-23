@@ -75,7 +75,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
             </AvatarFallback>
           </Avatar>
           {/* Online indicator - mock for now */}
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-gray-700 rounded-full" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-background rounded-full" />
         </div>
 
         <div className="flex-1 min-w-0">

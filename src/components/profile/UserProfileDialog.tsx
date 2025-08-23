@@ -150,7 +150,7 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
             {/* Avatar */}
             <div className={`flex flex-col items-center text-center ${banner ? '-mt-12' : ''}`}>
               <div className={`relative ${banner ? 'mb-4' : 'mb-3'}`}>
-                <Avatar className="w-20 h-20 border-4 border-gray-900">
+                <Avatar className="w-20 h-20 border-4 border-background">
                   <AvatarImage src={profileImage} alt={displayName} />
                   <AvatarFallback className="bg-indigo-600 text-white text-lg">
                     {displayName.slice(0, 2).toUpperCase()}
