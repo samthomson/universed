@@ -63,7 +63,7 @@ export function UserSettingsDialog() {
                 <button
                   key={key}
                   onClick={() => setActiveTab(value)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors focus:outline-none ${
                     activeTab === value
                       ? 'bg-gray-800 text-white' 
                       : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
