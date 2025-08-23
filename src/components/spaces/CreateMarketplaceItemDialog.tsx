@@ -226,7 +226,7 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
   };
 
   const defaultTrigger = (
-    <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+    <Button className="bg-nostr-purple hover:bg-nostr-purple/80 text-nostr-purple-foreground">
       <Plus className="w-4 h-4 mr-2" />
       List Item
     </Button>
@@ -237,9 +237,9 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
       <DialogTrigger asChild>
         {trigger || defaultTrigger}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-gray-800 border-gray-700">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background border-border">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white">
+          <DialogTitle className="text-xl font-semibold text-foreground">
             List Item in Community Marketplace
           </DialogTitle>
         </DialogHeader>
@@ -248,32 +248,32 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
           {/* Basic Information */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name" className="text-gray-200">Item Name *</Label>
+              <Label htmlFor="name" className="text-foreground">Item Name *</Label>
               <Input
                 id="name"
                 value={data.name}
                 onChange={(e) => setData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Enter item name"
-                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+                className="bg-input border-border text-foreground placeholder-muted-foreground"
                 required
               />
             </div>
 
             <div>
-              <Label htmlFor="description" className="text-gray-200">Description</Label>
+              <Label htmlFor="description" className="text-foreground">Description</Label>
               <Textarea
                 id="description"
                 value={data.description}
                 onChange={(e) => setData(prev => ({ ...prev, description: e.target.value }))}
                 placeholder="Describe your item..."
                 rows={3}
-                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+                className="bg-input border-border text-foreground placeholder-muted-foreground"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="price" className="text-gray-200">Price *</Label>
+                <Label htmlFor="price" className="text-foreground">Price *</Label>
                 <Input
                   id="price"
                   type="number"
@@ -282,18 +282,18 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
                   value={data.price}
                   onChange={(e) => setData(prev => ({ ...prev, price: e.target.value }))}
                   placeholder="0.00"
-                  className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+                  className="bg-input border-border text-foreground placeholder-muted-foreground"
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="currency" className="text-gray-200">Currency</Label>
+                <Label htmlFor="currency" className="text-foreground">Currency</Label>
                 <Select value={data.currency} onValueChange={(value) => setData(prev => ({ ...prev, currency: value }))}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-100">
+                  <SelectTrigger className="bg-input border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectContent className="bg-popover border-border">
                     {CURRENCIES.map(currency => (
                       <SelectItem key={currency.value} value={currency.value}>
                         {currency.label}
@@ -306,12 +306,12 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="category" className="text-gray-200">Category</Label>
+                <Label htmlFor="category" className="text-foreground">Category</Label>
                 <Select value={data.category} onValueChange={(value) => setData(prev => ({ ...prev, category: value }))}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-100">
+                  <SelectTrigger className="bg-input border-border text-foreground">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectContent className="bg-popover border-border">
                     {CATEGORIES.map(category => (
                       <SelectItem key={category} value={category}>
                         {category.charAt(0).toUpperCase() + category.slice(1)}
@@ -322,12 +322,12 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
               </div>
 
               <div>
-                <Label htmlFor="condition" className="text-gray-200">Condition</Label>
+                <Label htmlFor="condition" className="text-foreground">Condition</Label>
                 <Select value={data.condition} onValueChange={(value: 'new' | 'used' | 'refurbished') => setData(prev => ({ ...prev, condition: value }))}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-100">
+                  <SelectTrigger className="bg-input border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-gray-700 border-gray-600">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="new">New</SelectItem>
                     <SelectItem value="used">Used</SelectItem>
                     <SelectItem value="refurbished">Refurbished</SelectItem>
@@ -337,20 +337,20 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
             </div>
 
             <div>
-              <Label htmlFor="location" className="text-gray-200">Location</Label>
+              <Label htmlFor="location" className="text-foreground">Location</Label>
               <Input
                 id="location"
                 value={data.location}
                 onChange={(e) => setData(prev => ({ ...prev, location: e.target.value }))}
                 placeholder="City, State/Country"
-                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400"
+                className="bg-input border-border text-foreground placeholder-muted-foreground"
               />
             </div>
           </div>
 
           {/* Images */}
           <div className="space-y-4">
-            <Label className="text-gray-200">Images</Label>
+            <Label className="text-foreground">Images</Label>
 
             {/* Image Upload */}
             <div>
@@ -364,14 +364,14 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
               />
               <label
                 htmlFor="image-upload"
-                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-gray-500 transition-colors"
+                className="flex items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-muted-foreground transition-colors"
               >
                 <div className="text-center">
-                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-400">
+                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">
                     {isUploading ? 'Uploading...' : 'Click to upload image'}
                   </p>
-                  <p className="text-xs text-gray-500">Max 5MB, JPG/PNG</p>
+                  <p className="text-xs text-muted-foreground">Max 5MB, JPG/PNG</p>
                 </div>
               </label>
             </div>
@@ -380,7 +380,7 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
             {data.images.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {data.images.map((url, index) => (
-                  <Card key={index} className="relative bg-gray-750 border-gray-600">
+                  <Card key={index} className="relative bg-card border-border">
                     <CardContent className="p-2">
                       <img
                         src={url}
@@ -404,19 +404,19 @@ export function CreateMarketplaceItemDialog({ communityId, trigger }: CreateMark
           </div>
 
           {/* Submit */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-border">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
-              className="border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="border-border text-muted-foreground hover:bg-accent"
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={isPublishing || isUploading || !user}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-nostr-purple hover:bg-nostr-purple/80 text-nostr-purple-foreground"
             >
               {isPublishing ? 'Listing...' : 'List Item'}
             </Button>
