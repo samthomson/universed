@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 // Settings tab constants
 export const SETTINGS_TABS = {
+  PROFILE: 'profile',
   APPEARANCE: 'appearance',
   CONNECTION: 'connection', 
   WALLET: 'wallet',
@@ -37,7 +38,7 @@ interface SettingsProviderProps {
 
 export function SettingsProvider({ children }: SettingsProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTab>(SETTINGS_TABS.APPEARANCE);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(SETTINGS_TABS.PROFILE);
 
   // Handle URL hash changes
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
-import { useSettings } from "@/contexts/settings.tsx";
+import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import LoginDialog from "@/components/auth/LoginDialog";
 import {
@@ -140,7 +140,7 @@ export function UserMenu({
         onOpenChange={setShowProfileModal}
         onOpenSettings={() => {
           setShowProfileModal(false);
-          openSettings();
+          openSettings(SETTINGS_TABS.PROFILE);
         }}
       />
 

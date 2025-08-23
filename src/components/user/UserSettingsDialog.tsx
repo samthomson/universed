@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette } from "lucide-react";
+import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
+import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 
 export function UserSettingsDialog() {
@@ -21,7 +22,7 @@ export function UserSettingsDialog() {
 
   return (
     <Dialog open={isOpen} onOpenChange={closeSettings}>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Settings</DialogTitle>
         </DialogHeader>
@@ -31,6 +32,7 @@ export function UserSettingsDialog() {
           <div className="w-48 space-y-2">
             {Object.entries(SETTINGS_TABS).map(([key, value]) => {
               const Icon = {
+                [SETTINGS_TABS.PROFILE]: User,
                 [SETTINGS_TABS.APPEARANCE]: Palette,
                 [SETTINGS_TABS.CONNECTION]: Wifi,
                 [SETTINGS_TABS.WALLET]: Wallet,
@@ -56,7 +58,19 @@ export function UserSettingsDialog() {
           </div>
 
           {/* Right Content Area */}
-          <div className="flex-1 min-w-0 min-h-[400px]">
+          <div className="flex-1 min-w-0 min-h-[600px]">
+            {activeTab === SETTINGS_TABS.PROFILE && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold mb-2">Profile</h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Update your profile information and settings.
+                  </p>
+                  <EditProfileForm />
+                </div>
+              </div>
+            )}
+
             {activeTab === SETTINGS_TABS.APPEARANCE && (
               <div className="space-y-6">
                 <div>
