@@ -8,7 +8,7 @@ import { WalletConfigDialog } from "@/components/WalletConfigDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
 import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
@@ -22,13 +22,20 @@ export function UserSettingsDialog() {
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
 
-  // Measure content height when tab changes
-  useEffect(() => {
+  // Memoized height measurement function
+  const measureHeight = useCallback(() => {
     if (contentRef.current) {
       const height = contentRef.current.scrollHeight;
       setContentHeight(height);
     }
-  }, [activeTab]);
+  }, []);
+
+  // Measure content height when tab changes
+  useEffect(() => {
+    // Small delay to ensure content is fully rendered
+    const timeoutId = setTimeout(measureHeight, 0);
+    return () => clearTimeout(timeoutId);
+  }, [activeTab, measureHeight]);
 
   if (!user) return null;
 
