@@ -223,7 +223,7 @@ describe('ChannelOrganizer', () => {
     );
 
     // Check that the indicator dot is gray (no users connected)
-    const grayIndicator = document.querySelector('.bg-gray-500');
+    const grayIndicator = document.querySelector('.bg-muted-foreground');
     expect(grayIndicator).toBeInTheDocument();
   });
 });
