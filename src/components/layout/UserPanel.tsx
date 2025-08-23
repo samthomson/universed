@@ -27,7 +27,7 @@ export function UserPanel() {
   return (
     <UserMenu
       trigger={
-        <div className={`${isMobile ? 'h-20' : 'h-24'} flex items-center bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer`}>
+        <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer`}>
           {/* User Info */}
           <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'}`}>
             <div className="relative">
@@ -53,7 +53,7 @@ export function UserPanel() {
           </div>
           
           {/* Settings Button Section */}
-          <div className={`${isMobile ? 'h-20' : 'h-24'} flex items-center justify-center w-12 bg-gray-700/60 hover:bg-gray-600/60 transition-colors cursor-pointer border-l border-gray-600/50`} onClick={() => openSettings()}>
+          <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-gray-700/60 hover:bg-gray-600/60 transition-colors cursor-pointer border-l border-gray-600/50`} onClick={() => openSettings()}>
             <Settings className="w-5 h-5 text-gray-300" />
           </div>
         </div>
