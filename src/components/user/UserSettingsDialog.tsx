@@ -52,12 +52,12 @@ export function UserSettingsDialog() {
 
   return (
     <Dialog open={isOpen} onOpenChange={closeSettings}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto p-0" aria-describedby={undefined}>
+        <DialogHeader className="px-6 pt-6">
           <DialogTitle className="text-2xl font-bold">Settings</DialogTitle>
         </DialogHeader>
 
-        <div className="flex gap-6 py-4">
+        <div className="flex gap-6 px-6 py-4 pb-6">
           {/* Left Sidebar - Navigation */}
           <div className="w-48 space-y-2">
             {Object.entries(SETTINGS_TABS).map(([key, value]) => {
@@ -89,7 +89,7 @@ export function UserSettingsDialog() {
 
           {/* Right Content Area */}
           <div 
-            className="flex-1 min-w-0 overflow-hidden transition-all duration-500 ease-in-out"
+            className="flex-1 transition-all duration-500 ease-in-out"
             style={{ height: contentHeight ? `${contentHeight}px` : 'auto' }}
           >
             <div ref={contentRef}>
