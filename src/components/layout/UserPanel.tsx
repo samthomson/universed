@@ -25,11 +25,11 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <UserMenu
-      trigger={
-        <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer`}>
-          {/* User Info */}
-          <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'}`}>
+    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-gray-800/50`}>
+      {/* User Menu Trigger - Left Part Only */}
+      <UserMenu
+        trigger={
+          <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'} hover:bg-gray-700/50 transition-colors cursor-pointer h-full`}>
             <div className="relative">
               <Avatar className={isMobile ? "w-12 h-12" : "w-11 h-11"}>
                 <AvatarImage src={profileImage} alt={displayName} />
@@ -51,16 +51,22 @@ export function UserPanel() {
               </div>
             </div>
           </div>
-          
-          {/* Settings Button Section */}
-          <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-gray-700/60 hover:bg-gray-600/60 transition-colors cursor-pointer border-l border-gray-600/50`} onClick={() => openSettings()}>
-            <Settings className="w-5 h-5 text-gray-300" />
-          </div>
-        </div>
-      }
-      side="top"
-      align="start"
-      sideOffset={8}
-    />
+        }
+        side="top"
+        align="start"
+        sideOffset={8}
+      />
+      
+      {/* Settings Button - Separate from UserMenu */}
+      <div 
+        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-gray-700/60 hover:bg-gray-600/60 transition-colors cursor-pointer border-l border-gray-600/50`} 
+        onClick={(e) => {
+          e.stopPropagation();
+          openSettings();
+        }}
+      >
+        <Settings className="w-5 h-5 text-gray-300" />
+      </div>
+    </div>
   );
 }
