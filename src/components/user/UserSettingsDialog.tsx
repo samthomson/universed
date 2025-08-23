@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -6,10 +6,8 @@ import { Label } from "@/components/ui/label";
 import { RelaySelector } from "@/components/RelaySelector";
 import { WalletConfigDialog } from "@/components/WalletConfigDialog";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAuthor } from "@/hooks/useAuthor";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
-import { genUserName } from "@/lib/genUserName";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 
@@ -17,22 +15,15 @@ export function UserSettingsDialog() {
   const { user } = useCurrentUser();
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
-  const author = useAuthor(user?.pubkey || '');
-  const metadata = author.data?.metadata;
   const { isOpen, closeSettings, activeTab, setActiveTab } = useSettings();
 
   if (!user) return null;
-
-  const displayName = metadata?.name || genUserName(user.pubkey);
 
   return (
     <Dialog open={isOpen} onOpenChange={closeSettings}>
       <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Manage your account settings and preferences for {displayName}.
-          </DialogDescription>
+          <DialogTitle className="text-2xl font-bold">Settings</DialogTitle>
         </DialogHeader>
 
         <div className="flex gap-6 py-4">
@@ -69,7 +60,7 @@ export function UserSettingsDialog() {
             {activeTab === SETTINGS_TABS.APPEARANCE && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Theme</h3>
+                  <h2 className="text-base font-semibold mb-2">Appearance</h2>
                   <p className="text-sm text-muted-foreground mb-4">
                     Choose your preferred theme for the application.
                   </p>
@@ -109,7 +100,7 @@ export function UserSettingsDialog() {
             {activeTab === SETTINGS_TABS.CONNECTION && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Relay Connection</h3>
+                  <h2 className="text-base font-semibold mb-2">Connection</h2>
                   <p className="text-sm text-muted-foreground mb-4">
                     Choose which relay to connect to for sending and receiving messages.
                   </p>
@@ -121,7 +112,7 @@ export function UserSettingsDialog() {
             {activeTab === SETTINGS_TABS.WALLET && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Wallet Configuration</h3>
+                  <h2 className="text-base font-semibold mb-2">Wallet</h2>
                   <p className="text-sm text-muted-foreground mb-4">
                     Configure your Lightning wallet connections for Nostr Wallet Connect (NWC) payments.
                   </p>
@@ -133,7 +124,7 @@ export function UserSettingsDialog() {
             {activeTab === SETTINGS_TABS.COMMUNITIES && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Community Settings</h3>
+                  <h2 className="text-base font-semibold mb-6">Communities</h2>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="space-y-1">
@@ -170,7 +161,7 @@ export function UserSettingsDialog() {
             {activeTab === SETTINGS_TABS.MESSAGING && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Messaging Settings</h3>
+                  <h2 className="text-base font-semibold mb-6">Messaging</h2>
                   <MessagingSettings />
                 </div>
               </div>
