@@ -262,8 +262,7 @@ export function ChannelSettingsDialog({
       <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {type === 'text' ? <Hash className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            {channel.name} Settings
+            {type === 'text' ? <Hash className="w-5 h-5" /> : <><Volume2 className="w-5 h-5" />&nbsp;</>}{channel.name} Settings
           </DialogTitle>
           <DialogDescription>
             Manage channel settings, permissions, and organization.
