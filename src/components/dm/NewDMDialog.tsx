@@ -112,17 +112,17 @@ export function NewDMDialog({ open, onOpenChange, onConversationCreated }: NewDM
 
           {/* User Preview */}
           {pubkey && !error && (
-            <div className="border border-gray-600 rounded-lg p-3 bg-gray-700">
+            <div className="border border-border rounded-lg p-3 bg-accent/50">
               <div className="flex items-center space-x-3">
                 <Avatar className="w-10 h-10">
                   <AvatarImage src={profileImage} alt={displayName} />
-                  <AvatarFallback className="bg-indigo-600 text-white text-sm">
+                  <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-sm">
                     {displayName.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white truncate">{displayName}</p>
-                  <p className="text-sm text-gray-400 truncate">
+                  <p className="font-medium text-card-foreground truncate">{displayName}</p>
+                  <p className="text-sm text-muted-foreground truncate">
                     {pubkey.slice(0, 16)}...
                   </p>
                 </div>
