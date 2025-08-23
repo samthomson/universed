@@ -1,4 +1,4 @@
-import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette, Shield } from "lucide-react";
+import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { RelaySelector } from "@/components/RelaySelector";
@@ -20,7 +19,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { genUserName } from "@/lib/genUserName";
 import { MessagingSettings } from "@/components/dm/MessagingSettings";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -33,7 +33,25 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
   const { settings, updateSetting } = useUserSettings();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
+  const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('appearance');
+
+  // Handle URL hash changes to open specific tabs
+  useEffect(() => {
+    if (open && location.hash) {
+      const tab = location.hash.replace('#', '');
+      if (['appearance', 'connection', 'wallet', 'communities', 'messaging'].includes(tab)) {
+        setActiveTab(tab);
+      }
+    }
+  }, [open, location.hash]);
+
+  // Update URL hash when tab changes
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    navigate(`#${tab}`, { replace: true });
+  };
 
   if (!user) return null;
 
@@ -53,7 +71,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
           {/* Left Sidebar - Navigation */}
           <div className="w-48 space-y-2">
             <button
-              onClick={() => setActiveTab('appearance')}
+              onClick={() => handleTabChange('appearance')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                 activeTab === 'appearance' 
                   ? 'bg-gray-800 text-white' 
@@ -65,7 +83,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </button>
             
             <button
-              onClick={() => setActiveTab('connection')}
+              onClick={() => handleTabChange('connection')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                 activeTab === 'connection' 
                   ? 'bg-gray-800 text-white' 
@@ -77,7 +95,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </button>
             
             <button
-              onClick={() => setActiveTab('wallet')}
+              onClick={() => handleTabChange('wallet')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                 activeTab === 'wallet' 
                   ? 'bg-gray-800 text-white' 
@@ -89,7 +107,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </button>
             
             <button
-              onClick={() => setActiveTab('communities')}
+              onClick={() => handleTabChange('communities')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                 activeTab === 'communities' 
                   ? 'bg-gray-800 text-white' 
@@ -101,7 +119,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
             </button>
             
             <button
-              onClick={() => setActiveTab('messaging')}
+              onClick={() => handleTabChange('messaging')}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
                 activeTab === 'messaging' 
                   ? 'bg-gray-800 text-white' 
