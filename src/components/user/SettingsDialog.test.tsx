@@ -97,8 +97,8 @@ describe('SettingsDialog', () => {
       screen.getByTestId('open-settings').click();
     });
 
-    // Check all tabs are present
-    expect(screen.getByText('Profile')).toBeInTheDocument();
+    // Check all tabs are present - use getAllByText since there are multiple instances
+    expect(screen.getAllByText('Profile')).toHaveLength(2); // Tab + heading
     expect(screen.getByText('Appearance')).toBeInTheDocument();
     expect(screen.getByText('Connection')).toBeInTheDocument();
     expect(screen.getByText('Wallet')).toBeInTheDocument();
