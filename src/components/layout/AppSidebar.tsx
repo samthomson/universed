@@ -424,7 +424,7 @@ export function AppSidebar({
         </ScrollArea>
 
         {/* Fixed bottom section - Add Community Button */}
-        <div className="flex flex-col items-center pt-2 pb-5 space-y-2">
+        <div className="flex flex-col items-center pt-2 pb-3 space-y-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
