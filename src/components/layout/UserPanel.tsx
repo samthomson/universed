@@ -25,15 +25,15 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-gray-800/50`}>
+    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-card border-t border-border`}>
       {/* User Menu Trigger - Left Part Only */}
       <UserMenu
         trigger={
-          <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'} hover:bg-gray-700/50 transition-colors cursor-pointer h-full`}>
+          <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'} hover:bg-sidebar-accent transition-colors cursor-pointer h-full`}>
             <div className="relative">
               <Avatar className={isMobile ? "w-12 h-12" : "w-11 h-11"}>
                 <AvatarImage src={profileImage} alt={displayName} />
-                <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
                   {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -43,10 +43,10 @@ export function UserPanel() {
             </div>
 
             <div className="flex-1 min-w-0 ml-3">
-              <div className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-white truncate`}>
+              <div className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-sidebar-foreground truncate`}>
                 {displayName}
               </div>
-              <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-400 truncate`}>
+              <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground truncate`}>
                 {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
               </div>
             </div>
@@ -59,13 +59,13 @@ export function UserPanel() {
       
       {/* Settings Button - Separate from UserMenu */}
       <div 
-        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-gray-700/60 hover:bg-gray-600/60 transition-colors cursor-pointer border-l border-gray-600/50`} 
+        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-sidebar-accent hover:bg-sidebar-accent/80 transition-colors cursor-pointer border-l border-border`} 
         onClick={(e) => {
           e.stopPropagation();
           openSettings();
         }}
       >
-        <Settings className="w-5 h-5 text-gray-300" />
+        <Settings className="w-5 h-5 text-sidebar-foreground/70" />
       </div>
     </div>
   );
