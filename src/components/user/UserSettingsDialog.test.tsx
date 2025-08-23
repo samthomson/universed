@@ -104,5 +104,8 @@ describe('UserSettingsDialog', () => {
     // Should be open due to URL hash
     expect(screen.getByTestId('is-open')).toHaveTextContent('open');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    
+    // Should open to the wallet tab specifically
+    expect(screen.getByText('Wallet Configuration')).toBeInTheDocument();
   });
 });
