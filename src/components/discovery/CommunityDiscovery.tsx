@@ -117,7 +117,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-gray-300 hover:text-white hover:bg-gray-600"
+            className="w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-accent"
             onClick={handleJoinClick}
             disabled={isJoining}
           >
@@ -151,28 +151,28 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   };
 
   return (
-    <Card className="bg-gray-800/60 border-gray-700 hover:bg-gray-700/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={handleCardClick}>
+    <Card className="bg-card/60 border-border hover:bg-card/80 transition-all duration-200 cursor-pointer overflow-hidden" onClick={handleCardClick}>
       <CardHeader className="pb-3 overflow-hidden">
         <div className="flex items-start justify-between min-w-0">
           <div className="flex items-center space-x-3 min-w-0 flex-1">
             {community.image ? (
               <Avatar className="w-12 h-12 shrink-0">
                 <AvatarImage src={community.image} alt={community.name} />
-                <AvatarFallback className="bg-gray-600 text-white">
+                <AvatarFallback className="bg-muted text-muted-foreground">
                   {community.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <div className="w-12 h-12 bg-indigo-600 rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-white font-semibold shrink-0">
+              <div className="w-12 h-12 bg-nostr-purple rounded-2xl hover:rounded-xl transition-all duration-200 flex items-center justify-center text-nostr-purple-foreground font-semibold shrink-0">
                 {community.name.slice(0, 2).toUpperCase()}
               </div>
             )}
 
             <div className="flex-1 min-w-0 overflow-hidden">
-              <CardTitle className="text-lg text-white truncate">
+              <CardTitle className="text-lg text-card-foreground truncate">
                 {community.name}
               </CardTitle>
-              <p className="text-sm text-gray-300 truncate">
+              <p className="text-sm text-muted-foreground truncate">
                 by {creatorName}
               </p>
             </div>
@@ -186,7 +186,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
 
       <CardContent className="pt-0 overflow-hidden">
         {community.description && (
-          <p className="text-sm text-gray-300 mb-3 line-clamp-2">
+          <p className="text-sm text-card-foreground/80 mb-3 line-clamp-2">
             {community.description}
           </p>
         )}
@@ -276,12 +276,12 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
     <div className="space-y-6">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search communities..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400"
+          className="pl-9 bg-input border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
@@ -289,7 +289,7 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="bg-gray-800/60 border-gray-700">
+            <Card key={i} className="bg-card/60 border-border">
               <CardHeader>
                 <div className="flex items-center space-x-3">
                   <Skeleton className="w-12 h-12 rounded-2xl" />
@@ -329,11 +329,11 @@ export function CommunityDiscovery({ onCommunitySelect }: CommunityDiscoveryProp
           ))}
         </div>
       ) : (
-        <Card className="bg-gray-800/60 border-gray-700">
+        <Card className="bg-card/60 border-border">
           <CardContent className="p-8 text-center">
-            <Users className="w-16 h-16 mx-auto mb-4 text-gray-500" />
-            <h3 className="text-lg font-semibold mb-2 text-white">No communities found</h3>
-            <p className="text-sm text-gray-400">
+            <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-semibold mb-2 text-card-foreground">No communities found</h3>
+            <p className="text-sm text-muted-foreground">
               {query.trim() ? "Try a different search term" : "No communities available yet"}
             </p>
           </CardContent>
