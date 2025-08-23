@@ -50,10 +50,10 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
 
   if (isLoading) {
     return (
-      <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50">
+      <div className="sticky top-0 z-10 bg-nostr-purple/5 backdrop-blur-sm border-b border-nostr-purple/20">
         <div className="px-4 py-2">
           <div className="flex items-center space-x-2">
-            <Pin className="w-3 h-3 text-yellow-500" />
+            <Pin className="w-3 h-3 text-nostr-purple" />
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-3 w-48" />
           </div>
@@ -65,17 +65,17 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
   const firstMessage = displayMessages[0];
 
   return (
-    <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/50">
+    <div className="sticky top-0 z-10 bg-nostr-purple/5 backdrop-blur-sm border-b border-nostr-purple/20">
       <div className="px-4 py-2">
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-start h-auto p-2 hover:bg-gray-800/50"
+          className="w-full justify-start h-auto p-2 hover:bg-accent/50"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center space-x-2 min-w-0 flex-1">
-            <Pin className="w-3 h-3 text-yellow-500 flex-shrink-0" />
-            <span className="text-xs text-yellow-500 flex-shrink-0">
+            <Pin className="w-3 h-3 text-nostr-purple flex-shrink-0" />
+            <span className="text-xs text-nostr-purple flex-shrink-0">
               {pinnedMessages?.length} pinned
             </span>
             {firstMessage && !isExpanded && (
@@ -83,9 +83,9 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
             )}
           </div>
           {isExpanded ? (
-            <ChevronUp className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <ChevronUp className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           ) : (
-            <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
           )}
         </Button>
 
@@ -160,34 +160,34 @@ function PinnedMessageItem({
 
   return (
     <>
-      <div className="flex space-x-2 p-2 rounded bg-gray-800/30 hover:bg-gray-800/50 transition-colors group">
+      <div className="flex space-x-2 p-2 rounded bg-nostr-purple/10 hover:bg-nostr-purple/15 transition-colors group border border-nostr-purple/20">
         <Avatar className="w-6 h-6 flex-shrink-0">
           <AvatarImage src={profileImage} alt={displayName} />
-          <AvatarFallback className="bg-indigo-600 text-white text-xs">
+          <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
             {displayName.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-white truncate">
+            <span className="text-xs font-medium text-card-foreground truncate">
               {displayName}
             </span>
-            <span className="text-xs text-gray-500 flex-shrink-0">
+            <span className="text-xs text-muted-foreground flex-shrink-0">
               {timeAgo}
             </span>
           </div>
-          <div className="text-xs text-gray-300 break-words">
+          <div className="text-xs text-card-foreground/80 break-words">
             <NoteContent event={message} className="text-xs" onNavigateToDMs={_onNavigateToDMs} />
           </div>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="w-6 h-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-700/50"
+          className="w-6 h-6 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
           onClick={handleUnpin}
           title="Unpin message"
         >
-          <X className="w-3 h-3 text-gray-400 hover:text-white" />
+          <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
         </Button>
       </div>
 
