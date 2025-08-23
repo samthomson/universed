@@ -1,15 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
 import { UserSettingsDialog } from './UserSettingsDialog';
+import { SettingsProvider, useSettings } from '@/contexts/settings.tsx';
 
-// Mock the hooks
-vi.mock('@/hooks/useLoginActions', () => ({
-  useLoginActions: () => ({
-    logout: vi.fn(),
-  }),
-}));
-
+// Mock the hooks that require Nostr context
 vi.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
     user: {
@@ -28,55 +23,86 @@ vi.mock('@/hooks/useAuthor', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    theme: 'dark',
+    setTheme: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useUserSettings', () => ({
+  useUserSettings: () => ({
+    settings: {
+      showPendingCommunities: false,
+      enableSpamFiltering: true,
+    },
+    updateSetting: vi.fn(),
+  }),
+}));
+
+// Test component that uses the settings hook
+function TestComponent() {
+  const { openSettings, isOpen } = useSettings();
+  return (
+    <div>
+      <button onClick={() => openSettings('wallet')}>Open Settings</button>
+      <div data-testid="is-open">{isOpen ? 'open' : 'closed'}</div>
+    </div>
+  );
+}
+
+// Wrapper component
+function Wrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <TestApp>
+      <SettingsProvider>
+        {children}
+        <UserSettingsDialog />
+      </SettingsProvider>
+    </TestApp>
+  );
+}
+
 describe('UserSettingsDialog', () => {
-  it('renders correctly when open', () => {
-    render(
-      <TestApp>
-        <UserSettingsDialog open={true} onOpenChange={() => {}} />
-      </TestApp>
-    );
-
-    expect(screen.getByText('User Settings')).toBeInTheDocument();
-    expect(screen.getByText('Relay Connection')).toBeInTheDocument();
-    expect(screen.getByText('Theme')).toBeInTheDocument();
-    expect(screen.getByText('Wallet Configuration')).toBeInTheDocument();
+  beforeEach(() => {
+    // Clear URL hash before each test
+    window.location.hash = '';
   });
 
-  it('does not render when closed', () => {
+  it('opens settings when openSettings() is called', () => {
     render(
-      <TestApp>
-        <UserSettingsDialog open={false} onOpenChange={() => {}} />
-      </TestApp>
+      <Wrapper>
+        <TestComponent />
+      </Wrapper>
     );
 
-    expect(screen.queryByText('User Settings')).not.toBeInTheDocument();
+    // Initially closed
+    expect(screen.getByTestId('is-open')).toHaveTextContent('closed');
+
+    // Click the button that calls openSettings()
+    act(() => {
+      screen.getByText('Open Settings').click();
+    });
+
+    // Should now be open
+    expect(screen.getByTestId('is-open')).toHaveTextContent('open');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('calls onOpenChange when dialog is closed', () => {
-    const onOpenChange = vi.fn();
+  it('opens settings when URL has #settings_wallet', () => {
+    // Set URL hash before rendering
+    act(() => {
+      window.location.hash = '#settings_wallet';
+    });
 
     render(
-      <TestApp>
-        <UserSettingsDialog open={true} onOpenChange={onOpenChange} />
-      </TestApp>
+      <Wrapper>
+        <TestComponent />
+      </Wrapper>
     );
 
-    // Click the X button to close
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeButton);
-
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('allows theme selection', () => {
-    render(
-      <TestApp>
-        <UserSettingsDialog open={true} onOpenChange={() => {}} />
-      </TestApp>
-    );
-
-    expect(screen.getByText('Light')).toBeInTheDocument();
-    expect(screen.getByText('Dark')).toBeInTheDocument();
-    expect(screen.getByText('System')).toBeInTheDocument();
+    // Should be open due to URL hash
+    expect(screen.getByTestId('is-open')).toHaveTextContent('open');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });
