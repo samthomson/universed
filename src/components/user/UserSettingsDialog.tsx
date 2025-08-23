@@ -78,7 +78,7 @@ export function UserSettingsDialog() {
 
           {/* Right Content Area */}
           <div 
-            className="flex-1 min-w-0 overflow-hidden transition-all duration-300 ease-in-out"
+            className="flex-1 min-w-0 overflow-hidden transition-all duration-500 ease-in-out"
             style={{ height: contentHeight ? `${contentHeight}px` : 'auto' }}
           >
             <div ref={contentRef}>
