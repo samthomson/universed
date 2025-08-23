@@ -26,18 +26,18 @@ export function FriendItem({ friend, onMessage }: FriendItemProps) {
   const profileImage = metadata?.picture;
 
   return (
-    <div onClick={() => onMessage(friend.pubkey)} className="cursor-pointer flex items-center justify-between group hover:bg-secondary/20 rounded-lg p-2 transition-colors">
+    <div onClick={() => onMessage(friend.pubkey)} className="cursor-pointer flex items-center justify-between group hover:bg-nostr-purple/10 rounded-lg p-2 transition-colors border border-transparent hover:border-nostr-purple/20">
       <div className="flex space-x-3 flex-1 min-w-0">
         <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarImage src={profileImage} alt={displayName} />
-          <AvatarFallback className="text-xs">
+          <AvatarFallback className="text-xs bg-nostr-purple text-nostr-purple-foreground">
             {displayName.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{displayName}</p>
+          <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100 group-hover:text-nostr-purple">{displayName}</p>
           {metadata?.nip05 && (
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
               {metadata.nip05}
             </p>
           )}
