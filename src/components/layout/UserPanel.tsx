@@ -8,6 +8,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useVoiceConnectionState } from "@/contexts/voiceHooks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useSettings } from "@/contexts/settings.tsx";
 
 export function UserPanel() {
   const isMobile = useIsMobile();
@@ -16,6 +17,7 @@ export function UserPanel() {
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
   const { isConnectedToVoice: _isConnectedToVoice } = useVoiceConnectionState();
+  const { openSettings } = useSettings();
 
   if (!user) return null;
 
@@ -50,7 +52,7 @@ export function UserPanel() {
             </div>
           </div>
           
-          <Settings className="w-6 h-6 text-gray-400" />
+          <Settings className="w-6 h-6 text-gray-400" onClick={() => openSettings()} />
         </div>
       }
       side="top"
