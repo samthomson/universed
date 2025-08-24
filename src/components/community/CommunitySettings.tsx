@@ -328,7 +328,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 bg-white dark:bg-gray-900">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="text-xl font-semibold flex items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-full border">
@@ -368,9 +368,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
           </div>
 
           <ScrollArea className="h-[60vh] px-6">
-            <TabsContent value="overview" className="space-y-4 mt-0">
+            <TabsContent value="overview" className="space-y-4 mt-4">
               {/* Community Overview */}
-              <Card>
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                     <Settings className="w-5 h-5" />
@@ -396,7 +396,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               </Card>
 
               {/* Community Information */}
-              <Card>
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                     <Settings className="w-5 h-5" />
