@@ -340,13 +340,17 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="px-6">
-            <TabsList className="h-14 grid w-full grid-cols-3">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm flex items-center gap-2">
-              <Settings className="w-4 h-4" />
+            <TabsList className="h-16 grid w-full grid-cols-3 bg-muted/50 p-2 rounded-full">
+            <TabsTrigger value="overview" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Settings className="w-4 h-4 text-primary" />
+              </div>
               Overview
             </TabsTrigger>
-            <TabsTrigger value="members" className="text-xs sm:text-sm flex items-center gap-2 relative">
-              <Users className="w-4 h-4" />
+            <TabsTrigger value="members" className="h-12 text-xs sm:text-sm flex items-center gap-3 relative rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="w-4 h-4 text-primary" />
+              </div>
               Members
               {pendingRequests > 0 && (
                 <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
@@ -354,8 +358,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="audit" className="text-xs sm:text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4" />
+            <TabsTrigger value="audit" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="w-4 h-4 text-primary" />
+              </div>
               Audit
             </TabsTrigger>
             </TabsList>
