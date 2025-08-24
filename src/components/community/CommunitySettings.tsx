@@ -332,7 +332,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         <DialogHeader className="px-6 pt-6">
           <DialogTitle className="text-xl font-semibold flex items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-full border">
-              <Settings className="w-5 h-5 text-primary" />
+              <Settings className="w-5 h-5 text-gray-700 dark:text-primary" />
             </div>
             {community.name} Settings
           </DialogTitle>
@@ -343,13 +343,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             <TabsList className="h-16 grid w-full grid-cols-3 bg-muted/50 p-2 rounded-full">
             <TabsTrigger value="overview" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Settings className="w-4 h-4 text-primary" />
+                <Settings className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Overview
             </TabsTrigger>
             <TabsTrigger value="members" className="h-12 text-xs sm:text-sm flex items-center gap-3 relative rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="w-4 h-4 text-primary" />
+                <Users className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Members
               {pendingRequests > 0 && (
@@ -360,7 +360,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </TabsTrigger>
             <TabsTrigger value="audit" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="w-4 h-4 text-primary" />
+                <FileText className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Audit
             </TabsTrigger>
@@ -380,16 +380,16 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-primary/5 rounded-lg border">
-                      <div className="text-2xl font-bold text-primary">{totalMembers}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">Total Members</div>
+                      <div className="text-2xl font-bold text-gray-600 dark:text-primary">{totalMembers}</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Total Members</div>
                     </div>
                     <div className="text-center p-4 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
                       <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingRequests}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">Pending Requests</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Pending Requests</div>
                     </div>
                     <div className="text-center p-4 bg-red-500/5 rounded-lg border border-red-500/20">
                       <div className="text-2xl font-bold text-red-600 dark:text-red-400">{totalReports}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">Reports</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Reports</div>
                     </div>
                   </div>
                 </CardContent>
@@ -570,10 +570,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               )}
             </TabsContent>
 
-            <TabsContent value="members" className="space-y-4 mt-0">
+            <TabsContent value="members" className="space-y-4 mt-4">
               {/* Join Requests */}
               {pendingRequests > 0 && (
-                <Card>
+                <Card className="bg-gray-50 dark:bg-gray-800">
                   <CardHeader>
                     <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                       <Clock className="w-5 h-5" />
@@ -598,7 +598,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               )}
 
               {/* Member Management */}
-              <Card>
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                     <Users className="w-5 h-5" />
@@ -632,9 +632,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               </Card>
             </TabsContent>
 
-            <TabsContent value="audit" className="space-y-4 mt-0">
+            <TabsContent value="audit" className="space-y-4 mt-4">
               {/* Reports */}
-              <Card>
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                     <Shield className="w-5 h-5" />
@@ -668,7 +668,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               </Card>
 
               {/* Audit Log */}
-              <Card>
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
                   <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
                     <FileText className="w-5 h-5" />
@@ -703,7 +703,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </TabsContent>
           </ScrollArea>
 
-          <div className="flex justify-end pt-4 px-6 pb-6 border-t">
+          <div className="flex justify-end pt-4 px-6 pb-6 border-t border-border">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
