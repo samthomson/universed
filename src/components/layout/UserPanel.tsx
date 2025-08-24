@@ -25,7 +25,7 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center bg-card border-t border-border`}>
+    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center`}>
       {/* User Menu Trigger - Left Part Only */}
       <UserMenu
         trigger={
@@ -59,7 +59,7 @@ export function UserPanel() {
       
       {/* Settings Button - Separate from UserMenu */}
       <div 
-        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 bg-sidebar-accent hover:bg-sidebar-accent/80 transition-colors cursor-pointer border-l border-border`} 
+        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 hover:bg-sidebar-accent/50 transition-colors cursor-pointer`} 
         onClick={(e) => {
           e.stopPropagation();
           openSettings();
