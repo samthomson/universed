@@ -20,7 +20,7 @@ This document tracks all areas in the Universes app that need optimistic updates
   - Update count optimistically
   - Handle toggle/remove reactions
 
-- [ ] **ThreadReplyInput.tsx** - Thread replies
+- [x] **ThreadReplyInput.tsx** - Thread replies ✅
   - Show reply immediately in thread
   - Update thread count optimistically
 

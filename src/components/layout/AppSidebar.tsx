@@ -50,6 +50,7 @@ interface SortableCommunityItemProps {
   isLanding: boolean;
   isAnimating: boolean;
   onSelect: (communityId: string) => void;
+  onMouseDown?: (communityId: string) => void; // Generic mouse down handler
 }
 
 function SortableCommunityItem({
@@ -59,6 +60,7 @@ function SortableCommunityItem({
   isLanding,
   isAnimating,
   onSelect,
+  onMouseDown,
 }: SortableCommunityItemProps) {
   const {
     attributes,
@@ -72,6 +74,46 @@ function SortableCommunityItem({
     disabled: isAnimating, // Disable dragging during rocket animations
     data: { community },
   });
+
+  // Smart memoized state for showing drag cursor after delay
+  const [isDraggingAfterDelay, setIsDraggingAfterDelay] = useState(false);
+  const mouseDownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Memoized mouse down handler to prevent recreation
+  const handleMouseDown = useCallback(() => {
+    // Start preloading immediately on mouse down
+    if (onMouseDown) {
+      onMouseDown(community.id);
+    }
+    
+    // Clear existing timeout if any
+    if (mouseDownTimeoutRef.current) {
+      clearTimeout(mouseDownTimeoutRef.current);
+    }
+    
+    // Set timeout to show grab cursor after 250ms
+    mouseDownTimeoutRef.current = setTimeout(() => {
+      setIsDraggingAfterDelay(true);
+    }, 250);
+  }, [community.id, onMouseDown]);
+
+  // Memoized mouse up/leave handler
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingAfterDelay(false);
+    if (mouseDownTimeoutRef.current) {
+      clearTimeout(mouseDownTimeoutRef.current);
+      mouseDownTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mouseDownTimeoutRef.current) {
+        clearTimeout(mouseDownTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Restrict transform to vertical movement only, but don't interfere with rocket animations
   const style = useMemo(() => ({
@@ -93,8 +135,8 @@ function SortableCommunityItem({
       "animate-rocket-landing": isLanding,
       "shadow-lg shadow-blue-500/20": isLanding,
       "cursor-grabbing scale-105": isDragging,
-      "cursor-grab": !isDragging && !isAnimating, // Only show grab cursor when draggable
-      "cursor-pointer": isAnimating, // Show pointer during animations
+      "cursor-grab": isDraggingAfterDelay && !isDragging && !isAnimating, // Only show grab after mouse down delay
+      "cursor-pointer": !isDraggingAfterDelay && !isDragging && !isAnimating, // Default pointer cursor
       "shadow-lg shadow-blue-500/30": isDragging,
       // Subtle hint that item is draggable on hover
       "hover:shadow-md hover:shadow-gray-400/20": !isDragging && !isAnimating,
@@ -102,7 +144,7 @@ function SortableCommunityItem({
       "border-2 border-blue-500": isSelected,
       "border-2 border-transparent": !isSelected,
     }
-  ), [isSelected, isLaunching, isLanding, isDragging, isAnimating]);
+  ), [isSelected, isLaunching, isLanding, isDragging, isAnimating, isDraggingAfterDelay]);
 
   // Generate container classes for opacity effects
   const containerClasses = useMemo(() => cn(
@@ -127,7 +169,16 @@ function SortableCommunityItem({
   }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={containerClasses}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners} 
+      className={containerClasses}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp} // Reset cursor when mouse leaves
+    >
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="relative">
@@ -335,6 +386,12 @@ export function AppSidebar({
     };
   }, []);
 
+  // Add mouse down handler for community interactions
+  const handleCommunityMouseDown = useCallback((communityId: string) => {
+    // TODO: Implement community preloading logic AGAIN
+    console.log('Community mouse down:', communityId);
+  }, []);
+
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
     if (!isLoading && orderedCommunities) {
@@ -347,6 +404,7 @@ export function AppSidebar({
           isLanding={landingCommunity === community.id}
           isAnimating={isAnimating}
           onSelect={handleCommunitySelect}
+          onMouseDown={handleCommunityMouseDown}
         />
       ));
     } else if (isLoading) {
@@ -362,7 +420,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
+  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
 
   return (
     <TooltipProvider>
