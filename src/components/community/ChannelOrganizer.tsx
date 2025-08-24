@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import {
   Hash,
   Volume2,
@@ -572,10 +573,16 @@ function ChannelItem({
     <div className={`${inFolder ? 'ml-1' : 'ml-4'}`}>
       <ContextMenu>
         <ContextMenuTrigger>
-          <div
-            className="group flex items-center h-8 px-2 rounded-sm hover:bg-accent transition-colors duration-150 relative overflow-hidden"
-            onMouseDown={() => communityId && onChannelPreload?.(communityId, channel.id)}
-          >
+                      <div
+              className={cn(
+                "group flex items-center h-8 px-2 rounded-sm transition-colors duration-150 relative overflow-hidden",
+                {
+                  "bg-accent/80 dark:bg-accent/50": isSelected,
+                  "hover:bg-accent": !isSelected
+                }
+              )}
+              onMouseDown={() => communityId && onChannelPreload?.(communityId, channel.id)}
+            >
             {/* Selected indicator */}
             {isSelected && (
               <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-nostr-purple rounded-r-full"></div>
@@ -591,7 +598,7 @@ function ChannelItem({
               className={`
                 flex-1 text-left text-sm font-medium truncate min-w-0 flex items-center gap-1
                 ${isSelected
-                  ? 'text-primary-foreground'
+                  ? 'text-foreground font-semibold'
                   : isLoadingPermissions
                     ? 'text-muted-foreground cursor-wait'
                     : hasAccess
