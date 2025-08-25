@@ -26,7 +26,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Initialize DataManager once when the provider mounts
   useEffect(() => {
     if (!initializationRef.current) {
-      const _dataManager = DataManager.getInstance();
+      const dataManager = DataManager.getInstance();
       
       // TODO: Initialize DataManager with dependencies
       // dataManager.initialize(queryClient, nostr);
@@ -46,7 +46,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Start initial data loads when user logs in
   useEffect(() => {
     if (user && initializationRef.current) {
-      const _dataManager = DataManager.getInstance();
+      const dataManager = DataManager.getInstance();
       
       // TODO: Start initial data loads for the logged-in user
       // dataManager.startInitialLoads(user);
@@ -59,7 +59,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // In production, we might want to keep subscriptions alive
       // But for development, clean up to prevent memory leaks
       if (process.env.NODE_ENV === 'development') {
-        const _dataManager = DataManager.getInstance();
+        const dataManager = DataManager.getInstance();
         // TODO: Add cleanup method
         // dataManager.cleanup();
       }
