@@ -22,6 +22,8 @@ import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { SettingsProvider } from '@/contexts/settings.tsx';
 import { SettingsDialog } from '@/components/user/SettingsDialog';
 import { DataManagerProvider } from '@/components/DataManagerProvider';
+import { AppLoadingScreen } from '@/components/AppLoadingScreen';
+import { useAppLoading } from '@/hooks/useDataManager';
 
 import AppRouter from './AppRouter';
 
@@ -74,6 +76,7 @@ const presetRelays = [
 
 function AppContent() {
   const unreadCount = useUnreadNotificationCount();
+  const isAppLoading = useAppLoading();
   useFaviconBadge(unreadCount);
 
   return (
@@ -84,6 +87,10 @@ function AppContent() {
             <QueryOptimizer />
             <Toaster />
             <Sonner />
+            
+            {/* Show loading screen while DataManager initializes - once we've got a users npub */}
+            {isAppLoading && <AppLoadingScreen />}
+            
             <Suspense>
               <AppRouter />
             </Suspense>

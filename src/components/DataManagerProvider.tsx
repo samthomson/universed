@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { DataManager } from '@/lib/DataManager';
+import { logger } from '@/lib/logger';
 
 interface DataManagerProviderProps {
   children: React.ReactNode;
@@ -18,38 +18,27 @@ interface DataManagerProviderProps {
  * 4. Manages cleanup when the app unmounts
  */
 export function DataManagerProvider({ children }: DataManagerProviderProps) {
-  const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { settings } = useUserSettings();
   const initializationRef = useRef(false);
 
-  // Initialize DataManager once when the provider mounts
-  useEffect(() => {
-    if (!initializationRef.current) {
-      const dataManager = DataManager.getInstance();
-      
-      // TODO: Initialize DataManager with dependencies
-      // dataManager.initialize(queryClient, nostr);
-      
-      initializationRef.current = true;
-    }
-  }, [queryClient]);
-
   // React to NIP17 setting changes using the reactive settings hook
   useEffect(() => {
-    if (initializationRef.current) {
-      const dataManager = DataManager.getInstance();
-      dataManager.onNIP17EnabledChanged(settings.enableNIP17);
-    }
+    const dataManager = DataManager.getInstance();
+    dataManager.onNIP17EnabledChanged(settings.enableNIP17);
   }, [settings.enableNIP17]);
 
-  // Start initial data loads when user logs in
+  // Start loading app data when user logs in
   useEffect(() => {
-    if (user && initializationRef.current) {
+    if (user && !initializationRef.current) {
       const dataManager = DataManager.getInstance();
       
-      // TODO: Start initial data loads for the logged-in user
-      // dataManager.startInitialLoads(user);
+      // Start loading app data
+      dataManager.startLoadingApp().catch((error) => {
+        logger.error('Failed to initialize DataManager:', error);
+      });
+      
+      initializationRef.current = true;
     }
   }, [user]);
 
@@ -60,8 +49,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // But for development, clean up to prevent memory leaks
       if (process.env.NODE_ENV === 'development') {
         const dataManager = DataManager.getInstance();
-        // TODO: Add cleanup method
-        // dataManager.cleanup();
+        dataManager.cleanup();
       }
     };
   }, []);

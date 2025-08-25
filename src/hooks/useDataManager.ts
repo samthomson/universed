@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { DataManager } from '@/lib/DataManager';
 
 /**
@@ -10,4 +11,30 @@ import { DataManager } from '@/lib/DataManager';
  */
 export function useDataManager(): DataManager {
   return DataManager.getInstance();
+}
+
+/**
+ * Hook to get the app loading state from DataManager
+ * 
+ * This hook provides reactive access to the DataManager's loading state
+ * so components can show loading screens during initial app data loading.
+ */
+export function useAppLoading() {
+  const [isLoading, setIsLoading] = useState(() => {
+    const dataManager = DataManager.getInstance();
+    return dataManager.getIsLoadingApp();
+  });
+
+  useEffect(() => {
+    const dataManager = DataManager.getInstance();
+    
+    // Subscribe to loading state changes
+    const unsubscribe = dataManager.subscribeToLoadingState((newLoadingState) => {
+      setIsLoading(newLoadingState);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  return isLoading;
 }
