@@ -16,6 +16,7 @@ import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
 import { DataManagerDebugModal } from "@/components/debug/DataManagerDebugModal";
+import { DataManager } from "@/lib/DataManager";
 import { useState } from "react";
 
 interface UserMenuProps {
@@ -94,8 +95,8 @@ export function UserMenu({
             <span>Settings</span>
           </DropdownMenuItem>
 
-          {/* Debug DataManager - Development only */}
-          {process.env.NODE_ENV === 'development' && (
+          {/* Debug DataManager - Only show when debugging is enabled */}
+          {DataManager.IS_DEBUGGING && (
             <DropdownMenuItem
               onClick={() => setShowDebugModal(true)}
               className='flex items-center gap-2 cursor-pointer p-2 rounded-md'

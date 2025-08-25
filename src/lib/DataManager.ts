@@ -7,6 +7,9 @@
  */
 export class DataManager {
   private static instance: DataManager | null = null;
+  
+  // Debug flag - set to true to enable debug features
+  public static readonly IS_DEBUGGING = true;
 
   // Private constructor to prevent direct instantiation
   private constructor() {
@@ -45,28 +48,12 @@ export class DataManager {
    */
   public getDebugInfo(): Record<string, unknown> {
     return {
-      instanceCreated: DataManager.instance !== null,
+      status: "initialized",
       timestamp: new Date().toISOString(),
-      foobar: "Hello from DataManager!",
-      stubData: {
-        activeSubscriptions: 0,
-        cachedMessages: 0,
-        processedNIP17Events: 0,
-      },
-      status: "initialized"
+      message: "DataManager singleton is working!",
+      activeSubscriptions: 0,
+      cachedMessages: 0,
+      processedNIP17Events: 0,
     };
-  }
-
-  /**
-   * Get some stub foobar data for testing
-   */
-  public getFoobarData(): string[] {
-    return [
-      "DataManager is working!",
-      "Persistent subscriptions: Ready",
-      "NIP17 processing: Ready", 
-      "Pagination system: Ready",
-      `Instance created at: ${new Date().toLocaleTimeString()}`
-    ];
   }
 }
