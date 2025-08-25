@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
+import { ReactionDetailsDialog } from "./ReactionDetailsDialog";
 import { useAddReaction } from "@/hooks/useAddReaction";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import type { NostrEvent } from "@/types/nostr";
@@ -14,6 +16,7 @@ interface MessageReactionsProps {
 export function MessageReactions({ message, onReactionClick, reactionGroups }: MessageReactionsProps) {
   const { mutate: addReaction } = useAddReaction();
   const { user } = useCurrentUser();
+  const [showReactionDetails, setShowReactionDetails] = useState(false);
 
   if (!reactionGroups || Object.keys(reactionGroups).length === 0) {
     return null;
@@ -30,15 +33,10 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
     });
   };
 
-  const handleReactionClick = (emoji: string) => {
-    if (!user) return;
-
-    // Toggle reaction - if user has already reacted with this emoji, it will be handled by the backend
-    addReaction({
-      targetEvent: message,
-      emoji,
-    });
-
+  const handleReactionClick = () => {
+    // Open reaction details dialog instead of adding reaction
+    setShowReactionDetails(true);
+    
     // Hide hover actions after clicking a reaction
     onReactionClick?.();
   };
@@ -48,38 +46,53 @@ export function MessageReactions({ message, onReactionClick, reactionGroups }: M
     return groupedReactions[emoji]?.some(r => r.pubkey === user.pubkey) || false;
   };
 
-  return (
-    <div className="flex flex-wrap gap-1">
-      {Object.entries(groupedReactions).map(([emoji, reactionList]) => (
-        <Button
-          key={emoji}
-          variant="ghost"
-          size="sm"
-          className={`h-6 px-2 text-xs hover:bg-gray-600 ${
-            hasUserReacted(emoji) ? 'bg-gray-800/80 text-gray-100' : ''
-          }`}
-          onClick={() => handleReactionClick(emoji)}
-        >
-          <span className="mr-1">{emoji}</span>
-          <span>{reactionList.length}</span>
-        </Button>
-      ))}
+  // Calculate total reactions for dialog
+  const totalReactions = Object.values(groupedReactions).reduce((sum, reactions) => sum + reactions.length, 0);
 
-      {/* Add Reaction Button with Full Emoji Picker */}
-      <EmojiPickerComponent
-        onEmojiSelect={handleEmojiSelect}
-        trigger={
+  return (
+    <>
+      <div className="flex flex-wrap gap-1">
+        {Object.entries(groupedReactions).map(([emoji, reactionList]) => (
           <Button
+            key={emoji}
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-gray-400 hover:text-gray-300 hover:bg-gray-600"
+            className={`h-6 px-2 text-xs hover:bg-gray-600 ${
+              hasUserReacted(emoji) ? 'bg-gray-800/80 text-gray-100' : ''
+            }`}
+            onClick={handleReactionClick}
+            title="Click to see who reacted"
           >
-            <Plus className="w-3 h-3" />
+            <span className="mr-1">{emoji}</span>
+            <span>{reactionList.length}</span>
           </Button>
-        }
-        side="top"
-        align="start"
+        ))}
+
+        {/* Add Reaction Button with Full Emoji Picker */}
+        <EmojiPickerComponent
+          onEmojiSelect={handleEmojiSelect}
+          trigger={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-gray-400 hover:text-gray-300 hover:bg-gray-600"
+              title="Add reaction"
+            >
+              <Plus className="w-3 h-3" />
+            </Button>
+          }
+          side="top"
+          align="start"
+        />
+      </div>
+
+      {/* Reaction Details Dialog */}
+      <ReactionDetailsDialog
+        open={showReactionDetails}
+        onOpenChange={setShowReactionDetails}
+        reactionGroups={groupedReactions}
+        totalReactions={totalReactions}
       />
-    </div>
+    </>
   );
 }
