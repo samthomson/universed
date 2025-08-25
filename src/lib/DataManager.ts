@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 /**
  * DataManager - Centralized data management singleton
  * 
@@ -14,6 +16,36 @@ export class DataManager {
   // Private constructor to prevent direct instantiation
   private constructor() {
     // Initialize any base properties here when we add them
+  }
+
+  /**
+   * Handle NIP17 enabled setting change
+   * This will be called by the DataManagerProvider when settings change
+   */
+  public onNIP17EnabledChanged(enabled: boolean) {
+    logger.log(`[DataManager] NIP17 enabled changed to: ${enabled}`);
+    
+    if (enabled) {
+      this.startNIP17Processing();
+    } else {
+      this.stopNIP17Processing();
+    }
+  }
+
+  /**
+   * Start NIP17 message processing
+   */
+  private startNIP17Processing() {
+    logger.log('[DataManager] Starting NIP17 processing...');
+    // TODO: Implement NIP17 subscription startup
+  }
+
+  /**
+   * Stop NIP17 message processing
+   */
+  private stopNIP17Processing() {
+    logger.log('[DataManager] Stopping NIP17 processing...');
+    // TODO: Implement NIP17 subscription cleanup
   }
 
   /**
