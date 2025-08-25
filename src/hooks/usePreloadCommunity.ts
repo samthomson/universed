@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { fetchMessages } from './useMessages';
+import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 
 /**
  * Hook for preloading community data on hover/mousedown.
@@ -20,8 +21,7 @@ export function usePreloadCommunity() {
     }
 
     try {
-      // Check if data is already cached and fresh (5 minutes)
-      const CACHE_DURATION = 5 * 60 * 1000;
+      // Use the exact same query key structure as the actual hooks
       const channelsQueryKey = ['channels', communityId];
       // Use the exact same query key structure as useMessages: ['messages', communityId, channelId, approvedMembers?.size]
       // Most communities don't require approval, so approvedMembers will be null (no filtering)
@@ -32,8 +32,8 @@ export function usePreloadCommunity() {
       const messagesState = queryClient.getQueryState(messagesQueryKey);
       
       const now = Date.now();
-      const isChannelsFresh = channelsState?.dataUpdatedAt && (now - channelsState.dataUpdatedAt) < CACHE_DURATION;
-      const isMessagesFresh = messagesState?.dataUpdatedAt && (now - messagesState.dataUpdatedAt) < CACHE_DURATION;
+      const isChannelsFresh = channelsState?.dataUpdatedAt && (now - channelsState.dataUpdatedAt) < reactQueryConfigs.communities.staleTime;
+      const isMessagesFresh = messagesState?.dataUpdatedAt && (now - messagesState.dataUpdatedAt) < reactQueryConfigs.messages.staleTime;
 
 
 
@@ -41,7 +41,7 @@ export function usePreloadCommunity() {
       if (!isChannelsFresh) {
         queryClient.prefetchQuery({
           queryKey: channelsQueryKey,
-          staleTime: CACHE_DURATION,
+          staleTime: reactQueryConfigs.communities.staleTime,
         });
       }
 
@@ -53,7 +53,7 @@ export function usePreloadCommunity() {
             const result = await fetchMessages(communityId, 'general', nostr, cacheEvents, signal, null);
             return result.events;
           },
-          staleTime: CACHE_DURATION,
+          staleTime: reactQueryConfigs.messages.staleTime,
         });
       }
     } catch {
