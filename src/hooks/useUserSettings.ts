@@ -7,6 +7,15 @@ export interface UserSettings {
   // Add more user settings here as needed
 }
 
+// Setting keys as constants for type safety
+export const USER_SETTING_KEYS = {
+  SHOW_PENDING_COMMUNITIES: 'showPendingCommunities',
+  ENABLE_SPAM_FILTERING: 'enableSpamFiltering', 
+  ENABLE_NIP17: 'enableNIP17',
+} as const;
+
+export type UserSettingKey = keyof UserSettings;
+
 const DEFAULT_USER_SETTINGS: UserSettings = {
   showPendingCommunities: false,
   enableSpamFiltering: false, // Disabled by default for debugging

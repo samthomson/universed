@@ -2,7 +2,7 @@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUserSettings } from "@/hooks/useUserSettings";
+import { useUserSettings, USER_SETTING_KEYS } from "@/hooks/useUserSettings";
 import { useDefaultProtocolSetting, type DefaultProtocol } from "@/hooks/useDefaultProtocolSetting";
 
 import { cn } from "@/lib/utils";
@@ -52,7 +52,8 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
                 id="nip17-enabled"
                 checked={settings.enableNIP17}
                 onCheckedChange={(checked) => {
-                  updateSetting('enableNIP17', checked);
+                  logger.log('[DEBUG] Switch toggled to:', checked);
+                  updateSetting(USER_SETTING_KEYS.ENABLE_NIP17, checked);
                   // If disabling NIP-17, force default protocol to NIP-04
                   if (!checked && defaultProtocol === 'nip17') {
                     setDefaultProtocol('nip04');
