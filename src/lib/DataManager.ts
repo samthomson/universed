@@ -7,17 +7,27 @@ import { logger } from './logger';
  * managing persistent subscriptions, complex data processing, and cross-component coordination
  * while working alongside React Query for caching and UI state management.
  */
-// Simple event emitter for loading state changes
-class LoadingStateEmitter {
-  private listeners: Set<(isLoading: boolean) => void> = new Set();
+// DataManager state interface
+export interface DataManagerState {
+  isLoadingApp: boolean;
+  communities: unknown[]; // TODO: Replace with proper Community type
+  // TODO: Add more data types as needed:
+  // messages: Message[];
+  // notifications: Notification[];
+  // channels: Channel[];
+}
 
-  subscribe(callback: (isLoading: boolean) => void) {
+// Generic state emitter for DataManager state changes
+class StateEmitter<T> {
+  private listeners: Set<(state: T) => void> = new Set();
+
+  subscribe(callback: (state: T) => void) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
   }
 
-  emit(isLoading: boolean) {
-    this.listeners.forEach(callback => callback(isLoading));
+  emit(state: T) {
+    this.listeners.forEach(callback => callback(state));
   }
 }
 
@@ -27,14 +37,25 @@ export class DataManager {
   // Debug flag - set to true to enable debug features
   public static readonly IS_DEBUGGING = true;
   
-  // App loading state
-  private isLoadingApp: boolean = true;
+  // Unified state management
+  private state: DataManagerState = {
+    isLoadingApp: true,
+    communities: [],
+  };
   private loadingPromise: Promise<void> | null = null;
-  private loadingEmitter = new LoadingStateEmitter();
+  private stateEmitter = new StateEmitter<DataManagerState>();
 
   // Private constructor to prevent direct instantiation
   private constructor() {
     // Initialize any base properties here when we add them
+  }
+
+  /**
+   * Update state and notify all subscribers
+   */
+  private updateState(updates: Partial<DataManagerState>): void {
+    this.state = { ...this.state, ...updates };
+    this.stateEmitter.emit(this.state);
   }
 
   /**
@@ -48,19 +69,17 @@ export class DataManager {
     }
 
     logger.log('[DataManager] Starting app initialization...');
-    this.isLoadingApp = true;
+    this.updateState({ isLoadingApp: true });
 
     this.loadingPromise = this.performInitialLoading();
     
     try {
       await this.loadingPromise;
-      this.isLoadingApp = false;
-      this.loadingEmitter.emit(false);
+      this.updateState({ isLoadingApp: false });
       logger.log('[DataManager] App initialization completed!');
     } catch (error) {
       logger.error('[DataManager] App initialization failed:', error);
-      this.isLoadingApp = false;
-      this.loadingEmitter.emit(false);
+      this.updateState({ isLoadingApp: false });
       throw error;
     }
   }
@@ -71,32 +90,59 @@ export class DataManager {
   private async performInitialLoading(): Promise<void> {
     logger.log('[DataManager] Performing initial data loading...');
     
-    // TODO: Load initial app data
-    // - Load user communities
-    // - Load recent messages
-    // - Load friend lists
-    // - Initialize NIP17 processing if enabled
-    // - Load cached events
-    // - Set up persistent subscriptions
-    
-    // Placeholder: Simulate heavy loading with 1.5 second delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // TODO: Load initial app data in parallel
+    await Promise.all([
+      this.loadCommunities(),
+      // TODO: Add more loading tasks:
+      // this.loadRecentMessages(),
+      // this.loadFriendLists(),
+      // this.initializeNIP17Processing(),
+      // this.loadCachedEvents(),
+      // this.setupPersistentSubscriptions(),
+    ]);
     
     logger.log('[DataManager] Initial data loading completed');
   }
 
   /**
-   * Get current app loading state
+   * Load user communities
    */
-  public getIsLoadingApp(): boolean {
-    return this.isLoadingApp;
+  private async loadCommunities(): Promise<void> {
+    logger.log('[DataManager] Loading communities...');
+    
+    // Placeholder: Simulate loading with delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // TODO: Replace with actual community loading logic
+    const mockCommunities = [
+      { id: '1', name: 'General', memberCount: 42 },
+      { id: '2', name: 'Development', memberCount: 15 },
+      { id: '3', name: 'Random', memberCount: 28 },
+    ];
+    
+    this.updateState({ communities: mockCommunities });
+    logger.log('[DataManager] Communities loaded:', mockCommunities.length);
   }
 
   /**
-   * Subscribe to loading state changes
+   * Get current DataManager state
    */
-  public subscribeToLoadingState(callback: (isLoading: boolean) => void): () => void {
-    return this.loadingEmitter.subscribe(callback);
+  public getState(): DataManagerState {
+    return { ...this.state }; // Return a copy to prevent mutations
+  }
+
+  /**
+   * Get current app loading state (convenience method)
+   */
+  public getIsLoadingApp(): boolean {
+    return this.state.isLoadingApp;
+  }
+
+  /**
+   * Subscribe to all state changes
+   */
+  public subscribeToState(callback: (state: DataManagerState) => void): () => void {
+    return this.stateEmitter.subscribe(callback);
   }
 
   /**
@@ -174,10 +220,10 @@ export class DataManager {
    */
   public getDebugInfo(): Record<string, unknown> {
     return {
-      status: this.isLoadingApp ? "loading" : "initialized",
+      status: this.state.isLoadingApp ? "loading" : "initialized",
       timestamp: new Date().toISOString(),
-      message: this.isLoadingApp ? "DataManager is loading app data..." : "DataManager singleton is working!",
-      isLoadingApp: this.isLoadingApp,
+      message: this.state.isLoadingApp ? "DataManager is loading app data..." : "DataManager singleton is working!",
+      state: this.state,
       hasLoadingPromise: this.loadingPromise !== null,
       activeSubscriptions: 0,
       cachedMessages: 0,
