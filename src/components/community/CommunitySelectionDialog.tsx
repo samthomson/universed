@@ -51,16 +51,16 @@ export function CommunitySelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] bg-slate-900/95 backdrop-blur-sm border border-slate-700/50">
+      <DialogContent className="max-w-6xl max-h-[90vh] bg-background/95 backdrop-blur-sm border border-border">
         <div className="relative z-10">
           <DialogHeader className="pb-6">
             <div className="mt-6 space-y-6">
               <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-1">
-                  <h1 className="text-3xl font-bold text-white text-left mb-4">
+                  <h1 className="text-3xl font-bold text-foreground text-left mb-4">
                   DISCOVER YOUR SPACE
                   </h1>
-                  <p className="text-slate-300 leading-relaxed text-lg">
+                  <p className="text-muted-foreground leading-relaxed text-lg">
                     Explore existing communities to join and connect with like-minded people.
                     Find vibrant discussions, share interests, and become part of growing communities
                     on the decentralized Nostr network.
@@ -68,19 +68,19 @@ export function CommunitySelectionDialog({
                 </div>
 
                 <div className="lg:w-128">
-                  <div className="relative p-6 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-700/50">
+                  <div className="relative p-6 rounded-2xl bg-card/40 backdrop-blur-sm border border-border">
                     <div className="space-y-4">
                       <div>
-                        <h4 className="text-lg font-semibold text-white mb-2">
+                        <h4 className="text-lg font-semibold text-card-foreground mb-2">
                           Can't find what you're looking for?
                         </h4>
-                        <p className="text-slate-300 text-sm leading-relaxed">
+                        <p className="text-muted-foreground text-sm leading-relaxed">
                           Create your own community and build the space you've always wanted.
                         </p>
                       </div>
                       <Button
                         onClick={handleCreateCommunity}
-                        className="w-full rounded-full py-6 text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-purple-500/25"
+                        className="w-full rounded-full py-6 text-lg font-bold text-white bg-gradient-to-r from-nostr-purple to-pink-600 hover:from-nostr-purple/80 hover:to-pink-700 transform transition-all duration-200 hover:scale-105 shadow-lg shadow-nostr-purple/25"
                       >
                         <Plus className="w-5 h-5 mr-2" />
                         Create Space

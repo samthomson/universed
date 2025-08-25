@@ -1,12 +1,14 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserMenu } from "@/components/user/UserMenu";
+import { Settings } from "lucide-react";
 import { useUserStatus, getTraditionalStatusText } from "@/hooks/useUserStatus";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useVoiceConnectionState } from "@/contexts/voiceHooks";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
+import { useSettings } from "@/contexts/settings.tsx";
 
 export function UserPanel() {
   const isMobile = useIsMobile();
@@ -15,6 +17,7 @@ export function UserPanel() {
   const metadata = author.data?.metadata;
   const { data: userStatus } = useUserStatus(user?.pubkey);
   const { isConnectedToVoice: _isConnectedToVoice } = useVoiceConnectionState();
+  const { openSettings } = useSettings();
 
   if (!user) return null;
 
@@ -22,18 +25,15 @@ export function UserPanel() {
   const profileImage = metadata?.picture;
 
   return (
-    <div className={`${isMobile ? 'h-14' : 'h-16'} flex items-center justify-between ${isMobile ? 'px-3' : 'px-2'}`}>
-      {/* User Info */}
+    <div className={`${isMobile ? 'h-16' : 'h-16'} flex items-center`}>
+      {/* User Menu Trigger - Left Part Only */}
       <UserMenu
         trigger={
-          <button
-            className={`flex items-center ${isMobile ? 'space-x-3' : 'space-x-2'} flex-1 min-w-0 cursor-pointer hover:bg-gray-700/50 rounded p-1 transition-colors mobile-touch bg-transparent border-none text-left`}
-            type="button"
-          >
+          <div className={`flex items-center ${isMobile ? 'space-x-4' : 'space-x-3'} flex-1 min-w-0 ${isMobile ? 'px-5' : 'px-4'} hover:bg-sidebar-accent transition-colors cursor-pointer h-full`}>
             <div className="relative">
-              <Avatar className={isMobile ? "w-9 h-9" : "w-8 h-8"}>
+              <Avatar className={isMobile ? "w-12 h-12" : "w-11 h-11"}>
                 <AvatarImage src={profileImage} alt={displayName} />
-                <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
                   {displayName.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -42,20 +42,31 @@ export function UserPanel() {
               </div>
             </div>
 
-            <div className="flex-1 min-w-0">
-              <div className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-white truncate`}>
+            <div className="flex-1 min-w-0 ml-3">
+              <div className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-sidebar-foreground truncate`}>
                 {displayName}
               </div>
-              <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-gray-400 truncate`}>
+              <div className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground truncate`}>
                 {userStatus?.message || (userStatus?.emoji ? 'Set status' : (userStatus?.status ? getTraditionalStatusText(userStatus.status) : 'Click to set status'))}
               </div>
             </div>
-          </button>
+          </div>
         }
         side="top"
         align="start"
         sideOffset={8}
       />
+      
+      {/* Settings Button - Separate from UserMenu */}
+      <div 
+        className={`${isMobile ? 'h-16' : 'h-16'} flex items-center justify-center w-16 hover:bg-sidebar-accent/50 transition-colors cursor-pointer`} 
+        onClick={(e) => {
+          e.stopPropagation();
+          openSettings();
+        }}
+      >
+        <Settings className="w-5 h-5 text-sidebar-foreground/70" />
+      </div>
     </div>
   );
 }

@@ -61,7 +61,7 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
       case 'moderator':
         return 'text-blue-400';
       default:
-        return 'text-gray-300';
+        return 'text-gray-900 dark:text-gray-100';
     }
   };
 
@@ -94,11 +94,11 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
       onMute={onMute}
       onReport={onReport}
     >
-      <div className="flex items-center space-x-2 px-2 py-1 hover:bg-gray-600/50 rounded group cursor-pointer">
+      <div className="flex items-center space-x-2 px-2 py-1 hover:bg-nostr-purple/10 rounded group cursor-pointer">
         <div className="relative">
           <Avatar className="w-8 h-8">
             <AvatarImage src={profileImage} alt={displayName} />
-            <AvatarFallback className="bg-indigo-600 text-white text-xs">
+            <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
               {displayName.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -192,7 +192,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
   if (!communityId) {
     return (
       <div className="p-4">
-        <div className="text-center text-gray-400">
+        <div className="text-center text-muted-foreground">
           <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No members to show</p>
         </div>
@@ -204,10 +204,10 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex-shrink-0 h-14">
+      <div className="p-4 border-b border-border flex-shrink-0 h-14">
         <div className="flex items-center space-x-2">
-          <Users className="w-4 h-4 text-gray-400" />
-          <span className="text-sm font-semibold text-gray-300">
+          <Users className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">
             Members {members && `— ${members.length}`}
           </span>
         </div>
@@ -229,7 +229,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
             <div className="space-y-0.5">
               {/* Online Members */}
               <div className="mb-2">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
+                <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide px-2 py-1">
                   Online — {members.filter(m => m.isOnline).length}
                 </div>
                 {members
@@ -254,7 +254,7 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
               {/* Offline Members */}
               {members.some(m => !m.isOnline) && (
                 <div>
-                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-2 py-1">
+                  <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide px-2 py-1">
                     Offline — {members.filter(m => !m.isOnline).length}
                   </div>
                   {members

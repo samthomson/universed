@@ -826,7 +826,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
                   />
                 </div>
 
-                <div className="w-72 bg-secondary/30 flex flex-col">
+                <div className="w-72 bg-card border-l border-border flex flex-col">
                   <Virtuoso
                     data={mutualFriends || []}
                     itemContent={(index, friend) => (

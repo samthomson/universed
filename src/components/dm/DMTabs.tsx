@@ -12,7 +12,7 @@ interface DMTabsProps {
 
 export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, requestsCount }: DMTabsProps) {
   return (
-    <div className="flex border-b border-gray-600" style={{ backgroundColor: '#0B1322' }}>
+    <div className="flex border-b border-border bg-background">
       {/* Hidden radio inputs for tab control */}
       <input
         type="radio"
@@ -40,7 +40,7 @@ export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, re
             "flex-1 flex items-center justify-center py-2.5 px-1 cursor-pointer transition-all duration-200 border-b-2 min-w-0",
             activeTab === 'known'
               ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
           <Users className="w-4 h-4 mr-1 flex-shrink-0" />
@@ -59,13 +59,13 @@ export function DMTabs({ activeTab, onTabChange, idPrefix = "dm", knownCount, re
             "flex-1 flex items-center justify-center py-2.5 px-1 cursor-pointer transition-all duration-200 border-b-2 min-w-0",
             activeTab === 'newRequests'
               ? "border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400"
-              : "border-transparent text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+              : "border-transparent text-muted-foreground hover:text-foreground"
           )}
         >
           <UserPlus className="w-4 h-4 mr-1 flex-shrink-0" />
           <span className="text-sm font-medium truncate">Requests</span>
           {requestsCount !== undefined && requestsCount > 0 && (
-            <span className="ml-1 px-1 py-0.5 text-xs font-medium bg-orange-100 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded-full min-w-[1rem] text-center flex-shrink-0 max-w-[2.5rem] overflow-hidden">
+            <span className="ml-1 px-1 py-0.5 text-xs font-medium bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded-full min-w-[1rem] text-center flex-shrink-0 max-w-[2.5rem] overflow-hidden">
               {requestsCount}
             </span>
           )}

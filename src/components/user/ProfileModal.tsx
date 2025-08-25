@@ -396,7 +396,7 @@ export function ProfileModal({
 
                 {/* Large Avatar positioned at bottom of banner */}
                 <div className="absolute bottom-0 left-3 sm:left-4 transform translate-y-1/2">
-                  <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-4 sm:border-6 border-gray-800">
+                  <Avatar className="w-16 h-16 sm:w-20 sm:h-20 border-4 sm:border-6 border-background">
                     <AvatarImage src={profileImage} alt={displayName} />
                     <AvatarFallback className="bg-indigo-600 text-white text-lg sm:text-xl font-bold">
                       {displayName.slice(0, 2).toUpperCase()}

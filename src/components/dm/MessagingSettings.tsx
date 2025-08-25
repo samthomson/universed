@@ -1,4 +1,4 @@
-import { MessageSquare } from "lucide-react";
+
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,12 +18,6 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
   return (
     <div className={className}>
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4" />
-          <h3 className="text-sm font-medium">Messaging</h3>
-        </div>
-
         {/* Protocol Info */}
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">

@@ -226,7 +226,7 @@ export function MemberCard({
                 onClick={handleOpenProfile}
                 title="View profile"
               >
-                <Avatar className="w-16 h-16 border-4 border-gray-900">
+                <Avatar className="w-16 h-16 border-4 border-background">
                   <AvatarImage src={profileImage} alt={displayName} />
                   <AvatarFallback className="bg-indigo-600 text-white text-sm">
                     {displayName.slice(0, 2).toUpperCase()}
@@ -475,7 +475,7 @@ export function MemberCard({
                     onClick={handleOpenProfile}
                     title="View profile"
                   >
-                    <Avatar className="w-16 h-16 border-4 border-gray-900">
+                    <Avatar className="w-16 h-16 border-4 border-background">
                       <AvatarImage src={profileImage} alt={displayName} />
                       <AvatarFallback className="bg-indigo-600 text-white text-sm">
                         {displayName.slice(0, 2).toUpperCase()}

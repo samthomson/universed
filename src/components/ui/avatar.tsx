@@ -33,7 +33,7 @@ export function ProfileAvatar({ pubkey, size, className, shape = "circle" }: Pro
     <div className={cn(
       "relative overflow-hidden", // Add overflow-hidden to prevent edge artifacts
       shapeClasses[shape],
-      "bg-white border-2 border-white dark:border-gray-800", // Simplified border styling
+      "bg-background border-2 border-background", // Theme-aware border styling
       sizeClasses[size],
       className
     )}>

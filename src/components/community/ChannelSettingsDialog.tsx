@@ -262,8 +262,7 @@ export function ChannelSettingsDialog({
       <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {type === 'text' ? <Hash className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-            {channel.name} Settings
+            {type === 'text' ? <Hash className="w-5 h-5" /> : <><Volume2 className="w-5 h-5" />&nbsp;</>}{channel.name} Settings
           </DialogTitle>
           <DialogDescription>
             Manage channel settings, permissions, and organization.
@@ -362,9 +361,11 @@ export function ChannelSettingsDialog({
                 </p>
               </div>
 
-              <Button onClick={handleUpdateGeneral} disabled={isSubmitting} className="w-full">
-                {isSubmitting ? 'Updating...' : 'Update Channel'}
-              </Button>
+              <div className="flex justify-end">
+                <Button onClick={handleUpdateGeneral} disabled={isSubmitting}>
+                  {isSubmitting ? 'Updating...' : 'Update Channel'}
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="permissions" className="space-y-4">
@@ -496,9 +497,11 @@ export function ChannelSettingsDialog({
                   </>
                 )}
 
-                <Button onClick={handleUpdatePermissions} disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'Updating...' : 'Update Permissions'}
-                </Button>
+                <div className="flex justify-end">
+                  <Button onClick={handleUpdatePermissions} disabled={isSubmitting}>
+                    {isSubmitting ? 'Updating...' : 'Update Permissions'}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
 

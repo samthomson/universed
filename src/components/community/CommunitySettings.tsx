@@ -328,95 +328,93 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] bg-gradient-to-br from-gray-950 via-blue-950/30 to-gray-950 border-blue-900/30 backdrop-blur-xl shadow-2xl shadow-blue-900/10 rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-white flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-blue-600/20 to-blue-800/20 rounded-full border border-blue-700/30">
-              <Settings className="w-5 h-5 text-blue-400" />
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 bg-white dark:bg-gray-900">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle className="text-xl font-semibold flex items-center gap-3">
+            <div className="p-3 bg-primary/10 rounded-full border">
+              <Settings className="w-5 h-5 text-gray-700 dark:text-primary" />
             </div>
             {community.name} Settings
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="h-14 grid w-full grid-cols-3 bg-gray-900/50 border border-blue-900/20 p-1 backdrop-blur-sm rounded-full">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
-                <Settings className="w-4 h-4 text-blue-400" />
+          <div className="px-6">
+            <TabsList className="h-16 grid w-full grid-cols-3 bg-muted/50 p-2 rounded-full">
+            <TabsTrigger value="overview" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Settings className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Overview
             </TabsTrigger>
-            <TabsTrigger value="members" className="text-xs sm:text-sm flex items-center gap-2 relative data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
-                <Users className="w-4 h-4 text-blue-400" />
+            <TabsTrigger value="members" className="h-12 text-xs sm:text-sm flex items-center gap-3 relative rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Users className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Members
               {pendingRequests > 0 && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-600/80 border-red-500/50 backdrop-blur-sm">
+                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
                   {pendingRequests}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="audit" className="text-xs sm:text-sm flex items-center gap-2 data-[state=active]:bg-blue-600/15 data-[state=active]:text-blue-300 data-[state=active]:border-blue-600/30 rounded-full">
-              <div className="p-1 sm:p-2 bg-blue-600/10 rounded-full border border-blue-700/20">
-                <FileText className="w-4 h-4 text-blue-400" />
+            <TabsTrigger value="audit" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="w-4 h-4 text-gray-700 dark:text-primary" />
               </div>
               Audit
             </TabsTrigger>
-          </TabsList>
+            </TabsList>
+          </div>
 
-          <ScrollArea className="h-[60vh] mt-4">
-            <TabsContent value="overview" className="space-y-4">
+          <ScrollArea className="h-[60vh] px-6">
+            <TabsContent value="overview" className="space-y-4 mt-4">
               {/* Community Overview */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
-                      <Settings className="w-4 h-4 text-blue-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <Settings className="w-5 h-5" />
                     Community Overview
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-gradient-to-br from-blue-600/10 to-blue-800/10 rounded-2xl border border-blue-700/20 backdrop-blur-sm">
-                      <div className="text-2xl font-bold text-blue-300">{totalMembers}</div>
-                      <div className="text-xs sm:text-sm text-blue-200/70">Total Members</div>
+                    <div className="text-center p-4 bg-primary/5 rounded-lg border">
+                      <div className="text-2xl font-bold text-gray-600 dark:text-primary">{totalMembers}</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Total Members</div>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-amber-600/10 to-amber-800/10 rounded-2xl border border-amber-700/20 backdrop-blur-sm">
-                      <div className="text-2xl font-bold text-amber-300">{pendingRequests}</div>
-                      <div className="text-xs sm:text-sm text-amber-200/70">Pending Requests</div>
+                    <div className="text-center p-4 bg-yellow-500/5 rounded-lg border border-yellow-500/20">
+                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendingRequests}</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Pending Requests</div>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-red-600/10 to-red-800/10 rounded-2xl border border-red-700/20 backdrop-blur-sm">
-                      <div className="text-2xl font-bold text-red-300">{totalReports}</div>
-                      <div className="text-xs sm:text-sm text-red-200/70">Reports</div>
+                    <div className="text-center p-4 bg-red-500/5 rounded-lg border border-red-500/20">
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">{totalReports}</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-muted-foreground">Reports</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Community Information */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
-                      <Settings className="w-4 h-4 text-blue-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <Settings className="w-5 h-5" />
                     Community Information
                   </CardTitle>
-                  <CardDescription className="text-blue-200/60">
+                  <CardDescription>
                     Basic settings for your community
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Community Icon */}
                   <div className="space-y-2">
-                    <Label className="text-blue-200/80">Community Icon</Label>
+                    <Label>Community Icon</Label>
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <Avatar className="w-16 h-16 ring-2 ring-blue-600/30 shadow-lg shadow-blue-600/10 rounded-full">
+                        <Avatar className="w-16 h-16">
                           <AvatarImage src={imagePreview || formData.image || community.image} />
-                          <AvatarFallback className="text-lg bg-gradient-to-br from-blue-600 to-blue-800 rounded-full">
+                          <AvatarFallback className="text-lg">
                             {community.name.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -428,7 +426,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                           size="sm"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={isUploading || !isAdmin}
-                          className="flex items-center gap-2 border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
+                          className="flex items-center gap-2"
                         >
                           <Upload className="w-4 h-4" />
                           {isUploading ? "Uploading..." : "Upload Icon"}
@@ -439,7 +437,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                             variant="outline"
                             size="sm"
                             onClick={removeImage}
-                            className="flex items-center gap-2 border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
+                            className="flex items-center gap-2"
                           >
                             <X className="w-4 h-4" />
                             Remove
@@ -454,26 +452,25 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-blue-200/50">
+                    <p className="text-xs text-muted-foreground">
                       Upload a square image (recommended: 256x256px, max 5MB). Only admins can change the community icon.
                     </p>
                   </div>
 
                   {/* Community Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="community-name" className="text-blue-200/80">Community Name</Label>
+                    <Label htmlFor="community-name">Community Name</Label>
                     <Input
                       id="community-name"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       disabled={!isAdmin}
-                      className="bg-gray-900/60 border-blue-900/30 text-blue-100 placeholder-blue-200/30 focus:border-blue-600/50 rounded-full"
                     />
                   </div>
 
                   {/* Description */}
                   <div className="space-y-2">
-                    <Label htmlFor="community-description" className="text-blue-200/80">Description</Label>
+                    <Label htmlFor="community-description">Description</Label>
                     <Textarea
                       id="community-description"
                       placeholder="Describe your community..."
@@ -481,15 +478,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                       onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       disabled={!isAdmin}
                       rows={3}
-                      className="bg-gray-900/60 border-blue-900/30 text-blue-100 placeholder-blue-200/30 focus:border-blue-600/50 rounded-2xl"
                     />
                   </div>
 
                   {/* Approval Setting */}
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-br from-blue-600/5 to-blue-800/5 rounded-2xl border border-blue-700/20 backdrop-blur-sm">
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
                     <div className="space-y-1">
-                      <Label htmlFor="require-approval" className="text-blue-200/80">Require approval to join</Label>
-                      <p className="text-sm text-blue-200/60">
+                      <Label htmlFor="require-approval">Require approval to join</Label>
+                      <p className="text-sm text-muted-foreground">
                         When enabled, new members need approval to join
                       </p>
                     </div>
@@ -503,11 +499,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
                   {/* Save Button */}
                   {isAdmin && (
-                    <div className="pt-4">
+                    <div className="pt-4 flex justify-end">
                       <Button
                         onClick={handleSaveChanges}
                         disabled={isUploading}
-                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-xl shadow-blue-600/20 border border-blue-600/30 rounded-full"
                       >
                         {isUploading ? "Saving..." : "Save Changes"}
                       </Button>
@@ -517,12 +512,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               </Card>
 
               {/* Sharing Section */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
-                      <Share2 className="w-4 h-4 text-blue-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <Share2 className="w-5 h-5" />
                     Share Community
                   </CardTitle>
                 </CardHeader>
@@ -533,26 +526,25 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
               {/* Danger Zone */}
               {isAdmin && (
-                <Card className="bg-red-900/10 border-red-700/30 backdrop-blur-sm rounded-2xl">
+                <Card className="border-destructive/50">
                   <CardHeader>
-                    <CardTitle className="text-lg sm:text-2xl text-red-400 flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
+                    <CardTitle className="text-lg sm:text-2xl text-destructive flex items-center gap-3">
+                      <AlertTriangle className="w-5 h-5" />
                       Danger Zone
                     </CardTitle>
-                    <CardDescription className="text-red-300/80">
+                    <CardDescription>
                       Irreversible actions for this community
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-xl shadow-red-600/20 border border-red-600/30 rounded-full">
-                          <Trash2 className="w-4 h-4" />
-                          Delete Community
-                        </Button>
-                      </AlertDialogTrigger>
+                    <div className="flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="flex items-center gap-2">
+                            <Trash2 className="w-4 h-4" />
+                            Delete Community
+                          </Button>
+                        </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -564,28 +556,27 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700"
+                            className="bg-destructive hover:bg-destructive/90"
                             onClick={handleDeleteCommunity}
                           >
                             Delete Community
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
-                    </AlertDialog>
+                      </AlertDialog>
+                    </div>
                   </CardContent>
                 </Card>
               )}
             </TabsContent>
 
-            <TabsContent value="members" className="space-y-4">
+            <TabsContent value="members" className="space-y-4 mt-4">
               {/* Join Requests */}
               {pendingRequests > 0 && (
-                <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+                <Card className="bg-gray-50 dark:bg-gray-800">
                   <CardHeader>
-                    <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-br from-amber-600/15 to-amber-800/15 rounded-full border border-amber-700/25">
-                        <Clock className="w-4 h-4 text-amber-400" />
-                      </div>
+                    <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                      <Clock className="w-5 h-5" />
                       Pending Join Requests ({pendingRequests})
                     </CardTitle>
                   </CardHeader>
@@ -607,15 +598,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
               )}
 
               {/* Member Management */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
-                      <Users className="w-4 h-4 text-blue-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <Users className="w-5 h-5" />
                     Member Management
                   </CardTitle>
-                  <CardDescription className="text-blue-200/60">
+                  <CardDescription>
                     Manage community members and their roles
                   </CardDescription>
                 </CardHeader>
@@ -626,32 +615,32 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <MemberItem key={member.pubkey} member={member} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-blue-200/40">
+                      <div className="text-center py-6 text-muted-foreground">
                         <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>No members found</p>
                       </div>
                     )}
                     {members && members.length > 10 && (
-                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
-                        View All {members.length} Members
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {members.length} Members
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="audit" className="space-y-4">
+            <TabsContent value="audit" className="space-y-4 mt-4">
               {/* Reports */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-red-600/15 to-red-800/15 rounded-full border border-red-700/25">
-                      <Shield className="w-4 h-4 text-red-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <Shield className="w-5 h-5" />
                     Moderation Queue ({totalReports})
                   </CardTitle>
-                  <CardDescription className="text-blue-200/60">
+                  <CardDescription>
                     Review flagged content and user reports
                   </CardDescription>
                 </CardHeader>
@@ -662,30 +651,30 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <ReportItem key={report.id} report={report} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-blue-200/40">
+                      <div className="text-center py-6 text-muted-foreground">
                         <Shield className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>No pending reports</p>
                       </div>
                     )}
                     {reports && reports.length > 5 && (
-                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
-                        View All {reports.length} Reports
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {reports.length} Reports
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
               {/* Audit Log */}
-              <Card className="bg-gray-900/40 border-blue-900/20 backdrop-blur-sm rounded-2xl">
+              <Card className="bg-gray-50 dark:bg-gray-800">
                 <CardHeader>
-                  <CardTitle className="text-lg sm:text-2xl text-white flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-600/15 to-blue-800/15 rounded-full border border-blue-700/25">
-                      <FileText className="w-4 h-4 text-blue-400" />
-                    </div>
+                  <CardTitle className="text-lg sm:text-2xl flex items-center gap-3">
+                    <FileText className="w-5 h-5" />
                     Audit Log
                   </CardTitle>
-                  <CardDescription className="text-blue-200/60">
+                  <CardDescription>
                     Recent moderation and administrative actions
                   </CardDescription>
                 </CardHeader>
@@ -696,15 +685,17 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                         <ModerationLogItem key={log.id} log={log} />
                       ))
                     ) : (
-                      <div className="text-center py-6 text-blue-200/40">
+                      <div className="text-center py-6 text-muted-foreground">
                         <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>No moderation actions recorded</p>
                       </div>
                     )}
                     {moderationLogs && moderationLogs.length > 10 && (
-                      <Button variant="outline" className="w-full border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">
-                        View All {moderationLogs.length} Actions
-                      </Button>
+                      <div className="flex justify-end pt-2">
+                        <Button variant="outline">
+                          View All {moderationLogs.length} Actions
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -712,11 +703,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             </TabsContent>
           </ScrollArea>
 
-          <div className="flex justify-end pt-4 border-t border-blue-900/20">
+          <div className="flex justify-end pt-4 px-6 pb-6 border-t border-border">
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              className="border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full"
             >
               Close
             </Button>
@@ -750,70 +740,70 @@ function ReportItem({ report }: { report: { targetPubkey: string; reporterPubkey
   const timeAgo = new Date(report.createdAt * 1000).toLocaleString();
 
   return (
-    <div className="p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
+    <div className="p-3 border rounded-lg bg-card">
       <div className="space-y-3">
         {/* Reported User */}
         <div className="space-y-1">
-          <div className="font-medium flex items-center gap-2 text-blue-100">
-            <span className="text-red-400">Reported User:</span>
+          <div className="font-medium flex items-center gap-2">
+            <span className="text-destructive">Reported User:</span>
             {targetDisplayName}
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-blue-200/60 hover:text-blue-100 rounded-full"
+              className="h-6 w-6"
               onClick={() => handleCopyNpub(targetNpub, 'Target user')}
               title="Copy target user npub"
             >
               <Copy className="h-3 w-3" />
             </Button>
           </div>
-          <div className="text-xs text-blue-200/50 font-mono break-all">
+          <div className="text-xs text-muted-foreground font-mono break-all">
             {targetNpub}
           </div>
         </div>
 
         {/* Reporting User */}
         <div className="space-y-1">
-          <div className="text-sm text-blue-200/60 flex items-center gap-2">
-            <span className="text-blue-400">Reported by:</span>
+          <div className="text-sm text-muted-foreground flex items-center gap-2">
+            <span>Reported by:</span>
             {reporterDisplayName}
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 text-blue-200/60 hover:text-blue-100 rounded-full"
+              className="h-5 w-5"
               onClick={() => handleCopyNpub(reporterNpub, 'Reporter')}
               title="Copy reporter npub"
             >
               <Copy className="h-3 w-3" />
             </Button>
           </div>
-          <div className="text-xs text-blue-200/50 font-mono break-all">
+          <div className="text-xs text-muted-foreground font-mono break-all">
             {reporterNpub}
           </div>
         </div>
 
         {/* Report Details */}
         <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-400" />
-          <p className="text-sm font-medium text-blue-100">
+          <AlertTriangle className="w-4 h-4 text-yellow-500" />
+          <p className="text-sm font-medium">
             {report.targetEventId ? 'Content reported' : 'User reported'}
           </p>
-          <Badge variant="outline" className="text-xs border-blue-900/30 text-blue-200/80 bg-gray-900/60 rounded-full">
+          <Badge variant="outline" className="text-xs">
             {report.reportType}
           </Badge>
         </div>
 
-        <p className="text-xs text-blue-200/50">
+        <p className="text-xs text-muted-foreground">
           {timeAgo}
         </p>
 
         {report.reason && (
-          <p className="text-xs text-blue-200/50 italic">"{report.reason}"</p>
+          <p className="text-xs text-muted-foreground italic">"{report.reason}"</p>
         )}
       </div>
 
       <div className="flex gap-2 mt-3">
-        <Button size="sm" variant="destructive" className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/20 border border-red-600/30 rounded-full">
+        <Button size="sm" variant="destructive">
           {report.targetEventId ? 'Delete Content' : 'Ban User'}
         </Button>
       </div>
@@ -835,13 +825,13 @@ function ModerationLogItem({ log }: { log: { action: string; moderatorPubkey: st
     switch (log.action) {
       case 'ban':
       case 'mute':
-        return <Shield className="w-4 h-4 mt-1 text-red-400" />;
+        return <Shield className="w-4 h-4 mt-1 text-destructive" />;
       case 'delete':
-        return <Trash2 className="w-4 h-4 mt-1 text-red-400" />;
+        return <Trash2 className="w-4 h-4 mt-1 text-destructive" />;
       case 'approve':
-        return <Shield className="w-4 h-4 mt-1 text-green-400" />;
+        return <Shield className="w-4 h-4 mt-1 text-green-500" />;
       default:
-        return <FileText className="w-4 h-4 mt-1 text-blue-400" />;
+        return <FileText className="w-4 h-4 mt-1" />;
     }
   };
 
@@ -854,16 +844,16 @@ function ModerationLogItem({ log }: { log: { action: string; moderatorPubkey: st
   };
 
   return (
-    <div className="flex items-start gap-3 p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
-      <div className="p-2 bg-gradient-to-br from-blue-600/10 to-blue-800/10 rounded-full border border-blue-700/20">
+    <div className="flex items-start gap-3 p-3 border rounded-lg bg-card">
+      <div className="p-2 bg-muted rounded-full">
         {getActionIcon()}
       </div>
       <div className="flex-1">
-        <p className="text-sm font-medium text-blue-100">{getActionDescription()}</p>
+        <p className="text-sm font-medium">{getActionDescription()}</p>
         {log.reason && (
-          <p className="text-xs text-blue-200/60">Reason: {log.reason}</p>
+          <p className="text-xs text-muted-foreground">Reason: {log.reason}</p>
         )}
-        <p className="text-xs text-blue-200/50">{timeAgo}</p>
+        <p className="text-xs text-muted-foreground">{timeAgo}</p>
       </div>
     </div>
   );
@@ -967,7 +957,7 @@ function CommunityShareContent({ community }: { community: Community }) {
     <Button
       variant="outline"
       size="sm"
-      className={`${className} border-gray-600 text-gray-300 hover:bg-gray-700`}
+      className={className}
       onClick={() => copyToClipboard(text, field)}
     >
       {copiedField === field ? (
@@ -983,8 +973,8 @@ function CommunityShareContent({ community }: { community: Community }) {
       {/* Join Link */}
       <div className="space-y-3">
         <div>
-          <Label className="text-gray-200">Join Link</Label>
-          <p className="text-sm text-gray-400 mb-2">
+          <Label>Join Link</Label>
+          <p className="text-sm text-muted-foreground mb-2">
             Direct link for people to request to join your community
           </p>
         </div>
@@ -992,7 +982,7 @@ function CommunityShareContent({ community }: { community: Community }) {
           <Input
             value={joinUrl}
             readOnly
-            className="font-mono text-sm bg-gray-700 border-gray-600 text-gray-100"
+            className="font-mono text-sm"
           />
           <CopyButton text={joinUrl} field="join-url" />
         </div>
@@ -1001,8 +991,8 @@ function CommunityShareContent({ community }: { community: Community }) {
       {/* Nostr Address */}
       <div className="space-y-3">
         <div>
-          <Label className="text-gray-200">Nostr Address (naddr)</Label>
-          <p className="text-sm text-gray-400 mb-2">
+          <Label>Nostr Address (naddr)</Label>
+          <p className="text-sm text-muted-foreground mb-2">
             Technical identifier for Nostr clients and developers
           </p>
         </div>
@@ -1010,7 +1000,7 @@ function CommunityShareContent({ community }: { community: Community }) {
           <Input
             value={naddr}
             readOnly
-            className="font-mono text-sm bg-gray-700 border-gray-600 text-gray-100"
+            className="font-mono text-sm"
           />
           <CopyButton text={naddr} field="naddr" />
         </div>
@@ -1019,18 +1009,18 @@ function CommunityShareContent({ community }: { community: Community }) {
       {/* QR Code Section */}
       <div className="space-y-4">
         <div className="text-center">
-          <h3 className="text-lg font-medium text-white mb-2 flex items-center justify-center gap-2">
+          <h3 className="text-lg font-medium mb-2 flex items-center justify-center gap-2">
             <QrCode className="h-5 w-5" />
             QR Code
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Scan this QR code to join the community
           </p>
         </div>
         <div className="flex justify-center">
-          <div className="p-3 bg-white rounded-lg border border-gray-600">
+          <div className="p-3 bg-white rounded-lg border">
             {isGeneratingQR ? (
-              <div className="w-64 h-64 bg-gray-200 animate-pulse rounded" />
+              <div className="w-64 h-64 bg-muted animate-pulse rounded" />
             ) : qrCodeDataUrl ? (
               <img
                 src={qrCodeDataUrl}
@@ -1038,7 +1028,7 @@ function CommunityShareContent({ community }: { community: Community }) {
                 className="w-64 h-64"
               />
             ) : (
-              <div className="w-64 h-64 flex items-center justify-center text-gray-500">
+              <div className="w-64 h-64 flex items-center justify-center text-muted-foreground">
                 Failed to generate QR code
               </div>
             )}
@@ -1050,7 +1040,7 @@ function CommunityShareContent({ community }: { community: Community }) {
               variant="outline"
               size="sm"
               onClick={downloadQRCode}
-              className="flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
               Download QR Code
@@ -1085,22 +1075,19 @@ function JoinRequestItem({
   const timeAgo = new Date(request.createdAt * 1000).toLocaleString();
 
   return (
-    <div className="flex items-center justify-between p-3 bg-gray-900/60 border border-blue-900/20 rounded-2xl backdrop-blur-sm">
+    <div className="flex items-center justify-between p-3 bg-card border rounded-lg">
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center text-white text-sm font-medium ring-2 ring-blue-600/30 shadow-lg shadow-blue-600/10">
-            {avatar ? (
-              <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
-            ) : (
-              displayName.charAt(0).toUpperCase()
-            )}
-          </div>
-        </div>
+        <Avatar className="w-8 h-8">
+          <AvatarImage src={avatar} alt={displayName} />
+          <AvatarFallback>
+            {displayName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
         <div>
-          <p className="font-medium text-blue-100">{displayName}</p>
-          <p className="text-sm text-blue-200/60">Requested {timeAgo}</p>
+          <p className="font-medium">{displayName}</p>
+          <p className="text-sm text-muted-foreground">Requested {timeAgo}</p>
           {request.message && (
-            <p className="text-xs text-blue-200/50 mt-1 italic">"{request.message}"</p>
+            <p className="text-xs text-muted-foreground mt-1 italic">"{request.message}"</p>
           )}
         </div>
       </div>
@@ -1110,7 +1097,7 @@ function JoinRequestItem({
           variant="outline"
           onClick={onApprove}
           disabled={isApproving || isDeclining}
-          className="border-green-600/30 text-green-300/80 hover:bg-green-600/10 bg-green-600/5 rounded-full"
+          className="border-green-500/50 text-green-600 hover:bg-green-500/10"
         >
           {isApproving ? "Approving..." : "Accept"}
         </Button>
@@ -1119,7 +1106,6 @@ function JoinRequestItem({
           variant="destructive"
           onClick={onDecline}
           disabled={isApproving || isDeclining}
-          className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white shadow-lg shadow-red-600/20 border border-red-600/30 rounded-full"
         >
           {isDeclining ? "Declining..." : "Decline"}
         </Button>
@@ -1134,56 +1120,44 @@ function MemberItem({ member }: { member: { pubkey: string; role: 'owner' | 'mod
   const displayName = author.data?.metadata?.name || genUserName(member.pubkey);
   const avatar = author.data?.metadata?.picture;
 
+
+
   const getRoleIcon = () => {
     switch (member.role) {
       case 'owner':
-        return <Crown className="w-3 h-3 text-amber-300" />;
+        return <Crown className="w-3 h-3 text-yellow-500" />;
       case 'moderator':
-        return <Shield className="w-3 h-3 text-blue-300" />;
+        return <Shield className="w-3 h-3 text-primary" />;
       default:
         return null;
     }
   };
 
-  const getRoleColor = () => {
-    switch (member.role) {
-      case 'owner':
-        return 'from-amber-600 to-amber-800 ring-amber-600/30 shadow-lg shadow-amber-600/10';
-      case 'moderator':
-        return 'from-blue-600 to-blue-800 ring-blue-600/30 shadow-lg shadow-blue-600/10';
-      default:
-        return 'from-gray-600 to-gray-800 ring-gray-600/30 shadow-lg shadow-gray-600/10';
-    }
-  };
-
   return (
-    <div className="flex items-center justify-between p-3 border rounded-2xl bg-gray-900/60 border-blue-900/20 backdrop-blur-sm">
+    <div className="flex items-center justify-between p-3 border rounded-lg bg-card">
       <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className={`w-8 h-8 bg-gradient-to-br ${getRoleColor()} rounded-full flex items-center justify-center text-white text-sm font-medium ring-2`}>
-            {avatar ? (
-              <img src={avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover" />
-            ) : (
-              displayName.charAt(0).toUpperCase()
-            )}
-          </div>
-        </div>
+        <Avatar className="w-8 h-8">
+          <AvatarImage src={avatar} alt={displayName} />
+          <AvatarFallback>
+            {displayName.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-medium text-blue-100">{displayName}</p>
+            <p className="font-medium">{displayName}</p>
             {member.isOnline && (
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/30" title="Online" />
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Online" />
             )}
           </div>
           <div className="flex gap-1">
-            <Badge variant={member.role === 'owner' ? 'secondary' : 'outline'} className="flex items-center gap-1 bg-gray-900/60 border-blue-900/20 text-blue-200/80 rounded-full">
+            <Badge variant={member.role === 'owner' ? 'secondary' : 'outline'} className="flex items-center gap-1">
               {getRoleIcon()}
               {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
             </Badge>
           </div>
         </div>
       </div>
-      <Button size="sm" variant="outline" className="border-blue-900/30 text-blue-200/80 hover:bg-blue-600/10 rounded-full">Manage</Button>
+      <Button size="sm" variant="outline">Manage</Button>
     </div>
   );
 }

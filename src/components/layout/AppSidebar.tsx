@@ -125,11 +125,11 @@ function SortableCommunityItem({
   // Generate button classes based on state
   const buttonClasses = useMemo(() => cn(
     // Base styles
-    "w-12 h-12 rounded-2xl hover:bg-gray-800/60",
+    "w-12 h-12 rounded-2xl hover:bg-accent",
     "transition-all duration-100 relative z-10", // Faster transitions for better drag feel
     // State-dependent styles
     {
-      "bg-gray-900/80": isSelected,
+      "bg-accent": isSelected,
       "animate-rocket-launch": isLaunching,
       "shadow-lg shadow-purple-500/20": isLaunching,
       "animate-rocket-landing": isLanding,
@@ -192,12 +192,12 @@ function SortableCommunityItem({
               {community.image ? (
                 <Avatar className="w-10 h-10 rounded-xl">
                   <AvatarImage src={community.image} alt={community.name} className="rounded-xl" />
-                  <AvatarFallback className="w-10 h-10 rounded-xl bg-indigo-600 text-white font-semibold text-sm">
+                  <AvatarFallback className="w-10 h-10 rounded-xl bg-nostr-purple text-nostr-purple-foreground font-semibold text-sm">
                     {community.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ) : (
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
+                <div className="w-10 h-10 bg-nostr-purple rounded-xl flex items-center justify-center text-nostr-purple-foreground font-semibold text-sm">
                   {community.name.slice(0, 2).toUpperCase()}
                 </div>
               )}
@@ -443,8 +443,8 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-gray-800/60 transition-all duration-200 ${
-                  selectedCommunity === null ? 'bg-gray-900/80' : ''
+                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200 ${
+                  selectedCommunity === null ? 'bg-accent' : ''
                 }`}
                 onClick={() => onSelectCommunity(null)}
               >
@@ -457,7 +457,7 @@ export function AppSidebar({
           </Tooltip>
 
           {/* Separator */}
-          <div className="w-8 h-0.5 bg-gray-600 rounded-full" />
+          <div className="w-8 h-0.5 bg-border rounded-full" />
         </div>
 
         {/* Scrollable communities section */}
@@ -488,7 +488,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-gray-600 hover:border-purple-500 text-purple-500"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-border hover:border-nostr-purple text-nostr-purple"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
@@ -511,7 +511,7 @@ export function AppSidebar({
                   <div className="relative">
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={metadata?.picture} alt={metadata?.name || genUserName(user.pubkey)} />
-                      <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                      <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
                         {(metadata?.name || genUserName(user.pubkey)).slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

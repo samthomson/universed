@@ -19,6 +19,8 @@ import { MarketplaceProvider } from '@/contexts/MarketplaceContext.tsx';
 import { QueryOptimizer } from '@/components/QueryOptimizer';
 import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
+import { SettingsProvider } from '@/contexts/settings.tsx';
+import { SettingsDialog } from '@/components/user/SettingsDialog';
 
 import AppRouter from './AppRouter';
 
@@ -74,16 +76,19 @@ function AppContent() {
   useFaviconBadge(unreadCount);
 
   return (
-    <MessageSystemProvider>
-      <TooltipProvider>
-        <QueryOptimizer />
-        <Toaster />
-        <Sonner />
-        <Suspense>
-          <AppRouter />
-        </Suspense>
-      </TooltipProvider>
-    </MessageSystemProvider>
+    <SettingsProvider>
+      <MessageSystemProvider>
+        <TooltipProvider>
+          <QueryOptimizer />
+          <Toaster />
+          <Sonner />
+          <Suspense>
+            <AppRouter />
+          </Suspense>
+          <SettingsDialog />
+        </TooltipProvider>
+      </MessageSystemProvider>
+    </SettingsProvider>
   );
 }
 

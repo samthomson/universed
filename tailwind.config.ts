@@ -29,6 +29,10 @@ export default {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				blueviolet: '#8A2BE2',
+				'nostr-purple': {
+					DEFAULT: 'hsl(var(--nostr-purple))',
+					foreground: 'hsl(var(--nostr-purple-foreground))'
+				},
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))'

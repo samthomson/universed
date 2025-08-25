@@ -127,11 +127,11 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
 
       // Add a highlight animation
       const element = highlightedItemRef.current;
-      element.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-75');
+      element.classList.add('ring-2', 'ring-nostr-purple', 'ring-opacity-75');
 
       // Remove the highlight after 3 seconds
       const timer = setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-75');
+        element.classList.remove('ring-2', 'ring-nostr-purple', 'ring-opacity-75');
         clearHighlight();
       }, 3000);
 
@@ -251,25 +251,25 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
 
   if (isLoading) {
     return (
-      <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
-        <div className="border-b border-gray-700 p-4 flex-shrink-0">
+      <div className="flex-1 bg-background text-foreground flex flex-col h-full">
+        <div className="border-b border-border p-4 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <Skeleton className="h-8 w-48 bg-gray-700" />
-            <Skeleton className="h-10 w-32 bg-gray-700" />
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-10 w-32" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto spaces-scroll">
           <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <Card key={i} className="bg-gray-750 border-gray-600">
+                <Card key={i} className="bg-card border-border">
                   <CardHeader className="p-0">
-                    <Skeleton className="aspect-square w-full bg-gray-600" />
+                    <Skeleton className="aspect-square w-full" />
                   </CardHeader>
                   <CardContent className="p-3 space-y-2">
-                    <Skeleton className="h-4 w-3/4 bg-gray-600" />
-                    <Skeleton className="h-3 w-1/2 bg-gray-600" />
-                    <Skeleton className="h-5 w-1/3 bg-gray-600" />
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-5 w-1/3" />
                   </CardContent>
                 </Card>
               ))}
@@ -281,15 +281,15 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
   }
 
   return (
-    <div className="flex-1 bg-gray-800 text-gray-100 flex flex-col h-full">
+    <div className="flex-1 bg-background text-foreground flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-gray-700 p-4 flex-shrink-0">
+      <div className="border-b border-border p-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <ShoppingBag className="w-6 h-6 text-blue-400" />
+            <ShoppingBag className="w-6 h-6 text-nostr-purple" />
             <div>
-              <h1 className="text-xl font-semibold text-white">Marketplace</h1>
-              <p className="text-sm text-gray-400">
+              <h1 className="text-xl font-semibold text-foreground">Marketplace</h1>
+              <p className="text-sm text-muted-foreground">
                 Community marketplace for Bitcoin, Lightning, and Cashu
               </p>
             </div>
@@ -308,19 +308,19 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Search marketplace..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500"
+              className="pl-10 bg-input border-border text-foreground placeholder-muted-foreground focus:border-nostr-purple"
             />
           </div>
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+            <SelectTrigger className="w-48 bg-input border-border text-foreground">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-700 border-gray-600">
+            <SelectContent className="bg-popover border-border">
               <SelectItem value="all">All Categories</SelectItem>
               {categories.map(category => (
                 <SelectItem key={category} value={category}>
@@ -330,30 +330,38 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-48 bg-gray-700 border-gray-600 text-gray-100">
+            <SelectTrigger className="w-48 bg-input border-border text-foreground">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
-            <SelectContent className="bg-gray-700 border-gray-600">
+            <SelectContent className="bg-popover border-border">
               <SelectItem value="newest">Newest First</SelectItem>
               <SelectItem value="oldest">Oldest First</SelectItem>
               <SelectItem value="price-low">Price: Low to High</SelectItem>
               <SelectItem value="price-high">Price: High to Low</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex border border-gray-600 rounded-md">
+          <div className="flex border border-border rounded-md overflow-hidden">
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('grid')}
-              className={`rounded-r-none ${viewMode === 'grid' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'}`}
+              className={`rounded-none border-r border-border ${
+                viewMode === 'grid' 
+                  ? 'bg-nostr-purple/20 text-nostr-purple hover:bg-nostr-purple/30' 
+                  : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+              }`}
             >
               <Grid3X3 className="w-4 h-4" />
             </Button>
             <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              variant="ghost"
               size="sm"
               onClick={() => setViewMode('list')}
-              className={`rounded-l-none ${viewMode === 'list' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-600'}`}
+              className={`rounded-none ${
+                viewMode === 'list' 
+                  ? 'bg-nostr-purple/20 text-nostr-purple hover:bg-nostr-purple/30' 
+                  : 'hover:bg-accent text-muted-foreground hover:text-foreground'
+              }`}
             >
               <List className="w-4 h-4" />
             </Button>
@@ -363,11 +371,11 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
         {/* Results */}
         {items && items.length === 0 ? (
           membershipStatus && ['owner', 'moderator', 'approved'].includes(membershipStatus) ? (
-            <Card className="border-dashed border-gray-600 bg-gray-750">
+            <Card className="border-dashed border-border bg-card">
               <CardContent className="py-12 px-8 text-center">
-                <ShoppingBag className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2 text-gray-200">No items found</h3>
-                <p className="text-gray-400 mb-4">
+                <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2 text-foreground">No items found</h3>
+                <p className="text-muted-foreground mb-4">
                   {searchQuery || selectedCategory !== 'all'
                     ? 'Try adjusting your search or filters'
                     : 'Be the first to list an item in this community marketplace!'
@@ -377,7 +385,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
                   <CreateMarketplaceItemDialog
                     communityId={communityId}
                     trigger={
-                      <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Button className="bg-nostr-purple hover:bg-nostr-purple/80 text-nostr-purple-foreground">
                         <Plus className="w-4 h-4 mr-2" />
                         List First Community Item
                       </Button>
@@ -395,7 +403,7 @@ export function MarketplaceSpace({ communityId, onNavigateToDMs }: MarketplaceSp
                   description: "Join requests will be available soon. Please contact a community moderator.",
                 });
               }}
-              className="border-dashed border-gray-600 bg-gray-750"
+              className="border-dashed border-border bg-card"
             />
           )
         ) : (
@@ -486,10 +494,10 @@ function MarketplaceItemCard({
 
   if (viewMode === 'list') {
     return (
-      <Card className={`bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-blue-500 ring-opacity-75' : ''}`}>
+      <Card className={`bg-card border-border hover:bg-accent/50 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-nostr-purple ring-opacity-75' : ''}`}>
         <CardContent className="p-4">
           <div className="flex space-x-4">
-            <div className="w-20 h-20 bg-gray-600 rounded-lg flex items-center justify-center">
+            <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center">
               {item.images.length > 0 ? (
                 <img
                   src={item.images[0]}
@@ -497,14 +505,14 @@ function MarketplaceItemCard({
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                <ShoppingBag className="w-6 h-6 text-gray-400" />
+                <ShoppingBag className="w-6 h-6 text-muted-foreground" />
               )}
             </div>
             <div className="flex-1 space-y-2">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-100">{item.name}</h3>
-                  <p className="text-gray-400 text-sm line-clamp-2">
+                  <h3 className="font-semibold text-card-foreground">{item.name}</h3>
+                  <p className="text-muted-foreground text-sm line-clamp-2">
                     {item.description}
                   </p>
                 </div>
@@ -513,14 +521,14 @@ function MarketplaceItemCard({
                     {getCurrencyIcon(item.currency)}
                     <span>{formatPrice(item.price, item.currency)}</span>
                   </div>
-                  <Badge variant="secondary" className="mt-1 bg-gray-600 text-gray-200">
+                  <Badge variant="secondary" className="mt-1 bg-muted text-card-foreground">
                     {item.condition}
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-400">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <div className="flex items-center space-x-4">
-                  <Badge variant="outline" className="border-gray-500 text-gray-300">{item.category}</Badge>
+                  <Badge variant="outline" className="border-border text-card-foreground">{item.category}</Badge>
                   {item.location && (
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-3 h-3" />
@@ -536,24 +544,24 @@ function MarketplaceItemCard({
                   <div className="flex items-center space-x-2">
                     <Avatar className="w-6 h-6">
                       <AvatarImage src={profileImage} alt={displayName} />
-                      <AvatarFallback className="bg-indigo-600 text-white text-xs">
+                      <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
                         {displayName.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                      <span className="text-gray-300 text-sm">{displayName}</span>
+                      <span className="text-card-foreground text-sm">{displayName}</span>
                       <div className="flex items-center space-x-1">
-                        <span className="text-xs text-gray-500">{shortNpub}</span>
+                        <span className="text-xs text-muted-foreground">{shortNpub}</span>
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-4 w-4 p-0 hover:bg-gray-600"
+                          className="h-4 w-4 p-0 hover:bg-muted"
                           onClick={handleCopyNpub}
                         >
                           {copiedNpub ? (
                             <Check className="w-3 h-3 text-green-400" />
                           ) : (
-                            <Copy className="w-3 h-3 text-gray-400" />
+                            <Copy className="w-3 h-3 text-muted-foreground" />
                           )}
                         </Button>
                       </div>
@@ -562,7 +570,7 @@ function MarketplaceItemCard({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600"
+                    className="h-7 px-2 text-xs border-border hover:bg-muted"
                     onClick={(e) => {
                       e.stopPropagation();
                       onStartDM(item.seller, item);
@@ -581,9 +589,9 @@ function MarketplaceItemCard({
   }
 
   return (
-    <Card className={`bg-gray-750 border-gray-600 hover:bg-gray-700 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-blue-500 ring-opacity-75' : ''}`}>
+    <Card className={`bg-card border-border hover:bg-accent/50 transition-colors cursor-pointer ${isHighlighted ? 'ring-2 ring-nostr-purple ring-opacity-75' : ''}`}>
       <CardHeader className="p-0">
-        <div className="aspect-square bg-gray-600 rounded-t-lg flex items-center justify-center">
+        <div className="aspect-square bg-muted rounded-t-lg flex items-center justify-center">
           {item.images.length > 0 ? (
             <img
               src={item.images[0]}
@@ -591,14 +599,14 @@ function MarketplaceItemCard({
               className="w-full h-full object-cover rounded-t-lg"
             />
           ) : (
-            <ShoppingBag className="w-12 h-12 text-gray-400" />
+            <ShoppingBag className="w-12 h-12 text-muted-foreground" />
           )}
         </div>
       </CardHeader>
       <CardContent className="p-3 space-y-3">
         <div>
-          <h3 className="font-semibold line-clamp-1 text-gray-100">{item.name}</h3>
-          <p className="text-gray-400 text-sm line-clamp-2">
+          <h3 className="font-semibold line-clamp-1 text-card-foreground">{item.name}</h3>
+          <p className="text-muted-foreground text-sm line-clamp-2">
             {item.description}
           </p>
         </div>
@@ -608,47 +616,47 @@ function MarketplaceItemCard({
             {getCurrencyIcon(item.currency)}
             <span>{formatPrice(item.price, item.currency)}</span>
           </div>
-          <Badge variant="secondary" className="bg-gray-600 text-gray-200">{item.condition}</Badge>
+          <Badge variant="secondary" className="bg-muted text-card-foreground">{item.condition}</Badge>
         </div>
 
         <div className="flex items-center justify-between text-sm">
-          <Badge variant="outline" className="border-gray-500 text-gray-300">{item.category}</Badge>
-          <div className="flex items-center space-x-1 text-gray-400">
+          <Badge variant="outline" className="border-border text-card-foreground">{item.category}</Badge>
+          <div className="flex items-center space-x-1 text-muted-foreground">
             <Clock className="w-3 h-3" />
             <span>{timeAgo}</span>
           </div>
         </div>
 
         {item.location && (
-          <div className="flex items-center space-x-1 text-sm text-gray-400">
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
             <MapPin className="w-3 h-3" />
             <span>{item.location}</span>
           </div>
         )}
 
         {/* Seller Info and DM Button */}
-        <div className="flex items-center justify-between pt-2 border-t border-gray-600">
+        <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex items-center space-x-2 flex-1 min-w-0">
             <Avatar className="w-6 h-6 flex-shrink-0">
               <AvatarImage src={profileImage} alt={displayName} />
-              <AvatarFallback className="bg-indigo-600 text-white text-xs">
+              <AvatarFallback className="bg-nostr-purple text-nostr-purple-foreground text-xs">
                 {displayName.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-gray-300 text-sm truncate">{displayName}</span>
+              <span className="text-card-foreground text-sm truncate">{displayName}</span>
               <div className="flex items-center space-x-1">
-                <span className="text-xs text-gray-500 truncate">{shortNpub}</span>
+                <span className="text-xs text-muted-foreground truncate">{shortNpub}</span>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-4 w-4 p-0 hover:bg-gray-600 flex-shrink-0"
+                  className="h-4 w-4 p-0 hover:bg-muted flex-shrink-0"
                   onClick={handleCopyNpub}
                 >
                   {copiedNpub ? (
                     <Check className="w-3 h-3 text-green-400" />
                   ) : (
-                    <Copy className="w-3 h-3 text-gray-400" />
+                    <Copy className="w-3 h-3 text-muted-foreground" />
                   )}
                 </Button>
               </div>
@@ -657,7 +665,7 @@ function MarketplaceItemCard({
           <Button
             size="sm"
             variant="outline"
-            className="h-7 px-2 text-xs border-gray-600 hover:bg-gray-600 flex-shrink-0 ml-2"
+            className="h-7 px-2 text-xs border-border hover:bg-muted flex-shrink-0 ml-2"
             onClick={(e) => {
               e.stopPropagation();
               onStartDM(item.seller, item);

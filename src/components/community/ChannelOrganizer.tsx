@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import {
   Hash,
   Volume2,
@@ -323,11 +324,11 @@ function FolderSection({
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300 hover:bg-gray-600/30 rounded-sm transition-all duration-150"
+                  className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/30 rounded-sm transition-all duration-150"
                 >
                   <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
                   <div className="flex items-center">
-                    <Folder className={`w-4 h-4 mr-1 transition-colors duration-150 ${isOpen ? 'text-gray-300' : 'text-gray-400'}`} />
+                    <Folder className={`w-4 h-4 mr-1 transition-colors duration-150 ${isOpen ? 'text-foreground' : 'text-muted-foreground'}`} />
                     <span className="tracking-wide">{folder.name.toUpperCase()}</span>
                   </div>
                 </Button>
@@ -339,7 +340,7 @@ function FolderSection({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-gray-600/40"
+                      className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-accent"
                     >
                       <Plus className="w-3 h-3" />
                     </Button>
@@ -443,7 +444,7 @@ function CategorySection({
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-gray-400 hover:text-gray-300 hover:bg-gray-600/30 rounded-sm transition-all duration-150"
+            className="flex-1 justify-start p-1 h-auto text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-accent/30 rounded-sm transition-all duration-150"
           >
             <ChevronRight className={`w-3 h-3 mr-1 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
             <span className="tracking-wide">{title}</span>
@@ -453,7 +454,7 @@ function CategorySection({
           <Button
             variant="ghost"
             size="icon"
-            className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-gray-600/40"
+            className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-accent"
           >
             <Plus className="w-3 h-3" />
           </Button>
@@ -545,7 +546,7 @@ function ChannelItem({
   const getPrivacyIcon = () => {
     // No access - always show lock
     if (!hasAccess) {
-      return <Lock className="w-3 h-3 text-gray-500 opacity-50" />;
+      return <Lock className="w-3 h-3 text-muted-foreground opacity-50" />;
     }
 
     // No permissions data yet - return empty space to prevent layout shift
@@ -561,7 +562,7 @@ function ChannelItem({
       permissions.writePermissions === 'specific';
 
     if (isRestricted) {
-      return <Lock className="w-3 h-3 text-gray-500 opacity-50" />;
+      return <Lock className="w-3 h-3 text-muted-foreground opacity-50" />;
     }
 
     // Public or member-accessible channel - no icon needed, just empty space
@@ -572,18 +573,24 @@ function ChannelItem({
     <div className={`${inFolder ? 'ml-1' : 'ml-4'}`}>
       <ContextMenu>
         <ContextMenuTrigger>
-          <div
-            className="group flex items-center h-8 px-2 rounded-sm hover:bg-gray-600/40 transition-colors duration-150 relative overflow-hidden"
-            onMouseDown={() => communityId && onChannelPreload?.(communityId, channel.id)}
-          >
+                      <div
+              className={cn(
+                "group flex items-center h-8 px-2 rounded-sm transition-colors duration-150 relative overflow-hidden",
+                {
+                  "bg-accent/80 dark:bg-accent/50": isSelected,
+                  "hover:bg-accent": !isSelected
+                }
+              )}
+              onMouseDown={() => communityId && onChannelPreload?.(communityId, channel.id)}
+            >
             {/* Selected indicator */}
             {isSelected && (
-              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white dark:bg-gray-200 rounded-r-full"></div>
+              <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-nostr-purple rounded-r-full"></div>
             )}
 
             {/* Fixed width icon container */}
             <div className="w-5 h-5 flex items-center justify-center mr-1.5 flex-shrink-0">
-              <ChannelIcon className="w-4 h-4 text-gray-400" />
+              <ChannelIcon className="w-4 h-4 text-muted-foreground" />
             </div>
 
             {/* Channel name - clickable area */}
@@ -591,12 +598,12 @@ function ChannelItem({
               className={`
                 flex-1 text-left text-sm font-medium truncate min-w-0 flex items-center gap-1
                 ${isSelected
-                  ? 'text-white'
+                  ? 'text-foreground font-semibold'
                   : isLoadingPermissions
-                    ? 'text-gray-400 cursor-wait'
+                    ? 'text-muted-foreground cursor-wait'
                     : hasAccess
-                      ? 'text-gray-300 hover:text-gray-100'
-                      : 'text-gray-500 hover:text-gray-400 italic'
+                      ? 'text-foreground hover:text-nostr-purple'
+                      : 'text-muted-foreground hover:text-foreground italic'
                 }
               `}
               onClick={isLoadingPermissions ? undefined : onSelect}
@@ -604,7 +611,7 @@ function ChannelItem({
             >
               {channel.name}
               {isLoadingPermissions && (
-                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <div className="w-3 h-3 border border-muted-foreground border-t-transparent rounded-full animate-spin flex-shrink-0" />
               )}
             </button>
 
@@ -618,8 +625,8 @@ function ChannelItem({
               {/* Voice channel users - fixed width */}
               {channel.type === 'voice' && (
                 <div className="flex items-center text-xs flex-shrink-0">
-                  <div className={`w-2 h-2 rounded-full mr-1 ${hasUsersConnected ? 'bg-green-500' : 'bg-gray-500'}`}></div>
-                  <span className={hasUsersConnected ? 'text-gray-300' : 'text-gray-500'}>
+                  <div className={`w-2 h-2 rounded-full mr-1 ${hasUsersConnected ? 'bg-green-500' : 'bg-muted-foreground'}`}></div>
+                  <span className={hasUsersConnected ? 'text-foreground' : 'text-muted-foreground'}>
                     {memberCount}
                   </span>
                 </div>

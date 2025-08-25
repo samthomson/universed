@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserStatusDialog } from "@/components/user/UserStatusDialog";
-import { UserSettingsDialog } from "@/components/user/UserSettingsDialog";
+import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 import { ProfileModal } from "@/components/user/ProfileModal";
 import LoginDialog from "@/components/auth/LoginDialog";
 import {
@@ -34,7 +34,7 @@ export function UserMenu({
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
 
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const { openSettings } = useSettings();
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
 
@@ -85,11 +85,11 @@ export function UserMenu({
 
           {/* User Settings */}
           <DropdownMenuItem
-            onClick={() => setShowSettingsDialog(true)}
+            onClick={() => openSettings()}
             className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
           >
             <Settings className='w-4 h-4' />
-            <span>User Settings</span>
+            <span>Settings</span>
           </DropdownMenuItem>
 
           {/* Switch Account section - Only show if multiple accounts */}
@@ -140,7 +140,7 @@ export function UserMenu({
         onOpenChange={setShowProfileModal}
         onOpenSettings={() => {
           setShowProfileModal(false);
-          setShowSettingsDialog(true);
+          openSettings(SETTINGS_TABS.PROFILE);
         }}
       />
 
@@ -150,11 +150,7 @@ export function UserMenu({
         onOpenChange={setShowStatusDialog}
       />
 
-      {/* Settings Dialog */}
-      <UserSettingsDialog
-        open={showSettingsDialog}
-        onOpenChange={setShowSettingsDialog}
-      />
+
 
       {/* Login Dialog */}
       <LoginDialog
