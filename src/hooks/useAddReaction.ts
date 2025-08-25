@@ -3,6 +3,8 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import type { NostrEvent } from '@nostrify/nostrify';
+import type { ReactionsAndZapsResult } from '@/hooks/useReactionsAndZaps';
+import { logger } from '@/lib/logger';
 
 interface AddReactionParams {
   targetEvent: NostrEvent;
@@ -22,14 +24,14 @@ export function useAddReaction() {
       }
 
       // Check if user already reacted with this emoji
-      const existingReactions = queryClient.getQueryData<NostrEvent[]>(['reactions', targetEvent.id]) || [];
-      const hasReacted = existingReactions.some(
-        r => r.pubkey === user.pubkey && r.content === emoji
-      );
+      const existingData = queryClient.getQueryData<ReactionsAndZapsResult>(['reactions-and-zaps', targetEvent.id]);
+      const hasReacted = existingData?.reactionGroups?.[emoji]?.some(
+        (r: NostrEvent) => r.pubkey === user.pubkey
+      ) || false;
 
       if (hasReacted) {
-        // Remove reaction by creating a deletion event
-        // For now, we'll just skip duplicate reactions
+        // User already reacted with this emoji, skip to prevent duplicates
+        logger.log('User already reacted with this emoji, skipping duplicate');
         return;
       }
 
