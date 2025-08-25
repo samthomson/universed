@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useEventCache } from './useEventCache';
 import { fetchMessages } from './useMessages';
-import { logger } from '@/lib/logger';
 
 /**
  * Hook for preloading community data on hover/mousedown.
@@ -17,11 +16,8 @@ export function usePreloadCommunity() {
   const preloadCommunity = useCallback(async (communityId: string, selectedCommunity?: string) => {
     // Skip if already selected
     if (communityId === selectedCommunity) {
-      logger.log('[DEBUG PRELOAD] Skipping preload - community already selected:', communityId);
       return;
     }
-
-    logger.log('[DEBUG PRELOAD] Starting community preload:', communityId);
 
     try {
       // Check if data is already cached and fresh (5 minutes)
@@ -39,44 +35,29 @@ export function usePreloadCommunity() {
       const isChannelsFresh = channelsState?.dataUpdatedAt && (now - channelsState.dataUpdatedAt) < CACHE_DURATION;
       const isMessagesFresh = messagesState?.dataUpdatedAt && (now - messagesState.dataUpdatedAt) < CACHE_DURATION;
 
-      logger.log('[DEBUG PRELOAD] Cache status:', {
-        communityId,
-        channels: { fresh: isChannelsFresh, lastUpdate: channelsState?.dataUpdatedAt ? new Date(channelsState.dataUpdatedAt).toISOString() : 'never' },
-        messages: { fresh: isMessagesFresh, lastUpdate: messagesState?.dataUpdatedAt ? new Date(messagesState.dataUpdatedAt).toISOString() : 'never' }
-      });
+
 
       // Preload channels if not fresh - uses EXACT same query as useChannels
       if (!isChannelsFresh) {
-        logger.log('[DEBUG PRELOAD] Prefetching channels for:', communityId);
         queryClient.prefetchQuery({
           queryKey: channelsQueryKey,
           staleTime: CACHE_DURATION,
         });
-      } else {
-        logger.log('[DEBUG PRELOAD] Channels already fresh for:', communityId);
       }
 
       // Preload general channel messages if not fresh - uses EXACT same query as useMessages
       if (!isMessagesFresh) {
-        logger.log('[DEBUG PRELOAD] Prefetching general messages for:', communityId);
         queryClient.prefetchQuery({
           queryKey: messagesQueryKey,
           queryFn: async ({ signal }) => {
-            logger.log('[DEBUG PRELOAD] Executing fetchMessages query for general channel:', communityId);
             const result = await fetchMessages(communityId, 'general', nostr, cacheEvents, signal, null);
-            logger.log('[DEBUG PRELOAD] Fetched', result.events.length, 'messages for general channel:', communityId);
             return result.events;
           },
           staleTime: CACHE_DURATION,
         });
-      } else {
-        logger.log('[DEBUG PRELOAD] General messages already fresh for:', communityId);
       }
-
-      logger.log('[DEBUG PRELOAD] Community preload completed:', communityId);
-    } catch (error) {
-      // Silently handle preload errors
-      logger.log('[DEBUG PRELOAD] Community preload failed:', communityId, error);
+    } catch {
+      // Silently handle preload errors - no logging needed
     }
   }, [queryClient, nostr, cacheEvents]);
 
