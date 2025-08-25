@@ -10,11 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, UserIcon, UserPlus, User, Settings, MessageSquare } from "lucide-react";
+import { LogOut, UserIcon, UserPlus, User, Settings, MessageSquare, Database } from "lucide-react";
 import { RelaySelector } from "@/components/RelaySelector";
 import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
+import { DataManagerDebugModal } from "@/components/debug/DataManagerDebugModal";
 import { useState } from "react";
 
 interface UserMenuProps {
@@ -37,6 +38,7 @@ export function UserMenu({
   const { openSettings } = useSettings();
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
 
   if (!user) return null;
 
@@ -91,6 +93,17 @@ export function UserMenu({
             <Settings className='w-4 h-4' />
             <span>Settings</span>
           </DropdownMenuItem>
+
+          {/* Debug DataManager - Development only */}
+          {process.env.NODE_ENV === 'development' && (
+            <DropdownMenuItem
+              onClick={() => setShowDebugModal(true)}
+              className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+            >
+              <Database className='w-4 h-4' />
+              <span>Debug DataManager</span>
+            </DropdownMenuItem>
+          )}
 
           {/* Switch Account section - Only show if multiple accounts */}
           {hasMultipleAccounts && (
@@ -157,6 +170,12 @@ export function UserMenu({
         isOpen={showLoginDialog}
         onClose={() => setShowLoginDialog(false)}
         onLogin={() => setShowLoginDialog(false)}
+      />
+
+      {/* Debug DataManager Modal */}
+      <DataManagerDebugModal
+        open={showDebugModal}
+        onOpenChange={setShowDebugModal}
       />
     </>
   );
