@@ -68,7 +68,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user]);
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
-  const loadPastNIP4Messages = async (sinceTimestamp?: number) => {
+  const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
     logger.log(`DataManager: Loading past NIP-4 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     if (!user?.signer?.nip04) {
@@ -142,10 +142,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // TODO: Decrypt messages and store in local state/IndexedDB
     // For now, just log the count
     return allMessages;
-  };
+  }, [user, nostr]);
 
   // Load past NIP-17 messages from relays (following useNIP17DirectMessages pattern)
-  const loadPastNIP17Messages = async (sinceTimestamp?: number) => {
+  const loadPastNIP17Messages = useCallback(async (sinceTimestamp?: number) => {
     logger.log(`DataManager: Loading past NIP-17 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     if (!user?.signer?.nip44) {
@@ -212,10 +212,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // TODO: Decrypt Gift Wrap messages and store in local state/IndexedDB
     // For now, just log the count
     return allNIP17Events;
-  };
+  }, [user, nostr]);
 
   // Stage 1: Read all past messages from storage for a specific protocol
-  const loadPastMessages = async (protocol: 'nip4' | 'nip17') => {
+  const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
     logger.log(`DataManager: Stage 1 - Loading past ${protocol} messages from storage`);
     
     try {
@@ -253,20 +253,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error(`DataManager: Error in Stage 1 for ${protocol}:`, error);
     }
-  };
+  }, [loadPastNIP4Messages, loadPastNIP17Messages]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = async (protocol: 'nip4' | 'nip17') => {
+  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
     const lastSyncTime = lastSync[protocol];
     logger.log(`DataManager: Stage 2 - Querying for missed ${protocol} messages since ${lastSyncTime || 'never'}`);
     // TODO: Implement querying for messages since last sync
-  };
+  }, [lastSync]);
 
   // Stage 3: Create subscription for new messages going forward for a specific protocol
-  const startMessageSubscription = async (protocol: 'nip4' | 'nip17') => {
+  const startMessageSubscription = useCallback(async (protocol: 'nip4' | 'nip17') => {
     logger.log(`DataManager: Stage 3 - Starting ${protocol} message subscription`);
     // TODO: Implement real-time subscription
-  };
+  }, []);
 
   // Load messages for a specific protocol using the 3-stage process
   const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
@@ -284,10 +284,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error(`DataManager: Error in ${protocol} 3-stage process:`, error);
     }
-  }, []);
+  }, [loadPastMessages, queryMissedMessages, startMessageSubscription]);
 
   // Main method to start message loading for all enabled protocols
-  const startMessageLoading = async () => {
+  const startMessageLoading = useCallback(async () => {
     logger.log('DataManager: Starting message loading for all enabled protocols');
     setIsLoading(true);
     
@@ -306,7 +306,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [settings.enableNIP17, loadMessagesForProtocol]);
 
   useEffect(() => {
     if (!user) return;
