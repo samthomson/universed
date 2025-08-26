@@ -16,7 +16,7 @@ import { useLoggedInAccounts } from "@/hooks/useLoggedInAccounts";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { genUserName } from "@/lib/genUserName";
 import { DataManagerDebugModal } from "@/components/debug/DataManagerDebugModal";
-import { DataManager } from "@/lib/DataManager";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { useState } from "react";
 
 interface UserMenuProps {
@@ -34,6 +34,7 @@ export function UserMenu({
 }: UserMenuProps) {
   const { user } = useCurrentUser();
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+  const { isDebugging } = useDataManager();
 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const { openSettings } = useSettings();
@@ -96,7 +97,7 @@ export function UserMenu({
           </DropdownMenuItem>
 
           {/* Debug DataManager - Only show when debugging is enabled */}
-          {DataManager.IS_DEBUGGING && (
+          {isDebugging && (
             <DropdownMenuItem
               onClick={() => setShowDebugModal(true)}
               className='flex items-center gap-2 cursor-pointer p-2 rounded-md'

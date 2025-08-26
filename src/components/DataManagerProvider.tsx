@@ -1,58 +1,60 @@
-import { useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { DataManager } from '@/lib/DataManager';
 import { logger } from '@/lib/logger';
 
-interface DataManagerProviderProps {
-  children: React.ReactNode;
+interface DataManagerContextType {
+  messages: Map<string, unknown[]>;
+  isLoading: boolean;
+  getDebugInfo: () => { messageCount: number };
+  isDebugging: boolean;
 }
 
-/**
- * DataManagerProvider - Initializes and manages the DataManager singleton lifecycle
- * 
- * This provider:
- * 1. Initializes the DataManager singleton when the app starts
- * 2. Connects it with React Query for cache management
- * 3. Starts initial data loads when user logs in
- * 4. Manages cleanup when the app unmounts
- */
+const DataManagerContext = createContext<DataManagerContextType | null>(null);
+
+export function useDataManager(): DataManagerContextType {
+  const context = useContext(DataManagerContext);
+  if (!context) {
+    throw new Error('useDataManager must be used within DataManagerProvider');
+  }
+  return context;
+}
+
+interface DataManagerProviderProps {
+  children: ReactNode;
+}
+
 export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { user } = useCurrentUser();
   const { settings } = useUserSettings();
-  const initializationRef = useRef(false);
+  
+  const [messages, _setMessages] = useState<Map<string, unknown[]>>(new Map());
+  const [isLoading, setIsLoading] = useState(false);
 
-  // React to NIP17 setting changes using the reactive settings hook
   useEffect(() => {
-    const dataManager = DataManager.getInstance();
-    dataManager.onNIP17EnabledChanged(settings.enableNIP17);
-  }, [settings.enableNIP17]);
-
-  // Start loading app data when user logs in
-  useEffect(() => {
-    if (user && !initializationRef.current) {
-      const dataManager = DataManager.getInstance();
-      
-      // Start loading app data
-      dataManager.startLoadingApp().catch((error) => {
-        logger.error('Failed to initialize DataManager:', error);
-      });
-      
-      initializationRef.current = true;
-    }
+    if (!user) return;
+    setIsLoading(false); // Just set to false when user exists
   }, [user]);
 
-  // Cleanup when app unmounts (mainly for development/testing)
   useEffect(() => {
-    return () => {
-      // In production, we might want to keep subscriptions alive
-      // But for development, clean up to prevent memory leaks
-      if (process.env.NODE_ENV === 'development') {
-        const dataManager = DataManager.getInstance();
-        dataManager.cleanup();
-      }
-    };
-  }, []);
+    if (!user) return;
+    logger.log(`DataManager: NIP-17 ${settings.enableNIP17 ? 'enabled' : 'disabled'}`);
+  }, [settings.enableNIP17, user]);
 
-  return <>{children}</>;
+  const getDebugInfo = () => ({
+    messageCount: messages.size,
+  });
+
+  const contextValue: DataManagerContextType = {
+    messages,
+    isLoading,
+    getDebugInfo,
+    isDebugging: true, // Hardcoded for now
+  };
+
+  return (
+    <DataManagerContext.Provider value={contextValue}>
+      {children}
+    </DataManagerContext.Provider>
+  );
 }
