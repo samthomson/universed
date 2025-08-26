@@ -14,7 +14,7 @@ import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { logger } from "@/lib/logger";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
@@ -39,8 +39,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  // Use the NEW system for all conversation data
-  const { conversations: newConversations } = useDirectMessages();
+  // Use the DataManager for all conversation data
+  const { conversations: newConversations } = useDataManager();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
@@ -165,22 +165,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   // Show discovery progress as toasts
   useEffect(() => {
-    if (newConversations.isLoadingComprehensive) {
+    if (newConversations.length > 0) {
       toast({
-        title: "🔍 Discovering Conversations",
-        description: "Scanning messages for conversations...",
-      });
-    } else if (!newConversations.isLoading && newConversations.conversations.length > 0) {
-      toast({
-        title: "✅ Discovery Complete",
-        description: `Found ${newConversations.conversations.length} conversations`,
+        title: "✅ Conversations Loaded",
+        description: `Found ${newConversations.length} conversations from DataManager`,
       });
     }
-  }, [newConversations.isLoadingComprehensive, newConversations.isLoading, newConversations.conversations.length, toast]);
+  }, [newConversations.length, toast]);
 
   // Memoize the expensive filtering and sorting operations (must be before early return)
   const filteredDiscoveredConversations = useMemo(() => {
-    return newConversations.conversations
+    return newConversations
       .filter(conv => {
         // Filter conversations based on active tab
         if (activeTab === 'known') {
@@ -190,11 +185,11 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         }
       })
       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
-  }, [newConversations.conversations, activeTab]);
+  }, [newConversations, activeTab]);
 
   // Calculate counts for tabs in a single pass
   const { knownCount, requestsCount } = useMemo(() => {
-    return newConversations.conversations.reduce(
+    return newConversations.reduce(
       (counts, conv) => {
         if (conv.isKnown) counts.knownCount++;
         if (conv.isRequest) counts.requestsCount++;
@@ -202,7 +197,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       },
       { knownCount: 0, requestsCount: 0 }
     );
-  }, [newConversations.conversations]);
+  }, [newConversations]);
   
 
   if (!user) {

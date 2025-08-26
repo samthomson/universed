@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useDirectMessages } from '@/hooks/useDirectMessages';
@@ -8,12 +8,30 @@ import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@/types/nostr';
 
 interface DataManagerContextType {
-  messages: Map<string, unknown[]>;
+  messages: Map<string, {
+    messages: unknown[];
+    lastActivity: number;
+    lastMessage: unknown;
+    hasNIP4: boolean;
+    hasNIP17: boolean;
+  }>;
   isLoading: boolean;
   lastSync: {
     nip4: number | null;
     nip17: number | null;
   };
+  conversations: {
+    id: string;
+    pubkey: string;
+    lastMessage: unknown;
+    lastActivity: number;
+    hasNIP4Messages: boolean;
+    hasNIP17Messages: boolean;
+    recentMessages: unknown[];
+    isKnown: boolean;
+    isRequest: boolean;
+    lastMessageFromUser: boolean;
+  }[];
   getDebugInfo: () => { 
     messageCount: number; 
     nip4Count: number;
@@ -49,7 +67,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Use existing hook to kick off message loading
   const _directMessages = useDirectMessages();
   
-  const [messages, _setMessages] = useState<Map<string, unknown[]>>(new Map());
+  const [messages, _setMessages] = useState<Map<string, {
+    messages: unknown[];
+    lastActivity: number;
+    lastMessage: unknown;
+    hasNIP4: boolean;
+    hasNIP17: boolean;
+  }>>(new Map());
   const [lastSync, setLastSync] = useState<{ nip4: number | null; nip17: number | null }>({
     nip4: null,
     nip17: null
@@ -223,14 +247,56 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const messages = await loadPastNIP4Messages();
         logger.log(`DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
-        // Store NIP-4 messages in the DataManager state
+        // Store NIP-4 messages organized by participant
         if (messages && messages.length > 0) {
           _setMessages(prev => {
             const newMap = new Map(prev);
-            // For now, store all NIP-4 messages under a single key
-            // Later we can organize by conversation
-            newMap.set('nip4', messages);
-            logger.log(`DataManager: Stored ${messages.length} NIP-4 messages in state`);
+            
+            // Group messages by participant first
+            const participantGroups = new Map<string, NostrEvent[]>();
+            
+            messages.forEach((message: NostrEvent) => {
+              const isFromUser = message.pubkey === user?.pubkey;
+              const recipientPTag = message.tags?.find(([name]: string) => name === 'p')?.[1];
+              const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+              
+              if (!otherPubkey || otherPubkey === user?.pubkey) return;
+              
+              if (!participantGroups.has(otherPubkey)) {
+                participantGroups.set(otherPubkey, []);
+              }
+              participantGroups.get(otherPubkey)!.push(message);
+            });
+            
+            // Now add all messages for each participant and sort once
+            participantGroups.forEach((participantMessages, participantPubkey) => {
+              if (!newMap.has(participantPubkey)) {
+                newMap.set(participantPubkey, {
+                  messages: [],
+                  lastActivity: 0,
+                  lastMessage: null,
+                  hasNIP4: false,
+                  hasNIP17: false,
+                });
+              }
+              
+              const participant = newMap.get(participantPubkey)!;
+              participant.messages.push(...participantMessages);
+              participant.hasNIP4 = true;
+            });
+            
+            // Sort all participants' messages once after adding all messages
+            newMap.forEach((participant) => {
+              participant.messages.sort((a: NostrEvent, b: NostrEvent) => a.created_at - b.created_at);
+              
+              // Update last activity and message after sorting
+              if (participant.messages.length > 0) {
+                participant.lastActivity = participant.messages[participant.messages.length - 1].created_at;
+                participant.lastMessage = participant.messages[participant.messages.length - 1];
+              }
+            });
+            
+            logger.log(`DataManager: Stored ${messages.length} NIP-4 messages for ${newMap.size} participants`);
             return newMap;
           });
         }
@@ -238,14 +304,56 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const messages = await loadPastNIP17Messages();
         logger.log(`DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
-        // Store NIP-17 messages in the DataManager state
+        // Store NIP-17 messages organized by participant
         if (messages && messages.length > 0) {
           _setMessages(prev => {
             const newMap = new Map(prev);
-            // For now, store all NIP-17 messages under a single key
-            // Later we can organize by conversation
-            newMap.set('nip17', messages);
-            logger.log(`DataManager: Stored ${messages.length} NIP-17 messages in state`);
+            
+            // Group messages by participant first
+            const participantGroups = new Map<string, NostrEvent[]>();
+            
+            messages.forEach((message: NostrEvent) => {
+              const isFromUser = message.pubkey === user?.pubkey;
+              const recipientPTag = message.tags?.find(([name]: string) => name === 'p')?.[1];
+              const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+              
+              if (!otherPubkey || otherPubkey === user?.pubkey) return;
+              
+              if (!participantGroups.has(otherPubkey)) {
+                participantGroups.set(otherPubkey, []);
+              }
+              participantGroups.get(otherPubkey)!.push(message);
+            });
+            
+            // Now add all messages for each participant and sort once
+            participantGroups.forEach((participantMessages, participantPubkey) => {
+              if (!newMap.has(participantPubkey)) {
+                newMap.set(participantPubkey, {
+                  messages: [],
+                  lastActivity: 0,
+                  lastMessage: null,
+                  hasNIP4: false,
+                  hasNIP17: false,
+                });
+              }
+              
+              const participant = newMap.get(participantPubkey)!;
+              participant.messages.push(...participantMessages);
+              participant.hasNIP17 = true;
+            });
+            
+            // Sort all participants' messages once after adding all messages
+            newMap.forEach((participant) => {
+              participant.messages.sort((a: NostrEvent, b: NostrEvent) => a.created_at - b.created_at);
+              
+              // Update last activity and message after sorting
+              if (participant.messages.length > 0) {
+                participant.lastActivity = participant.messages[participant.messages.length - 1].created_at;
+                participant.lastMessage = participant.messages[participant.messages.length - 1];
+              }
+            });
+            
+            logger.log(`DataManager: Stored ${messages.length} NIP-17 messages for ${newMap.size} participants`);
             return newMap;
           });
         }
@@ -321,16 +429,67 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [settings.enableNIP17, user, lastSync.nip17, loadMessagesForProtocol]);
 
+  // Memoized conversation summary - now much simpler since messages are already organized by participant
+  const conversations = useMemo(() => {
+    const conversationsList: {
+      id: string;
+      pubkey: string;
+      lastMessage: unknown;
+      lastActivity: number;
+      hasNIP4Messages: boolean;
+      hasNIP17Messages: boolean;
+      recentMessages: unknown[];
+      isKnown: boolean;
+      isRequest: boolean;
+      lastMessageFromUser: boolean;
+    }[] = [];
+    
+    messages.forEach((participant, participantPubkey) => {
+      if (!participant.messages.length) return;
+      
+      // Get the most recent message to determine who sent it
+      const lastMessage = participant.messages[participant.messages.length - 1]; // Last in chronological order
+      const isFromUser = (lastMessage as NostrEvent).pubkey === user?.pubkey;
+      
+      conversationsList.push({
+        id: participantPubkey,
+        pubkey: participantPubkey,
+        lastMessage: participant.lastMessage,
+        lastActivity: participant.lastActivity,
+        hasNIP4Messages: participant.hasNIP4,
+        hasNIP17Messages: participant.hasNIP17,
+        recentMessages: participant.messages.slice(-10), // Last 10 messages
+        isKnown: true, // All messages in DataManager are "known"
+        isRequest: false, // All messages in DataManager are "known"
+        lastMessageFromUser: isFromUser,
+      });
+    });
+    
+    return conversationsList.sort((a, b) => b.lastActivity - a.lastActivity);
+  }, [messages, user?.pubkey]);
+
   const getDebugInfo = () => {
-    // Count total messages from both protocols
-    const nip4Messages = messages.get('nip4') || [];
-    const nip17Messages = messages.get('nip17') || [];
-    const totalMessageCount = nip4Messages.length + nip17Messages.length;
+    // Count total messages from all participants
+    let totalMessageCount = 0;
+    let nip4Count = 0;
+    let nip17Count = 0;
+    
+    messages.forEach((participant) => {
+      totalMessageCount += participant.messages.length;
+      if (participant.hasNIP4) {
+        const nip4Messages = participant.messages.filter((msg: NostrEvent) => msg.kind === 4);
+        nip4Count += nip4Messages.length;
+      }
+      if (participant.hasNIP17) {
+        const nip17Messages = participant.messages.filter((msg: NostrEvent) => msg.kind === 1059 || msg.kind === 14);
+        nip17Count += nip17Messages.length;
+      }
+    });
     
     return {
       messageCount: totalMessageCount,
-      nip4Count: nip4Messages.length,
-      nip17Count: nip17Messages.length,
+      nip4Count,
+      nip17Count,
       nip4Sync: lastSync.nip4 ? new Date(lastSync.nip4).toLocaleTimeString() : 'Never',
       nip17Sync: lastSync.nip17 ? new Date(lastSync.nip17).toLocaleTimeString() : 'Never',
       nip4Subscribed: subscriptions.nip4,
@@ -343,6 +502,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     messages,
     isLoading,
     lastSync,
+    conversations,
     getDebugInfo,
     isDebugging: true, // Hardcoded for now
   };
