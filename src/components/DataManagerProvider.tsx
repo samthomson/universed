@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useDirectMessages } from '@/hooks/useDirectMessages';
@@ -269,7 +269,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   };
 
   // Load messages for a specific protocol using the 3-stage process
-  const loadMessagesForProtocol = async (protocol: 'nip4' | 'nip17') => {
+  const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
     logger.log(`DataManager: Starting 3-stage process for ${protocol}`);
     
     try {
@@ -284,7 +284,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error(`DataManager: Error in ${protocol} 3-stage process:`, error);
     }
-  };
+  }, []);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = async () => {
