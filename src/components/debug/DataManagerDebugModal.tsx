@@ -37,6 +37,18 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
               {debugInfo.messageCount}
             </span>
           </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">NIP-4 Last Sync:</span>
+            <span className="text-sm font-bold text-orange-600">
+              {debugInfo.nip4Sync}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">NIP-17 Last Sync:</span>
+            <span className="text-sm font-bold text-purple-600">
+              {debugInfo.nip17Sync}
+            </span>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
