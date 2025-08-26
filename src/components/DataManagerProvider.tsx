@@ -117,6 +117,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     if (settings.enableNIP17 && lastSync.nip17 === null) {
       logger.log('DataManager: NIP-17 enabled, starting NIP-17 message loading');
       loadMessagesForProtocol('nip17');
+    } else {
+      // todo: drop all nip 17 messages and the subscription
     }
   }, [settings.enableNIP17, user, lastSync.nip17]);
 
