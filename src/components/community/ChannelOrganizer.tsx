@@ -450,15 +450,6 @@ function CategorySection({
             <span className="tracking-wide">{title}</span>
           </Button>
         </CollapsibleTrigger>
-        {canModerate && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-accent"
-          >
-            <Plus className="w-3 h-3" />
-          </Button>
-        )}
       </div>
       <CollapsibleContent className="space-y-0.5">
         {children}
