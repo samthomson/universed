@@ -136,7 +136,6 @@ export function ChannelOrganizer({
           title="TEXT CHANNELS"
           isOpen={textChannelsOpen}
           onToggle={() => setTextChannelsOpen(!textChannelsOpen)}
-          canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
           defaultChannelType="text"
@@ -162,7 +161,6 @@ export function ChannelOrganizer({
           title="VOICE CHANNELS"
           isOpen={voiceChannelsOpen}
           onToggle={() => setVoiceChannelsOpen(!voiceChannelsOpen)}
-          canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
           defaultChannelType="voice"
@@ -423,7 +421,6 @@ function CategorySection({
   title,
   isOpen,
   onToggle,
-  canModerate,
   communityId,
   onChannelCreated,
   defaultChannelType,
@@ -432,7 +429,6 @@ function CategorySection({
   title: string;
   isOpen: boolean;
   onToggle: () => void;
-  canModerate: boolean;
   communityId: string;
   onChannelCreated: () => void;
   defaultChannelType: 'text' | 'voice';
