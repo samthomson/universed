@@ -31,23 +31,58 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Total Messages */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Messages:</span>
+            <span className="text-sm font-medium">Total Messages:</span>
             <span className="text-sm font-bold text-blue-600">
               {debugInfo.messageCount}
             </span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">NIP-4 Last Sync:</span>
-            <span className="text-sm font-bold text-orange-600">
-              {debugInfo.nip4Sync}
-            </span>
+          
+          {/* NIP-4 Section */}
+          <div className="border-t pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-orange-600">NIP-4 Messages:</span>
+              <span className="text-sm font-bold text-orange-600">
+                {debugInfo.nip4Count}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Last Sync:</span>
+              <span className="text-muted-foreground">{debugInfo.nip4Sync}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Subscribed:</span>
+              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip4Subscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {debugInfo.nip4Subscribed ? 'Yes' : 'No'}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">NIP-17 Last Sync:</span>
-            <span className="text-sm font-bold text-purple-600">
-              {debugInfo.nip17Sync}
-            </span>
+          
+          {/* NIP-17 Section */}
+          <div className="border-t pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-purple-600">NIP-17 Messages:</span>
+              <span className="text-sm font-bold text-purple-600">
+                {debugInfo.nip17Count}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Last Sync:</span>
+              <span className="text-muted-foreground">{debugInfo.nip17Sync}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Enabled:</span>
+              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip17Enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {debugInfo.nip17Enabled ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Subscribed:</span>
+              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip17Subscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {debugInfo.nip17Subscribed ? 'Yes' : 'No'}
+              </span>
+            </div>
           </div>
         </div>
       </DialogContent>
