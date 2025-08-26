@@ -9,9 +9,9 @@ import type { NostrEvent } from '@/types/nostr';
 
 interface DataManagerContextType {
   messages: Map<string, {
-    messages: unknown[];
+    messages: NostrEvent[];
     lastActivity: number;
-    lastMessage: unknown;
+    lastMessage: NostrEvent | null;
     hasNIP4: boolean;
     hasNIP17: boolean;
   }>;
@@ -23,11 +23,11 @@ interface DataManagerContextType {
   conversations: {
     id: string;
     pubkey: string;
-    lastMessage: unknown;
+    lastMessage: NostrEvent | null;
     lastActivity: number;
     hasNIP4Messages: boolean;
     hasNIP17Messages: boolean;
-    recentMessages: unknown[];
+    recentMessages: NostrEvent[];
     isKnown: boolean;
     isRequest: boolean;
     lastMessageFromUser: boolean;
@@ -68,9 +68,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const _directMessages = useDirectMessages();
   
   const [messages, _setMessages] = useState<Map<string, {
-    messages: unknown[];
+    messages: NostrEvent[];
     lastActivity: number;
-    lastMessage: unknown;
+    lastMessage: NostrEvent | null;
     hasNIP4: boolean;
     hasNIP17: boolean;
   }>>(new Map());
@@ -257,7 +257,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             
             messages.forEach((message: NostrEvent) => {
               const isFromUser = message.pubkey === user?.pubkey;
-              const recipientPTag = message.tags?.find(([name]: string) => name === 'p')?.[1];
+              const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
               const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
               
               if (!otherPubkey || otherPubkey === user?.pubkey) return;
@@ -314,7 +314,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             
             messages.forEach((message: NostrEvent) => {
               const isFromUser = message.pubkey === user?.pubkey;
-              const recipientPTag = message.tags?.find(([name]: string) => name === 'p')?.[1];
+              const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
               const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
               
               if (!otherPubkey || otherPubkey === user?.pubkey) return;
@@ -434,11 +434,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const conversationsList: {
       id: string;
       pubkey: string;
-      lastMessage: unknown;
+      lastMessage: NostrEvent | null;
       lastActivity: number;
       hasNIP4Messages: boolean;
       hasNIP17Messages: boolean;
-      recentMessages: unknown[];
+      recentMessages: NostrEvent[];
       isKnown: boolean;
       isRequest: boolean;
       lastMessageFromUser: boolean;
@@ -449,7 +449,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       
       // Get the most recent message to determine who sent it
       const lastMessage = participant.messages[participant.messages.length - 1]; // Last in chronological order
-      const isFromUser = (lastMessage as NostrEvent).pubkey === user?.pubkey;
+      const isFromUser = lastMessage.pubkey === user?.pubkey;
       
       conversationsList.push({
         id: participantPubkey,
