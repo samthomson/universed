@@ -136,7 +136,6 @@ export function ChannelOrganizer({
           title="TEXT CHANNELS"
           isOpen={textChannelsOpen}
           onToggle={() => setTextChannelsOpen(!textChannelsOpen)}
-          canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
           defaultChannelType="text"
@@ -162,7 +161,6 @@ export function ChannelOrganizer({
           title="VOICE CHANNELS"
           isOpen={voiceChannelsOpen}
           onToggle={() => setVoiceChannelsOpen(!voiceChannelsOpen)}
-          canModerate={canModerate}
           communityId={communityId}
           onChannelCreated={onChannelCreated}
           defaultChannelType="voice"
@@ -423,7 +421,6 @@ function CategorySection({
   title,
   isOpen,
   onToggle,
-  canModerate,
   communityId,
   onChannelCreated,
   defaultChannelType,
@@ -432,7 +429,6 @@ function CategorySection({
   title: string;
   isOpen: boolean;
   onToggle: () => void;
-  canModerate: boolean;
   communityId: string;
   onChannelCreated: () => void;
   defaultChannelType: 'text' | 'voice';
@@ -450,15 +446,6 @@ function CategorySection({
             <span className="tracking-wide">{title}</span>
           </Button>
         </CollapsibleTrigger>
-        {canModerate && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-accent"
-          >
-            <Plus className="w-3 h-3" />
-          </Button>
-        )}
       </div>
       <CollapsibleContent className="space-y-0.5">
         {children}
