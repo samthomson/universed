@@ -1,7 +1,7 @@
 import { openDB, IDBPDatabase } from 'idb';
 import { logger } from './logger';
 
-// Basic message structure for storage
+// Match the in-memory structure exactly
 interface StoredMessage {
   id: string;
   pubkey: string;
@@ -10,6 +10,22 @@ interface StoredMessage {
   kind: number;
   tags: string[][];
   sig: string;
+}
+
+interface StoredParticipant {
+  messages: StoredMessage[];
+  lastActivity: number;
+  hasNIP4: boolean;
+  hasNIP17: boolean;
+}
+
+// Store structure: Map<participantPubkey, StoredParticipant>
+interface MessageStore {
+  participants: Record<string, StoredParticipant>;
+  lastSync: {
+    nip4: number | null;
+    nip17: number | null;
+  };
 }
 
 // IndexedDB configuration
@@ -32,36 +48,37 @@ async function initDB(userNpub: string): Promise<IDBPDatabase> {
 }
 
 // Read all messages from IndexedDB for a specific user
-export async function readMessagesFromDB(userNpub: string): Promise<StoredMessage[]> {
+export async function readMessagesFromDB(userNpub: string): Promise<MessageStore | null> {
   try {
     const db = await initDB(userNpub);
     const storeName = `messages-${userNpub}`;
     
-    const messages = await db.getAll(storeName);
-    logger.log(`Read ${messages.length} messages from IndexedDB for user ${userNpub.slice(0, 8)}...`);
+    // Read the entire store as one object
+    const storeData = await db.get(storeName, 'messageStore');
     
-    return messages;
+    if (storeData) {
+      logger.log(`Read message store from IndexedDB for user ${userNpub.slice(0, 8)}...`);
+      return storeData as MessageStore;
+    } else {
+      logger.log(`No message store found in IndexedDB for user ${userNpub.slice(0, 8)}...`);
+      return null;
+    }
   } catch (error) {
     logger.error('Error reading messages from IndexedDB:', error);
-    return [];
+    return null;
   }
 }
 
 // Write messages to IndexedDB for a specific user
-export async function writeMessagesToDB(userNpub: string, messages: StoredMessage[]): Promise<void> {
+export async function writeMessagesToDB(userNpub: string, messageStore: MessageStore): Promise<void> {
   try {
     const db = await initDB(userNpub);
     const storeName = `messages-${userNpub}`;
     
-    // Clear existing messages first (simple approach for now)
-    await db.clear(storeName);
+    // Store the entire message store as one object
+    await db.put(storeName, { id: 'messageStore', ...messageStore });
     
-    // Add new messages
-    for (const message of messages) {
-      await db.add(storeName, message);
-    }
-    
-    logger.log(`Wrote ${messages.length} messages to IndexedDB for user ${userNpub.slice(0, 8)}...`);
+    logger.log(`Wrote message store to IndexedDB for user ${userNpub.slice(0, 8)}... (${Object.keys(messageStore.participants).length} participants)`);
   } catch (error) {
     logger.error('Error writing messages to IndexedDB:', error);
     throw error;

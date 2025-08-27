@@ -42,6 +42,7 @@ interface DataManagerContextType {
     nip17Subscribed: boolean;
     nip17Enabled: boolean;
   };
+  writeAllMessagesToStore: () => Promise<void>;
   isDebugging: boolean;
 }
 
@@ -247,18 +248,42 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       let sinceTimestamp: number | undefined;
       try {
         const { readMessagesFromDB } = await import('@/lib/messageStore');
-        const cachedMessages = await readMessagesFromDB(user?.pubkey || '');
-        if (cachedMessages.length > 0) {
-          // Filter out NIP-17 messages if the setting is disabled
-          const filteredMessages = settings.enableNIP17 
-            ? cachedMessages 
-            : cachedMessages.filter(m => m.kind !== 1059 && m.kind !== 14);
+        const cachedStore = await readMessagesFromDB(user?.pubkey || '');
+        
+        if (cachedStore && Object.keys(cachedStore.participants).length > 0) {
+          logger.log(`DataManager: Found cached store with ${Object.keys(cachedStore.participants).length} participants`);
           
-          if (filteredMessages.length > 0) {
-            const newestTimestamp = Math.max(...filteredMessages.map(m => m.created_at));
-            sinceTimestamp = newestTimestamp;
-            logger.log(`DataManager: Found ${filteredMessages.length} cached messages (${cachedMessages.length - filteredMessages.length} NIP-17 filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
-          }
+          // Filter participants based on NIP-17 setting
+          const filteredParticipants = settings.enableNIP17 
+            ? cachedStore.participants 
+            : Object.fromEntries(
+                Object.entries(cachedStore.participants).filter(([_, participant]) => 
+                  !participant.hasNIP17
+                )
+              );
+          
+          // Find the newest message timestamp across filtered participants
+          let newestTimestamp = 0;
+          let totalMessages = 0;
+          let filteredOutCount = 0;
+          
+          Object.values(filteredParticipants).forEach(participant => {
+            totalMessages += participant.messages.length;
+            if (participant.messages.length > 0) {
+              const participantNewest = Math.max(...participant.messages.map(m => m.created_at));
+              if (participantNewest > newestTimestamp) {
+                newestTimestamp = participantNewest;
+              }
+            }
+          });
+          
+          filteredOutCount = Object.keys(cachedStore.participants).length - Object.keys(filteredParticipants).length;
+          
+          sinceTimestamp = newestTimestamp;
+          logger.log(`DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
+          
+          // TODO: Load filtered cached messages into state
+          // For now, just use the timestamp for network queries
         }
       } catch (error) {
         logger.error('DataManager: Error reading from IndexedDB:', error);
@@ -587,12 +612,69 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
   };
 
+  // Debug method to write all current messages to IndexedDB
+  const _writeAllMessagesToStore = useCallback(async () => {
+    if (!user?.pubkey) {
+      logger.error('DataManager: No user pubkey available for writing to store');
+      return;
+    }
+
+    try {
+      const { writeMessagesToDB } = await import('@/lib/messageStore');
+      
+      // Convert current messages state to MessageStore format (same structure!)
+      const messageStore = {
+        participants: {} as Record<string, {
+          messages: {
+            id: string;
+            pubkey: string;
+            content: string;
+            created_at: number;
+            kind: number;
+            tags: string[][];
+            sig: string;
+          }[];
+          lastActivity: number;
+          hasNIP4: boolean;
+          hasNIP17: boolean;
+        }>,
+        lastSync: {
+          nip4: lastSync.nip4,
+          nip17: lastSync.nip17,
+        }
+      };
+      
+      messages.forEach((participant, participantPubkey) => {
+        messageStore.participants[participantPubkey] = {
+          messages: participant.messages.map(msg => ({
+            id: msg.id,
+            pubkey: msg.pubkey,
+            content: msg.content,
+            created_at: msg.created_at,
+            kind: msg.kind,
+            tags: msg.tags,
+            sig: msg.sig,
+          })),
+          lastActivity: participant.lastActivity,
+          hasNIP4: participant.hasNIP4,
+          hasNIP17: participant.hasNIP17,
+        };
+      });
+
+      await writeMessagesToDB(user.pubkey, messageStore);
+      logger.log(`DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants`);
+    } catch (error) {
+      logger.error('DataManager: Error writing messages to IndexedDB:', error);
+    }
+  }, [messages, user?.pubkey, lastSync]);
+
   const contextValue: DataManagerContextType = {
     messages,
     isLoading,
     lastSync,
     conversations,
     getDebugInfo,
+    writeAllMessagesToStore: _writeAllMessagesToStore,
     isDebugging: true, // Hardcoded for now
   };
 

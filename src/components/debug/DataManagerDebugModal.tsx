@@ -5,7 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Database } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Database, Save } from "lucide-react";
 import { useDataManager } from "@/components/DataManagerProvider";
 
 interface DataManagerDebugModalProps {
@@ -83,6 +84,19 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
                 {debugInfo.nip17Subscribed ? 'Yes' : 'No'}
               </span>
             </div>
+          </div>
+          
+          {/* Write to Store Button */}
+          <div className="border-t pt-3">
+            <Button 
+              onClick={dataManager.writeAllMessagesToStore}
+              className="w-full"
+              variant="outline"
+              size="sm"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Write All Messages to IndexedDB
+            </Button>
           </div>
         </div>
       </DialogContent>
