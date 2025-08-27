@@ -1,19 +1,11 @@
 import { openDB, IDBPDatabase } from 'idb';
 import { logger } from './logger';
 
-// Match the in-memory structure exactly
-interface StoredMessage {
-  id: string;
-  pubkey: string;
-  content: string;
-  created_at: number;
-  kind: number;
-  tags: string[][];
-  sig: string;
-}
+import type { NostrEvent } from '@/types/nostr';
 
+// Match the in-memory structure exactly
 interface StoredParticipant {
-  messages: StoredMessage[];
+  messages: NostrEvent[];
   lastActivity: number;
   hasNIP4: boolean;
   hasNIP17: boolean;

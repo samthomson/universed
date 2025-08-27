@@ -282,8 +282,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           sinceTimestamp = newestTimestamp;
           logger.log(`DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
           
-          // TODO: Load filtered cached messages into state
-          // For now, just use the timestamp for network queries
+          // Load filtered cached messages into state
+          const newState = new Map();
+          Object.entries(filteredParticipants).forEach(([participantPubkey, participant]) => {
+            // Messages are already in NostrEvent format, just use them directly
+            newState.set(participantPubkey, {
+              messages: participant.messages,
+              lastActivity: participant.lastActivity,
+              lastMessage: participant.messages.length > 0 ? participant.messages[0] : null, // First after sorting
+              hasNIP4: participant.hasNIP4,
+              hasNIP17: participant.hasNIP17,
+            });
+          });
+          
+          // Update state with cached messages
+          _setMessages(newState);
+          logger.log(`DataManager: Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
         }
       } catch (error) {
         logger.error('DataManager: Error reading from IndexedDB:', error);
