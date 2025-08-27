@@ -262,12 +262,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               } else {
                 logger.error(`DataManager: No NIP-04 decryption available for message ${message.id}`);
                 decryptedContent = '[No decryption method available]';
-                continue;
               }
             } catch (error) {
               logger.error(`DataManager: Failed to decrypt message ${message.id}:`, error);
               decryptedContent = '[Unable to decrypt message]';
-              continue;
             }
             
             // Create decrypted message
@@ -321,79 +319,86 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Process messages and decrypt them
           for (const giftWrap of messages) {
+            let processedMessage: NostrEvent;
+            let conversationPartner: string;
+            
+            // Try to decrypt and process the message
             if (!user?.signer?.nip44) {
-              logger.error(`DataManager: No NIP-44 signer available for NIP-17 message ${giftWrap.id}`);
-              continue;
-            }
-
-            try {
-              // Step 1: Decrypt the Gift Wrap content
-              const decryptedContent = await user.signer.nip44.decrypt(
-                giftWrap.pubkey,
-                giftWrap.content
-              );
-              
-              // Step 2: Parse as JSON to get the Seal event
-              let sealEvent: NostrEvent;
+              // No decryption available - store with error placeholder
+              conversationPartner = giftWrap.pubkey;
+              processedMessage = {
+                ...giftWrap,
+                content: '[No NIP-44 decryption available]',
+              };
+            } else {
               try {
-                sealEvent = JSON.parse(decryptedContent) as NostrEvent;
+                // Decrypt Gift Wrap → Seal → Private DM
+                const sealContent = await user.signer.nip44.decrypt(giftWrap.pubkey, giftWrap.content);
+                const sealEvent = JSON.parse(sealContent) as NostrEvent;
+                
                 if (sealEvent.kind !== 13) {
-                  logger.error(`DataManager: Not a valid Seal (kind !== 13), got kind: ${sealEvent.kind}`);
-                  continue;
+                  // Invalid Seal format - store with error placeholder
+                  conversationPartner = giftWrap.pubkey;
+                  processedMessage = {
+                    ...giftWrap,
+                    content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
+                  };
+                } else {
+                  const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
+                  const messageEvent = JSON.parse(messageContent) as NostrEvent;
+                  
+                  if (messageEvent.kind !== 14) {
+                    // Invalid message format - store with error placeholder
+                    conversationPartner = giftWrap.pubkey;
+                    processedMessage = {
+                      ...giftWrap,
+                      content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
+                    };
+                  } else {
+                    // Determine conversation partner
+                    if (sealEvent.pubkey === user.pubkey) {
+                      const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+                      if (!recipient || recipient === user.pubkey) {
+                        // Invalid recipient - store with error placeholder
+                        conversationPartner = giftWrap.pubkey;
+                        processedMessage = {
+                          ...giftWrap,
+                          content: '[Invalid recipient - malformed p tag]',
+                        };
+                      } else {
+                        conversationPartner = recipient;
+                        processedMessage = messageEvent;
+                      }
+                    } else {
+                      conversationPartner = sealEvent.pubkey;
+                      processedMessage = messageEvent;
+                    }
+                  }
                 }
               } catch (error) {
-                logger.error(`DataManager: Failed to parse seal JSON:`, error);
-                continue;
+                // Decryption/parsing failed - store with error placeholder
+                logger.error(`DataManager: NIP-17 message ${giftWrap.id} failed:`, error);
+                conversationPartner = giftWrap.pubkey;
+                processedMessage = {
+                  ...giftWrap,
+                  content: '[Failed to decrypt or parse NIP-17 message]',
+                };
               }
-            
-              // Step 3: Decrypt the Seal to get the actual message (Kind 14)
-              const decryptedMessageContent = await user.signer.nip44.decrypt(
-                sealEvent.pubkey,
-                sealEvent.content
-              );
-              
-              const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
-              
-              // Validate that we got a Private DM (Kind 14)
-              if (messageEvent.kind !== 14) {
-                logger.error(`DataManager: Not a valid Private DM (kind !== 14), got kind: ${messageEvent.kind}`);
-                continue;
-              }
-
-              // Extract conversation partner
-              let conversationPartner: string;
-              if (sealEvent.pubkey === user.pubkey) {
-                // This is a message we sent - get recipient from Private DM's p tag
-                const recipientPTag = messageEvent.tags.find(([name]) => name === 'p')?.[1];
-                if (!recipientPTag || recipientPTag === user.pubkey) {
-                  logger.error(`DataManager: Invalid recipient in sent message - p tag: ${recipientPTag}`);
-                  continue;
-                }
-                conversationPartner = recipientPTag;
-              } else {
-                // This is a message we received - sender is the seal author
-                conversationPartner = sealEvent.pubkey;
-              }
-              
-              // Add to new state or create new participant
-              if (!newState.has(conversationPartner)) {
-                newState.set(conversationPartner, {
-                  messages: [],
-                  lastActivity: 0,
-                  lastMessage: null,
-                  hasNIP4: false,
-                  hasNIP17: false,
-                });
-              }
-              
-              const participant = newState.get(conversationPartner)!;
-              participant.messages.push(messageEvent);
-              participant.hasNIP17 = true;
-              
-            } catch (error) {
-              logger.error(`DataManager: Failed to decrypt NIP-17 message ${giftWrap.id}:`, error);
-              continue;
             }
+            
+            // Add message to state
+            if (!newState.has(conversationPartner)) {
+              newState.set(conversationPartner, {
+                messages: [],
+                lastActivity: 0,
+                lastMessage: null,
+                hasNIP4: false,
+                hasNIP17: false,
+              });
+            }
+            
+            newState.get(conversationPartner)!.messages.push(processedMessage);
+            newState.get(conversationPartner)!.hasNIP17 = true;
           }
           
           // Sort all participants' messages once after adding all messages
