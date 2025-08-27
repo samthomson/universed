@@ -249,24 +249,45 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         
         // Store NIP-4 messages organized by participant
         if (messages && messages.length > 0) {
-          _setMessages(prev => {
-            const newMap = new Map(prev);
+          // Process messages and decrypt them (following useNIP4DirectMessages pattern)
+          const processAndStoreNIP4Messages = async () => {
+            const newMap = new Map();
             
             // Group messages by participant first
             const participantGroups = new Map<string, NostrEvent[]>();
             
-            messages.forEach((message: NostrEvent) => {
+            for (const message of messages) {
               const isFromUser = message.pubkey === user?.pubkey;
               const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
               const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
               
-              if (!otherPubkey || otherPubkey === user?.pubkey) return;
+              if (!otherPubkey || otherPubkey === user?.pubkey) continue;
+              
+              // Decrypt the NIP-4 message content
+              let decryptedContent: string;
+              try {
+                if (user?.signer?.nip04) {
+                  decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
+                } else {
+                  logger.error(`DataManager: No NIP-04 decryption available for message ${message.id}`);
+                  decryptedContent = '[No decryption method available]';
+                }
+              } catch (error) {
+                logger.error(`DataManager: Failed to decrypt message ${message.id}:`, error);
+                decryptedContent = '[Unable to decrypt message]';
+              }
+              
+              // Create decrypted message
+              const decryptedMessage: NostrEvent = {
+                ...message,
+                content: decryptedContent,
+              };
               
               if (!participantGroups.has(otherPubkey)) {
                 participantGroups.set(otherPubkey, []);
               }
-              participantGroups.get(otherPubkey)!.push(message);
-            });
+              participantGroups.get(otherPubkey)!.push(decryptedMessage);
+            }
             
             // Now add all messages for each participant and sort once
             participantGroups.forEach((participantMessages, participantPubkey) => {
@@ -296,9 +317,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               }
             });
             
-            logger.log(`DataManager: Stored ${messages.length} NIP-4 messages for ${newMap.size} participants`);
-            return newMap;
-          });
+            logger.log(`DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newMap.size} participants`);
+            
+            // Update state with decrypted messages
+            _setMessages(prev => {
+              const finalMap = new Map(prev);
+              newMap.forEach((value, key) => finalMap.set(key, value));
+              return finalMap;
+            });
+          };
+          
+          // Execute the async decryption and storage
+          processAndStoreNIP4Messages();
         }
       } else if (protocol === 'nip17') {
         const messages = await loadPastNIP17Messages();
@@ -306,24 +336,80 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         
         // Store NIP-17 messages organized by participant
         if (messages && messages.length > 0) {
-          _setMessages(prev => {
-            const newMap = new Map(prev);
+          // Process messages and decrypt them (following useNIP17DirectMessages pattern)
+          const processAndStoreNIP17Messages = async () => {
+            const newMap = new Map();
             
             // Group messages by participant first
             const participantGroups = new Map<string, NostrEvent[]>();
             
-            messages.forEach((message: NostrEvent) => {
-              const isFromUser = message.pubkey === user?.pubkey;
-              const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
-              const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
-              
-              if (!otherPubkey || otherPubkey === user?.pubkey) return;
-              
-              if (!participantGroups.has(otherPubkey)) {
-                participantGroups.set(otherPubkey, []);
+            for (const giftWrap of messages) {
+              if (!user?.signer?.nip44) {
+                logger.error(`DataManager: No NIP-44 signer available for NIP-17 message ${giftWrap.id}`);
+                continue;
               }
-              participantGroups.get(otherPubkey)!.push(message);
-            });
+
+              try {
+                // Use the same decryption pattern as useNIP17DirectMessages
+                // Step 1: Decrypt the Gift Wrap content
+                const decryptedContent = await user.signer.nip44.decrypt(
+                  giftWrap.pubkey,
+                  giftWrap.content
+                );
+                
+                // Step 2: Parse as JSON to get the Seal event
+                let sealEvent: NostrEvent;
+                try {
+                  sealEvent = JSON.parse(decryptedContent) as NostrEvent;
+                  if (sealEvent.kind !== 13) {
+                    logger.error(`DataManager: Not a valid Seal (kind !== 13), got kind: ${sealEvent.kind}`);
+                    continue;
+                  }
+                } catch (error) {
+                  logger.error(`DataManager: Failed to parse seal JSON:`, error);
+                  continue;
+                }
+              
+                // Step 3: Decrypt the Seal to get the actual message (Kind 14)
+                const decryptedMessageContent = await user.signer.nip44.decrypt(
+                  sealEvent.pubkey,
+                  sealEvent.content
+                );
+                
+                const messageEvent = JSON.parse(decryptedMessageContent) as NostrEvent;
+                
+                // Validate that we got a Private DM (Kind 14)
+                if (messageEvent.kind !== 14) {
+                  logger.error(`DataManager: Not a valid Private DM (kind !== 14), got kind: ${messageEvent.kind}`);
+                  continue;
+                }
+
+                // Extract conversation partner
+                let conversationPartner: string;
+                if (sealEvent.pubkey === user.pubkey) {
+                  // This is a message we sent - get recipient from Private DM's p tag
+                  const recipientPTag = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+                  if (!recipientPTag || recipientPTag === user.pubkey) {
+                    logger.error(`DataManager: Invalid recipient in sent message - p tag: ${recipientPTag}`);
+                    continue;
+                  }
+                  conversationPartner = recipientPTag;
+                } else {
+                  // This is a message we received - sender is the seal author
+                  conversationPartner = sealEvent.pubkey;
+                }
+                
+                // Store the decrypted message
+                if (!participantGroups.has(conversationPartner)) {
+                  participantGroups.set(conversationPartner, []);
+                }
+                participantGroups.get(conversationPartner)!.push(messageEvent);
+                
+              } catch (error) {
+                logger.error(`DataManager: Failed to decrypt NIP-17 message ${giftWrap.id}:`, error);
+                continue;
+              }
+            }
             
             // Now add all messages for each participant and sort once
             participantGroups.forEach((participantMessages, participantPubkey) => {
@@ -353,9 +439,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               }
             });
             
-            logger.log(`DataManager: Stored ${messages.length} NIP-17 messages for ${newMap.size} participants`);
-            return newMap;
-          });
+            logger.log(`DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newMap.size} participants`);
+            
+            // Update state with decrypted messages
+            _setMessages(prev => {
+              const finalMap = new Map(prev);
+              newMap.forEach((value, key) => finalMap.set(key, value));
+              return finalMap;
+            });
+          };
+          
+          // Execute the async decryption and storage
+          processAndStoreNIP17Messages();
         }
       }
     } catch (error) {
