@@ -236,9 +236,36 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
     logger.log(`DataManager: Stage 1 - Loading past ${protocol} messages from storage`);
     
+    // Skip NIP-17 if it's disabled
+    if (protocol === 'nip17' && !settings.enableNIP17) {
+      logger.log('DataManager: NIP-17 disabled, skipping message loading');
+      return;
+    }
+    
     try {
+      // First, read any cached messages from IndexedDB to get the newest timestamp
+      let sinceTimestamp: number | undefined;
+      try {
+        const { readMessagesFromDB } = await import('@/lib/messageStore');
+        const cachedMessages = await readMessagesFromDB(user?.pubkey || '');
+        if (cachedMessages.length > 0) {
+          // Filter out NIP-17 messages if the setting is disabled
+          const filteredMessages = settings.enableNIP17 
+            ? cachedMessages 
+            : cachedMessages.filter(m => m.kind !== 1059 && m.kind !== 14);
+          
+          if (filteredMessages.length > 0) {
+            const newestTimestamp = Math.max(...filteredMessages.map(m => m.created_at));
+            sinceTimestamp = newestTimestamp;
+            logger.log(`DataManager: Found ${filteredMessages.length} cached messages (${cachedMessages.length - filteredMessages.length} NIP-17 filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
+          }
+        }
+      } catch (error) {
+        logger.error('DataManager: Error reading from IndexedDB:', error);
+      }
+      
       if (protocol === 'nip4') {
-        const messages = await loadPastNIP4Messages();
+        const messages = await loadPastNIP4Messages(sinceTimestamp);
         logger.log(`DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
         // Store NIP-4 messages organized by participant
@@ -309,7 +336,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           logger.log(`DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
         }
       } else if (protocol === 'nip17') {
-        const messages = await loadPastNIP17Messages();
+        const messages = await loadPastNIP17Messages(sinceTimestamp);
         logger.log(`DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
         // Store NIP-17 messages organized by participant
