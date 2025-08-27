@@ -61,8 +61,8 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
   return (
     <Button
       variant="ghost"
-      className={`flex w-full justify-start p-3 mt-1 h-auto text-left hover:bg-gray-800/60 ${
-        isSelected ? 'bg-gray-900/80' : ''
+      className={`flex w-full justify-start p-3 mt-1 h-auto text-left hover:bg-accent/60 ${
+        isSelected ? 'bg-gray-200 dark:bg-gray-700' : ''
       }`}
       onClick={onSelect}
     >
@@ -81,7 +81,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <span className={`font-medium truncate max-w-full ${
-              isSelected ? 'text-white' : 'text-foreground'
+              isSelected ? 'text-foreground dark:text-white' : 'text-foreground'
             }`}>
               {searchQuery && displayName.toLowerCase().includes(searchQuery.toLowerCase()) ? (
                 highlightText(displayName, searchQuery)
@@ -96,7 +96,7 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
                 </Badge>
               )}
               <span className={`text-xs ${
-                isSelected ? 'text-gray-200' : 'text-muted-foreground'
+                isSelected ? 'text-foreground dark:text-gray-200' : 'text-muted-foreground'
               }`}>
                 {formatDistanceToNowShort(lastMessageTime, { addSuffix: false })}
               </span>
@@ -104,12 +104,12 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
           </div>
 
             <div className={`text-sm truncate mt-0.5 pr-8 flex items-center gap-1 ${
-              isSelected ? 'text-gray-200' : 'text-muted-foreground'
+              isSelected ? 'text-foreground dark:text-gray-200' : 'text-muted-foreground'
             }`}>
               {/* Show arrow indicator if last message was from current user */}
               {conversation.lastMessageFromUser && (
                 <span className={`text-xs flex-shrink-0 ${
-                  isSelected ? 'text-gray-300' : 'text-muted-foreground'
+                  isSelected ? 'text-foreground dark:text-gray-300' : 'text-muted-foreground'
                 }`}>→</span>
               )}
               <span className="truncate">
