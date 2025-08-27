@@ -93,8 +93,9 @@ export function DMChatArea(
   const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
   
   // Memoize paginated messages to prevent unnecessary recalculations
+  // Since messages are stored newest-first, we take the first N and reverse for chat display
   const messages = useMemo(() => 
-    conversationMessages.slice(-displayLimit), 
+    conversationMessages.slice(0, displayLimit).reverse(), 
     [conversationMessages, displayLimit]
   );
   
