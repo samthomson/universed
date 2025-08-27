@@ -17,6 +17,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
+import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   DndContext,
@@ -286,6 +287,7 @@ export function AppSidebar({
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
+  const { preloadCommunity } = usePreloadCommunity();
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -386,11 +388,12 @@ export function AppSidebar({
     };
   }, []);
 
+
+
   // Add mouse down handler for community interactions
   const handleCommunityMouseDown = useCallback((communityId: string) => {
-    // TODO: Implement community preloading logic AGAIN
-    console.log('Community mouse down:', communityId);
-  }, []);
+    preloadCommunity(communityId, selectedCommunity || undefined);
+  }, [preloadCommunity, selectedCommunity]);
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
