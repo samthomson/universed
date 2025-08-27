@@ -56,6 +56,33 @@ export function useDataManager(): DataManagerContextType {
   return context;
 }
 
+// Hook for conversation-specific message subscriptions to avoid unnecessary re-renders
+export function useConversationMessages(conversationId: string) {
+  const { messages: allMessages } = useDataManager();
+  
+  return useMemo(() => {
+    const conversationData = allMessages.get(conversationId);
+    
+    if (!conversationData) {
+      return {
+        messages: [],
+        hasMoreMessages: false,
+        totalCount: 0,
+        lastMessage: null,
+        lastActivity: 0,
+      };
+    }
+    
+    return {
+      messages: conversationData.messages,
+      hasMoreMessages: false, // This will be handled by pagination logic
+      totalCount: conversationData.messages.length,
+      lastMessage: conversationData.lastMessage,
+      lastActivity: conversationData.lastActivity,
+    };
+  }, [allMessages, conversationId]);
+}
+
 interface DataManagerProviderProps {
   children: ReactNode;
 }

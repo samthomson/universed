@@ -7,7 +7,7 @@ import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
-import { useDataManager } from "@/components/DataManagerProvider";
+import { useConversationMessages } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
@@ -85,27 +85,22 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { messages: allMessages } = useDataManager();
+  const { messages: conversationMessages, totalCount } = useConversationMessages(conversationId);
   const { sendMessage, isNIP17Enabled } = useDirectMessages();
   
-  // Simple pagination from DataManager messages
+  // Simple pagination from conversation messages
   const MESSAGES_PER_PAGE = 20; // Match the pattern from useMessages.ts
   const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
   
-  // Memoize conversation data to prevent unnecessary recalculations
-  const conversationData = useMemo(() => 
-    allMessages.get(conversationId), 
-    [allMessages, conversationId]
-  );
-  
+  // Memoize paginated messages to prevent unnecessary recalculations
   const messages = useMemo(() => 
-    conversationData?.messages.slice(-displayLimit) || [], 
-    [conversationData, displayLimit]
+    conversationMessages.slice(-displayLimit), 
+    [conversationMessages, displayLimit]
   );
   
   const hasMoreMessages = useMemo(() => 
-    (conversationData?.messages?.length || 0) > displayLimit, 
-    [conversationData, displayLimit]
+    totalCount > displayLimit, 
+    [totalCount, displayLimit]
   );
   
   // todo: rethink these obsolete props
