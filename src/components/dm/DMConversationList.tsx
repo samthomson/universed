@@ -80,7 +80,9 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <span className="font-medium text-white truncate max-w-full">
+            <span className={`font-medium truncate max-w-full ${
+              isSelected ? 'text-white' : 'text-foreground'
+            }`}>
               {searchQuery && displayName.toLowerCase().includes(searchQuery.toLowerCase()) ? (
                 highlightText(displayName, searchQuery)
               ) : (
@@ -93,16 +95,22 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
                   {conversation.unreadCount}
                 </Badge>
               )}
-              <span className="text-xs text-gray-400">
+              <span className={`text-xs ${
+                isSelected ? 'text-gray-200' : 'text-muted-foreground'
+              }`}>
                 {formatDistanceToNowShort(lastMessageTime, { addSuffix: false })}
               </span>
             </div>
           </div>
 
-            <div className="text-sm text-gray-400 truncate mt-0.5 pr-8 flex items-center gap-1">
+            <div className={`text-sm truncate mt-0.5 pr-8 flex items-center gap-1 ${
+              isSelected ? 'text-gray-200' : 'text-muted-foreground'
+            }`}>
               {/* Show arrow indicator if last message was from current user */}
               {conversation.lastMessageFromUser && (
-                <span className="text-xs text-gray-500 flex-shrink-0">→</span>
+                <span className={`text-xs flex-shrink-0 ${
+                  isSelected ? 'text-gray-300' : 'text-muted-foreground'
+                }`}>→</span>
               )}
               <span className="truncate">
                 {searchQuery && conversation.lastMessage?.content && conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ? (
