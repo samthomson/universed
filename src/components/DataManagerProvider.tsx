@@ -95,6 +95,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Use existing hook to kick off message loading
   const _directMessages = useDirectMessages();
   
+  // Memoize the user pubkey to prevent unnecessary re-renders
+  const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
+  
   const [messages, _setMessages] = useState<Map<string, {
     messages: NostrEvent[];
     lastActivity: number;
@@ -107,17 +110,30 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip17: null
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [protocolLoading, setProtocolLoading] = useState<{ nip4: boolean; nip17: boolean }>({
+    nip4: false,
+    nip17: false
+  });
   const [subscriptions, _setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
     nip4: false,
     nip17: false
   });
 
   useEffect(() => {
-    if (!user) return;
+    if (!userPubkey) {
+      logger.log('DataManager: No user pubkey available, skipping message loading');
+      return;
+    }
     
+    if (isLoading) {
+      logger.log('DataManager: Message loading already in progress, skipping duplicate request');
+      return;
+    }
+    
+    logger.log('DataManager: User pubkey available and not loading, starting message loading process');
     // Start the 3-stage message loading process when user logs in
     startMessageLoading();
-  }, [user]);
+  }, [userPubkey]); // Only depend on user pubkey, not isLoading
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
   const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
@@ -270,12 +286,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
     
+    // Ensure we have a user pubkey
+    if (!userPubkey) {
+      logger.log('DataManager: No user pubkey available, skipping message loading');
+      return;
+    }
+    
     try {
       // First, read any cached messages from IndexedDB to get the newest timestamp
       let sinceTimestamp: number | undefined;
       try {
         const { readMessagesFromDB } = await import('@/lib/messageStore');
-        const cachedStore = await readMessagesFromDB(user?.pubkey || '');
+        const cachedStore = await readMessagesFromDB(userPubkey);
         
         if (cachedStore && Object.keys(cachedStore.participants).length > 0) {
           logger.log(`DataManager: Found cached store with ${Object.keys(cachedStore.participants).length} participants`);
@@ -516,7 +538,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error(`DataManager: Error in Stage 1 for ${protocol}:`, error);
     }
-  }, [loadPastNIP4Messages, loadPastNIP17Messages, user]);
+  }, [loadPastNIP4Messages, loadPastNIP17Messages, user, settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
   const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
@@ -533,7 +555,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Load messages for a specific protocol using the 3-stage process
   const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
+    // Check if we're already loading this protocol
+    if (protocolLoading[protocol]) {
+      logger.log(`DataManager: Already loading ${protocol} messages, skipping duplicate request`);
+      return;
+    }
+    
     logger.log(`DataManager: Starting 3-stage process for ${protocol}`);
+    setProtocolLoading(prev => ({ ...prev, [protocol]: true }));
     
     try {
       await loadPastMessages(protocol);
@@ -546,11 +575,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log(`DataManager: ${protocol} 3-stage process complete`);
     } catch (error) {
       logger.error(`DataManager: Error in ${protocol} 3-stage process:`, error);
+    } finally {
+      setProtocolLoading(prev => ({ ...prev, [protocol]: false }));
     }
   }, [loadPastMessages, queryMissedMessages, startMessageSubscription, setLastSync]);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
+    // Prevent multiple simultaneous executions
+    if (isLoading) {
+      logger.log('DataManager: Message loading already in progress, skipping duplicate request');
+      return;
+    }
+    
     logger.log('DataManager: Starting message loading for all enabled protocols');
     setIsLoading(true);
     
@@ -569,20 +606,29 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [settings.enableNIP17, loadMessagesForProtocol, setIsLoading]);
+  }, [settings.enableNIP17, loadMessagesForProtocol, isLoading]);
 
+  // Handle NIP-17 setting changes
   useEffect(() => {
-    if (!user) return;
+    if (!userPubkey) {
+      logger.log('DataManager: No user pubkey available for NIP-17 settings check');
+      return;
+    }
+    
     logger.log(`DataManager: NIP-17 ${settings.enableNIP17 ? 'enabled' : 'disabled'}`);
     
-    // If NIP-17 was enabled, start loading NIP-17 messages
-    if (settings.enableNIP17 && lastSync.nip17 === null) {
+    // Only start loading if NIP-17 was enabled and we haven't synced yet
+    if (settings.enableNIP17 && lastSync.nip17 === null && !isLoading) {
       logger.log('DataManager: NIP-17 enabled, starting NIP-17 message loading');
       loadMessagesForProtocol('nip17');
+    } else if (settings.enableNIP17 && lastSync.nip17 !== null) {
+      logger.log('DataManager: NIP-17 already synced, no action needed');
+    } else if (isLoading) {
+      logger.log('DataManager: Message loading in progress, skipping NIP-17 settings change');
     } else {
-      // todo: drop all nip 17 messages and the subscription
+      logger.log('DataManager: NIP-17 setting change handled, no action needed');
     }
-  }, [settings.enableNIP17, user, lastSync.nip17, loadMessagesForProtocol]);
+  }, [settings.enableNIP17, userPubkey, lastSync.nip17, loadMessagesForProtocol, isLoading]);
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
   const conversations = useMemo(() => {
@@ -655,7 +701,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Debug method to write all current messages to IndexedDB
   const _writeAllMessagesToStore = useCallback(async () => {
-    if (!user?.pubkey) {
+    if (!userPubkey) {
       logger.error('DataManager: No user pubkey available for writing to store');
       return;
     }
@@ -702,12 +748,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       });
 
-      await writeMessagesToDB(user.pubkey, messageStore);
+      await writeMessagesToDB(userPubkey, messageStore);
       logger.log(`DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants`);
     } catch (error) {
       logger.error('DataManager: Error writing messages to IndexedDB:', error);
     }
-  }, [messages, user?.pubkey, lastSync]);
+  }, [messages, userPubkey, lastSync]);
 
   const contextValue: DataManagerContextType = {
     messages,
