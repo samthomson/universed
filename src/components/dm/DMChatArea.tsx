@@ -6,7 +6,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessagesForChatWithPagination, useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
+import { useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
@@ -84,8 +85,36 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
+  const { messages: allMessages } = useDataManager();
   const { sendMessage, isNIP17Enabled } = useDirectMessages();
+  
+  // Simple pagination from DataManager messages
+  const MESSAGES_PER_PAGE = 20; // Match the pattern from useMessages.ts
+  const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
+  
+  // Memoize conversation data to prevent unnecessary recalculations
+  const conversationData = useMemo(() => 
+    allMessages.get(conversationId), 
+    [allMessages, conversationId]
+  );
+  
+  const messages = useMemo(() => 
+    conversationData?.messages.slice(-displayLimit) || [], 
+    [conversationData, displayLimit]
+  );
+  
+  const hasMoreMessages = useMemo(() => 
+    (conversationData?.messages?.length || 0) > displayLimit, 
+    [conversationData, displayLimit]
+  );
+  
+  // todo: rethink these obsolete props
+  const isLoading = false; // DataManager handles loading
+  const loadingOlderMessages = false;
+  
+  const loadOlderMessages = useCallback(async () => {
+    setDisplayLimit(prev => prev + MESSAGES_PER_PAGE);
+  }, []);
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
