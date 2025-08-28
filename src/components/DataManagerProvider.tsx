@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
-import { useDirectMessages } from '@/hooks/useDirectMessages';
+// import { useDirectMessages } from '@/hooks/useDirectMessages';
 import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
@@ -93,7 +93,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { nostr } = useNostr();
   
   // Use existing hook to kick off message loading
-  const _directMessages = useDirectMessages();
+  // const _directMessages = useDirectMessages();
   
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
