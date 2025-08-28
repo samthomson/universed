@@ -99,7 +99,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
   
-  const [messages, _setMessages] = useState<Map<string, {
+  const [messages, setMessages] = useState<Map<string, {
     messages: NostrEvent[];
     lastActivity: number;
     lastMessage: NostrEvent | null;
@@ -354,7 +354,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           });
           
           // Update state with cached messages
-          _setMessages(newState);
+          setMessages(newState);
           logger.log(`DMS: DataManager: Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
         }
       } catch (error) {
@@ -424,7 +424,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           });
           
           // Update state with new data
-          _setMessages(prev => {
+          setMessages(prev => {
             const finalMap = new Map(prev);
             newState.forEach((value, key) => finalMap.set(key, value));
             return finalMap;
@@ -535,7 +535,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           });
           
           // Update state with new data
-          _setMessages(prev => {
+          setMessages(prev => {
             const finalMap = new Map(prev);
             newState.forEach((value, key) => finalMap.set(key, value));
             return finalMap;
@@ -635,7 +635,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       setLastSync(prev => ({ ...prev, nip17: null }));
       
       // Clear NIP-17 messages from state
-      _setMessages(prev => {
+      setMessages(prev => {
         const newMap = new Map(prev);
         newMap.forEach((participant, key) => {
           if (participant.hasNIP17) {
@@ -659,9 +659,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       });
       
       // Persist the updated state to IndexedDB
-      setTimeout(() => {
-        _writeAllMessagesToStore();
-      }, 0);
+      writeAllMessagesToStore();
     }
   }, [userPubkey, loadMessagesForProtocol]);
   
@@ -746,7 +744,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   };
 
   // Debug method to write all current messages to IndexedDB
-  const _writeAllMessagesToStore = useCallback(async () => {
+  const writeAllMessagesToStore = useCallback(async () => {
     if (!userPubkey) {
       logger.error('DMS: DataManager: No user pubkey available for writing to store');
       return;
@@ -807,7 +805,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     lastSync,
     conversations,
     getDebugInfo,
-    writeAllMessagesToStore: _writeAllMessagesToStore,
+    writeAllMessagesToStore,
     handleNIP17SettingChange,
     isDebugging: true, // Hardcoded for now
   };
