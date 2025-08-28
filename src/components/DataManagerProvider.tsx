@@ -7,6 +7,28 @@ import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@/types/nostr';
 
+// Simple utility for debounced error logging
+const createErrorLogger = (name: string) => {
+  let count = 0;
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return (_error: Error) => {
+    count++;
+    
+    if (timeout) clearTimeout(timeout);
+    
+    timeout = setTimeout(() => {
+      if (count > 0) {
+        logger.error(`DMS: DataManager: ${name} processing complete with ${count} errors`);
+        count = 0;
+      }
+    }, 2000);
+  };
+};
+
+// Create error loggers outside component to prevent recreation
+const nip17ErrorLogger = createErrorLogger('NIP-17');
+
 interface DataManagerContextType {
   messages: Map<string, {
     messages: NostrEvent[];
@@ -501,7 +523,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 }
               } catch (error) {
                 // Decryption/parsing failed - store with error placeholder
-                logger.error(`DMS: DataManager: NIP-17 message ${giftWrap.id} failed:`, error);
+                nip17ErrorLogger(error);
                 conversationPartner = giftWrap.pubkey;
                 processedMessage = {
                   ...giftWrap,
