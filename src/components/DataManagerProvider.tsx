@@ -69,8 +69,8 @@ interface DataManagerContextType {
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   isDebugging: boolean;
   scanProgress: {
-    nip4: { current: number; total: number; status: string } | null;
-    nip17: { current: number; total: number; status: string } | null;
+    nip4: { current: number; status: string } | null;
+    nip17: { current: number; status: string } | null;
   };
 }
 
@@ -152,8 +152,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   
   // Track scan progress for user feedback
   const [scanProgress, setScanProgress] = useState<{
-    nip4: { current: number; total: number; status: string } | null;
-    nip17: { current: number; total: number; status: string } | null;
+    nip4: { current: number; status: string } | null;
+    nip17: { current: number; status: string } | null;
   }>({
     nip4: null,
     nip17: null
@@ -202,7 +202,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log(`DMS: DataManager: Starting NIP-4 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
     
     // Initialize scan progress
-    setScanProgress(prev => ({ ...prev, nip4: { current: 0, total: SCAN_TOTAL_LIMIT, status: 'Starting NIP-4 scan...' } }));
+    setScanProgress(prev => ({ ...prev, nip4: { current: 0, status: 'Starting NIP-4 scan...' } }));
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -245,8 +245,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         setScanProgress(prev => ({ 
           ...prev, 
           nip4: { 
-            current: processedMessages, 
-            total: SCAN_TOTAL_LIMIT, 
+            current: allMessages.length, 
             status: `Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1} complete: ${validBatchDMs.length} messages` 
           } 
         }));
@@ -307,7 +306,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log(`DMS: DataManager: Starting NIP-17 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
     
     // Initialize scan progress
-    setScanProgress(prev => ({ ...prev, nip17: { current: 0, total: SCAN_TOTAL_LIMIT, status: 'Starting NIP-17 scan...' } }));
+    setScanProgress(prev => ({ ...prev, nip17: { current: 0, status: 'Starting NIP-17 scan...' } }));
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -341,8 +340,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         setScanProgress(prev => ({ 
           ...prev, 
           nip17: { 
-            current: processedMessages, 
-            total: SCAN_TOTAL_LIMIT, 
+            current: allNIP17Events.length, 
             status: `Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1} complete: ${batchEvents.length} messages` 
           } 
         }));

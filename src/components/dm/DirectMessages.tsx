@@ -274,41 +274,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 />
               </div>
 
-              {/* Scan Progress */}
-              {(scanProgress.nip4 || scanProgress.nip17) && (
-                <div className="mt-3 space-y-2">
-                  {scanProgress.nip4 && (
-                    <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-2">
-                      <div className="flex items-center justify-between text-xs text-blue-300 mb-1">
-                        <span>NIP-4 Scan</span>
-                        <span>{scanProgress.nip4.current}/{scanProgress.nip4.total}</span>
-                      </div>
-                      <div className="w-full bg-blue-900/30 rounded-full h-2">
-                        <div 
-                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(scanProgress.nip4.current / scanProgress.nip4.total) * 100}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-blue-400 mt-1">{scanProgress.nip4.status}</div>
-                    </div>
-                  )}
-                  {scanProgress.nip17 && (
-                    <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-2">
-                      <div className="flex items-center justify-between text-xs text-purple-300 mb-1">
-                        <span>NIP-17 Scan</span>
-                        <span>{scanProgress.nip17.current}/{scanProgress.nip17.total}</span>
-                      </div>
-                      <div className="w-full bg-purple-900/30 rounded-full h-2">
-                        <div 
-                          className="bg-purple-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${(scanProgress.nip17.current / scanProgress.nip17.total) * 100}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-purple-400 mt-1">{scanProgress.nip17.status}</div>
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
 
             {/* Conversation List */}
@@ -317,7 +283,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 data={filteredDiscoveredConversations}
                 itemContent={conversationItemContent}
                 components={virtuosoComponents}
-                className="h-full scrollbar-thin"
+                className="h-full"
               />
             </div>
           </>
@@ -392,41 +358,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             />
           </div>
 
-          {/* Scan Progress */}
-          {(scanProgress.nip4 || scanProgress.nip17) && (
-            <div className="mt-3 space-y-2">
-              {scanProgress.nip4 && (
-                <div className="bg-blue-100/20 border border-blue-300/50 rounded-lg p-2">
-                  <div className="flex items-center justify-between text-xs text-blue-700 mb-1">
-                    <span>NIP-4 Scan</span>
-                    <span>{scanProgress.nip4.current}/{scanProgress.nip4.total}</span>
-                  </div>
-                  <div className="w-full bg-blue-200/30 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(scanProgress.nip4.current / scanProgress.nip4.total) * 100}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-blue-600 mt-1">{scanProgress.nip4.status}</div>
-                </div>
-              )}
-              {scanProgress.nip17 && (
-                <div className="bg-purple-100/20 border border-purple-300/50 rounded-lg p-2">
-                  <div className="flex items-center justify-between text-xs text-purple-700 mb-1">
-                    <span>NIP-17 Scan</span>
-                    <span>{scanProgress.nip17.current}/{scanProgress.nip17.total}</span>
-                  </div>
-                  <div className="w-full bg-purple-200/30 rounded-full h-2">
-                    <div 
-                      className="bg-purple-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(scanProgress.nip17.current / scanProgress.nip17.total) * 100}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-purple-600 mt-1">{scanProgress.nip17.status}</div>
-                </div>
-              )}
-            </div>
-          )}
+
         </div>
 
         {/* Current Conversation List */}
@@ -435,7 +367,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             data={filteredDiscoveredConversations}
             itemContent={conversationItemContent}
             components={virtuosoComponents}
-            className="h-full scrollbar-thin"
+            className="h-full"
           />
         </div>
 
@@ -455,15 +387,35 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center text-gray-400">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-              <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
-              <Button onClick={handleNewDM}>
-                <Plus className="w-4 h-4 mr-2" />
-                Start New Conversation
-              </Button>
-            </div>
+            {/* Show loading state when scanning */}
+            {(scanProgress.nip4 || scanProgress.nip17) ? (
+              <div className="text-center space-y-6">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold text-gray-700">Scanning for messages...</h3>
+                  {scanProgress.nip4 && (
+                    <div className="text-sm text-gray-500">
+                      NIP-4: {scanProgress.nip4.current} messages found
+                    </div>
+                  )}
+                  {scanProgress.nip17 && (
+                    <div className="text-sm text-gray-500">
+                      NIP-17: {scanProgress.nip17.current} messages found
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-gray-400">
+                <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
+                <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
+                <Button onClick={handleNewDM}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Start New Conversation
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
