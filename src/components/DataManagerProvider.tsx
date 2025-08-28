@@ -68,6 +68,10 @@ interface DataManagerContextType {
   clearIndexedDB: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   isDebugging: boolean;
+  scanProgress: {
+    nip4: { current: number; total: number; status: string } | null;
+    nip17: { current: number; total: number; status: string } | null;
+  };
 }
 
 const DataManagerContext = createContext<DataManagerContextType | null>(null);
@@ -145,6 +149,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   
   // Track whether initial load has already completed
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
+  
+  // Track scan progress for user feedback
+  const [scanProgress, setScanProgress] = useState<{
+    nip4: { current: number; total: number; status: string } | null;
+    nip17: { current: number; total: number; status: string } | null;
+  }>({
+    nip4: null,
+    nip17: null
+  });
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
@@ -172,9 +185,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
   const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
     logger.log(`DMS: DataManager: Loading past NIP-4 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
+    logger.log(`DMS: DataManager: NIP-4 Debug - User pubkey: ${user?.pubkey?.slice(0, 8)}..., Signer available: ${!!user?.signer?.nip04}`);
     
-    if (!user?.signer?.nip04) {
-      logger.error('DMS: DataManager: No NIP-04 signer available for user');
+    // Note: We'll fetch messages even without a signer, but they won't be decrypted
+    if (!user?.pubkey) {
+      logger.error('DMS: DataManager: No user pubkey available');
       return;
     }
 
@@ -185,6 +200,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const SCAN_BATCH_SIZE = 1000;
     
     logger.log(`DMS: DataManager: Starting NIP-4 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+    
+    // Initialize scan progress
+    setScanProgress(prev => ({ ...prev, nip4: { current: 0, total: SCAN_TOTAL_LIMIT, status: 'Starting NIP-4 scan...' } }));
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -208,8 +226,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log(`DMS: DataManager: NIP-4 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages since ${new Date(currentSince * 1000).toISOString()}`);
       
       try {
+        logger.log(`DMS: DataManager: NIP-4 Querying filters:`, JSON.stringify(filters, null, 2));
         const batchDMs = await nostr.query(filters, { signal: AbortSignal.timeout(15000) });
+        logger.log(`DMS: DataManager: NIP-4 Raw response: ${batchDMs.length} events`);
+        
         const validBatchDMs = batchDMs.filter(validateDMEvent);
+        logger.log(`DMS: DataManager: NIP-4 After validation: ${validBatchDMs.length} valid events`);
         
         if (validBatchDMs.length === 0) {
           logger.log('DMS: DataManager: NIP-4 No more messages available, stopping scan');
@@ -218,6 +240,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         
         allMessages = [...allMessages, ...validBatchDMs];
         processedMessages += validBatchDMs.length;
+        
+        // Update scan progress
+        setScanProgress(prev => ({ 
+          ...prev, 
+          nip4: { 
+            current: processedMessages, 
+            total: SCAN_TOTAL_LIMIT, 
+            status: `Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1} complete: ${validBatchDMs.length} messages` 
+          } 
+        }));
         
         // Update currentSince for next batch using the correct timestamp coordination logic
         // Find the OLDEST timestamp from EACH query separately
@@ -249,6 +281,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
     
     logger.log(`DMS: DataManager: NIP-4 Scan complete: ${allMessages.length} total messages processed`);
+    
+    // Clear scan progress when complete
+    setScanProgress(prev => ({ ...prev, nip4: null }));
+    
     return allMessages;
   }, [user, nostr]);
 
@@ -256,8 +292,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const loadPastNIP17Messages = useCallback(async (sinceTimestamp?: number) => {
     logger.log(`DMS: DataManager: Loading past NIP-17 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
-    if (!user?.signer?.nip44) {
-      logger.error('DMS: DataManager: No NIP-44 signer available for user');
+    // Note: We'll fetch messages even without a signer, but they won't be decrypted
+    if (!user?.pubkey) {
+      logger.error('DMS: DataManager: No user pubkey available');
       return;
     }
 
@@ -268,6 +305,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const SCAN_BATCH_SIZE = 1000;
     
     logger.log(`DMS: DataManager: Starting NIP-17 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+    
+    // Initialize scan progress
+    setScanProgress(prev => ({ ...prev, nip17: { current: 0, total: SCAN_TOTAL_LIMIT, status: 'Starting NIP-17 scan...' } }));
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -285,7 +325,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log(`DMS: DataManager: NIP-17 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} Gift Wrap messages since ${new Date(currentSince * 1000).toISOString()}`);
       
       try {
+        logger.log(`DMS: DataManager: NIP-17 Querying filters:`, JSON.stringify(filters, null, 2));
         const batchEvents = await nostr.query(filters, { signal: AbortSignal.timeout(30000) });
+        logger.log(`DMS: DataManager: NIP-17 Raw response: ${batchEvents.length} events`);
         
         if (batchEvents.length === 0) {
           logger.log('DMS: DataManager: NIP-17 No more Gift Wrap messages available, stopping scan');
@@ -294,6 +336,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         
         allNIP17Events = [...allNIP17Events, ...batchEvents];
         processedMessages += batchEvents.length;
+        
+        // Update scan progress
+        setScanProgress(prev => ({ 
+          ...prev, 
+          nip17: { 
+            current: processedMessages, 
+            total: SCAN_TOTAL_LIMIT, 
+            status: `Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1} complete: ${batchEvents.length} messages` 
+          } 
+        }));
         
         // Update currentSince for next batch (NIP-17 only has one filter, so simpler)
         if (batchEvents.length > 0) {
@@ -315,7 +367,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
     }
     
-          logger.log(`DMS: DataManager: NIP-17 Scan complete: ${allNIP17Events.length} total Gift Wrap messages processed`);
+    logger.log(`DMS: DataManager: NIP-17 Scan complete: ${allNIP17Events.length} total Gift Wrap messages processed`);
+    
+    // Clear scan progress when complete
+    setScanProgress(prev => ({ ...prev, nip17: null }));
+    
     return allNIP17Events;
   }, [user, nostr]);
 
@@ -432,12 +488,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               if (user?.signer?.nip04) {
                 decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
               } else {
-                logger.error(`DMS: DataManager: No NIP-04 decryption available for message ${message.id}`);
-                decryptedContent = '[No decryption method available]';
+                logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${message.id}, storing encrypted content`);
+                decryptedContent = '[Encrypted - No decryption available]';
               }
             } catch (error) {
               logger.error(`DMS: DataManager: Failed to decrypt message ${message.id}:`, error);
-              decryptedContent = '[Unable to decrypt message]';
+              decryptedContent = '[Decryption failed]';
             }
             
             // Create decrypted message
@@ -913,6 +969,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     clearIndexedDB,
     handleNIP17SettingChange,
     isDebugging: true, // Hardcoded for now
+    scanProgress,
   };
 
   return (

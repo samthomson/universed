@@ -40,7 +40,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const { user } = useCurrentUser();
   const { toast } = useToast();
   // Use the DataManager for all conversation data
-  const { conversations: newConversations } = useDataManager();
+  const { conversations: newConversations, scanProgress } = useDataManager();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
@@ -273,6 +273,42 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors text-base"
                 />
               </div>
+
+              {/* Scan Progress */}
+              {(scanProgress.nip4 || scanProgress.nip17) && (
+                <div className="mt-3 space-y-2">
+                  {scanProgress.nip4 && (
+                    <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-2">
+                      <div className="flex items-center justify-between text-xs text-blue-300 mb-1">
+                        <span>NIP-4 Scan</span>
+                        <span>{scanProgress.nip4.current}/{scanProgress.nip4.total}</span>
+                      </div>
+                      <div className="w-full bg-blue-900/30 rounded-full h-2">
+                        <div 
+                          className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(scanProgress.nip4.current / scanProgress.nip4.total) * 100}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-blue-400 mt-1">{scanProgress.nip4.status}</div>
+                    </div>
+                  )}
+                  {scanProgress.nip17 && (
+                    <div className="bg-purple-900/20 border border-purple-700/50 rounded-lg p-2">
+                      <div className="flex items-center justify-between text-xs text-purple-300 mb-1">
+                        <span>NIP-17 Scan</span>
+                        <span>{scanProgress.nip17.current}/{scanProgress.nip17.total}</span>
+                      </div>
+                      <div className="w-full bg-purple-900/30 rounded-full h-2">
+                        <div 
+                          className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(scanProgress.nip17.current / scanProgress.nip17.total) * 100}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-purple-400 mt-1">{scanProgress.nip17.status}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Conversation List */}
@@ -355,6 +391,42 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               className="pl-9 bg-background border-border text-foreground placeholder:text-muted-foreground focus:bg-accent/50 transition-colors"
             />
           </div>
+
+          {/* Scan Progress */}
+          {(scanProgress.nip4 || scanProgress.nip17) && (
+            <div className="mt-3 space-y-2">
+              {scanProgress.nip4 && (
+                <div className="bg-blue-100/20 border border-blue-300/50 rounded-lg p-2">
+                  <div className="flex items-center justify-between text-xs text-blue-700 mb-1">
+                    <span>NIP-4 Scan</span>
+                    <span>{scanProgress.nip4.current}/{scanProgress.nip4.total}</span>
+                  </div>
+                  <div className="w-full bg-blue-200/30 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(scanProgress.nip4.current / scanProgress.nip4.total) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1">{scanProgress.nip4.status}</div>
+                </div>
+              )}
+              {scanProgress.nip17 && (
+                <div className="bg-purple-100/20 border border-purple-300/50 rounded-lg p-2">
+                  <div className="flex items-center justify-between text-xs text-purple-700 mb-1">
+                    <span>NIP-17 Scan</span>
+                    <span>{scanProgress.nip17.current}/{scanProgress.nip17.total}</span>
+                  </div>
+                  <div className="w-full bg-purple-200/30 rounded-full h-2">
+                    <div 
+                      className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(scanProgress.nip17.current / scanProgress.nip17.total) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-xs text-purple-600 mt-1">{scanProgress.nip17.status}</div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Current Conversation List */}
