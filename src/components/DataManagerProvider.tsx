@@ -278,7 +278,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Stage 1: Read all past messages from storage for a specific protocol
   const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    logger.log(`DMS: DataManager: Stage 1 - Loading past ${protocol} messages from storage`);
+    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 - Loading past messages from storage`);
     
     // Skip NIP-17 if it's disabled
     if (protocol === 'nip17' && !settings.enableNIP17) {
@@ -543,13 +543,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Stage 2: Query for messages between last sync and now for a specific protocol
   const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
     const lastSyncTime = lastSync[protocol];
-          logger.log(`DMS: DataManager: Stage 2 - Querying for missed ${protocol} messages since ${lastSyncTime || 'never'}`);
+          logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${lastSyncTime || 'never'}`);
     // TODO: Implement querying for messages since last sync
   }, [lastSync]);
 
   // Stage 3: Create subscription for new messages going forward for a specific protocol
   const startMessageSubscription = useCallback(async (protocol: 'nip4' | 'nip17') => {
-          logger.log(`DMS: DataManager: Stage 3 - Starting ${protocol} message subscription`);
+          logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 3 - Starting message subscription`);
     // TODO: Implement real-time subscription
   }, []);
 
@@ -561,7 +561,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
     
-          logger.log(`DMS: DataManager: Starting 3-stage process for ${protocol}`);
+    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Starting 3-stage process`);
     setProtocolLoading(prev => ({ ...prev, [protocol]: true }));
     
     try {
@@ -572,9 +572,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Update last sync time for this protocol
       setLastSync(prev => ({ ...prev, [protocol]: Date.now() }));
       
-              logger.log(`DMS: DataManager: ${protocol} 3-stage process complete`);
+      logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] 3-stage process complete`);
     } catch (error) {
-              logger.error(`DMS: DataManager: Error in ${protocol} 3-stage process:`, error);
+      logger.error(`DMS: DataManager: [${protocol.toUpperCase()}] Error in 3-stage process:`, error);
     } finally {
       setProtocolLoading(prev => ({ ...prev, [protocol]: false }));
     }
@@ -595,9 +595,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Always load NIP-4 messages
       await loadMessagesForProtocol('nip4');
       
-      // Load NIP-17 messages if enabled
-      if (settings.enableNIP17) {
+      // Load NIP-17 messages if enabled and not already synced
+      if (settings.enableNIP17 && lastSync.nip17 === null) {
         await loadMessagesForProtocol('nip17');
+      } else if (settings.enableNIP17 && lastSync.nip17 !== null) {
+        logger.log('DMS: DataManager: NIP-17 already synced, skipping duplicate load');
       }
       
       logger.log('DMS: DataManager: All protocol loading complete');
@@ -608,27 +610,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [settings.enableNIP17, loadMessagesForProtocol, isLoading]);
 
-  // Handle NIP-17 setting changes
-  useEffect(() => {
-    if (!userPubkey) {
-      logger.log('DMS: DataManager: No user pubkey available for NIP-17 settings check');
-      return;
-    }
-    
-          logger.log(`DMS: DataManager: NIP-17 ${settings.enableNIP17 ? 'enabled' : 'disabled'}`);
-    
-    // Only start loading if NIP-17 was enabled and we haven't synced yet
-    if (settings.enableNIP17 && lastSync.nip17 === null && !isLoading) {
-              logger.log('DMS: DataManager: NIP-17 enabled, starting NIP-17 message loading');
-      loadMessagesForProtocol('nip17');
-    } else if (settings.enableNIP17 && lastSync.nip17 !== null) {
-              logger.log('DMS: DataManager: NIP-17 already synced, no action needed');
-    } else if (isLoading) {
-              logger.log('DMS: DataManager: Message loading in progress, skipping NIP-17 settings change');
-    } else {
-              logger.log('DMS: DataManager: NIP-17 setting change handled, no action needed');
-    }
-  }, [settings.enableNIP17, userPubkey, lastSync.nip17, loadMessagesForProtocol, isLoading]);
+  // NIP-17 setting changes are now handled in the main startMessageLoading flow
+  // No separate effect needed - this prevents duplicate execution
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
   const conversations = useMemo(() => {
