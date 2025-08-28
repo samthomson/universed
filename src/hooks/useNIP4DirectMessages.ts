@@ -130,7 +130,7 @@ async function fetchAllMessagesUntil(
         decryptedContent = '[No NIP-04 decryption available]';
       }
     } catch (error) {
-      logger.error(`[NIP4] Failed to decrypt message ${message.id}:`, error);
+      logger.error(`DMS: [NIP4] Failed to decrypt message ${message.id}:`, error);
       decryptedContent = '[Unable to decrypt message]';
     }
 
@@ -186,7 +186,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
       if (isDiscoveryMode) {
         // Discovery mode: Comprehensive batched scanning
-        logger.log(`[NIP4] Starting comprehensive scan (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE}) - Fresh fetch, not from cache`);
+        logger.log(`DMS: [NIP4] Starting comprehensive scan (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE}) - Fresh fetch, not from cache`);
         
         let allDMs: NostrEvent[] = [];
         let processedMessages = 0;
@@ -212,13 +212,13 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
             }
           ];
           
-          logger.log(`[NIP4] Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
+          logger.log(`DMS: [NIP4] Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
           
           const batchDMs = await nostr.query(filters, { signal });
           const validBatchDMs = batchDMs.filter(validateDMEvent);
           
           if (validBatchDMs.length === 0) {
-            logger.log('[NIP4] No more messages available, stopping scan');
+            logger.log('DMS: [NIP4] No more messages available, stopping scan');
             break;
           }
           
@@ -232,11 +232,11 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
           );
           oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
           
-          logger.log(`[NIP4] Batch complete: ${validBatchDMs.length} messages, total: ${allDMs.length}`);
+          logger.log(`DMS: [NIP4] Batch complete: ${validBatchDMs.length} messages, total: ${allDMs.length}`);
           
           // Stop if we got fewer messages than requested (end of data)
           if (validBatchDMs.length < batchLimit) {
-            logger.log('[NIP4] Reached end of available messages');
+            logger.log('DMS: [NIP4] Reached end of available messages');
             break;
           }
         }
@@ -261,11 +261,11 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
             if (user.signer?.nip04) {
               decryptedContent = await user.signer.nip04.decrypt(otherPubkey, dm.content);
             } else {
-              logger.error(`[NIP4] No NIP-04 decryption available for message ${dm.id}`);
+              logger.error(`DMS: [NIP4] No NIP-04 decryption available for message ${dm.id}`);
               decryptedContent = '[No decryption method available]';
             }
           } catch (error) {
-            logger.error(`[NIP4] Failed to decrypt message ${dm.id}:`, error);
+            logger.error(`DMS: [NIP4] Failed to decrypt message ${dm.id}:`, error);
             decryptedContent = '[Unable to decrypt message]';
           }
           
@@ -301,7 +301,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         const conversations = Array.from(conversationMap.values())
           .sort((a, b) => b.lastActivity - a.lastActivity);
           
-        logger.log(`[NIP4] Comprehensive scan complete: ${conversations.length} conversations from ${allDMs.length} messages`);
+        logger.log(`DMS: [NIP4] Comprehensive scan complete: ${conversations.length} conversations from ${allDMs.length} messages`);
         return conversations;
       } else {
         // Specific conversation mode - get NIP-4 messages for this conversation with pagination
@@ -325,7 +325,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
   // Log cache status for debugging
   if (isDiscoveryMode && query.data && !query.isLoading && Array.isArray(query.data)) {
-    logger.log(`[NIP4] Using cached data: ${query.data.length} conversations found`);
+    logger.log(`DMS: [NIP4] Using cached data: ${query.data.length} conversations found`);
   }
 
   // Handle new real-time NIP-4 messages for specific conversations (like channels do)
@@ -349,11 +349,11 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         const otherPubkey = isFromUser ? conversationId : event.pubkey;
         decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
       } else {
-        logger.error(`[NIP4] No NIP-04 decryption available for real-time message ${event.id}`);
+        logger.error(`DMS: [NIP4] No NIP-04 decryption available for real-time message ${event.id}`);
         decryptedContent = '[No decryption method available]';
       }
     } catch (error) {
-      logger.error(`[NIP4] Failed to decrypt real-time message ${event.id}:`, error);
+      logger.error(`DMS: [NIP4] Failed to decrypt real-time message ${event.id}:`, error);
       decryptedContent = '[Unable to decrypt message]';
     }
 
@@ -398,8 +398,8 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
 
       // Check if this real message should replace an optimistic message
       // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
-      logger.log(`[NIP4] Looking for optimistic message to replace. Event: ${event.id}, content: "${decryptedEvent.content}", author: ${event.pubkey}, timestamp: ${event.created_at}`);
-      logger.log(`[NIP4] Existing messages:`, oldMessages.map(msg => ({ id: msg.id, isSending: msg.isSending, content: msg.content.slice(0, 30), author: msg.pubkey, timestamp: msg.created_at })));
+      logger.log(`DMS: [NIP4] Looking for optimistic message to replace. Event: ${event.id}, content: "${decryptedEvent.content}", author: ${event.pubkey}, timestamp: ${event.created_at}`);
+      logger.log(`DMS: [NIP4] Existing messages:`, oldMessages.map(msg => ({ id: msg.id, isSending: msg.isSending, content: msg.content.slice(0, 30), author: msg.pubkey, timestamp: msg.created_at })));
       
       const optimisticMessageIndex = oldMessages.findIndex(msg =>
         msg.isSending &&
@@ -408,7 +408,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
       );
 
-      logger.log(`[NIP4] Optimistic message index: ${optimisticMessageIndex}`);
+      logger.log(`DMS: [NIP4] Optimistic message index: ${optimisticMessageIndex}`);
 
       if (optimisticMessageIndex !== -1) {
         // Replace the optimistic message with the real one (keep existing animation timestamp)
@@ -418,7 +418,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
           ...decryptedEvent,
           clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
         };
-        logger.log(`[NIP4] Replaced optimistic message with real message: ${event.id}`);
+        logger.log(`DMS: [NIP4] Replaced optimistic message with real message: ${event.id}`);
         return {
           messages: updatedMessages.sort((a, b) => a.created_at - b.created_at),
           hasMore
@@ -432,7 +432,7 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
       };
     });
 
-    logger.log(`[NIP4] New real-time message: ${event.id}`);
+    logger.log(`DMS: [NIP4] New real-time message: ${event.id}`);
   }, [user, conversationId, isDiscoveryMode, until, queryClient]);
 
   // Start real-time subscription for specific conversations (like channels do)
@@ -471,8 +471,8 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
         }
       ];
 
-      logger.log(`[NIP4] Starting real-time subscription for conversation ${conversationId}`);
-      logger.log(`[NIP4] Subscription filters:`, filters);
+      logger.log(`DMS: [NIP4] Starting real-time subscription for conversation ${conversationId}`);
+      logger.log(`DMS: [NIP4] Subscription filters:`, filters);
 
       const subscription = nostr.req(filters);
       let isActive = true;
@@ -483,28 +483,28 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
           for await (const msg of subscription) {
             if (!isActive) break;
             if (msg[0] === 'EVENT') {
-              logger.log(`[NIP4] Received real-time event:`, msg[2]);
+              logger.log(`DMS: [NIP4] Received real-time event:`, msg[2]);
               handleNewMessage(msg[2]);
             } else {
-              logger.log(`[NIP4] Received non-event message:`, msg);
+              logger.log(`DMS: [NIP4] Received non-event message:`, msg);
             }
           }
         } catch (error) {
-          logger.warn('[NIP4] Subscription error:', error);
+          logger.warn('DMS: [NIP4] Subscription error:', error);
         }
       })();
 
       subscriptionRef.current = {
         close: () => {
           isActive = false;
-          logger.log(`[NIP4] Subscription closed for conversation ${conversationId}`);
+          logger.log(`DMS: [NIP4] Subscription closed for conversation ${conversationId}`);
           // Reset the flag so subscription can start again
           hasStartedSubscription.current = false;
         }
       };
 
     } catch (error) {
-      logger.error('[NIP4] Failed to start subscription:', error);
+      logger.error('DMS: [NIP4] Failed to start subscription:', error);
     }
   }, [user, conversationId, isDiscoveryMode, until, nostr, handleNewMessage, queryClient]);
 
@@ -523,17 +523,17 @@ export function useNIP4DirectMessages(conversationId: string, isDiscoveryMode = 
   // Reset subscription flag when conversation changes
   useEffect(() => {
     if (lastConversationId.current !== conversationId) {
-      logger.log(`[NIP4] Conversation changed from "${lastConversationId.current}" to "${conversationId}" - resetting subscription flag`);
+      logger.log(`DMS: [NIP4] Conversation changed from "${lastConversationId.current}" to "${conversationId}" - resetting subscription flag`);
       hasStartedSubscription.current = false;
       lastConversationId.current = conversationId;
     }
   }, [conversationId]);
   
   useEffect(() => {
-    logger.log(`[NIP4] Subscription effect - query.data: ${!!query.data}, isDiscoveryMode: ${isDiscoveryMode}, conversationId: ${conversationId}, user: ${!!user}, hasStarted: ${hasStartedSubscription.current}`);
+    logger.log(`DMS: [NIP4] Subscription effect - query.data: ${!!query.data}, isDiscoveryMode: ${isDiscoveryMode}, conversationId: ${conversationId}, user: ${!!user}, hasStarted: ${hasStartedSubscription.current}`);
     
     if (query.data && !isDiscoveryMode && conversationId && user && !hasStartedSubscription.current) {
-      logger.log(`[NIP4] Starting subscription for conversation: ${conversationId}`);
+      logger.log(`DMS: [NIP4] Starting subscription for conversation: ${conversationId}`);
       hasStartedSubscription.current = true;
       startSubscription();
     }

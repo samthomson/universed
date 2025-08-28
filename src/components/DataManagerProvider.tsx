@@ -121,16 +121,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   useEffect(() => {
     if (!userPubkey) {
-      logger.log('DataManager: No user pubkey available, skipping message loading');
+      logger.log('DMS: DataManager: No user pubkey available, skipping message loading');
       return;
     }
     
     if (isLoading) {
-      logger.log('DataManager: Message loading already in progress, skipping duplicate request');
+      logger.log('DMS: DataManager: Message loading already in progress, skipping duplicate request');
       return;
     }
     
-    logger.log('DataManager: User pubkey available and not loading, starting message loading process');
+    logger.log('DMS: DataManager: User pubkey available and not loading, starting message loading process');
     // Start the 3-stage message loading process when user logs in
     startMessageLoading();
   }, [userPubkey]); // Only depend on user pubkey, not isLoading

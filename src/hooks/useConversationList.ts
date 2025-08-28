@@ -87,7 +87,7 @@ export function useConversationList() {
         } else if (result.status === 'rejected') {
           // Log failed queries for debugging
           const person = batch[batchIndex];
-          logger.error(`[ConversationDiscovery] Failed to query DMs for ${person.pubkey}:`, result.reason);
+          logger.error(`DMS: [ConversationDiscovery] Failed to query DMs for ${person.pubkey}:`, result.reason);
         }
       });
 
@@ -119,11 +119,11 @@ export function useConversationList() {
 
       // Phase 1: Check mutual follows if enabled
       if (MESSAGING_CONFIG.isWatchingMutualFollows && mutuals.length > 0) {
-        logger.log(`[ConversationDiscovery] Checking ${mutuals.length} mutual followers for conversations`);
+        logger.log(`DMS: [ConversationDiscovery] Checking ${mutuals.length} mutual followers for conversations`);
         const mutualConversations = await checkBatchForConversations(mutuals);
         allConversations = [...allConversations, ...mutualConversations];
         setConversations([...allConversations]);
-        logger.log(`[ConversationDiscovery] Found ${mutualConversations.length} conversations with mutual followers`);
+        logger.log(`DMS: [ConversationDiscovery] Found ${mutualConversations.length} conversations with mutual followers`);
       }
 
       // Phase 2: Check users you follow if enabled
@@ -134,27 +134,27 @@ export function useConversationList() {
         );
         
         if (remainingFriends.length > 0) {
-          logger.log(`[ConversationDiscovery] Checking ${remainingFriends.length} other friends for conversations`);
+          logger.log(`DMS: [ConversationDiscovery] Checking ${remainingFriends.length} other friends for conversations`);
           const friendConversations = await checkBatchForConversations(remainingFriends);
           
           allConversations = [...allConversations, ...friendConversations]
             .sort((a, b) => b.lastActivity - a.lastActivity);
           
           setConversations([...allConversations]);
-          logger.log(`[ConversationDiscovery] Found ${friendConversations.length} additional conversations with friends`);
+          logger.log(`DMS: [ConversationDiscovery] Found ${friendConversations.length} additional conversations with friends`);
         }
       }
 
       // Phase 3: Note about isWatchingAll
       if (MESSAGING_CONFIG.isWatchingAll) {
-        logger.log(`[ConversationDiscovery] isWatchingAll enabled - comprehensive conversation discovery will be handled by NIP-4 and NIP-17 hooks`);
+        logger.log(`DMS: [ConversationDiscovery] isWatchingAll enabled - comprehensive conversation discovery will be handled by NIP-4 and NIP-17 hooks`);
         // This will be handled by the respective NIP hooks when they scan all messages
       }
 
-      logger.log(`[ConversationDiscovery] Total found via friend discovery: ${allConversations.length} conversations`);
+      logger.log(`DMS: [ConversationDiscovery] Total found via friend discovery: ${allConversations.length} conversations`);
 
     } catch (error) {
-      logger.error('[ConversationDiscovery] Failed:', error);
+      logger.error('DMS: [ConversationDiscovery] Failed:', error);
     } finally {
       setIsLoadingConversations(false);
     }

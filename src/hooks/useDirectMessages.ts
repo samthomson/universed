@@ -66,10 +66,10 @@ export const PROTOCOL_CONSTANTS = {
   NIP4_CONVERSATIONS_KEY: 'nip4-all-conversations',
   
   // Logger prefixes
-  NIP4_LOG_PREFIX: '[NIP4]',
-  NIP17_LOG_PREFIX: '[NIP17]',
-  DMCHAT_LOG_PREFIX: '[DMCHAT]',
-  DIRECT_MESSAGES_LOG_PREFIX: '[DirectMessages]',
+  NIP4_LOG_PREFIX: 'DMS: [NIP4]',
+  NIP17_LOG_PREFIX: 'DMS: [NIP17]',
+  DMCHAT_LOG_PREFIX: 'DMS: [DMCHAT]',
+  DIRECT_MESSAGES_LOG_PREFIX: 'DMS: [DirectMessages]',
 } as const;
 
 export type MessageProtocol = typeof MESSAGE_PROTOCOL[keyof typeof MESSAGE_PROTOCOL];

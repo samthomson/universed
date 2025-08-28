@@ -106,7 +106,7 @@ async function decryptGiftWrapMessage(
   
   return { messageEvent, conversationPartner };
   } catch (error) {
-    logger.error(`[NIP17] Failed to decrypt Gift Wrap message:`, error);
+    logger.error(`DMS: [NIP17] Failed to decrypt Gift Wrap message:`, error);
     return null;
   }
 }
@@ -243,8 +243,8 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(30000)]); // Longer timeout for NIP-17
 
-      logger.log(`[NIP17] Starting comprehensive scan for all NIP-17 messages (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE}) - Fresh fetch, not from cache`);
-      logger.log(`[NIP17] User pubkey: ${user.pubkey}, signer available: ${!!user.signer}, nip44 available: ${!!user.signer?.nip44}`);
+      logger.log(`DMS: [NIP17] Starting comprehensive scan for all NIP-17 messages (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE}) - Fresh fetch, not from cache`);
+      logger.log(`DMS: [NIP17] User pubkey: ${user.pubkey}, signer available: ${!!user.signer}, nip44 available: ${!!user.signer?.nip44}`);
       
       let allNIP17Events: NostrEvent[] = [];
       let processedMessages = 0;
@@ -264,12 +264,12 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
           }
         ];
         
-        logger.log(`[NIP17] Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} NIP-17 messages`);
+        logger.log(`DMS: [NIP17] Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} NIP-17 messages`);
         
         const batchEvents = await nostr.query(filters, { signal });
         
         if (batchEvents.length === 0) {
-          logger.log('[NIP17] No more NIP-17 messages available, stopping scan');
+          logger.log('DMS: [NIP17] No more NIP-17 messages available, stopping scan');
           break;
         }
         
@@ -283,11 +283,11 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
         );
         oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
         
-        logger.log(`[NIP17] Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
+        logger.log(`DMS: [NIP17] Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
         
         // Stop if we got fewer messages than requested (end of data)
         if (batchEvents.length < batchLimit) {
-          logger.log('[NIP17] Reached end of available NIP-17 messages');
+          logger.log('DMS: [NIP17] Reached end of available NIP-17 messages');
           break;
         }
       }
@@ -298,7 +298,7 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
       let decryptedCount = 0;
       let failedDecryption = 0;
       
-      logger.log(`[NIP17] Decrypting ${allNIP17Events.length} NIP-17 Gift Wrap messages...`);
+      logger.log(`DMS: [NIP17] Decrypting ${allNIP17Events.length} NIP-17 Gift Wrap messages...`);
       
       for (const giftWrap of allNIP17Events) {
         if (!user.signer?.nip44) {
@@ -341,8 +341,8 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
         }
       }
       
-      logger.log(`[NIP17] Decryption complete: ${decryptedCount} successful, ${failedDecryption} failed`);
-      logger.log(`[NIP17] Found ${conversationMap.size} NIP-17 conversations from ${allNIP17Events.length} Gift Wrap messages`);
+      logger.log(`DMS: [NIP17] Decryption complete: ${decryptedCount} successful, ${failedDecryption} failed`);
+      logger.log(`DMS: [NIP17] Found ${conversationMap.size} NIP-17 conversations from ${allNIP17Events.length} Gift Wrap messages`);
       
       return {
         conversations: conversationMap,
@@ -355,7 +355,7 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
 
   // Log cache status for debugging
   if (query.data && !query.isLoading) {
-    logger.log(`[NIP17] Using cached data: ${query.data.conversations.size} conversations found`);
+    logger.log(`DMS: [NIP17] Using cached data: ${query.data.conversations.size} conversations found`);
   }
 
   // Real-time subscription for new NIP-17 messages
@@ -366,7 +366,7 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
       // Cancel existing subscription
       if (subscriptionRef.current) {
         subscriptionRef.current.close();
-        logger.log('[NIP17] Closed existing subscription');
+        logger.log('DMS: [NIP17] Closed existing subscription');
       }
 
       // Start subscription for new NIP-17 messages
@@ -414,13 +414,13 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
                   // Decrypt and add new Gift Wrap message to cache (like channels do)
                   await processNewGiftWrapMessage(event, user, queryClient);
                 } catch (error) {
-                  logger.error(`[NIP17] Failed to process new Gift Wrap message:`, error);
+                  logger.error(`DMS: [NIP17] Failed to process new Gift Wrap message:`, error);
                 }
               }
             }
           } catch (error) {
             if (isActive) {
-              logger.error('[NIP17] Subscription error:', error);
+              logger.error('DMS: [NIP17] Subscription error:', error);
             }
           }
         })();
@@ -431,7 +431,7 @@ export function useNIP17DirectMessages(conversationId: string, enabled: boolean,
           }
         };
       } catch (error) {
-        logger.error(`[NIP17] Failed to start subscription:`, error);
+        logger.error(`DMS: [NIP17] Failed to start subscription:`, error);
       }
     };
 
