@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 // import { useDirectMessages } from '@/hooks/useDirectMessages';
@@ -665,6 +665,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
   
+  // Track previous NIP-17 setting to detect actual changes
+  const prevNIP17Setting = useRef(settings.enableNIP17);
+  
   // Watch for NIP-17 setting changes and handle them explicitly
   useEffect(() => {
     if (!hasInitialLoadCompleted) {
@@ -672,8 +675,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
     
-    // Handle the current NIP-17 setting value
-    handleNIP17SettingChange(settings.enableNIP17);
+    // Only run if the setting actually changed (not on initial mount)
+    if (prevNIP17Setting.current !== settings.enableNIP17) {
+      logger.log('DMS: DataManager: NIP-17 setting changed from', prevNIP17Setting.current, 'to', settings.enableNIP17);
+      handleNIP17SettingChange(settings.enableNIP17);
+      prevNIP17Setting.current = settings.enableNIP17;
+    }
   }, [settings.enableNIP17, hasInitialLoadCompleted, handleNIP17SettingChange]);
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
