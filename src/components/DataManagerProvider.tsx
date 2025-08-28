@@ -180,7 +180,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     let allMessages: NostrEvent[] = [];
     let processedMessages = 0;
-    let oldestTimestamp: number | undefined = sinceTimestamp;
+    let currentSince = sinceTimestamp || 0;
     const SCAN_TOTAL_LIMIT = 20000;
     const SCAN_BATCH_SIZE = 1000;
     
@@ -195,17 +195,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [4], 
           '#p': [user.pubkey], 
           limit: batchLimit,
-          ...(oldestTimestamp && { until: oldestTimestamp })
+          since: currentSince
         },
         { 
           kinds: [4], 
           authors: [user.pubkey], 
           limit: batchLimit,
-          ...(oldestTimestamp && { until: oldestTimestamp })
+          since: currentSince
         }
       ];
       
-      logger.log(`DMS: DataManager: NIP-4 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
+      logger.log(`DMS: DataManager: NIP-4 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages since ${new Date(currentSince * 1000).toISOString()}`);
       
       try {
         const batchDMs = await nostr.query(filters, { signal: AbortSignal.timeout(15000) });
@@ -219,17 +219,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         allMessages = [...allMessages, ...validBatchDMs];
         processedMessages += validBatchDMs.length;
         
-        // Update oldest timestamp for next batch
-        const batchOldest = validBatchDMs.reduce((oldest, dm) => 
-          dm.created_at < oldest ? dm.created_at : oldest, 
-          validBatchDMs[0]?.created_at || 0
-        );
-        oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
+        // Update currentSince for next batch using the correct timestamp coordination logic
+        // Find the OLDEST timestamp from EACH query separately
+        const oldestToMe = validBatchDMs.filter(m => m.pubkey !== user.pubkey).length > 0 
+          ? Math.min(...validBatchDMs.filter(m => m.pubkey !== user.pubkey).map(m => m.created_at)) 
+          : Infinity;
+        const oldestFromMe = validBatchDMs.filter(m => m.pubkey === user.pubkey).length > 0 
+          ? Math.min(...validBatchDMs.filter(m => m.pubkey === user.pubkey).map(m => m.created_at)) 
+          : Infinity;
+        
+        // Use the EARLIER timestamp to ensure no gaps between batches
+        const oldestInBatch = Math.min(oldestToMe, oldestFromMe);
+        if (oldestInBatch !== Infinity) {
+          currentSince = oldestInBatch; // Next batch starts from the EARLIER timestamp
+          logger.log(`DMS: DataManager: NIP-4 Batch timestamp coordination: oldestToMe: ${oldestToMe !== Infinity ? new Date(oldestToMe * 1000).toISOString() : 'none'}, oldestFromMe: ${oldestFromMe !== Infinity ? new Date(oldestFromMe * 1000).toISOString() : 'none'}, next batch since: ${new Date(currentSince * 1000).toISOString()}`);
+        }
         
         logger.log(`DMS: DataManager: NIP-4 Batch complete: ${validBatchDMs.length} messages, total: ${allMessages.length}`);
         
         // Stop if we got fewer messages than requested (end of data)
-        if (validBatchDMs.length < batchLimit) {
+        if (validBatchDMs.length < batchLimit * 2) { // *2 because we have 2 filters
           logger.log('DMS: DataManager: NIP-4 Reached end of available messages');
           break;
         }
@@ -254,7 +263,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     let allNIP17Events: NostrEvent[] = [];
     let processedMessages = 0;
-    let oldestTimestamp: number | undefined = sinceTimestamp;
+    let currentSince = sinceTimestamp || 0;
     const SCAN_TOTAL_LIMIT = 20000;
     const SCAN_BATCH_SIZE = 1000;
     
@@ -269,11 +278,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [1059], 
           '#p': [user.pubkey], // We are the recipient
           limit: batchLimit,
-          ...(oldestTimestamp && { until: oldestTimestamp })
+          since: currentSince
         }
       ];
       
-                logger.log(`DMS: DataManager: NIP-17 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} Gift Wrap messages`);
+      logger.log(`DMS: DataManager: NIP-17 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} Gift Wrap messages since ${new Date(currentSince * 1000).toISOString()}`);
       
       try {
         const batchEvents = await nostr.query(filters, { signal: AbortSignal.timeout(30000) });
@@ -286,14 +295,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         allNIP17Events = [...allNIP17Events, ...batchEvents];
         processedMessages += batchEvents.length;
         
-        // Update oldest timestamp for next batch
-        const batchOldest = batchEvents.reduce((oldest, event) => 
-          event.created_at < oldest ? event.created_at : oldest, 
-          batchEvents[0]?.created_at || 0
-        );
-        oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
+        // Update currentSince for next batch (NIP-17 only has one filter, so simpler)
+        if (batchEvents.length > 0) {
+          const oldestInBatch = Math.min(...batchEvents.map(m => m.created_at));
+          currentSince = oldestInBatch; // Next batch starts from where this one ended
+          logger.log(`DMS: DataManager: NIP-17 Batch timestamp coordination: oldest in batch: ${new Date(oldestInBatch * 1000).toISOString()}, next batch since: ${new Date(currentSince * 1000).toISOString()}`);
+        }
         
-                  logger.log(`DMS: DataManager: NIP-17 Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
+        logger.log(`DMS: DataManager: NIP-17 Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
         
         // Stop if we got fewer messages than requested (end of data)
         if (batchEvents.length < batchLimit) {
@@ -349,25 +358,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 )
               );
           
-          // Find the newest message timestamp across filtered participants
-          let newestTimestamp = 0;
+          // Use the actual lastSync timestamps from the stored data, not recalculated from messages
+          if (protocol === 'nip4' && cachedStore.lastSync.nip4) {
+            sinceTimestamp = cachedStore.lastSync.nip4;
+            logger.log(`DMS: DataManager: Using stored NIP-4 lastSync timestamp: ${new Date(sinceTimestamp * 1000).toISOString()}`);
+          } else if (protocol === 'nip17' && cachedStore.lastSync.nip17) {
+            sinceTimestamp = cachedStore.lastSync.nip17;
+            logger.log(`DMS: DataManager: Using stored NIP-17 lastSync timestamp: ${new Date(sinceTimestamp * 1000).toISOString()}`);
+          }
+          
           let totalMessages = 0;
           let filteredOutCount = 0;
           
           Object.values(filteredParticipants).forEach(participant => {
             totalMessages += participant.messages.length;
-            if (participant.messages.length > 0) {
-              const participantNewest = Math.max(...participant.messages.map(m => m.created_at));
-              if (participantNewest > newestTimestamp) {
-                newestTimestamp = participantNewest;
-              }
-            }
           });
           
           filteredOutCount = Object.keys(cachedStore.participants).length - Object.keys(filteredParticipants).length;
           
-          sinceTimestamp = newestTimestamp;
-          logger.log(`DMS: DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
+          logger.log(`DMS: DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out)`);
           
           // Load filtered cached messages into state
           const newState = new Map();
@@ -385,6 +394,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           // Update state with cached messages
           setMessages(newState);
           logger.log(`DMS: DataManager: ✅ Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
+          
+          // Also update lastSync from the cached data
+          if (cachedStore.lastSync) {
+            setLastSync(cachedStore.lastSync);
+            logger.log(`DMS: DataManager: Updated lastSync from cached data: NIP-4: ${cachedStore.lastSync.nip4 ? new Date(cachedStore.lastSync.nip4 * 1000).toISOString() : 'Never'}, NIP-17: ${cachedStore.lastSync.nip17 ? new Date(cachedStore.lastSync.nip17 * 1000).toISOString() : 'Never'}`);
+          }
         } else {
           logger.log(`DMS: DataManager: No cached messages found in IndexedDB (${dbReadTime}ms)`);
         }
@@ -462,6 +477,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             newState.forEach((value, key) => finalMap.set(key, value));
             return finalMap;
           });
+          
+          // Update lastSync for NIP-4 to the current time since we just processed new messages
+          const currentTime = Math.floor(Date.now() / 1000);
+          setLastSync(prev => ({ ...prev, nip4: currentTime }));
+          logger.log(`DMS: DataManager: Updated lastSync.nip4 to ${new Date(currentTime * 1000).toISOString()}`);
           
           logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
         }
@@ -576,6 +596,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             return finalMap;
           });
           
+          // Update lastSync for NIP-17 to the current time since we just processed new messages
+          const currentTime = Math.floor(Date.now() / 1000);
+          setLastSync(prev => ({ ...prev, nip17: currentTime }));
+          logger.log(`DMS: DataManager: Updated lastSync.nip17 to ${new Date(currentTime * 1000).toISOString()}`);
+          
           logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
         }
       }
@@ -617,10 +642,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       await queryMissedMessages(protocol);
       await startMessageSubscription(protocol);
       
-      // Update last sync time for this protocol
-      setLastSync(prev => ({ ...prev, [protocol]: Date.now() }));
+      // Update last sync time for this protocol to current time
+      const currentTime = Math.floor(Date.now() / 1000); // Convert to Unix timestamp
+      setLastSync(prev => ({ ...prev, [protocol]: currentTime }));
       
-      logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] 3-stage process complete`);
+      logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] 3-stage process complete. Updated lastSync.${protocol} to ${new Date(currentTime * 1000).toISOString()}`);
     } catch (error) {
       logger.error(`DMS: DataManager: [${protocol.toUpperCase()}] Error in 3-stage process:`, error);
     } finally {
@@ -841,7 +867,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       });
 
       await writeMessagesToDB(userPubkey, messageStore);
-      logger.log(`DMS: DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants`);
+      
+      // Update lastSync timestamps to current time after successful save
+      const currentTime = Math.floor(Date.now() / 1000); // Convert to Unix timestamp
+      setLastSync(prev => ({
+        nip4: prev.nip4 || currentTime, // Keep existing if set, otherwise use current time
+        nip17: prev.nip17 || currentTime
+      }));
+      
+      logger.log(`DMS: DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants. Updated lastSync timestamps.`);
     } catch (error) {
               logger.error('DMS: DataManager: Error writing messages to IndexedDB:', error);
     }
