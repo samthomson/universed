@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Database, Save } from "lucide-react";
+import { Database, Save, Trash2 } from "lucide-react";
 import { useDataManager } from "@/components/DataManagerProvider";
 
 interface DataManagerDebugModalProps {
@@ -96,6 +96,19 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
             >
               <Save className="w-4 h-4 mr-2" />
               Write All Messages to IndexedDB
+            </Button>
+          </div>
+          
+          {/* Clear IndexedDB Button */}
+          <div className="pt-2">
+            <Button 
+              onClick={dataManager.clearIndexedDB}
+              className="w-full"
+              variant="destructive"
+              size="sm"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear IndexedDB & Reset State
             </Button>
           </div>
         </div>

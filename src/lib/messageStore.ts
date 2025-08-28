@@ -105,3 +105,28 @@ export async function writeMessagesToDB(userNpub: string, messageStore: MessageS
     throw error;
   }
 }
+
+// Clear all messages from IndexedDB for a specific user
+export async function clearMessagesFromDB(userNpub: string): Promise<void> {
+  try {
+    const db = await initDB(userNpub);
+    const storeName = `messages-${userNpub}`;
+    
+    if (db.objectStoreNames.contains(storeName)) {
+      // Clear the entire store
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      await store.clear();
+      await tx.done;
+      
+      logger.log(`DMS: Cleared message store from IndexedDB for user ${userNpub.slice(0, 8)}...`);
+    } else {
+      logger.log(`DMS: Store ${storeName} does not exist for user ${userNpub.slice(0, 8)}..., nothing to clear`);
+    }
+    
+    await db.close();
+  } catch (error) {
+    logger.error('DMS: Error clearing messages from IndexedDB:', error);
+    throw error;
+  }
+}

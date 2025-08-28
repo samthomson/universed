@@ -65,6 +65,7 @@ interface DataManagerContextType {
     nip17Enabled: boolean;
   };
   writeAllMessagesToStore: () => Promise<void>;
+  clearIndexedDB: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   isDebugging: boolean;
 }
@@ -846,6 +847,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, userPubkey, lastSync]);
 
+  // Debug method to clear IndexedDB for current user
+  const clearIndexedDB = useCallback(async () => {
+    if (!userPubkey) {
+      logger.error('DMS: DataManager: No user pubkey available for clearing store');
+      return;
+    }
+
+    try {
+      const { clearMessagesFromDB } = await import('@/lib/messageStore');
+      await clearMessagesFromDB(userPubkey);
+      
+      // Clear local state
+      setMessages(new Map());
+      setLastSync({ nip4: null, nip17: null });
+      setHasInitialLoadCompleted(false);
+      
+      logger.log('DMS: DataManager: Successfully cleared IndexedDB and reset state');
+    } catch (error) {
+      logger.error('DMS: DataManager: Error clearing IndexedDB:', error);
+    }
+  }, [userPubkey]);
+
   const contextValue: DataManagerContextType = {
     messages,
     isLoading,
@@ -853,6 +876,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     conversations,
     getDebugInfo,
     writeAllMessagesToStore,
+    clearIndexedDB,
     handleNIP17SettingChange,
     isDebugging: true, // Hardcoded for now
   };
