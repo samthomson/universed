@@ -137,10 +137,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
   const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
-    logger.log(`DataManager: Loading past NIP-4 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
+    logger.log(`DMS: DataManager: Loading past NIP-4 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     if (!user?.signer?.nip04) {
-      logger.error('DataManager: No NIP-04 signer available for user');
+      logger.error('DMS: DataManager: No NIP-04 signer available for user');
       return;
     }
 
@@ -150,7 +150,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const SCAN_TOTAL_LIMIT = 20000;
     const SCAN_BATCH_SIZE = 1000;
     
-    logger.log(`DataManager: Starting NIP-4 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+    logger.log(`DMS: DataManager: Starting NIP-4 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -171,14 +171,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
       ];
       
-      logger.log(`DataManager: NIP-4 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
+      logger.log(`DMS: DataManager: NIP-4 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} messages`);
       
       try {
         const batchDMs = await nostr.query(filters, { signal: AbortSignal.timeout(15000) });
         const validBatchDMs = batchDMs.filter(validateDMEvent);
         
         if (validBatchDMs.length === 0) {
-          logger.log('DataManager: NIP-4 No more messages available, stopping scan');
+          logger.log('DMS: DataManager: NIP-4 No more messages available, stopping scan');
           break;
         }
         
@@ -192,29 +192,29 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         );
         oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
         
-        logger.log(`DataManager: NIP-4 Batch complete: ${validBatchDMs.length} messages, total: ${allMessages.length}`);
+        logger.log(`DMS: DataManager: NIP-4 Batch complete: ${validBatchDMs.length} messages, total: ${allMessages.length}`);
         
         // Stop if we got fewer messages than requested (end of data)
         if (validBatchDMs.length < batchLimit) {
-          logger.log('DataManager: NIP-4 Reached end of available messages');
+          logger.log('DMS: DataManager: NIP-4 Reached end of available messages');
           break;
         }
       } catch (error) {
-        logger.error('DataManager: NIP-4 Error in batch query:', error);
+        logger.error('DMS: DataManager: NIP-4 Error in batch query:', error);
         break;
       }
     }
     
-    logger.log(`DataManager: NIP-4 Scan complete: ${allMessages.length} total messages processed`);
+    logger.log(`DMS: DataManager: NIP-4 Scan complete: ${allMessages.length} total messages processed`);
     return allMessages;
   }, [user, nostr]);
 
   // Load past NIP-17 messages from relays (following useNIP17DirectMessages pattern)
   const loadPastNIP17Messages = useCallback(async (sinceTimestamp?: number) => {
-    logger.log(`DataManager: Loading past NIP-17 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
+    logger.log(`DMS: DataManager: Loading past NIP-17 messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     if (!user?.signer?.nip44) {
-      logger.error('DataManager: No NIP-44 signer available for user');
+      logger.error('DMS: DataManager: No NIP-44 signer available for user');
       return;
     }
 
@@ -224,7 +224,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const SCAN_TOTAL_LIMIT = 20000;
     const SCAN_BATCH_SIZE = 1000;
     
-    logger.log(`DataManager: Starting NIP-17 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
+    logger.log(`DMS: DataManager: Starting NIP-17 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
     
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -239,13 +239,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
       ];
       
-      logger.log(`DataManager: NIP-17 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} Gift Wrap messages`);
+                logger.log(`DMS: DataManager: NIP-17 Batch ${Math.floor(processedMessages / SCAN_BATCH_SIZE) + 1}: requesting ${batchLimit} Gift Wrap messages`);
       
       try {
         const batchEvents = await nostr.query(filters, { signal: AbortSignal.timeout(30000) });
         
         if (batchEvents.length === 0) {
-          logger.log('DataManager: NIP-17 No more Gift Wrap messages available, stopping scan');
+          logger.log('DMS: DataManager: NIP-17 No more Gift Wrap messages available, stopping scan');
           break;
         }
         
@@ -259,36 +259,36 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         );
         oldestTimestamp = batchOldest - 1; // Subtract 1 to avoid overlap
         
-        logger.log(`DataManager: NIP-17 Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
+                  logger.log(`DMS: DataManager: NIP-17 Batch complete: ${batchEvents.length} Gift Wrap messages, total: ${allNIP17Events.length}`);
         
         // Stop if we got fewer messages than requested (end of data)
         if (batchEvents.length < batchLimit) {
-          logger.log('DataManager: NIP-17 Reached end of available Gift Wrap messages');
+          logger.log('DMS: DataManager: NIP-17 Reached end of available Gift Wrap messages');
           break;
         }
       } catch (error) {
-        logger.error('DataManager: NIP-17 Error in batch query:', error);
+                  logger.error('DMS: DataManager: NIP-17 Error in batch query:', error);
         break;
       }
     }
     
-    logger.log(`DataManager: NIP-17 Scan complete: ${allNIP17Events.length} total Gift Wrap messages processed`);
+          logger.log(`DMS: DataManager: NIP-17 Scan complete: ${allNIP17Events.length} total Gift Wrap messages processed`);
     return allNIP17Events;
   }, [user, nostr]);
 
   // Stage 1: Read all past messages from storage for a specific protocol
   const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    logger.log(`DataManager: Stage 1 - Loading past ${protocol} messages from storage`);
+    logger.log(`DMS: DataManager: Stage 1 - Loading past ${protocol} messages from storage`);
     
     // Skip NIP-17 if it's disabled
     if (protocol === 'nip17' && !settings.enableNIP17) {
-      logger.log('DataManager: NIP-17 disabled, skipping message loading');
+              logger.log('DMS: DataManager: NIP-17 disabled, skipping message loading');
       return;
     }
     
     // Ensure we have a user pubkey
     if (!userPubkey) {
-      logger.log('DataManager: No user pubkey available, skipping message loading');
+      logger.log('DMS: DataManager: No user pubkey available, skipping message loading');
       return;
     }
     
@@ -300,7 +300,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const cachedStore = await readMessagesFromDB(userPubkey);
         
         if (cachedStore && Object.keys(cachedStore.participants).length > 0) {
-          logger.log(`DataManager: Found cached store with ${Object.keys(cachedStore.participants).length} participants`);
+          logger.log(`DMS: DataManager: Found cached store with ${Object.keys(cachedStore.participants).length} participants`);
           
           // Filter participants based on NIP-17 setting
           const filteredParticipants = settings.enableNIP17 
@@ -329,7 +329,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           filteredOutCount = Object.keys(cachedStore.participants).length - Object.keys(filteredParticipants).length;
           
           sinceTimestamp = newestTimestamp;
-          logger.log(`DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
+          logger.log(`DMS: DataManager: Found ${totalMessages} cached messages (${filteredOutCount} NIP-17 participants filtered out), newest timestamp: ${new Date(newestTimestamp * 1000).toISOString()}`);
           
           // Load filtered cached messages into state
           const newState = new Map();
@@ -346,15 +346,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Update state with cached messages
           _setMessages(newState);
-          logger.log(`DataManager: Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
+          logger.log(`DMS: DataManager: Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
         }
       } catch (error) {
-        logger.error('DataManager: Error reading from IndexedDB:', error);
+        logger.error('DMS: DataManager: Error reading from IndexedDB:', error);
       }
       
       if (protocol === 'nip4') {
         const messages = await loadPastNIP4Messages(sinceTimestamp);
-        logger.log(`DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded`);
+        logger.log(`DMS: DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
         // Store NIP-4 messages organized by participant
         if (messages && messages.length > 0) {
@@ -375,11 +375,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               if (user?.signer?.nip04) {
                 decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
               } else {
-                logger.error(`DataManager: No NIP-04 decryption available for message ${message.id}`);
+                logger.error(`DMS: DataManager: No NIP-04 decryption available for message ${message.id}`);
                 decryptedContent = '[No decryption method available]';
               }
             } catch (error) {
-              logger.error(`DataManager: Failed to decrypt message ${message.id}:`, error);
+              logger.error(`DMS: DataManager: Failed to decrypt message ${message.id}:`, error);
               decryptedContent = '[Unable to decrypt message]';
             }
             
@@ -421,11 +421,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             return finalMap;
           });
           
-          logger.log(`DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
+          logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
         }
       } else if (protocol === 'nip17') {
         const messages = await loadPastNIP17Messages(sinceTimestamp);
-        logger.log(`DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded`);
+        logger.log(`DMS: DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded`);
         
         // Store NIP-17 messages organized by participant
         if (messages && messages.length > 0) {
@@ -492,7 +492,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 }
               } catch (error) {
                 // Decryption/parsing failed - store with error placeholder
-                logger.error(`DataManager: NIP-17 message ${giftWrap.id} failed:`, error);
+                logger.error(`DMS: DataManager: NIP-17 message ${giftWrap.id} failed:`, error);
                 conversationPartner = giftWrap.pubkey;
                 processedMessage = {
                   ...giftWrap,
@@ -532,24 +532,24 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             return finalMap;
           });
           
-          logger.log(`DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
+          logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
         }
       }
     } catch (error) {
-      logger.error(`DataManager: Error in Stage 1 for ${protocol}:`, error);
+              logger.error(`DMS: DataManager: Error in Stage 1 for ${protocol}:`, error);
     }
   }, [loadPastNIP4Messages, loadPastNIP17Messages, user, settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
   const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
     const lastSyncTime = lastSync[protocol];
-    logger.log(`DataManager: Stage 2 - Querying for missed ${protocol} messages since ${lastSyncTime || 'never'}`);
+          logger.log(`DMS: DataManager: Stage 2 - Querying for missed ${protocol} messages since ${lastSyncTime || 'never'}`);
     // TODO: Implement querying for messages since last sync
   }, [lastSync]);
 
   // Stage 3: Create subscription for new messages going forward for a specific protocol
   const startMessageSubscription = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    logger.log(`DataManager: Stage 3 - Starting ${protocol} message subscription`);
+          logger.log(`DMS: DataManager: Stage 3 - Starting ${protocol} message subscription`);
     // TODO: Implement real-time subscription
   }, []);
 
@@ -557,11 +557,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
     // Check if we're already loading this protocol
     if (protocolLoading[protocol]) {
-      logger.log(`DataManager: Already loading ${protocol} messages, skipping duplicate request`);
+      logger.log(`DMS: DataManager: Already loading ${protocol} messages, skipping duplicate request`);
       return;
     }
     
-    logger.log(`DataManager: Starting 3-stage process for ${protocol}`);
+          logger.log(`DMS: DataManager: Starting 3-stage process for ${protocol}`);
     setProtocolLoading(prev => ({ ...prev, [protocol]: true }));
     
     try {
@@ -572,9 +572,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Update last sync time for this protocol
       setLastSync(prev => ({ ...prev, [protocol]: Date.now() }));
       
-      logger.log(`DataManager: ${protocol} 3-stage process complete`);
+              logger.log(`DMS: DataManager: ${protocol} 3-stage process complete`);
     } catch (error) {
-      logger.error(`DataManager: Error in ${protocol} 3-stage process:`, error);
+              logger.error(`DMS: DataManager: Error in ${protocol} 3-stage process:`, error);
     } finally {
       setProtocolLoading(prev => ({ ...prev, [protocol]: false }));
     }
@@ -584,11 +584,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const startMessageLoading = useCallback(async () => {
     // Prevent multiple simultaneous executions
     if (isLoading) {
-      logger.log('DataManager: Message loading already in progress, skipping duplicate request');
+      logger.log('DMS: DataManager: Message loading already in progress, skipping duplicate request');
       return;
     }
     
-    logger.log('DataManager: Starting message loading for all enabled protocols');
+    logger.log('DMS: DataManager: Starting message loading for all enabled protocols');
     setIsLoading(true);
     
     try {
@@ -600,9 +600,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         await loadMessagesForProtocol('nip17');
       }
       
-      logger.log('DataManager: All protocol loading complete');
+      logger.log('DMS: DataManager: All protocol loading complete');
     } catch (error) {
-      logger.error('DataManager: Error in message loading:', error);
+      logger.error('DMS: DataManager: Error in message loading:', error);
     } finally {
       setIsLoading(false);
     }
@@ -611,22 +611,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Handle NIP-17 setting changes
   useEffect(() => {
     if (!userPubkey) {
-      logger.log('DataManager: No user pubkey available for NIP-17 settings check');
+      logger.log('DMS: DataManager: No user pubkey available for NIP-17 settings check');
       return;
     }
     
-    logger.log(`DataManager: NIP-17 ${settings.enableNIP17 ? 'enabled' : 'disabled'}`);
+          logger.log(`DMS: DataManager: NIP-17 ${settings.enableNIP17 ? 'enabled' : 'disabled'}`);
     
     // Only start loading if NIP-17 was enabled and we haven't synced yet
     if (settings.enableNIP17 && lastSync.nip17 === null && !isLoading) {
-      logger.log('DataManager: NIP-17 enabled, starting NIP-17 message loading');
+              logger.log('DMS: DataManager: NIP-17 enabled, starting NIP-17 message loading');
       loadMessagesForProtocol('nip17');
     } else if (settings.enableNIP17 && lastSync.nip17 !== null) {
-      logger.log('DataManager: NIP-17 already synced, no action needed');
+              logger.log('DMS: DataManager: NIP-17 already synced, no action needed');
     } else if (isLoading) {
-      logger.log('DataManager: Message loading in progress, skipping NIP-17 settings change');
+              logger.log('DMS: DataManager: Message loading in progress, skipping NIP-17 settings change');
     } else {
-      logger.log('DataManager: NIP-17 setting change handled, no action needed');
+              logger.log('DMS: DataManager: NIP-17 setting change handled, no action needed');
     }
   }, [settings.enableNIP17, userPubkey, lastSync.nip17, loadMessagesForProtocol, isLoading]);
 
@@ -702,7 +702,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Debug method to write all current messages to IndexedDB
   const _writeAllMessagesToStore = useCallback(async () => {
     if (!userPubkey) {
-      logger.error('DataManager: No user pubkey available for writing to store');
+      logger.error('DMS: DataManager: No user pubkey available for writing to store');
       return;
     }
 
@@ -749,9 +749,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       });
 
       await writeMessagesToDB(userPubkey, messageStore);
-      logger.log(`DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants`);
+      logger.log(`DMS: DataManager: Successfully wrote message store to IndexedDB with ${Object.keys(messageStore.participants).length} participants`);
     } catch (error) {
-      logger.error('DataManager: Error writing messages to IndexedDB:', error);
+              logger.error('DMS: DataManager: Error writing messages to IndexedDB:', error);
     }
   }, [messages, userPubkey, lastSync]);
 

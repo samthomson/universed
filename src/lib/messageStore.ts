@@ -33,7 +33,7 @@ async function initDB(userNpub: string): Promise<IDBPDatabase> {
       // Create store for this user if it doesn't exist
       if (!db.objectStoreNames.contains(storeName)) {
         db.createObjectStore(storeName, { keyPath: 'id' });
-        logger.log(`Created store ${storeName} in IndexedDB`);
+        logger.log(`DMS: Created store ${storeName} in IndexedDB`);
       }
     },
     blocked() {
@@ -64,7 +64,7 @@ export async function readMessagesFromDB(userNpub: string): Promise<MessageStore
       logger.log(`Read message store from IndexedDB for user ${userNpub.slice(0, 8)}...`);
       return storeData as MessageStore;
     } else {
-      logger.log(`No message store found in IndexedDB for user ${userNpub.slice(0, 8)}...`);
+      logger.log(`DMS: No message store found in IndexedDB for user ${userNpub.slice(0, 8)}...`);
       return null;
     }
   } catch (error) {
@@ -88,7 +88,7 @@ export async function writeMessagesToDB(userNpub: string, messageStore: MessageS
         upgrade(db, _oldVersion, _newVersion) {
           if (!db.objectStoreNames.contains(storeName)) {
             db.createObjectStore(storeName, { keyPath: 'id' });
-            logger.log(`Created store ${storeName} in IndexedDB during write`);
+            logger.log(`DMS: Created store ${storeName} in IndexedDB during write`);
           }
         },
       });

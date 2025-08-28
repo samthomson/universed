@@ -46,7 +46,7 @@ async function decryptGiftWrapMessage(
 
   
   if (!user.signer?.nip44) {
-    logger.error('[NIP17-DECRYPT] No NIP-44 signer available');
+    logger.error('DMS: [NIP17-DECRYPT] No NIP-44 signer available');
     return null;
   }
 
@@ -62,11 +62,11 @@ async function decryptGiftWrapMessage(
     try {
       sealEvent = JSON.parse(decryptedContent) as NostrEvent;
       if (sealEvent.kind !== 13) {
-        logger.error('[NIP17-DECRYPT] Not a valid Seal (kind !== 13), got kind:', sealEvent.kind);
+        logger.error('DMS: [NIP17-DECRYPT] Not a valid Seal (kind !== 13), got kind:', sealEvent.kind);
         return null; // Not a valid Seal
       }
     } catch (error) {
-      logger.error('[NIP17-DECRYPT] Failed to parse seal JSON:', error);
+      logger.error('DMS: [NIP17-DECRYPT] Failed to parse seal JSON:', error);
       return null; // Not JSON or not a valid Seal
     }
   
@@ -82,7 +82,7 @@ async function decryptGiftWrapMessage(
     
   // Validate that we got a Private DM (Kind 14)
   if (messageEvent.kind !== 14) {
-    logger.error('[NIP17-DECRYPT] Not a valid Private DM (kind !== 14), got kind:', messageEvent.kind);
+    logger.error('DMS: [NIP17-DECRYPT] Not a valid Private DM (kind !== 14), got kind:', messageEvent.kind);
     return null;
   }
 
@@ -95,7 +95,7 @@ async function decryptGiftWrapMessage(
     // This is a message we sent - get recipient from Private DM's p tag
     const recipientPTag = messageEvent.tags.find(([name]) => name === 'p')?.[1];
     if (!recipientPTag || recipientPTag === user.pubkey) {
-      logger.error('[NIP17-DECRYPT] Invalid recipient in sent message - p tag:', recipientPTag);
+      logger.error('DMS: [NIP17-DECRYPT] Invalid recipient in sent message - p tag:', recipientPTag);
       return null; // Invalid recipient
     }
     conversationPartner = recipientPTag;
