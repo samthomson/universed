@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
-import { flushSync } from 'react-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 // import { useDirectMessages } from '@/hooks/useDirectMessages';
@@ -659,12 +658,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return newMap;
       });
       
-      // Force immediate state update, then persist to IndexedDB
-      flushSync(() => {
+      // persist to db, but wait for the state to be updated
+      setTimeout(() => {
         writeAllMessagesToStore();
-      });
+      }, 500);
     }
-  }, [userPubkey, loadMessagesForProtocol]);
+  }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
   
   // Watch for NIP-17 setting changes and handle them explicitly
   useEffect(() => {
