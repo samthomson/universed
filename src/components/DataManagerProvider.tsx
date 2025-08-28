@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 // import { useDirectMessages } from '@/hooks/useDirectMessages';
@@ -658,8 +659,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return newMap;
       });
       
-      // Persist the updated state to IndexedDB
-      writeAllMessagesToStore();
+      // Force immediate state update, then persist to IndexedDB
+      flushSync(() => {
+        writeAllMessagesToStore();
+      });
     }
   }, [userPubkey, loadMessagesForProtocol]);
   
