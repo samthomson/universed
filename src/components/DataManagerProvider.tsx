@@ -43,6 +43,7 @@ interface DataManagerContextType {
     nip17Enabled: boolean;
   };
   writeAllMessagesToStore: () => Promise<void>;
+  handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   isDebugging: boolean;
 }
 
@@ -118,10 +119,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip4: false,
     nip17: false
   });
+  
+  // Track whether initial load has already completed
+  const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
 
+  // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping message loading');
+      return;
+    }
+    
+    if (hasInitialLoadCompleted) {
+      logger.log('DMS: DataManager: Initial load already completed, skipping duplicate request');
       return;
     }
     
@@ -130,10 +140,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
     
-    logger.log('DMS: DataManager: User pubkey available and not loading, starting message loading process');
-    // Start the 3-stage message loading process when user logs in
+    logger.log('DMS: DataManager: Starting initial message loading process');
     startMessageLoading();
-  }, [userPubkey]); // Only depend on user pubkey, not isLoading
+  }, [userPubkey, hasInitialLoadCompleted, isLoading]); // Only depend on user pubkey - settings are handled separately
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
   const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
@@ -595,23 +604,77 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Always load NIP-4 messages
       await loadMessagesForProtocol('nip4');
       
-      // Load NIP-17 messages if enabled and not already synced
-      if (settings.enableNIP17 && lastSync.nip17 === null) {
+      // Load NIP-17 messages if enabled (regardless of sync status - this is initial load)
+      if (settings.enableNIP17) {
         await loadMessagesForProtocol('nip17');
-      } else if (settings.enableNIP17 && lastSync.nip17 !== null) {
-        logger.log('DMS: DataManager: NIP-17 already synced, skipping duplicate load');
       }
       
       logger.log('DMS: DataManager: All protocol loading complete');
+      setHasInitialLoadCompleted(true);
     } catch (error) {
       logger.error('DMS: DataManager: Error in message loading:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [settings.enableNIP17, loadMessagesForProtocol, isLoading]);
+  }, [loadMessagesForProtocol, isLoading]); // Remove settings dependency - it's handled in the function
 
-  // NIP-17 setting changes are now handled in the main startMessageLoading flow
-  // No separate effect needed - this prevents duplicate execution
+  // Handle NIP-17 setting changes explicitly
+  const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
+    if (!userPubkey) {
+      logger.log('DMS: DataManager: No user pubkey available for NIP-17 setting change');
+      return;
+    }
+    
+    if (enabled) {
+      // User enabled NIP-17 - load messages now
+      logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
+      await loadMessagesForProtocol('nip17');
+    } else {
+      // User disabled NIP-17 - clear NIP-17 data and reset sync timestamp
+      logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
+      setLastSync(prev => ({ ...prev, nip17: null }));
+      
+      // Clear NIP-17 messages from state
+      _setMessages(prev => {
+        const newMap = new Map(prev);
+        newMap.forEach((participant, key) => {
+          if (participant.hasNIP17) {
+            // Remove NIP-17 messages, keep NIP-4 messages
+            const nip4Messages = participant.messages.filter(msg => msg.kind === 4);
+            if (nip4Messages.length > 0) {
+              newMap.set(key, {
+                ...participant,
+                messages: nip4Messages,
+                hasNIP17: false,
+                lastMessage: nip4Messages[0] || null,
+                lastActivity: nip4Messages[0]?.created_at || 0,
+              });
+            } else {
+              // No NIP-4 messages, remove participant entirely
+              newMap.delete(key);
+            }
+          }
+        });
+        return newMap;
+      });
+      
+      // Persist the updated state to IndexedDB
+      setTimeout(() => {
+        _writeAllMessagesToStore();
+      }, 0);
+    }
+  }, [userPubkey, loadMessagesForProtocol]);
+  
+  // Watch for NIP-17 setting changes and handle them explicitly
+  useEffect(() => {
+    if (!hasInitialLoadCompleted) {
+      // Don't handle setting changes until initial load is complete
+      return;
+    }
+    
+    // Handle the current NIP-17 setting value
+    handleNIP17SettingChange(settings.enableNIP17);
+  }, [settings.enableNIP17, hasInitialLoadCompleted, handleNIP17SettingChange]);
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
   const conversations = useMemo(() => {
@@ -745,6 +808,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     conversations,
     getDebugInfo,
     writeAllMessagesToStore: _writeAllMessagesToStore,
+    handleNIP17SettingChange,
     isDebugging: true, // Hardcoded for now
   };
 
