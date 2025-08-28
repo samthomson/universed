@@ -147,6 +147,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
+    logger.log('DMS: DataManager: Main effect triggered with:', { userPubkey, hasInitialLoadCompleted, isLoading });
+    
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping message loading');
       return;
@@ -309,6 +311,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Stage 1: Read all past messages from storage for a specific protocol
   const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
+    const startTime = Date.now();
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 - Loading past messages from storage`);
     
     // Skip NIP-17 if it's disabled
@@ -326,12 +329,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // First, read any cached messages from IndexedDB to get the newest timestamp
       let sinceTimestamp: number | undefined;
+      let dbReadTime: number;
       try {
+        const dbStartTime = Date.now();
         const { readMessagesFromDB } = await import('@/lib/messageStore');
         const cachedStore = await readMessagesFromDB(userPubkey);
+        dbReadTime = Date.now() - dbStartTime;
         
         if (cachedStore && Object.keys(cachedStore.participants).length > 0) {
-          logger.log(`DMS: DataManager: Found cached store with ${Object.keys(cachedStore.participants).length} participants`);
+          logger.log(`DMS: DataManager: ✅ Found cached store with ${Object.keys(cachedStore.participants).length} participants (${dbReadTime}ms)`);
           
           // Filter participants based on NIP-17 setting
           const filteredParticipants = settings.enableNIP17 
@@ -377,15 +383,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Update state with cached messages
           setMessages(newState);
-          logger.log(`DMS: DataManager: Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
+          logger.log(`DMS: DataManager: ✅ Loaded ${totalMessages} cached messages for ${newState.size} participants into state`);
+        } else {
+          logger.log(`DMS: DataManager: No cached messages found in IndexedDB (${dbReadTime}ms)`);
         }
       } catch (error) {
         logger.error('DMS: DataManager: Error reading from IndexedDB:', error);
       }
       
       if (protocol === 'nip4') {
+        const relayStartTime = Date.now();
         const messages = await loadPastNIP4Messages(sinceTimestamp);
-        logger.log(`DMS: DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded`);
+        const relayTime = Date.now() - relayStartTime;
+        logger.log(`DMS: DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
         
         // Store NIP-4 messages organized by participant
         if (messages && messages.length > 0) {
@@ -455,8 +465,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
         }
       } else if (protocol === 'nip17') {
+        const relayStartTime = Date.now();
         const messages = await loadPastNIP17Messages(sinceTimestamp);
-        logger.log(`DMS: DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded`);
+        const relayTime = Date.now() - relayStartTime;
+        logger.log(`DMS: DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
         
         // Store NIP-17 messages organized by participant
         if (messages && messages.length > 0) {
@@ -566,6 +578,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
         }
       }
+      
+      // Log total time for Stage 1
+      const totalTime = Date.now() - startTime;
+      logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 complete in ${totalTime}ms`);
     } catch (error) {
               logger.error(`DMS: DataManager: Error in Stage 1 for ${protocol}:`, error);
     }
