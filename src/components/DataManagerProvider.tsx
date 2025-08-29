@@ -501,19 +501,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             
             if (!otherPubkey || otherPubkey === user?.pubkey) continue;
             
-            // Decrypt the NIP-4 message content
-            let decryptedContent: string;
-            try {
-              if (user?.signer?.nip04) {
-                decryptedContent = await user.signer.nip04.decrypt(otherPubkey, message.content);
-              } else {
-                logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${message.id}, storing encrypted content`);
-                decryptedContent = '[Encrypted - No decryption available]';
-              }
-            } catch (error) {
-              logger.error(`DMS: DataManager: Failed to decrypt message ${message.id}:`, error);
-              decryptedContent = '[Decryption failed]';
-            }
+            // Decrypt the NIP-4 message content using reusable method
+            const decryptedContent = await decryptNIP4Message(message, otherPubkey);
             
             // Create decrypted message
             const decryptedMessage: NostrEvent = {
@@ -595,72 +584,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Process messages and decrypt them
           for (const giftWrap of messages) {
-            let processedMessage: NostrEvent;
-            let conversationPartner: string;
-            
-            // Try to decrypt and process the message
-            if (!user?.signer?.nip44) {
-              // No decryption available - store with error placeholder
-              conversationPartner = giftWrap.pubkey;
-              processedMessage = {
-                ...giftWrap,
-                content: '[No NIP-44 decryption available]',
-              };
-            } else {
-              try {
-                // Decrypt Gift Wrap → Seal → Private DM
-                const sealContent = await user.signer.nip44.decrypt(giftWrap.pubkey, giftWrap.content);
-                const sealEvent = JSON.parse(sealContent) as NostrEvent;
-                
-                if (sealEvent.kind !== 13) {
-                  // Invalid Seal format - store with error placeholder
-                  conversationPartner = giftWrap.pubkey;
-                  processedMessage = {
-                    ...giftWrap,
-                    content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
-                  };
-                } else {
-                  const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
-                  const messageEvent = JSON.parse(messageContent) as NostrEvent;
-                  
-                  if (messageEvent.kind !== 14) {
-                    // Invalid message format - store with error placeholder
-                    conversationPartner = giftWrap.pubkey;
-                    processedMessage = {
-                      ...giftWrap,
-                      content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
-                    };
-                  } else {
-                    // Determine conversation partner
-                    if (sealEvent.pubkey === user.pubkey) {
-                      const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
-                      if (!recipient || recipient === user.pubkey) {
-                        // Invalid recipient - store with error placeholder
-                        conversationPartner = giftWrap.pubkey;
-                        processedMessage = {
-                          ...giftWrap,
-                          content: '[Invalid recipient - malformed p tag]',
-                        };
-                      } else {
-                        conversationPartner = recipient;
-                        processedMessage = messageEvent;
-                      }
-                    } else {
-                      conversationPartner = sealEvent.pubkey;
-                      processedMessage = messageEvent;
-                    }
-                  }
-                }
-              } catch (error) {
-                // Decryption/parsing failed - store with error placeholder
-                nip17ErrorLogger(error);
-                conversationPartner = giftWrap.pubkey;
-                processedMessage = {
-                  ...giftWrap,
-                  content: '[Failed to decrypt or parse NIP-17 message]',
-                };
-              }
-            }
+            // Process the Gift Wrap message using reusable method
+            const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
             
             // Add message to state
             if (!newState.has(conversationPartner)) {
@@ -739,6 +664,66 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // TODO: Implement querying for messages since last sync
   }, [lastSync]);
 
+  // Reusable method to decrypt NIP-4 message content
+  const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<string> => {
+    try {
+      if (user?.signer?.nip04) {
+        return await user.signer.nip04.decrypt(otherPubkey, event.content);
+      } else {
+        logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${event.id}`);
+        return '[Encrypted - No decryption available]';
+      }
+    } catch (error) {
+      logger.error(`DMS: DataManager: Failed to decrypt NIP-4 message ${event.id}:`, error);
+      return '[Decryption failed]';
+    }
+  }, [user]);
+
+  // Reusable method to add a message to the state
+  const addMessageToState = useCallback((message: NostrEvent, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
+    setMessages(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(conversationPartner);
+      
+      if (existing) {
+        // Check if message already exists to prevent duplicates
+        if (existing.messages.some(msg => msg.id === message.id)) {
+          logger.log(`DMS: DataManager: ${protocol.toUpperCase()} message ${message.id} already exists in conversation, skipping`);
+          return prev; // Return unchanged state
+        }
+        
+        // Add to existing conversation
+        const updatedMessages = [...existing.messages, message];
+        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+        
+        newMap.set(conversationPartner, {
+          ...existing,
+          messages: updatedMessages,
+          lastActivity: message.created_at,
+          lastMessage: message,
+          [`has${protocol.toUpperCase()}`]: true,
+        });
+        
+        logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
+      } else {
+        // Create new conversation
+        const newConversation = {
+          messages: [message],
+          lastActivity: message.created_at,
+          lastMessage: message,
+          hasNIP4: protocol === 'nip4',
+          hasNIP17: protocol === 'nip17',
+        };
+        
+        newMap.set(conversationPartner, newConversation);
+        logger.log(`DMS: DataManager: Created new conversation with ${conversationPartner}`);
+      }
+      
+      logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
+      return newMap;
+    });
+  }, []);
+
   // Process incoming NIP-4 messages and add them to the data structure
   const processIncomingNIP4Message = useCallback(async (event: NostrEvent) => {
     if (!user?.pubkey) return;
@@ -762,18 +747,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
     
     // Decrypt the message content
-    let decryptedContent: string;
-    try {
-      if (user?.signer?.nip04) {
-        decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
-      } else {
-        logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${event.id}`);
-        decryptedContent = '[Encrypted - No decryption available]';
-      }
-    } catch (error) {
-      logger.error(`DMS: DataManager: Failed to decrypt NIP-4 message ${event.id}:`, error);
-      decryptedContent = '[Decryption failed]';
-    }
+    const decryptedContent = await decryptNIP4Message(event, otherPubkey);
     
     // Create decrypted message
     const decryptedMessage: NostrEvent = {
@@ -781,50 +755,90 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       content: decryptedContent,
     };
     
-    // Add to messages state
-    setMessages(prev => {
-      const newMap = new Map(prev); // This is fine - just don't mutate objects
-      
-      const existing = newMap.get(otherPubkey);
-      
-      if (existing) {
-        // Check if message already exists to prevent duplicates
-        if (existing.messages.some(msg => msg.id === event.id)) {
-          logger.log(`DMS: DataManager: NIP-4 message ${event.id} already exists in conversation, skipping`);
-          return prev; // Return unchanged state
-        }
-        
-        // Add to existing conversation - create new object to ensure React detects change
-        const updatedMessages = [...existing.messages, decryptedMessage];
-        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
-        
-        newMap.set(otherPubkey, {
-          ...existing, // Spread existing properties
-          messages: updatedMessages, // New array reference
-          lastActivity: decryptedMessage.created_at,
-          lastMessage: decryptedMessage,
-          hasNIP4: true,
-        });
-        
-        logger.log(`DMS: DataManager: Updated existing conversation with ${otherPubkey}, now has ${updatedMessages.length} messages`);
-      } else {
-        // Create new conversation
-        newMap.set(otherPubkey, {
-          messages: [decryptedMessage],
-          lastActivity: decryptedMessage.created_at,
-          lastMessage: decryptedMessage,
-          hasNIP4: true,
-          hasNIP17: false,
-        });
-        
-        logger.log(`DMS: DataManager: Created new conversation with ${otherPubkey}`);
-      }
-      
-      logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
-      return newMap;
-    });
+    // Add to messages state using reusable method
+    addMessageToState(decryptedMessage, otherPubkey, 'nip4');
     
     logger.log(`DMS: DataManager: Added incoming NIP-4 message to conversation with ${otherPubkey}`);
+  }, [user, decryptNIP4Message, addMessageToState]);
+
+  // Reusable method to process NIP-17 Gift Wrap messages
+  const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<{ processedMessage: NostrEvent; conversationPartner: string }> => {
+    if (!user?.signer?.nip44) {
+      // No decryption available - store with error placeholder
+      return {
+        processedMessage: {
+          ...event,
+          content: '[No NIP-44 decryption available]',
+        },
+        conversationPartner: event.pubkey,
+      };
+    }
+    
+    try {
+      // Decrypt Gift Wrap → Seal → Private DM
+      const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
+      const sealEvent = JSON.parse(sealContent) as NostrEvent;
+      
+      if (sealEvent.kind !== 13) {
+        // Invalid Seal format - store with error placeholder
+        return {
+          processedMessage: {
+            ...event,
+            content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
+          },
+          conversationPartner: event.pubkey,
+        };
+      }
+      
+      const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
+      const messageEvent = JSON.parse(messageContent) as NostrEvent;
+      
+      if (messageEvent.kind !== 14) {
+        // Invalid message format - store with error placeholder
+        return {
+          processedMessage: {
+            ...event,
+            content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
+          },
+          conversationPartner: event.pubkey,
+        };
+      }
+      
+      // Determine conversation partner
+      let conversationPartner: string;
+      if (sealEvent.pubkey === user.pubkey) {
+        const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+        if (!recipient || recipient === user.pubkey) {
+          // Invalid recipient - store with error placeholder
+          return {
+            processedMessage: {
+              ...event,
+              content: '[Invalid recipient - malformed p tag]',
+            },
+            conversationPartner: event.pubkey,
+          };
+        } else {
+          conversationPartner = recipient;
+        }
+      } else {
+        conversationPartner = sealEvent.pubkey;
+      }
+      
+      return {
+        processedMessage: messageEvent,
+        conversationPartner,
+      };
+    } catch (error) {
+      // Decryption/parsing failed - store with error placeholder
+      nip17ErrorLogger(error);
+      return {
+        processedMessage: {
+          ...event,
+          content: '[Failed to decrypt or parse NIP-17 message]',
+        },
+        conversationPartner: event.pubkey,
+      };
+    }
   }, [user]);
 
   // Process incoming NIP-17 messages and add them to the data structure
@@ -839,124 +853,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
     
-    let processedMessage: NostrEvent;
-    let conversationPartner: string;
+    // Process the Gift Wrap message using reusable method
+    const { processedMessage, conversationPartner } = await processNIP17GiftWrap(event);
     
-    // Try to decrypt and process the message
-    if (!user?.signer?.nip44) {
-      // No decryption available - store with error placeholder
-      conversationPartner = event.pubkey;
-      processedMessage = {
-        ...event,
-        content: '[No NIP-44 decryption available]',
-      };
-    } else {
-      try {
-        // Decrypt Gift Wrap → Seal → Private DM
-        const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
-        const sealEvent = JSON.parse(sealContent) as NostrEvent;
-        
-        if (sealEvent.kind !== 13) {
-          // Invalid Seal format - store with error placeholder
-          conversationPartner = event.pubkey;
-          processedMessage = {
-            ...event,
-            content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
-          };
-        } else {
-          const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
-          const messageEvent = JSON.parse(messageContent) as NostrEvent;
-          
-          if (messageEvent.kind !== 14) {
-            // Invalid message format - store with error placeholder
-            conversationPartner = event.pubkey;
-            processedMessage = {
-              ...event,
-              content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
-            };
-          } else {
-            // Determine conversation partner
-            if (sealEvent.pubkey === user.pubkey) {
-              const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
-              if (!recipient || recipient === user.pubkey) {
-                // Invalid recipient - store with error placeholder
-                conversationPartner = event.pubkey;
-                processedMessage = {
-                  ...event,
-                  content: '[Invalid recipient - malformed p tag]',
-                };
-              } else {
-                conversationPartner = recipient;
-                processedMessage = messageEvent;
-              }
-            } else {
-              conversationPartner = sealEvent.pubkey;
-              processedMessage = messageEvent;
-            }
-          }
-        }
-      } catch (error) {
-        // Decryption/parsing failed - store with error placeholder
-        nip17ErrorLogger(error);
-        conversationPartner = event.pubkey;
-        processedMessage = {
-          ...event,
-          content: '[Failed to decrypt or parse NIP-17 message]',
-        };
-      }
-    }
-    
-    // Add to messages state
-    setMessages(prev => {
-      // Create a completely new Map to ensure React detects the change
-      const newMap = new Map();
-      
-      // Copy all existing conversations
-      prev.forEach((value, key) => {
-        newMap.set(key, { ...value });
-      });
-      
-      const existing = newMap.get(conversationPartner);
-      
-      if (existing) {
-        // Check if message already exists to prevent duplicates
-        if (existing.messages.some(msg => msg.id === event.id)) {
-          logger.log(`DMS: DataManager: NIP-17 message ${event.id} already exists in conversation, skipping`);
-          return prev; // Return unchanged state
-        }
-        
-        // Add to existing conversation - create new object to ensure React detects change
-        const updatedMessages = [...existing.messages, processedMessage];
-        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
-        
-        newMap.set(conversationPartner, {
-          ...existing,
-          messages: updatedMessages,
-          lastActivity: processedMessage.created_at,
-          lastMessage: processedMessage,
-          hasNIP17: true,
-        });
-        
-        logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
-      } else {
-        // Create new conversation
-        newMap.set(conversationPartner, {
-          messages: [processedMessage],
-          lastActivity: processedMessage.created_at,
-          lastMessage: processedMessage,
-          hasNIP4: false,
-          hasNIP17: true,
-        });
-        
-        logger.log(`DMS: DataManager: Created new conversation with ${conversationPartner}`);
-      }
-      
-      logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
-      return newMap;
-    });
+    // Add to messages state using reusable method
+    addMessageToState(processedMessage, conversationPartner, 'nip17');
     
     logger.log(`DMS: DataManager: Added incoming NIP-17 message to conversation with ${conversationPartner}`);
-  }, [user]);
+  }, [user, processNIP17GiftWrap, addMessageToState]);
 
   // Start NIP-4 subscription for all conversations
   const startNIP4Subscription = useCallback(async () => {
