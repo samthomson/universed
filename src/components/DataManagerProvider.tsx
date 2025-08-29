@@ -846,6 +846,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     messages.forEach((participant, participantPubkey) => {
       if (!participant.messages.length) return;
       
+      // Analyze messages to determine if user has sent any messages to this participant
+      const userHasSentMessage = participant.messages.some(msg => msg.pubkey === user?.pubkey);
+      const isKnown = userHasSentMessage; // User has sent at least one message
+      const isRequest = !userHasSentMessage; // User hasn't sent any messages (only received)
+      
       // Get the most recent message to determine who sent it
       const lastMessage = participant.messages[participant.messages.length - 1]; // Last in chronological order
       const isFromUser = lastMessage.pubkey === user?.pubkey;
@@ -858,8 +863,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         hasNIP4Messages: participant.hasNIP4,
         hasNIP17Messages: participant.hasNIP17,
         recentMessages: participant.messages.slice(-10), // Last 10 messages
-        isKnown: true, // All messages in DataManager are "known"
-        isRequest: false, // All messages in DataManager are "known"
+        isKnown: isKnown,
+        isRequest: isRequest,
         lastMessageFromUser: isFromUser,
       });
     });
