@@ -439,7 +439,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             newState.set(participantPubkey, {
               messages: participant.messages,
               lastActivity: participant.lastActivity,
-              lastMessage: participant.messages.length > 0 ? participant.messages[0] : null, // First after sorting
+              lastMessage: participant.messages.length > 0 ? participant.messages[participant.messages.length - 1] : null, // Last after sorting (newest)
               hasNIP4: participant.hasNIP4,
               hasNIP17: participant.hasNIP17,
             });
@@ -518,10 +518,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Sort all participants' messages once after adding all messages
           newState.forEach(participant => {
-            participant.messages.sort((a, b) => b.created_at - a.created_at); // Latest first
+            participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
             if (participant.messages.length > 0) {
-              participant.lastActivity = participant.messages[0].created_at; // First after sorting
-              participant.lastMessage = participant.messages[0];
+              participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
+              participant.lastMessage = participant.messages[participant.messages.length - 1];
             }
           });
           
@@ -649,10 +649,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Sort all participants' messages once after adding all messages
           newState.forEach(participant => {
-            participant.messages.sort((a, b) => b.created_at - a.created_at); // Latest first
+            participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
             if (participant.messages.length > 0) {
-              participant.lastActivity = participant.messages[0].created_at; // First after sorting
-              participant.lastMessage = participant.messages[0];
+              participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
+              participant.lastMessage = participant.messages[participant.messages.length - 1];
             }
           });
           

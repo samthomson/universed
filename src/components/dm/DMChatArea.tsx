@@ -85,23 +85,26 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { messages: conversationMessages, totalCount } = useConversationMessages(conversationId);
+  const { messages: conversationMessages } = useConversationMessages(conversationId);
   const { sendMessage, isNIP17Enabled } = useDirectMessages();
   
   // Simple pagination from conversation messages
-  const MESSAGES_PER_PAGE = 20; // Match the pattern from useMessages.ts
+  const MESSAGES_PER_PAGE = 5; // Reduced for debugging
   const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
   
   // Memoize paginated messages to prevent unnecessary recalculations
-  // Since messages are stored newest-first, we take the first N and reverse for chat display
-  const messages = useMemo(() => 
-    conversationMessages.slice(0, displayLimit).reverse(), 
-    [conversationMessages, displayLimit]
-  );
+  // BaseMessageList expects oldest-first order, so we slice from the end to get newest messages
+  // This ensures newest messages appear at bottom and older messages load above
+  const messages = useMemo(() => {
+    // Take the NEWEST messages (from the end) for initial display
+    // This ensures newest messages appear at bottom of chat
+    const startIndex = Math.max(0, conversationMessages.length - displayLimit);
+    return conversationMessages.slice(startIndex);
+  }, [conversationMessages, displayLimit]);
   
   const hasMoreMessages = useMemo(() => 
-    totalCount > displayLimit, 
-    [totalCount, displayLimit]
+    displayLimit < conversationMessages.length, 
+    [displayLimit, conversationMessages.length]
   );
   
   // todo: rethink these obsolete props
