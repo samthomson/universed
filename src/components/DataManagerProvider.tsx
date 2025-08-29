@@ -512,13 +512,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             
             // Add to new state or create new participant
             if (!newState.has(otherPubkey)) {
-              newState.set(otherPubkey, {
-                messages: [],
-                lastActivity: 0,
-                lastMessage: null,
-                hasNIP4: false,
-                hasNIP17: false,
-              });
+              newState.set(otherPubkey, createEmptyParticipant());
             }
             
             const participant = newState.get(otherPubkey)!;
@@ -528,41 +522,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Sort all participants' messages once after adding all messages
           newState.forEach(participant => {
-            participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
-            if (participant.messages.length > 0) {
-              participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
-              participant.lastMessage = participant.messages[participant.messages.length - 1];
-            }
+            sortAndUpdateParticipantState(participant);
           });
           
           // Update state with new data - preserve existing protocol flags
-          setMessages(prev => {
-            // Create a completely new Map to ensure React detects the change
-            const finalMap = new Map();
-            
-            // Copy all existing conversations
-            prev.forEach((value, key) => {
-              finalMap.set(key, { ...value });
-            });
-            
-            // Merge with new data
-            newState.forEach((value, key) => {
-              const existing = finalMap.get(key);
-              if (existing) {
-                // Merge with existing participant, preserving protocol flags
-                finalMap.set(key, {
-                  ...existing,
-                  messages: [...existing.messages, ...value.messages],
-                  hasNIP4: existing.hasNIP4 || value.hasNIP4,
-                  hasNIP17: existing.hasNIP17 || value.hasNIP17,
-                });
-              } else {
-                finalMap.set(key, value);
-              }
-            });
-            
-            return finalMap;
-          });
+          mergeMessagesIntoState(newState);
           
           // Update lastSync for NIP-4 to the current time since we just processed new messages
           const currentTime = Math.floor(Date.now() / 1000);
@@ -589,13 +553,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             
             // Add message to state
             if (!newState.has(conversationPartner)) {
-              newState.set(conversationPartner, {
-                messages: [],
-                lastActivity: 0,
-                lastMessage: null,
-                hasNIP4: false,
-                hasNIP17: false,
-              });
+              newState.set(conversationPartner, createEmptyParticipant());
             }
             
             newState.get(conversationPartner)!.messages.push(processedMessage);
@@ -604,41 +562,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Sort all participants' messages once after adding all messages
           newState.forEach(participant => {
-            participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
-            if (participant.messages.length > 0) {
-              participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
-              participant.lastMessage = participant.messages[participant.messages.length - 1];
-            }
+            sortAndUpdateParticipantState(participant);
           });
           
           // Update state with new data - preserve existing protocol flags
-          setMessages(prev => {
-            // Create a completely new Map to ensure React detects the change
-            const finalMap = new Map();
-            
-            // Copy all existing conversations
-            prev.forEach((value, key) => {
-              finalMap.set(key, { ...value });
-            });
-            
-            // Merge with new data
-            newState.forEach((value, key) => {
-              const existing = finalMap.get(key);
-              if (existing) {
-                // Merge with existing participant, preserving protocol flags
-                finalMap.set(key, {
-                  ...existing,
-                  messages: [...existing.messages, ...value.messages],
-                  hasNIP4: existing.hasNIP4 || value.hasNIP4,
-                  hasNIP17: existing.hasNIP17 || value.hasNIP17,
-                });
-              } else {
-                finalMap.set(key, value);
-              }
-            });
-            
-            return finalMap;
-          });
+          mergeMessagesIntoState(newState);
           
           // Update lastSync for NIP-17 to the current time since we just processed new messages
           const currentTime = Math.floor(Date.now() / 1000);
@@ -678,6 +606,55 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return '[Decryption failed]';
     }
   }, [user]);
+
+  // Helper to create an empty participant with default values
+  const createEmptyParticipant = useCallback(() => ({
+    messages: [],
+    lastActivity: 0,
+    lastMessage: null,
+    hasNIP4: false,
+    hasNIP17: false,
+  }), []);
+
+  // Helper to sort messages and update participant state
+  const sortAndUpdateParticipantState = useCallback((participant: { messages: NostrEvent[]; lastActivity: number; lastMessage: NostrEvent | null }) => {
+    participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
+    if (participant.messages.length > 0) {
+      participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
+      participant.lastMessage = participant.messages[participant.messages.length - 1];
+    }
+  }, []);
+
+  // Helper to merge new messages into existing state
+  const mergeMessagesIntoState = useCallback((newState: Map<string, {
+    messages: NostrEvent[];
+    lastActivity: number;
+    lastMessage: NostrEvent | null;
+    hasNIP4: boolean;
+    hasNIP17: boolean;
+  }>) => {
+    setMessages(prev => {
+      const finalMap = new Map(prev);
+      
+      // Merge with new data
+      newState.forEach((value, key) => {
+        const existing = finalMap.get(key);
+        if (existing) {
+          // Merge with existing participant, preserving protocol flags
+          finalMap.set(key, {
+            ...existing,
+            messages: [...existing.messages, ...value.messages],
+            hasNIP4: existing.hasNIP4 || value.hasNIP4,
+            hasNIP17: existing.hasNIP17 || value.hasNIP17,
+          });
+        } else {
+          finalMap.set(key, value);
+        }
+      });
+      
+      return finalMap;
+    });
+  }, []);
 
   // Reusable method to add a message to the state
   const addMessageToState = useCallback((message: NostrEvent, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
