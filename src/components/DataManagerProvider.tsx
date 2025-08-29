@@ -88,10 +88,13 @@ export function useDataManager(): DataManagerContextType {
 export function useConversationMessages(conversationId: string) {
   const { messages: allMessages } = useDataManager();
   
+  logger.log(`DMS: useConversationMessages: Hook called for conversation ${conversationId}, total conversations in state: ${allMessages.size}`);
+  
   return useMemo(() => {
     const conversationData = allMessages.get(conversationId);
     
     if (!conversationData) {
+      logger.log(`DMS: useConversationMessages: No data for conversation ${conversationId}`);
       return {
         messages: [],
         hasMoreMessages: false,
@@ -99,6 +102,18 @@ export function useConversationMessages(conversationId: string) {
         lastMessage: null,
         lastActivity: 0,
       };
+    }
+    
+    logger.log(`DMS: useConversationMessages: Returning ${conversationData.messages.length} messages for conversation ${conversationId}`);
+    
+    // Log the last few messages to help debug
+    if (conversationData.messages.length > 0) {
+      const lastMessages = conversationData.messages.slice(-3);
+      logger.log(`DMS: useConversationMessages: Last 3 messages:`, lastMessages.map(m => ({
+        id: m.id.slice(0, 8) + '...',
+        content: m.content.slice(0, 30) + (m.content.length > 30 ? '...' : ''),
+        created_at: new Date(m.created_at * 1000).toISOString()
+      })));
     }
     
     return {
@@ -142,7 +157,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip4: false,
     nip17: false
   });
-  const [subscriptions, _setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
+  const [subscriptions, setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
     nip4: false,
     nip17: false
   });
@@ -158,6 +173,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip4: null,
     nip17: null
   });
+
+  // Subscription refs for real-time message processing
+  const nip4SubscriptionRef = useRef<{ close: () => void } | null>(null);
+  const nip17SubscriptionRef = useRef<{ close: () => void } | null>(null);
+  
+
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
@@ -527,7 +548,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Update state with new data - preserve existing protocol flags
           setMessages(prev => {
-            const finalMap = new Map(prev);
+            // Create a completely new Map to ensure React detects the change
+            const finalMap = new Map();
+            
+            // Copy all existing conversations
+            prev.forEach((value, key) => {
+              finalMap.set(key, { ...value });
+            });
+            
+            // Merge with new data
             newState.forEach((value, key) => {
               const existing = finalMap.get(key);
               if (existing) {
@@ -542,6 +571,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 finalMap.set(key, value);
               }
             });
+            
             return finalMap;
           });
           
@@ -658,7 +688,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           
           // Update state with new data - preserve existing protocol flags
           setMessages(prev => {
-            const finalMap = new Map(prev);
+            // Create a completely new Map to ensure React detects the change
+            const finalMap = new Map();
+            
+            // Copy all existing conversations
+            prev.forEach((value, key) => {
+              finalMap.set(key, { ...value });
+            });
+            
+            // Merge with new data
             newState.forEach((value, key) => {
               const existing = finalMap.get(key);
               if (existing) {
@@ -673,6 +711,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 finalMap.set(key, value);
               }
             });
+            
             return finalMap;
           });
           
@@ -700,11 +739,384 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // TODO: Implement querying for messages since last sync
   }, [lastSync]);
 
+  // Process incoming NIP-4 messages and add them to the data structure
+  const processIncomingNIP4Message = useCallback(async (event: NostrEvent) => {
+    if (!user?.pubkey) return;
+    
+    logger.log(`DMS: DataManager: Processing incoming NIP-4 message: ${event.id}`);
+    
+    // Validate the DM event
+    if (!validateDMEvent(event)) {
+      logger.warn(`DMS: DataManager: Invalid NIP-4 event received: ${event.id}`);
+      return;
+    }
+    
+    // Determine conversation partner
+    const isFromUser = event.pubkey === user.pubkey;
+    const recipientPTag = event.tags?.find(([name]) => name === 'p')?.[1];
+    const otherPubkey = isFromUser ? recipientPTag : event.pubkey;
+    
+    if (!otherPubkey || otherPubkey === user.pubkey) {
+      logger.warn(`DMS: DataManager: Invalid conversation partner in NIP-4 event: ${event.id}`);
+      return;
+    }
+    
+    // Decrypt the message content
+    let decryptedContent: string;
+    try {
+      if (user?.signer?.nip04) {
+        decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
+      } else {
+        logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${event.id}`);
+        decryptedContent = '[Encrypted - No decryption available]';
+      }
+    } catch (error) {
+      logger.error(`DMS: DataManager: Failed to decrypt NIP-4 message ${event.id}:`, error);
+      decryptedContent = '[Decryption failed]';
+    }
+    
+    // Create decrypted message
+    const decryptedMessage: NostrEvent = {
+      ...event,
+      content: decryptedContent,
+    };
+    
+    // Add to messages state
+    setMessages(prev => {
+      // Create a completely new Map to ensure React detects the change
+      const newMap = new Map();
+      
+      // Copy all existing conversations
+      prev.forEach((value, key) => {
+        newMap.set(key, { ...value });
+      });
+      
+      const existing = newMap.get(otherPubkey);
+      
+      if (existing) {
+        // Check if message already exists to prevent duplicates
+        if (existing.messages.some(msg => msg.id === event.id)) {
+          logger.log(`DMS: DataManager: NIP-4 message ${event.id} already exists in conversation, skipping`);
+          return prev; // Return unchanged state
+        }
+        
+        // Add to existing conversation - create new object to ensure React detects change
+        const updatedMessages = [...existing.messages, decryptedMessage];
+        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+        
+        newMap.set(otherPubkey, {
+          ...existing,
+          messages: updatedMessages,
+          lastActivity: decryptedMessage.created_at,
+          lastMessage: decryptedMessage,
+          hasNIP4: true,
+        });
+        
+        logger.log(`DMS: DataManager: Updated existing conversation with ${otherPubkey}, now has ${updatedMessages.length} messages`);
+      } else {
+        // Create new conversation
+        newMap.set(otherPubkey, {
+          messages: [decryptedMessage],
+          lastActivity: decryptedMessage.created_at,
+          lastMessage: decryptedMessage,
+          hasNIP4: true,
+          hasNIP17: false,
+        });
+        
+        logger.log(`DMS: DataManager: Created new conversation with ${otherPubkey}`);
+      }
+      
+      logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
+      return newMap;
+    });
+    
+    logger.log(`DMS: DataManager: Added incoming NIP-4 message to conversation with ${otherPubkey}`);
+  }, [user]);
+
+  // Process incoming NIP-17 messages and add them to the data structure
+  const processIncomingNIP17Message = useCallback(async (event: NostrEvent) => {
+    if (!user?.pubkey) return;
+    
+    logger.log(`DMS: DataManager: Processing incoming NIP-17 message: ${event.id}`);
+    
+    // NIP-17 messages are kind 1059 (Gift Wrap)
+    if (event.kind !== 1059) {
+      logger.warn(`DMS: DataManager: Invalid NIP-17 event kind: ${event.kind} for event ${event.id}`);
+      return;
+    }
+    
+    let processedMessage: NostrEvent;
+    let conversationPartner: string;
+    
+    // Try to decrypt and process the message
+    if (!user?.signer?.nip44) {
+      // No decryption available - store with error placeholder
+      conversationPartner = event.pubkey;
+      processedMessage = {
+        ...event,
+        content: '[No NIP-44 decryption available]',
+      };
+    } else {
+      try {
+        // Decrypt Gift Wrap → Seal → Private DM
+        const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
+        const sealEvent = JSON.parse(sealContent) as NostrEvent;
+        
+        if (sealEvent.kind !== 13) {
+          // Invalid Seal format - store with error placeholder
+          conversationPartner = event.pubkey;
+          processedMessage = {
+            ...event,
+            content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
+          };
+        } else {
+          const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
+          const messageEvent = JSON.parse(messageContent) as NostrEvent;
+          
+          if (messageEvent.kind !== 14) {
+            // Invalid message format - store with error placeholder
+            conversationPartner = event.pubkey;
+            processedMessage = {
+              ...event,
+              content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
+            };
+          } else {
+            // Determine conversation partner
+            if (sealEvent.pubkey === user.pubkey) {
+              const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+              if (!recipient || recipient === user.pubkey) {
+                // Invalid recipient - store with error placeholder
+                conversationPartner = event.pubkey;
+                processedMessage = {
+                  ...event,
+                  content: '[Invalid recipient - malformed p tag]',
+                };
+              } else {
+                conversationPartner = recipient;
+                processedMessage = messageEvent;
+              }
+            } else {
+              conversationPartner = sealEvent.pubkey;
+              processedMessage = messageEvent;
+            }
+          }
+        }
+      } catch (error) {
+        // Decryption/parsing failed - store with error placeholder
+        nip17ErrorLogger(error);
+        conversationPartner = event.pubkey;
+        processedMessage = {
+          ...event,
+          content: '[Failed to decrypt or parse NIP-17 message]',
+        };
+      }
+    }
+    
+    // Add to messages state
+    setMessages(prev => {
+      // Create a completely new Map to ensure React detects the change
+      const newMap = new Map();
+      
+      // Copy all existing conversations
+      prev.forEach((value, key) => {
+        newMap.set(key, { ...value });
+      });
+      
+      const existing = newMap.get(conversationPartner);
+      
+      if (existing) {
+        // Check if message already exists to prevent duplicates
+        if (existing.messages.some(msg => msg.id === event.id)) {
+          logger.log(`DMS: DataManager: NIP-17 message ${event.id} already exists in conversation, skipping`);
+          return prev; // Return unchanged state
+        }
+        
+        // Add to existing conversation - create new object to ensure React detects change
+        const updatedMessages = [...existing.messages, processedMessage];
+        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+        
+        newMap.set(conversationPartner, {
+          ...existing,
+          messages: updatedMessages,
+          lastActivity: processedMessage.created_at,
+          lastMessage: processedMessage,
+          hasNIP17: true,
+        });
+        
+        logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
+      } else {
+        // Create new conversation
+        newMap.set(conversationPartner, {
+          messages: [processedMessage],
+          lastActivity: processedMessage.created_at,
+          lastMessage: processedMessage,
+          hasNIP4: false,
+          hasNIP17: true,
+        });
+        
+        logger.log(`DMS: DataManager: Created new conversation with ${conversationPartner}`);
+      }
+      
+      logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
+      return newMap;
+    });
+    
+    logger.log(`DMS: DataManager: Added incoming NIP-17 message to conversation with ${conversationPartner}`);
+  }, [user]);
+
+  // Start NIP-4 subscription for all conversations
+  const startNIP4Subscription = useCallback(async () => {
+    if (!user?.pubkey || !nostr) return;
+    
+    // Close existing subscription
+    if (nip4SubscriptionRef.current) {
+      nip4SubscriptionRef.current.close();
+      logger.log('DMS: DataManager: Closed existing NIP-4 subscription');
+    }
+    
+    try {
+      // Get most recent message timestamp for since filter
+      let sinceTimestamp = Math.floor(Date.now() / 1000);
+      if (lastSync.nip4) {
+        // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
+        sinceTimestamp = lastSync.nip4 - 60;
+      }
+      
+      const filters = [
+        {
+          kinds: [4], // NIP-4 DMs sent to us
+          '#p': [user.pubkey],
+          since: sinceTimestamp,
+        },
+        {
+          kinds: [4], // NIP-4 DMs sent by us
+          authors: [user.pubkey],
+          since: sinceTimestamp,
+        }
+      ];
+      
+      logger.log(`DMS: DataManager: Starting NIP-4 subscription since ${new Date(sinceTimestamp * 1000).toISOString()}`);
+      logger.log(`DMS: DataManager: NIP-4 subscription filters:`, JSON.stringify(filters, null, 2));
+      logger.log(`DMS: DataManager: User pubkey: ${user.pubkey}`);
+      
+      const subscription = nostr.req(filters);
+      let isActive = true;
+      
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              logger.log(`DMS: DataManager: Received NIP-4 event: ${msg[2].id} from ${msg[2].pubkey}`);
+              await processIncomingNIP4Message(msg[2]);
+            } else {
+              logger.log(`DMS: DataManager: Received non-event message:`, msg);
+            }
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('DMS: DataManager: NIP-4 subscription error:', error);
+          }
+        }
+      })();
+      
+      nip4SubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log('DMS: DataManager: NIP-4 subscription closed');
+        }
+      };
+      
+      // Update subscription status
+      setSubscriptions(prev => ({ ...prev, nip4: true }));
+      logger.log('DMS: DataManager: NIP-4 subscription started successfully');
+      logger.log('DMS: DataManager: NIP-4 subscription ref:', !!nip4SubscriptionRef.current);
+      
+    } catch (error) {
+      logger.error('DMS: DataManager: Failed to start NIP-4 subscription:', error);
+      setSubscriptions(prev => ({ ...prev, nip4: false }));
+    }
+  }, [user, nostr, lastSync.nip4, processIncomingNIP4Message]);
+
+  // Start NIP-17 subscription for all conversations
+  const startNIP17Subscription = useCallback(async () => {
+    if (!user?.pubkey || !nostr || !settings.enableNIP17) return;
+    
+    // Close existing subscription
+    if (nip17SubscriptionRef.current) {
+      nip17SubscriptionRef.current.close();
+      logger.log('DMS: DataManager: Closed existing NIP-17 subscription');
+    }
+    
+    try {
+      // Get most recent message timestamp for since filter
+      let sinceTimestamp = Math.floor(Date.now() / 1000);
+      if (lastSync.nip17) {
+        // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
+        sinceTimestamp = lastSync.nip17 - 60;
+      }
+      
+      const filters = [{
+        kinds: [1059], // NIP-17 Gift Wrap messages
+        '#p': [user.pubkey], // We are the recipient
+        since: sinceTimestamp,
+      }];
+      
+      logger.log(`DMS: DataManager: Starting NIP-17 subscription since ${new Date(sinceTimestamp * 1000).toISOString()}`);
+      logger.log(`DMS: DataManager: NIP-17 subscription filters:`, JSON.stringify(filters, null, 2));
+      logger.log(`DMS: DataManager: User pubkey: ${user.pubkey}`);
+      
+      const subscription = nostr.req(filters);
+      let isActive = true;
+      
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              logger.log(`DMS: DataManager: Received NIP-17 event: ${msg[2].id} from ${msg[2].pubkey}`);
+              await processIncomingNIP17Message(msg[2]);
+            } else {
+              logger.log(`DMS: DataManager: Received non-event message:`, msg);
+            }
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('DMS: DataManager: NIP-17 subscription error:', error);
+          }
+        }
+      })();
+      
+      nip17SubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log('DMS: DataManager: NIP-17 subscription closed');
+        }
+      };
+      
+      // Update subscription status
+      setSubscriptions(prev => ({ ...prev, nip17: true }));
+      logger.log('DMS: DataManager: NIP-17 subscription started successfully');
+      logger.log('DMS: DataManager: NIP-17 subscription ref:', !!nip17SubscriptionRef.current);
+      
+    } catch (error) {
+      logger.error('DMS: DataManager: Failed to start NIP-17 subscription:', error);
+      setSubscriptions(prev => ({ ...prev, nip17: false }));
+    }
+  }, [user, nostr, lastSync.nip17, settings.enableNIP17, processIncomingNIP17Message]);
+
   // Stage 3: Create subscription for new messages going forward for a specific protocol
   const startMessageSubscription = useCallback(async (protocol: 'nip4' | 'nip17') => {
-          logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 3 - Starting message subscription`);
-    // TODO: Implement real-time subscription
-  }, []);
+    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 3 - Starting message subscription`);
+    
+    if (protocol === 'nip4') {
+      await startNIP4Subscription();
+    } else if (protocol === 'nip17') {
+      await startNIP17Subscription();
+    }
+  }, [startNIP4Subscription, startNIP17Subscription]);
 
   // Load messages for a specific protocol using the 3-stage process
   const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
@@ -779,10 +1191,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
       setLastSync(prev => ({ ...prev, nip17: null }));
       
+      // Close NIP-17 subscription
+      if (nip17SubscriptionRef.current) {
+        nip17SubscriptionRef.current.close();
+        nip17SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Closed NIP-17 subscription due to setting change');
+      }
+      
+      // Update subscription status
+      setSubscriptions(prev => ({ ...prev, nip17: false }));
+      
       // Clear NIP-17 messages from state
       setMessages(prev => {
-        const newMap = new Map(prev);
-        newMap.forEach((participant, key) => {
+        // Create a completely new Map to ensure React detects the change
+        const newMap = new Map();
+        
+        prev.forEach((participant, key) => {
           if (participant.hasNIP17) {
             // Remove NIP-17 messages, keep NIP-4 messages
             const nip4Messages = participant.messages.filter(msg => msg.kind === 4);
@@ -794,12 +1218,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 lastMessage: nip4Messages[0] || null,
                 lastActivity: nip4Messages[0]?.created_at || 0,
               });
-            } else {
-              // No NIP-4 messages, remove participant entirely
-              newMap.delete(key);
             }
+            // If no NIP-4 messages, don't add to newMap (effectively removing the participant)
+          } else {
+            // Keep participants that don't have NIP-17 messages
+            newMap.set(key, { ...participant });
           }
         });
+        
+        logger.log(`DMS: DataManager: Cleared NIP-17 data, remaining conversations: ${newMap.size}`);
         return newMap;
       });
       
@@ -827,6 +1254,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       prevNIP17Setting.current = settings.enableNIP17;
     }
   }, [settings.enableNIP17, hasInitialLoadCompleted, handleNIP17SettingChange]);
+
+  // Cleanup subscriptions when component unmounts or user changes
+  useEffect(() => {
+    return () => {
+      // Close all subscriptions on cleanup
+      if (nip4SubscriptionRef.current) {
+        nip4SubscriptionRef.current.close();
+        logger.log('DMS: DataManager: Cleaned up NIP-4 subscription');
+      }
+      if (nip17SubscriptionRef.current) {
+        nip17SubscriptionRef.current.close();
+        logger.log('DMS: DataManager: Cleaned up NIP-17 subscription');
+      }
+      
+      // Reset subscription status
+      setSubscriptions({ nip4: false, nip17: false });
+      
+
+    };
+  }, []);
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
   const conversations = useMemo(() => {
