@@ -783,13 +783,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     
     // Add to messages state
     setMessages(prev => {
-      // Create a completely new Map to ensure React detects the change
-      const newMap = new Map();
-      
-      // Copy all existing conversations
-      prev.forEach((value, key) => {
-        newMap.set(key, { ...value });
-      });
+      const newMap = new Map(prev); // This is fine - just don't mutate objects
       
       const existing = newMap.get(otherPubkey);
       
@@ -805,8 +799,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
         
         newMap.set(otherPubkey, {
-          ...existing,
-          messages: updatedMessages,
+          ...existing, // Spread existing properties
+          messages: updatedMessages, // New array reference
           lastActivity: decryptedMessage.created_at,
           lastMessage: decryptedMessage,
           hasNIP4: true,
@@ -1203,9 +1197,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       
       // Clear NIP-17 messages from state
       setMessages(prev => {
-        // Create a completely new Map to ensure React detects the change
-        const newMap = new Map();
+        const newMap = new Map(prev); // This is fine - just don't mutate objects
         
+        // Process each participant
         prev.forEach((participant, key) => {
           if (participant.hasNIP17) {
             // Remove NIP-17 messages, keep NIP-4 messages
@@ -1213,17 +1207,23 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             if (nip4Messages.length > 0) {
               newMap.set(key, {
                 ...participant,
-                messages: nip4Messages,
+                messages: nip4Messages, // New array reference
                 hasNIP17: false,
                 lastMessage: nip4Messages[0] || null,
                 lastActivity: nip4Messages[0]?.created_at || 0,
               });
+            } else {
+              // No NIP-4 messages, keep participant but with empty messages
+              newMap.set(key, {
+                ...participant,
+                messages: [], // Empty array instead of deleting
+                hasNIP17: false,
+                lastMessage: null,
+                lastActivity: 0,
+              });
             }
-            // If no NIP-4 messages, don't add to newMap (effectively removing the participant)
-          } else {
-            // Keep participants that don't have NIP-17 messages
-            newMap.set(key, { ...participant });
           }
+          // If no NIP-17 messages, keep as-is (no change needed)
         });
         
         logger.log(`DMS: DataManager: Cleared NIP-17 data, remaining conversations: ${newMap.size}`);
