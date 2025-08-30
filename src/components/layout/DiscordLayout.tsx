@@ -108,6 +108,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
   const navigate = useNavigate();
   const urlParameters = useUrlParameters();
   const { setHighlightedItemId } = useMarketplaceContext();
+  const urlChannelId = urlParameters.channelId;
 
   const { sendMessage: sendDM } = useDirectMessages();
   const [pendingMarketplaceItem, setPendingMarketplaceItem] = useState<MarketplaceItem | null>(null);
@@ -325,6 +326,29 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     }
   }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected, selectedChannel]);
 
+  // Additional effect to handle URL-based channel selection when channels are loaded
+  // This ensures that the channel specified in the URL is properly selected
+  // even if it's not immediately available in the channels list
+  useEffect(() => {
+    if (
+      selectedCommunity &&
+      urlChannelId &&
+      channels &&
+      channels.length > 0 &&
+      selectedChannel !== urlChannelId
+    ) {
+      // Find the channel that matches the URL parameter (urlChannelId is now channel name)
+      const urlChannel = channels.find((channel) =>
+        channel.name.toLowerCase() === urlChannelId.toLowerCase() &&
+        channel.type === "text"
+      );
+
+      if (urlChannel) {
+        setSelectedChannel(urlChannel.id);
+      }
+    }
+  }, [selectedCommunity, urlChannelId, channels, selectedChannel]);
+
   // Auto-show join dialog when user selects a community they're not a member of
   useEffect(() => {
     if (selectedCommunity && membershipStatus && !urlCommunityId) {
@@ -383,6 +407,10 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
 
     if (selectedCommunity) {
       recordChannelVisit(selectedCommunity, channelId);
+      // Extract channel name from channel ID for URL (channelId format: "name" or "communityId:name")
+      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
+      // Update URL to reflect channel selection with clean channel name
+      updateSpaceUrl(selectedCommunity, channelName);
     }
 
     if (isMobile) {
@@ -408,6 +436,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
 
   const handleCommunitySelect = (communityId: string | null) => {
     setSelectedCommunity(communityId);
+    // Reset channel selection when switching communities to avoid "channel not found" errors
+    setSelectedChannel(null);
+    setSelectedSpace(null);
     setIsAutoSelected(false);
 
     if (communityId) {
