@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { type NostrEvent } from '@nostrify/nostrify';
@@ -10,6 +10,8 @@ import { MediaAttachment } from '@/components/chat/MediaAttachment';
 import { ProfileModal } from '@/components/user/ProfileModal';
 import { InlineEvent } from '@/components/InlineEvent';
 import { LinkPreview } from '@/components/LinkPreview';
+import { ImageGallery } from '@/components/ImageGallery';
+import { ChatImage } from '@/components/ChatImage';
 import { extractUrls } from '@/lib/urlUtils';
 import { cn } from '@/lib/utils';
 
@@ -82,9 +84,17 @@ export function NoteContent({
 }: NoteContentProps) {
   const [selectedUserPubkey, setSelectedUserPubkey] = useState<string | undefined>(undefined);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [allImages, setAllImages] = useState<string[]>([]);
 
   const handleProfileChange = (newPubkey: string) => {
     setSelectedUserPubkey(newPubkey);
+  };
+
+  const handleImageClick = (index: number) => {
+    setGalleryIndex(index);
+    setGalleryOpen(true);
   };
   // Extract media attachments from imeta tags
   const mediaAttachments = useMemo(() => {
@@ -111,6 +121,19 @@ export function NoteContent({
       })
       .filter(attachment => attachment.url); // Only include valid attachments
   }, [event.tags]);
+
+  // Collect all images for gallery (from content and media attachments)
+  useEffect(() => {
+    const imagesFromContent = extractUrls(event.content).filter(url => isImageURL(url));
+    const imagesFromMedia = mediaAttachments
+      .filter(attachment => attachment.mimeType?.startsWith('image/'))
+      .map(attachment => attachment.url);
+
+    // Remove duplicates while preserving order
+    const allImages = [...imagesFromContent, ...imagesFromMedia];
+    const uniqueImages = Array.from(new Set(allImages));
+    setAllImages(uniqueImages);
+  }, [event.content, mediaAttachments]);
 
   // Check if content contains markdown
   const hasMarkdown = useMemo(() => containsMarkdown(event.content), [event.content]);
@@ -185,17 +208,26 @@ export function NoteContent({
               );
             },
             // Custom image component
-            img: ({ src, alt, ...props }) => {
+            img: ({ src, alt }) => {
               if (src) {
                 return (
                   <div className="my-1 inline-block">
-                    <img
+                    <ChatImage
                       src={src}
                       alt={alt || 'Markdown image'}
-                      className="rounded-lg max-h-64 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(src, '_blank')}
-                      loading="lazy"
-                      {...props}
+                      className="max-h-64 w-auto"
+                      onClick={() => {
+                        const imageIndex = allImages.indexOf(src);
+                        if (imageIndex !== -1) {
+                          handleImageClick(imageIndex);
+                        } else {
+                          setAllImages(prev => [...prev, src]);
+                          setTimeout(() => {
+                            const newIndex = allImages.length;
+                            handleImageClick(newIndex);
+                          }, 0);
+                        }
+                      }}
                     />
                   </div>
                 );
@@ -323,12 +355,22 @@ export function NoteContent({
           // Render image URLs as actual images
           parts.push(
             <div key={`image-${keyCounter++}`} className="my-1 inline-block">
-              <img
+              <ChatImage
                 src={url}
                 alt="Shared image"
-                className="rounded-lg max-h-64 w-auto object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(url, '_blank')}
-                loading="lazy"
+                className="max-h-64 w-auto"
+                onClick={() => {
+                  const imageIndex = allImages.indexOf(url);
+                  if (imageIndex !== -1) {
+                    handleImageClick(imageIndex);
+                  } else {
+                    setAllImages(prev => [...prev, url]);
+                    setTimeout(() => {
+                      const newIndex = allImages.length;
+                      handleImageClick(newIndex);
+                    }, 0);
+                  }
+                }}
                 onError={(e) => {
                   // If image fails to load, fall back to link
                   const fallbackLink = document.createElement('a');
@@ -337,7 +379,8 @@ export function NoteContent({
                   fallbackLink.rel = 'noopener noreferrer';
                   fallbackLink.className = 'text-blue-500 hover:underline';
                   fallbackLink.textContent = url;
-                  e.currentTarget.parentNode?.replaceChild(fallbackLink, e.currentTarget);
+                  const eventTarget = e.currentTarget as HTMLElement;
+                  eventTarget.parentNode?.replaceChild(fallbackLink, eventTarget);
                 }}
               />
             </div>
@@ -443,7 +486,7 @@ export function NoteContent({
     }
 
     return parts;
-  }, [event.content, mediaAttachments, hasMarkdown]);
+  }, [event.content, mediaAttachments, hasMarkdown, allImages]);
 
   return (
     <div className={cn("space-y-3 force-wrap", className)}>
@@ -471,9 +514,25 @@ export function NoteContent({
               mimeType={attachment.mimeType}
               size={attachment.size}
               name={attachment.name}
+              onImageClick={(url) => {
+                const imageIndex = allImages.indexOf(url);
+                if (imageIndex !== -1) {
+                  handleImageClick(imageIndex);
+                }
+              }}
             />
           ))}
         </div>
+      )}
+
+      {/* Image Gallery */}
+      {allImages.length > 0 && (
+        <ImageGallery
+          images={allImages}
+          isOpen={galleryOpen}
+          onClose={() => setGalleryOpen(false)}
+          initialIndex={galleryIndex}
+        />
       )}
 
       {/* User Profile Dialog */}
