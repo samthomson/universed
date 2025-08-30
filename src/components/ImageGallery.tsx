@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, Download, ExternalLink, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,10 @@ function ZoomControls() {
         variant="ghost"
         size="icon"
         className="text-white hover:bg-white/30 bg-transparent"
-        onClick={() => zoomIn()}
+        onClick={(e) => {
+          e.stopPropagation();
+          zoomIn();
+        }}
         title="Zoom in"
       >
         <ZoomIn className="h-4 w-4" />
@@ -68,7 +71,10 @@ function ZoomControls() {
         variant="ghost"
         size="icon"
         className="text-white hover:bg-white/30 bg-transparent"
-        onClick={() => zoomOut()}
+        onClick={(e) => {
+          e.stopPropagation();
+          zoomOut();
+        }}
         title="Zoom out"
       >
         <ZoomOut className="h-4 w-4" />
@@ -77,7 +83,10 @@ function ZoomControls() {
         variant="ghost"
         size="icon"
         className="text-white hover:bg-white/30 bg-transparent"
-        onClick={() => resetTransform()}
+        onClick={(e) => {
+          e.stopPropagation();
+          resetTransform();
+        }}
         title="Reset zoom"
       >
         <RotateCcw className="h-4 w-4" />
@@ -90,6 +99,24 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside the main content container
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contentRef.current && !contentRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
@@ -225,9 +252,13 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
             Image Gallery - Viewing image {currentIndex + 1} of {images.length}
           </DialogPrimitive.Title>
         </VisuallyHidden.Root>
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" onClick={onClose}>
           {/* Content container - this defines the boundaries for button positioning */}
-          <div className="relative w-full h-full flex items-center justify-center md:p-8 max-w-7xl mx-auto">
+          <div
+            ref={contentRef}
+            className="relative w-full h-full flex items-center justify-center md:p-8 max-w-7xl mx-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Close button - positioned within content container */}
             <Button
               variant="ghost"
@@ -237,7 +268,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                 // Account for mobile safe area and navigation
                 top: 'max(0.5rem, env(safe-area-inset-top, 0px))',
               }}
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
             >
               <X className="h-5 w-5 sm:h-6 sm:w-6" />
             </Button>
@@ -254,7 +288,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                 variant="ghost"
                 size="icon"
                 className="text-white hover:bg-white/20 bg-black/30"
-                onClick={handleDownload}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload();
+                }}
                 disabled={isDownloading}
                 title={isDownloading ? "Downloading..." : "Download image"}
               >
@@ -268,7 +305,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                 variant="ghost"
                 size="icon"
                 className="text-white hover:bg-white/20 bg-black/30"
-                onClick={handleOpenInNewTab}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenInNewTab();
+                }}
                 title="Open in new tab"
               >
                 <ExternalLink className="h-4 w-4" />
@@ -282,7 +322,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                   variant="ghost"
                   size="icon"
                   className="absolute left-2 sm:left-8 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
-                  onClick={goToPrevious}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToPrevious();
+                  }}
                 >
                   <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
                 </Button>
@@ -290,7 +333,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 sm:right-8 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
-                  onClick={goToNext}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goToNext();
+                  }}
                 >
                   <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
                 </Button>
@@ -359,7 +405,10 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
                   {images.map((image, index) => (
                     <button
                       key={index}
-                      onClick={() => setCurrentIndex(index)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentIndex(index);
+                      }}
                       className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-all ${
                         index === currentIndex
                           ? 'border-white shadow-lg'
