@@ -207,7 +207,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
       <ImageGalleryDialogContent 
-        className="max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] p-0 bg-black/95 border-0 md:max-w-[100vw] md:max-h-[100vh]"
+        className="max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] p-0 bg-background/85 border-0 md:max-w-[100vw] md:max-h-[100vh]"
         onKeyDown={handleKeyDown}
         style={{
           // Ensure the gallery covers the full viewport including safe areas on mobile
