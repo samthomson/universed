@@ -16,7 +16,7 @@ interface ImageGalleryProps {
 
 /**
  * ImageGallery component with pinch zoom functionality
- * 
+ *
  * Features:
  * - Pinch to zoom on touch devices
  * - Mouse wheel zoom on desktop
@@ -52,37 +52,37 @@ ImageGalleryDialogContent.displayName = "ImageGalleryDialogContent";
 // Zoom controls component that uses the useControls hook
 function ZoomControls() {
   const { zoomIn, zoomOut, resetTransform } = useControls();
-  
+
   return (
-    <div className="flex gap-1">
+    <>
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/20 bg-black/30"
+        className="text-white hover:bg-white/30 bg-transparent"
         onClick={() => zoomIn()}
         title="Zoom in"
       >
-        <ZoomIn className="h-4 w-4 md:h-5 md:w-5" />
+        <ZoomIn className="h-4 w-4" />
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/20 bg-black/30"
+        className="text-white hover:bg-white/30 bg-transparent"
         onClick={() => zoomOut()}
         title="Zoom out"
       >
-        <ZoomOut className="h-4 w-4 md:h-5 md:w-5" />
+        <ZoomOut className="h-4 w-4" />
       </Button>
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/20 bg-black/30"
+        className="text-white hover:bg-white/30 bg-transparent"
         onClick={() => resetTransform()}
         title="Reset zoom"
       >
-        <RotateCcw className="h-4 w-4 md:h-5 md:w-5" />
+        <RotateCcw className="h-4 w-4" />
       </Button>
-    </div>
+    </>
   );
 }
 
@@ -111,48 +111,48 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
 
   const handleDownload = async () => {
     if (isDownloading) return;
-    
+
     setIsDownloading(true);
-    
+
     try {
       const imageUrl = images[currentIndex];
       if (!imageUrl) {
         throw new Error('No image URL provided');
       }
-      
+
       // Extract filename from URL or create a default one
       const urlParts = imageUrl.split('/');
       const urlFilename = urlParts[urlParts.length - 1] || '';
-      
+
       // Remove query parameters first
       const cleanFilename = urlFilename.split('?')[0] || '';
-      
+
       // Check if the clean filename has a valid image extension
-      const hasExtension = cleanFilename.includes('.') && 
+      const hasExtension = cleanFilename.includes('.') &&
         cleanFilename.split('.').pop()?.match(/^(jpg|jpeg|png|gif|webp|svg)$/i) !== undefined;
-      
-      const filename = hasExtension 
-        ? cleanFilename 
+
+      const filename = hasExtension
+        ? cleanFilename
         : `chat-image-${currentIndex + 1}.jpg`;
-      
+
       // Try to fetch the image and download it as a blob (handles CORS better)
       try {
         const response = await fetch(imageUrl);
         if (!response.ok) throw new Error('Network response was not ok');
-        
+
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
-        
+
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Clean up the blob URL
         URL.revokeObjectURL(blobUrl);
-        
+
         toast({
           title: 'Download started',
           description: `Downloading ${filename}`,
@@ -168,7 +168,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         toast({
           title: 'Download started',
           description: `Downloading ${filename} (fallback method)`,
@@ -176,13 +176,13 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
       }
     } catch (error) {
       console.error('Download failed:', error);
-      
+
       toast({
         title: 'Download failed',
         description: 'Opening image in new tab instead',
         variant: 'destructive',
       });
-      
+
       // Final fallback: open in new tab
       window.open(images[currentIndex], '_blank', 'noopener,noreferrer');
     } finally {
@@ -206,7 +206,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
 
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
-      <ImageGalleryDialogContent 
+      <ImageGalleryDialogContent
         className="max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] p-0 bg-background/85 border-0 md:max-w-[100vw] md:max-h-[100vh]"
         onKeyDown={handleKeyDown}
         style={{
@@ -230,22 +230,24 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 md:top-4 right-2 md:right-4 z-50 text-white hover:bg-white/20 bg-black/30"
+            className="absolute top-2 sm:top-4 right-2 sm:right-4 z-50 text-white hover:bg-white/20 bg-black/30"
             style={{
               // Account for mobile safe area and navigation
               top: 'max(0.5rem, env(safe-area-inset-top, 0px))',
+              right: 'max(0.5rem, env(safe-area-inset-right, 0px))',
             }}
             onClick={onClose}
           >
-            <X className="h-5 w-5 md:h-6 md:w-6" />
+            <X className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
 
           {/* Action buttons */}
-          <div 
-            className="absolute top-2 md:top-4 left-2 md:left-4 z-50 flex gap-2"
+          <div
+            className="absolute top-2 sm:top-4 left-2 sm:left-4 z-50 flex gap-2"
             style={{
               // Account for mobile safe area and navigation
               top: 'max(0.5rem, env(safe-area-inset-top, 0px))',
+              left: 'max(0.5rem, env(safe-area-inset-left, 0px))',
             }}
           >
             <Button
@@ -257,9 +259,9 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
               title={isDownloading ? "Downloading..." : "Download image"}
             >
               {isDownloading ? (
-                <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Download className="h-4 w-4 md:h-5 md:w-5" />
+                <Download className="h-4 w-4" />
               )}
             </Button>
             <Button
@@ -269,7 +271,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
               onClick={handleOpenInNewTab}
               title="Open in new tab"
             >
-              <ExternalLink className="h-4 w-4 md:h-5 md:w-5" />
+              <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
 
@@ -279,29 +281,29 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
                 onClick={goToPrevious}
               >
-                <ChevronLeft className="h-6 w-6 md:h-8 md:w-8" />
+                <ChevronLeft className="h-6 w-6 sm:h-7 sm:w-7" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-50 text-white hover:bg-white/20 bg-black/30"
                 onClick={goToNext}
               >
-                <ChevronRight className="h-6 w-6 md:h-8 md:w-8" />
+                <ChevronRight className="h-6 w-6 sm:h-7 sm:w-7" />
               </Button>
             </>
           )}
 
           {/* Main image with zoom functionality */}
-          <div 
+          <div
             className="w-full h-full flex items-center justify-center p-4 md:p-8"
             style={{
-              // Account for mobile safe areas and navigation buttons
+              // Account for mobile safe areas, navigation buttons, and zoom controls
               paddingTop: 'max(4rem, calc(env(safe-area-inset-top, 0px) + 3rem))',
-              paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 6rem))',
+              paddingBottom: 'max(8rem, calc(env(safe-area-inset-bottom, 0px) + 8rem))',
             }}
           >
             <TransformWrapper
@@ -311,7 +313,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
               wheel={{ step: 0.1 }}
               pinch={{ step: 5 }}
               doubleClick={{ mode: "toggle", step: 0.7 }}
-              panning={{ 
+              panning={{
                 velocityDisabled: true,
                 // Disable panning when not zoomed to allow navigation gestures
                 disabled: false
@@ -322,28 +324,13 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
               limitToBounds={true}
               centerZoomedOut={true}
             >
-              {/* Desktop zoom controls positioned absolutely within the transform wrapper */}
-              <div 
-                className="absolute top-2 md:top-4 right-16 md:right-20 z-50 hidden md:flex gap-1"
-                style={{
-                  // Account for mobile safe area and navigation
-                  top: 'max(0.5rem, env(safe-area-inset-top, 0px))',
-                }}
-              >
-                <ZoomControls />
+              {/* Zoom controls positioned under the image */}
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50">
+                <div className="bg-black/50 backdrop-blur-sm rounded-full p-1 flex gap-1">
+                  <ZoomControls />
+                </div>
               </div>
 
-              {/* Mobile zoom controls positioned at bottom */}
-              <div 
-                className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 md:hidden flex gap-1"
-                style={{
-                  // Account for mobile safe area
-                  bottom: 'max(5rem, calc(env(safe-area-inset-bottom, 0px) + 7rem))',
-                }}
-              >
-                <ZoomControls />
-              </div>
-              
               <TransformComponent
                 wrapperClass="!w-full !h-full"
                 contentClass="!w-full !h-full flex items-center justify-center"
@@ -361,28 +348,28 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
 
           {/* Image counter and thumbnail navigation */}
           {images.length > 1 && (
-            <div 
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
+            <div
+              className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"
               style={{
-                // Account for mobile safe area
-                bottom: 'max(1rem, calc(env(safe-area-inset-bottom, 0px) + 1rem))',
+                // Account for mobile safe area and zoom controls
+                bottom: 'max(5rem, calc(env(safe-area-inset-bottom, 0px) + 5rem))',
               }}
             >
               {/* Image counter */}
               <div className="bg-black/50 text-white px-3 py-1 rounded-full text-sm">
                 {currentIndex + 1} of {images.length}
               </div>
-              
+
               {/* Thumbnail navigation */}
-              <div className="flex gap-2 max-w-[calc(100vw-2rem)] overflow-x-auto px-2">
+              <div className="flex gap-2 max-w-[calc(100vw-4rem)] overflow-x-auto px-2">
                 <div className="flex gap-2 pb-2">
                   {images.map((image, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentIndex(index)}
-                      className={`flex-shrink-0 w-12 h-12 md:w-16 md:h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                        index === currentIndex 
-                          ? 'border-white shadow-lg' 
+                      className={`flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                        index === currentIndex
+                          ? 'border-white shadow-lg'
                           : 'border-white/30 hover:border-white/60'
                       }`}
                     >

@@ -12,6 +12,7 @@ import { InlineEvent } from '@/components/InlineEvent';
 import { LinkPreview } from '@/components/LinkPreview';
 import { ImageGallery } from '@/components/ImageGallery';
 import { ChatImage } from '@/components/ChatImage';
+import { useImageGallery } from '@/hooks/useImageGallery';
 import { extractUrls } from '@/lib/urlUtils';
 import { cn } from '@/lib/utils';
 
@@ -84,17 +85,17 @@ export function NoteContent({
 }: NoteContentProps) {
   const [selectedUserPubkey, setSelectedUserPubkey] = useState<string | undefined>(undefined);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryIndex, setGalleryIndex] = useState(0);
-  const [allImages, setAllImages] = useState<string[]>([]);
+  const {
+    galleryOpen,
+    galleryIndex,
+    allImages,
+    handleImageClick,
+    closeGallery,
+    updateImages
+  } = useImageGallery();
 
   const handleProfileChange = (newPubkey: string) => {
     setSelectedUserPubkey(newPubkey);
-  };
-
-  const handleImageClick = (index: number) => {
-    setGalleryIndex(index);
-    setGalleryOpen(true);
   };
   // Extract media attachments from imeta tags
   const mediaAttachments = useMemo(() => {
@@ -132,8 +133,8 @@ export function NoteContent({
     // Remove duplicates while preserving order
     const allImages = [...imagesFromContent, ...imagesFromMedia];
     const uniqueImages = Array.from(new Set(allImages));
-    setAllImages(uniqueImages);
-  }, [event.content, mediaAttachments]);
+    updateImages(uniqueImages);
+  }, [event.content, mediaAttachments, updateImages]);
 
   // Check if content contains markdown
   const hasMarkdown = useMemo(() => containsMarkdown(event.content), [event.content]);
@@ -216,18 +217,7 @@ export function NoteContent({
                       src={src}
                       alt={alt || 'Markdown image'}
                       className="max-h-64 w-auto"
-                      onClick={() => {
-                        const imageIndex = allImages.indexOf(src);
-                        if (imageIndex !== -1) {
-                          handleImageClick(imageIndex);
-                        } else {
-                          setAllImages(prev => [...prev, src]);
-                          setTimeout(() => {
-                            const newIndex = allImages.length;
-                            handleImageClick(newIndex);
-                          }, 0);
-                        }
-                      }}
+                      onClick={() => handleImageClick(src, allImages)}
                     />
                   </div>
                 );
@@ -359,18 +349,7 @@ export function NoteContent({
                 src={url}
                 alt="Shared image"
                 className="max-h-64 w-auto"
-                onClick={() => {
-                  const imageIndex = allImages.indexOf(url);
-                  if (imageIndex !== -1) {
-                    handleImageClick(imageIndex);
-                  } else {
-                    setAllImages(prev => [...prev, url]);
-                    setTimeout(() => {
-                      const newIndex = allImages.length;
-                      handleImageClick(newIndex);
-                    }, 0);
-                  }
-                }}
+                onClick={() => handleImageClick(url, allImages)}
                 onError={(e) => {
                   // If image fails to load, fall back to link
                   const fallbackLink = document.createElement('a');
@@ -486,7 +465,7 @@ export function NoteContent({
     }
 
     return parts;
-  }, [event.content, mediaAttachments, hasMarkdown, allImages]);
+  }, [event.content, mediaAttachments, hasMarkdown, allImages, handleImageClick]);
 
   return (
     <div className={cn("space-y-3 force-wrap", className)}>
@@ -514,12 +493,7 @@ export function NoteContent({
               mimeType={attachment.mimeType}
               size={attachment.size}
               name={attachment.name}
-              onImageClick={(url) => {
-                const imageIndex = allImages.indexOf(url);
-                if (imageIndex !== -1) {
-                  handleImageClick(imageIndex);
-                }
-              }}
+              onImageClick={(url) => handleImageClick(url, allImages)}
             />
           ))}
         </div>
@@ -530,7 +504,7 @@ export function NoteContent({
         <ImageGallery
           images={allImages}
           isOpen={galleryOpen}
-          onClose={() => setGalleryOpen(false)}
+          onClose={closeGallery}
           initialIndex={galleryIndex}
         />
       )}
