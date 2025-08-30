@@ -168,13 +168,6 @@ export function generateSpaceUrl(communityId: string, channelId?: string | null)
 }
 
 /**
- * Generate channel link with naddr encoding
- */
-export function generateChannelLink(communityId: string, channelId: string): string {
-  return generateSpaceUrl(communityId, channelId);
-}
-
-/**
  * Update browser URL with space navigation
  */
 export function updateSpaceUrl(communityId: string, channelId?: string | null): void {

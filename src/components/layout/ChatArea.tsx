@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useChannels } from "@/hooks/useChannels";
-import { generateChannelLink } from "@/lib/utils";
+import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserRole } from "@/hooks/useCommunityRoles";
@@ -86,7 +86,7 @@ function CommunityChatHeader({
   const copyChannelLink = () => {
     // Use naddr format for community ID
     try {
-      const channelLink = generateChannelLink(communityId, channelId);
+      const channelLink = generateSpaceUrl(communityId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast.success("Channel link copied to clipboard!");
     } catch {

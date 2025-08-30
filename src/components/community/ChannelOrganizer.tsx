@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { cn, generateChannelLink } from '@/lib/utils';
+import { cn, generateSpaceUrl } from '@/lib/utils';
 import {
   Hash,
   Volume2,
@@ -103,7 +103,7 @@ export function ChannelOrganizer({
   const copyChannelLink = (channel: Channel) => {
     // Create a link to the channel using naddr format
     try {
-      const channelLink = generateChannelLink(communityId, channel.id);
+      const channelLink = generateSpaceUrl(communityId, channel.id);
       navigator.clipboard.writeText(channelLink);
     } catch {
       // Show error to user

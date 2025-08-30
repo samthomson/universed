@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { generateChannelLink } from "@/lib/utils";
+import { generateSpaceUrl } from "@/lib/utils";
 
 interface MobileChannelHeaderProps {
   communityId: string;
@@ -38,7 +38,7 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
 
     // Use naddr format for community ID
     try {
-      const channelLink = generateChannelLink(communityId, channelId);
+      const channelLink = generateSpaceUrl(communityId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast({
         title: "Channel link copied",
