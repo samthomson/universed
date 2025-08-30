@@ -44,8 +44,7 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
         title: "Channel link copied",
         description: "The channel link has been copied to your clipboard.",
       });
-    } catch (error) {
-      console.error('Failed to generate channel link:', error);
+    } catch {
       toast({
         title: "Error",
         description: "Failed to generate channel link. Please try again.",

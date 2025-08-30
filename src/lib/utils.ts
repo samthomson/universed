@@ -112,7 +112,14 @@ export function isNaddr(value: string): boolean {
 }
 
 /**
- * Encode naddr for URL usage with proper error handling
+ * Extract channel name from channel ID (handles both "name" and "communityId:name" formats)
+ */
+export function extractChannelName(channelId: string): string {
+  return channelId.includes(':') ? channelId.split(':').pop() || channelId : channelId;
+}
+
+/**
+ * Safely encode naddr for URL usage
  */
 export function encodeNaddrForUrl(naddr: string): string {
   try {
@@ -124,15 +131,11 @@ export function encodeNaddrForUrl(naddr: string): string {
 }
 
 /**
- * Decode URL-encoded naddr with proper error handling
+ * Safely decode URL-encoded naddr
  */
 export function decodeNaddrFromUrl(encodedNaddr: string): string {
   try {
-    // Check if the naddr is URL-encoded (contains % characters)
-    if (encodedNaddr.includes('%')) {
-      return decodeURIComponent(encodedNaddr);
-    }
-    return encodedNaddr;
+    return encodedNaddr.includes('%') ? decodeURIComponent(encodedNaddr) : encodedNaddr;
   } catch (error) {
     console.error('Failed to decode naddr from URL:', error);
     throw new Error('Failed to decode community ID');
@@ -140,71 +143,42 @@ export function decodeNaddrFromUrl(encodedNaddr: string): string {
 }
 
 /**
- * Generate a space URL with proper naddr encoding
+ * Generate space URL path with naddr encoding
+ * @returns URL path (e.g., "/space/encoded-naddr/channel-name")
  */
-export function generateSpaceUrl(communityId: string, channelId?: string): string {
-  const baseUrl = window.location.origin;
+export function buildSpacePath(communityId: string, channelId?: string | null): string {
+  const channelName = channelId ? extractChannelName(channelId) : undefined;
 
   try {
     const naddr = communityIdToNaddr(communityId);
     const encodedNaddr = encodeNaddrForUrl(naddr);
-
-    if (channelId) {
-      // Extract channel name from full channel ID if needed
-      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
-      return `${baseUrl}/space/${encodedNaddr}/${channelName}`;
-    }
-
-    return `${baseUrl}/space/${encodedNaddr}`;
+    return channelName ? `/space/${encodedNaddr}/${channelName}` : `/space/${encodedNaddr}`;
   } catch (error) {
-    console.error('Failed to generate space URL:', error);
+    console.error('Failed to encode community ID, using fallback:', error);
     // Fallback to unencoded format
-    if (channelId) {
-      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
-      return `${baseUrl}/space/${communityId}/${channelName}`;
-    }
-    return `${baseUrl}/space/${communityId}`;
+    return channelName ? `/space/${communityId}/${channelName}` : `/space/${communityId}`;
   }
 }
 
 /**
- * Generate a channel link with proper naddr encoding
+ * Generate full space URL with naddr encoding
+ */
+export function generateSpaceUrl(communityId: string, channelId?: string | null): string {
+  return `${window.location.origin}${buildSpacePath(communityId, channelId)}`;
+}
+
+/**
+ * Generate channel link with naddr encoding
  */
 export function generateChannelLink(communityId: string, channelId: string): string {
-  try {
-    const naddr = communityIdToNaddr(communityId);
-    const encodedNaddr = encodeNaddrForUrl(naddr);
-    // Extract channel name from full channel ID (format: communityId:channelName)
-    const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
-    return `${window.location.origin}/space/${encodedNaddr}/${channelName}`;
-  } catch (error) {
-    console.error('Failed to generate channel link:', error);
-    throw new Error('Failed to generate channel link');
-  }
+  return generateSpaceUrl(communityId, channelId);
 }
 
 /**
  * Update browser URL with space navigation
  */
-export function updateSpaceUrl(communityId: string, channelId?: string): void {
-  try {
-    const naddr = communityIdToNaddr(communityId);
-    const encodedNaddr = encodeNaddrForUrl(naddr);
-
-    const url = new URL(window.location.href);
-    url.pathname = channelId
-      ? `/space/${encodedNaddr}/${channelId}`
-      : `/space/${encodedNaddr}`;
-
-    window.history.replaceState({}, '', url.toString());
-  } catch {
-    console.error('Failed to encode community ID as naddr');
-    // Fallback to original format
-    const url = new URL(window.location.href);
-    url.pathname = channelId
-      ? `/space/${communityId}/${channelId}`
-      : `/space/${communityId}`;
-
-    window.history.replaceState({}, '', url.toString());
-  }
+export function updateSpaceUrl(communityId: string, channelId?: string | null): void {
+  const url = new URL(window.location.href);
+  url.pathname = buildSpacePath(communityId, channelId);
+  window.history.replaceState({}, '', url.toString());
 }

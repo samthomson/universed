@@ -33,8 +33,7 @@ function SpacesWrapper() {
   let decodedCommunityId = communityId;
   try {
     decodedCommunityId = decodeNaddrFromUrl(communityId);
-  } catch (error) {
-    console.error('Failed to decode community ID:', error);
+  } catch {
     // Use original ID if decoding fails
     decodedCommunityId = communityId;
   }

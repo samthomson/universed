@@ -236,10 +236,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
         setSelectedCommunity(urlCommunityId);
 
         // Update URL to show /space/naddr when navigating via URL parameters
-        // Preserve channel ID if it exists in current URL
-        const currentPath = window.location.pathname;
-        const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
-        updateSpaceUrl(urlCommunityId, currentChannelId);
+        updateSpaceUrl(urlCommunityId, urlChannelId);
 
         // Handle URL parameters for tab selection and item highlighting
         if (urlParameters.tab === 'marketplace') {
@@ -389,10 +386,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     setCommunityBeforeJoinDialog(null);
 
     // Update URL to show /space/naddr when joining a community
-    // Preserve channel ID if it exists in current URL
-    const currentPath = window.location.pathname;
-    const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
-    updateSpaceUrl(communityId, currentChannelId);
+    updateSpaceUrl(communityId, urlChannelId);
   };
 
   const handleJoinDialogClose = () => {
@@ -408,10 +402,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
       setSelectedCommunity(communityBeforeJoinDialog);
       setCommunityBeforeJoinDialog(null);
       // Update URL to show the previously selected community
-      // Preserve channel ID if it exists in current URL
-      const currentPath = window.location.pathname;
-      const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
-      updateSpaceUrl(communityBeforeJoinDialog, currentChannelId);
+      updateSpaceUrl(communityBeforeJoinDialog, urlChannelId);
     }
   };
 
@@ -422,10 +413,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
 
     if (selectedCommunity) {
       recordChannelVisit(selectedCommunity, channelId);
-      // Extract channel name from channel ID for URL (channelId format: "name" or "communityId:name")
-      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
-      // Update URL to reflect channel selection with clean channel name
-      updateSpaceUrl(selectedCommunity, channelName);
+      // Update URL to reflect channel selection
+      updateSpaceUrl(selectedCommunity, channelId);
     }
 
     if (isMobile) {
@@ -459,7 +448,6 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     if (communityId) {
       // Update URL to show /space/naddr when a community is selected
       updateSpaceUrl(communityId);
-
       recordCommunityVisit(communityId);
     } else {
       // When no community is selected, go back to /dm

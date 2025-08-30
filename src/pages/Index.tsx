@@ -30,11 +30,8 @@ const Index = ({ dmTargetPubkey, spaceCommunityId, spaceChannelId }: IndexProps)
   // If spaceCommunityId is provided, ensure user is logged in and handle URL updates
   useEffect(() => {
     if (spaceCommunityId && user) {
-      // Check if the communityId is already in naddr format
-      if (spaceCommunityId.startsWith('naddr1')) {
-        // Convert community ID to naddr format for the URL
-        updateSpaceUrl(spaceCommunityId, spaceChannelId);
-      }
+      // Update URL with proper naddr encoding
+      updateSpaceUrl(spaceCommunityId, spaceChannelId);
     }
   }, [spaceCommunityId, spaceChannelId, user]);
 

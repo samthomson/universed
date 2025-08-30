@@ -105,8 +105,7 @@ export function ChannelOrganizer({
     try {
       const channelLink = generateChannelLink(communityId, channel.id);
       navigator.clipboard.writeText(channelLink);
-    } catch (error) {
-      console.error('Failed to generate channel link:', error);
+    } catch {
       // Show error to user
       toast({
         title: "Error",

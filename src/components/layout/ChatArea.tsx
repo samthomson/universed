@@ -89,8 +89,7 @@ function CommunityChatHeader({
       const channelLink = generateChannelLink(communityId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast.success("Channel link copied to clipboard!");
-    } catch (error) {
-      console.error('Failed to generate channel link:', error);
+    } catch {
       toast.error("Failed to generate channel link. Please try again.");
     }
   };
