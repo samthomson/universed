@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { communityIdToNaddr } from "@/lib/utils";
 
 interface MobileChannelHeaderProps {
   communityId: string;
@@ -33,12 +34,28 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
   const isVoiceChannel = channel?.type === "voice";
 
   const copyChannelLink = () => {
-    const channelLink = `${window.location.origin}/communities/${communityId}/channels/${channelId}`;
-    navigator.clipboard.writeText(channelLink);
-    toast({
-      title: "Channel link copied",
-      description: "The channel link has been copied to your clipboard.",
-    });
+    if (!channelId) return;
+
+    // Use naddr format for community ID
+    try {
+      const naddr = communityIdToNaddr(communityId);
+      // Extract channel name from full channel ID (format: communityId:channelName)
+      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
+      const encodedNaddr = encodeURIComponent(naddr);
+      const channelLink = `${window.location.origin}/space/${encodedNaddr}/${channelName}`;
+      navigator.clipboard.writeText(channelLink);
+      toast({
+        title: "Channel link copied",
+        description: "The channel link has been copied to your clipboard.",
+      });
+    } catch (error) {
+      console.error('Failed to encode community ID:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate channel link. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
 

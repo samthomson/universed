@@ -130,13 +130,14 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const handleCardClick = () => {
     // Navigate to the main app with the community selected for preview
     const naddr = generateCommunityNaddr(community.event);
+    const encodedNaddr = encodeURIComponent(naddr);
 
     // If user is already a member (approved, owner, or moderator), navigate directly
     if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
-      navigate(`/${naddr}`);
+      navigate(`/space/${encodedNaddr}`);
     } else if (membershipStatus === 'pending') {
       // For pending requests, navigate to show the community but inform user
-      navigate(`/${naddr}`);
+      navigate(`/space/${encodedNaddr}`);
       setTimeout(() => {
         toast({
           title: 'Request Pending',
@@ -146,7 +147,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
       }, 500);
     } else {
       // For non-members (not-member, declined, banned), navigate to show preview and trigger join flow
-      navigate(`/${naddr}`);
+      navigate(`/space/${encodedNaddr}`);
     }
   };
 

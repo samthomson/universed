@@ -661,7 +661,8 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                         setTimeout(() => {
                           try {
                             const naddr = communityIdToNaddr(createdCommunityId);
-                            navigate(`/space/${naddr}`);
+                            const encodedNaddr = encodeURIComponent(naddr);
+                            navigate(`/space/${encodedNaddr}`);
                           } catch (error) {
                             console.error('Failed to encode community ID:', error);
                             // Fallback to unencoded format if encoding fails
@@ -692,7 +693,8 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated }
                         setTimeout(() => {
                           try {
                             const naddr = communityIdToNaddr(createdCommunityId);
-                            navigate(`/space/${naddr}?share=true`);
+                            const encodedNaddr = encodeURIComponent(naddr);
+                            navigate(`/space/${encodedNaddr}?share=true`);
                           } catch (error) {
                             console.error('Failed to encode community ID:', error);
                             // Fallback to unencoded format if encoding fails

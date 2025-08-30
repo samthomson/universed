@@ -43,9 +43,10 @@ import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
 interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
   initialSpaceCommunityId?: string | null;
+  initialSpaceChannelId?: string | null;
 }
 
-export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }: DiscordLayoutProps = {}) {
+export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, initialSpaceChannelId }: DiscordLayoutProps = {}) {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -167,11 +168,17 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       setActiveTab("channels"); // Ensure we default to channels tab
       setSelectedSpace(null);
 
+      // Set initial channel if provided
+      if (initialSpaceChannelId && initialSpaceCommunityId) {
+        // Channel ID is just channel name for naddr format
+        setSelectedChannel(initialSpaceChannelId);
+      }
+
       if (isMobile) {
         setMobileView("channels");
       }
     }
-  }, [initialSpaceCommunityId, isMobile]);
+  }, [initialSpaceCommunityId, initialSpaceChannelId, isMobile]);
 
   // Send marketplace item message when DM conversation is selected
   useEffect(() => {
@@ -228,16 +235,28 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
         setSelectedCommunity(urlCommunityId);
 
         // Update URL to show /space/naddr when navigating via URL parameters
+        // Preserve channel ID if it exists in current URL
         try {
           const naddr = communityIdToNaddr(urlCommunityId);
+          const encodedNaddr = encodeURIComponent(naddr);
+          const currentPath = window.location.pathname;
+          const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
+
           const url = new URL(window.location.href);
-          url.pathname = `/space/${naddr}`;
+          url.pathname = currentChannelId
+            ? `/space/${encodedNaddr}/${currentChannelId}`
+            : `/space/${encodedNaddr}`;
           window.history.replaceState({}, '', url.toString());
         } catch {
           console.error('Failed to encode community ID as naddr');
           // Fallback to original format
+          const currentPath = window.location.pathname;
+          const currentChannelId = currentPath.split('/')[3];
+
           const url = new URL(window.location.href);
-          url.pathname = `/space/${urlCommunityId}`;
+          url.pathname = currentChannelId
+            ? `/space/${urlCommunityId}/${currentChannelId}`
+            : `/space/${urlCommunityId}`;
           window.history.replaceState({}, '', url.toString());
         }
 
@@ -293,18 +312,22 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     if (
       selectedCommunity && !selectedSpace && channels && channels.length > 0
     ) {
-      const generalChannel = channels.find((channel) =>
-        channel.name.toLowerCase() === "general" && channel.type === "text"
-      );
-
-      if (generalChannel) {
-        setSelectedChannel(generalChannel.id);
-      } else {
-        const firstTextChannel = channels.find((channel) =>
-          channel.type === "text"
+      // Only set default channel if no channel is already selected
+      // This preserves the initial channel selection from URL parameters
+      if (!selectedChannel) {
+        const generalChannel = channels.find((channel) =>
+          channel.name.toLowerCase() === "general" && channel.type === "text"
         );
-        if (firstTextChannel) {
-          setSelectedChannel(firstTextChannel.id);
+
+        if (generalChannel) {
+          setSelectedChannel(generalChannel.id);
+        } else {
+          const firstTextChannel = channels.find((channel) =>
+            channel.type === "text"
+          );
+          if (firstTextChannel) {
+            setSelectedChannel(firstTextChannel.id);
+          }
         }
       }
 
@@ -320,7 +343,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
         setMobileView("communities");
       }
     }
-  }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected]);
+  }, [selectedCommunity, selectedSpace, channels, isMobile, isAutoSelected, selectedChannel]);
 
   // Auto-show join dialog when user selects a community they're not a member of
   useEffect(() => {
@@ -347,16 +370,28 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
     setCommunityBeforeJoinDialog(null);
 
     // Update URL to show /space/naddr when joining a community
+    // Preserve channel ID if it exists in current URL
     try {
       const naddr = communityIdToNaddr(communityId);
+      const encodedNaddr = encodeURIComponent(naddr);
+      const currentPath = window.location.pathname;
+      const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
+
       const url = new URL(window.location.href);
-      url.pathname = `/space/${naddr}`;
+      url.pathname = currentChannelId
+        ? `/space/${encodedNaddr}/${currentChannelId}`
+        : `/space/${encodedNaddr}`;
       window.history.replaceState({}, '', url.toString());
     } catch {
       console.error('Failed to encode community ID as naddr');
       // Fallback to original format
+      const currentPath = window.location.pathname;
+      const currentChannelId = currentPath.split('/')[3];
+
       const url = new URL(window.location.href);
-      url.pathname = `/space/${communityId}`;
+      url.pathname = currentChannelId
+        ? `/space/${communityId}/${currentChannelId}`
+        : `/space/${communityId}`;
       window.history.replaceState({}, '', url.toString());
     }
   };
@@ -374,16 +409,28 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       setSelectedCommunity(communityBeforeJoinDialog);
       setCommunityBeforeJoinDialog(null);
       // Update URL to show the previously selected community
+      // Preserve channel ID if it exists in current URL
       try {
         const naddr = communityIdToNaddr(communityBeforeJoinDialog);
+        const encodedNaddr = encodeURIComponent(naddr);
+        const currentPath = window.location.pathname;
+        const currentChannelId = currentPath.split('/')[3]; // Get channel from current URL
+
         const url = new URL(window.location.href);
-        url.pathname = `/space/${naddr}`;
+        url.pathname = currentChannelId
+          ? `/space/${encodedNaddr}/${currentChannelId}`
+          : `/space/${encodedNaddr}`;
         window.history.replaceState({}, '', url.toString());
       } catch {
         console.error('Failed to encode community ID as naddr');
         // Fallback to original format
+        const currentPath = window.location.pathname;
+        const currentChannelId = currentPath.split('/')[3];
+
         const url = new URL(window.location.href);
-        url.pathname = `/space/${communityBeforeJoinDialog}`;
+        url.pathname = currentChannelId
+          ? `/space/${communityBeforeJoinDialog}/${currentChannelId}`
+          : `/space/${communityBeforeJoinDialog}`;
         window.history.replaceState({}, '', url.toString());
       }
     }
@@ -427,8 +474,9 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId }
       // Update URL to show /space/naddr when a community is selected
       try {
         const naddr = communityIdToNaddr(communityId);
+        const encodedNaddr = encodeURIComponent(naddr);
         const url = new URL(window.location.href);
-        url.pathname = `/space/${naddr}`;
+        url.pathname = `/space/${encodedNaddr}`;
         window.history.replaceState({}, '', url.toString());
       } catch {
         console.error('Failed to encode community ID as naddr');

@@ -38,8 +38,9 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
 
   // Generate shareable URLs
   const baseUrl = window.location.origin;
-  const communityUrl = `${baseUrl}/${naddr}`;
-  const joinUrl = `${baseUrl}/join/${naddr}`;
+  const encodedNaddr = encodeURIComponent(naddr);
+  const communityUrl = `${baseUrl}/space/${encodedNaddr}`;
+  const joinUrl = `${baseUrl}/join/${encodedNaddr}`;
 
   const copyToClipboard = async (text: string, field: string) => {
     try {

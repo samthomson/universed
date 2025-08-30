@@ -99,11 +99,12 @@ export function MarketplaceItemCard({ item, isInDM = true, className }: Marketpl
     });
 
     // Open in new tab or navigate based on environment
+    const encodedNaddr = encodeURIComponent(naddr);
     if (window.open) {
-      window.open(`/${naddr}`, '_blank');
+      window.open(`/space/${encodedNaddr}`, '_blank');
     } else {
       // Fallback: copy to clipboard
-      navigator.clipboard.writeText(`${window.location.origin}/${naddr}`);
+      navigator.clipboard.writeText(`${window.location.origin}/space/${encodedNaddr}`);
       toast({
         title: "Link Copied!",
         description: "Marketplace listing link copied to clipboard",

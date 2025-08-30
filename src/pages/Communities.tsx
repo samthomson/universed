@@ -171,7 +171,8 @@ export function Communities() {
                             className="text-xs sm:text-sm whitespace-nowrap shrink-0"
                             onClick={() => {
                               const naddr = generateCommunityNaddr(community.event);
-                              navigate(`/${naddr}`);
+                              const encodedNaddr = encodeURIComponent(naddr);
+                              navigate(`/space/${encodedNaddr}`);
                             }}
                           >
                             <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
