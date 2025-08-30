@@ -293,23 +293,38 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     if (
       selectedCommunity && !selectedSpace && channels && channels.length > 0
     ) {
-      // Only set default channel if no channel is already selected
-      // This preserves the initial channel selection from URL parameters
-      if (!selectedChannel) {
+      // Check if the currently selected channel exists in this community
+      // If it does, keep it selected. If not, set a default channel.
+      let newSelectedChannel = selectedChannel;
+
+      if (selectedChannel) {
+        const currentChannelExists = channels.some((channel) => channel.id === selectedChannel);
+        if (!currentChannelExists) {
+          newSelectedChannel = null; // Reset if channel doesn't exist in this community
+        }
+      }
+
+      // Only set default channel if no valid channel is selected
+      if (!newSelectedChannel) {
         const generalChannel = channels.find((channel) =>
           channel.name.toLowerCase() === "general" && channel.type === "text"
         );
 
         if (generalChannel) {
-          setSelectedChannel(generalChannel.id);
+          newSelectedChannel = generalChannel.id;
         } else {
           const firstTextChannel = channels.find((channel) =>
             channel.type === "text"
           );
           if (firstTextChannel) {
-            setSelectedChannel(firstTextChannel.id);
+            newSelectedChannel = firstTextChannel.id;
           }
         }
+      }
+
+      // Only update if the channel selection actually changed
+      if (newSelectedChannel !== selectedChannel) {
+        setSelectedChannel(newSelectedChannel);
       }
 
       if (isMobile) {
@@ -436,8 +451,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
 
   const handleCommunitySelect = (communityId: string | null) => {
     setSelectedCommunity(communityId);
-    // Reset channel selection when switching communities to avoid "channel not found" errors
-    setSelectedChannel(null);
+    // Don't immediately reset channel selection - let the useEffect handle it after channels load
+    // This prevents the channel from being reset before the new community's channels are available
     setSelectedSpace(null);
     setIsAutoSelected(false);
 
@@ -448,6 +463,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
       recordCommunityVisit(communityId);
     } else {
       // When no community is selected, go back to /dm
+      setSelectedChannel(null); // Only reset channel when leaving communities entirely
       const url = new URL(window.location.href);
       url.pathname = '/dm';
       window.history.replaceState({}, '', url.toString());
