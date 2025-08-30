@@ -256,7 +256,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
           {/* Content container - this defines the boundaries for button positioning */}
           <div
             ref={contentRef}
-            className="relative h-[95%] flex items-center justify-center md:p-8 2xl:max-w-[60vw] mx-auto"
+            className="relative h-full sm:h-[95%] flex items-center justify-center md:p-8 2xl:max-w-[60vw] mx-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button - positioned within content container */}
