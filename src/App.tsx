@@ -59,12 +59,12 @@ const queryClient = new QueryClient({
 
 const defaultConfig: AppConfig = {
   theme: "dark",
-  relayUrl: "wss://relay.universes.to",
+  relayUrl: "wss://relay.chorus.community",
   showPerformanceDashboard: true, // Enable by default to show performance improvements
 };
 
 const presetRelays = [
-  { url: 'wss://relay.universes.to', name: 'Universes' },
+  { url: 'wss://relay.chorus.community', name: 'Chorus' },
   //{ url: 'wss://ditto.pub/relay', name: 'Ditto' },
   //{ url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   //{ url: 'wss://relay.damus.io', name: 'Damus' },
