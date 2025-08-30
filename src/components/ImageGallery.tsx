@@ -234,7 +234,7 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
       <ImageGalleryDialogContent
-        className="max-w-[100vw] max-h-[100vh] w-[100vw] h-[100vh] p-0 bg-background/85 border-0 md:max-w-[100vw] md:max-h-[100vh]"
+        className="p-0 bg-background/85 border-0"
         onKeyDown={handleKeyDown}
         style={{
           // Ensure the gallery covers the full viewport including safe areas on mobile
@@ -252,11 +252,11 @@ export function ImageGallery({ images, isOpen, onClose, initialIndex = 0 }: Imag
             Image Gallery - Viewing image {currentIndex + 1} of {images.length}
           </DialogPrimitive.Title>
         </VisuallyHidden.Root>
-        <div className="relative w-full h-full flex items-center justify-center overflow-hidden" onClick={onClose}>
+        <div className="relative flex items-center justify-center overflow-hidden" onClick={onClose}>
           {/* Content container - this defines the boundaries for button positioning */}
           <div
             ref={contentRef}
-            className="relative w-full h-full flex items-center justify-center md:p-8 max-w-7xl mx-auto"
+            className="relative h-[95%] flex items-center justify-center md:p-8 2xl:max-w-[60vw] mx-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button - positioned within content container */}
