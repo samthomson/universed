@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/useToast';
+import { generateSpaceUrl } from '@/lib/utils';
 import type { Community } from '@/hooks/useCommunities';
 
 interface CommunityShareDialogProps {
@@ -37,10 +38,8 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
   });
 
   // Generate shareable URLs
-  const baseUrl = window.location.origin;
-  const encodedNaddr = encodeURIComponent(naddr);
-  const communityUrl = `${baseUrl}/space/${encodedNaddr}`;
-  const joinUrl = `${baseUrl}/join/${encodedNaddr}`;
+  const communityUrl = generateSpaceUrl(`${kind}:${pubkey}:${identifier}`);
+  const joinUrl = `${window.location.origin}/join/${encodeURIComponent(naddr)}`;
 
   const copyToClipboard = async (text: string, field: string) => {
     try {

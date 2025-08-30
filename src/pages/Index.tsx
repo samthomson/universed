@@ -4,7 +4,7 @@ import { DiscordLayout } from "@/components/layout/DiscordLayout";
 import { MessageCircle, ShoppingCart, FolderOpen } from "lucide-react";
 import { useEffect } from "react";
 import { nip19 } from "nostr-tools";
-import { communityIdToNaddr, naddrToCommunityId } from "@/lib/utils";
+import { naddrToCommunityId, updateSpaceUrl } from "@/lib/utils";
 
 interface IndexProps {
   dmTargetPubkey?: string;
@@ -32,41 +32,8 @@ const Index = ({ dmTargetPubkey, spaceCommunityId, spaceChannelId }: IndexProps)
     if (spaceCommunityId && user) {
       // Check if the communityId is already in naddr format
       if (spaceCommunityId.startsWith('naddr1')) {
-        // Already in naddr format, check if URL needs to be updated
-        const currentPath = window.location.pathname;
-        const expectedPath = spaceChannelId
-          ? `/space/${spaceCommunityId}/${spaceChannelId}`
-          : `/space/${spaceCommunityId}`;
-
-        // Only update URL if it's not already correct (prevents unnecessary redirects)
-        if (currentPath !== expectedPath) {
-          const url = new URL(window.location.href);
-          url.pathname = expectedPath;
-          window.history.replaceState({}, '', url.toString());
-        }
-      } else {
         // Convert community ID to naddr format for the URL
-        try {
-          const naddr = communityIdToNaddr(spaceCommunityId);
-          const encodedNaddr = encodeURIComponent(naddr);
-          const expectedPath = spaceChannelId
-            ? `/space/${encodedNaddr}/${spaceChannelId}`
-            : `/space/${encodedNaddr}`;
-
-          const url = new URL(window.location.href);
-          url.pathname = expectedPath;
-          window.history.replaceState({}, '', url.toString());
-        } catch {
-          console.error('Failed to encode community ID as naddr');
-          // Fallback to original format
-          const fallbackPath = spaceChannelId
-            ? `/space/${spaceCommunityId}/${spaceChannelId}`
-            : `/space/${spaceCommunityId}`;
-
-          const url = new URL(window.location.href);
-          url.pathname = fallbackPath;
-          window.history.replaceState({}, '', url.toString());
-        }
+        updateSpaceUrl(spaceCommunityId, spaceChannelId);
       }
     }
   }, [spaceCommunityId, spaceChannelId, user]);

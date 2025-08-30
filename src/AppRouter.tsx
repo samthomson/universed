@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { decodeNaddrFromUrl } from "./lib/utils";
 
 import Index from "./pages/Index";
 import Search from "./pages/Search";
@@ -31,17 +32,14 @@ function SpacesWrapper() {
   // Decode URL-encoded naddr if needed
   let decodedCommunityId = communityId;
   try {
-    // Check if the communityId is URL-encoded (contains % characters)
-    if (communityId.includes('%')) {
-      decodedCommunityId = decodeURIComponent(communityId);
-    }
+    decodedCommunityId = decodeNaddrFromUrl(communityId);
   } catch (error) {
     console.error('Failed to decode community ID:', error);
     // Use original ID if decoding fails
     decodedCommunityId = communityId;
   }
 
-  // Pass the decoded communityId and channelId to Index - it will handle both formats
+  // Pass the decoded communityId and channelId to Index
   return <Index spaceCommunityId={decodedCommunityId} spaceChannelId={channelId} />;
 }
 

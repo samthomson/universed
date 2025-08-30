@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { useChannels } from "@/hooks/useChannels";
-import { communityIdToNaddr } from "@/lib/utils";
+import { generateChannelLink } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserRole } from "@/hooks/useCommunityRoles";
@@ -86,15 +86,11 @@ function CommunityChatHeader({
   const copyChannelLink = () => {
     // Use naddr format for community ID
     try {
-      const naddr = communityIdToNaddr(communityId);
-      // Extract channel name from full channel ID (format: communityId:channelName)
-      const channelName = channelId.includes(':') ? channelId.split(':').pop() : channelId;
-      const encodedNaddr = encodeURIComponent(naddr);
-      const channelLink = `${window.location.origin}/space/${encodedNaddr}/${channelName}`;
+      const channelLink = generateChannelLink(communityId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast.success("Channel link copied to clipboard!");
     } catch (error) {
-      console.error('Failed to encode community ID:', error);
+      console.error('Failed to generate channel link:', error);
       toast.error("Failed to generate channel link. Please try again.");
     }
   };

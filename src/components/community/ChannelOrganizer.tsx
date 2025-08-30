@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { cn, communityIdToNaddr } from '@/lib/utils';
+import { cn, generateChannelLink } from '@/lib/utils';
 import {
   Hash,
   Volume2,
@@ -103,13 +103,11 @@ export function ChannelOrganizer({
   const copyChannelLink = (channel: Channel) => {
     // Create a link to the channel using naddr format
     try {
-      const naddr = communityIdToNaddr(communityId);
-      const encodedNaddr = encodeURIComponent(naddr);
-      const channelLink = `${window.location.origin}/space/${encodedNaddr}/${channel.id}`;
+      const channelLink = generateChannelLink(communityId, channel.id);
       navigator.clipboard.writeText(channelLink);
     } catch (error) {
-      console.error('Failed to encode community ID:', error);
-      // Show error to user instead of falling back to wrong format
+      console.error('Failed to generate channel link:', error);
+      // Show error to user
       toast({
         title: "Error",
         description: "Failed to generate channel link. Please try again.",

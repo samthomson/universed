@@ -14,7 +14,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
-import { generateCommunityNaddr } from "@/lib/utils";
+import { generateCommunityNaddr, encodeNaddrForUrl } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import type { MembershipStatus } from "@/hooks/useUserMembership";
 import { useCommunityMembers } from "@/hooks/useCommunityMembers";
@@ -130,7 +130,7 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   const handleCardClick = () => {
     // Navigate to the main app with the community selected for preview
     const naddr = generateCommunityNaddr(community.event);
-    const encodedNaddr = encodeURIComponent(naddr);
+    const encodedNaddr = encodeNaddrForUrl(naddr);
 
     // If user is already a member (approved, owner, or moderator), navigate directly
     if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
