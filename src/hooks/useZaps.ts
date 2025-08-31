@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import type { NWCConnection } from '@/hooks/useNWC';
 import { nip57 } from 'nostr-tools';
+import { createZapRequest } from '@/lib/zapUtils';
 import type { Event } from 'nostr-tools';
 import type { WebLNProvider } from 'webln';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -195,7 +196,7 @@ export function useZaps(
       // Create zap request - use appropriate event format based on kind
       const zapAmount = amount * 1000; // convert to millisats
 
-      const zapRequest = nip57.makeZapRequest({
+      const zapRequest = createZapRequest({
         event: actualTarget,
         amount: zapAmount,
         relays: [config.relayUrl],
@@ -256,7 +257,7 @@ export function useZaps(
                 });
               }
             }
-            
+
             if (webln) {  // Try WebLN next
               try {
                 await webln.sendPayment(newInvoice);

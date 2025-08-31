@@ -37,7 +37,7 @@ import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/hooks/useDirectMessages";
 import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { NostrEvent } from "@/types/nostr";
-import type { ReactionsAndZapsResult } from "@/hooks/useReactionsAndZapsBatch";
+import type { ReactionsAndZapsResult } from "@/types/reactions";
 
 export interface MessageItemConfig {
   showContextMenu: boolean;

@@ -34,6 +34,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { nip57 } from 'nostr-tools';
+import { createZapRequest } from '@/lib/zapUtils';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Event } from 'nostr-tools';
@@ -377,7 +378,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
 
       const amountMillisats = zapAmount * 1000;
 
-      const zapRequest = nip57.makeZapRequest({
+      const zapRequest = createZapRequest({
         event: target,
         amount: amountMillisats,
         relays: [config.relayUrl],

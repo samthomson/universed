@@ -1,30 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import type { NostrEvent } from '@nostrify/nostrify';
-import { nip57 } from 'nostr-tools';
 import { logger } from '@/lib/logger';
-
-function validateReactionEvent(event: NostrEvent): boolean {
-  if (event.kind !== 7) return false;
-  const hasETag = event.tags.some(([name]) => name === 'e');
-  if (!hasETag) return false;
-  return true;
-}
-
-function validateZapEvent(event: NostrEvent): boolean {
-  if (event.kind !== 9735) return false;
-  const hasETag = event.tags.some(([name]) => name === 'e');
-  if (!hasETag) return false;
-  return true;
-}
-
-export interface ReactionsAndZapsResult {
-  reactions: NostrEvent[];
-  zaps: NostrEvent[];
-  zapCount: number;
-  totalSats: number;
-  reactionGroups: Record<string, NostrEvent[]>;
-}
+import { validateReactionEvent, validateZapEvent } from '@/lib/eventValidation';
+import { extractZapAmount } from '@/lib/zapUtils';
+import type { ReactionsAndZapsResult } from '@/types/reactions';
 
 /**
  * Optimized hook for fetching reactions and zaps for multiple events in a single batch query.
@@ -70,7 +49,7 @@ export function useReactionsAndZapsBatch(eventIds: string[]) {
 
         if (validateReactionEvent(event)) {
           result.reactions.push(event);
-          
+
           // Group reactions by emoji
           const emoji = event.content || "👍";
           if (!result.reactionGroups[emoji]) {
@@ -80,24 +59,7 @@ export function useReactionsAndZapsBatch(eventIds: string[]) {
         } else if (validateZapEvent(event)) {
           result.zaps.push(event);
           result.zapCount++;
-
-          // Extract zap amount
-          const amountTag = event.tags.find(([name]) => name === 'amount')?.[1];
-          if (amountTag) {
-            const millisats = parseInt(amountTag);
-            result.totalSats += Math.floor(millisats / 1000);
-          } else {
-            // Try bolt11 invoice
-            const bolt11Tag = event.tags.find(([name]) => name === 'bolt11')?.[1];
-            if (bolt11Tag) {
-              try {
-                const invoiceSats = nip57.getSatoshisAmountFromBolt11(bolt11Tag);
-                result.totalSats += invoiceSats;
-              } catch (error) {
-                console.warn('Failed to parse bolt11 amount:', error);
-              }
-            }
-          }
+          result.totalSats += extractZapAmount(event);
         }
       });
 
@@ -116,22 +78,3 @@ export function useReactionsAndZapsBatch(eventIds: string[]) {
   });
 }
 
-/**
- * Hook for getting reactions and zaps for a single event from the batch cache.
- * This should be used instead of useReactionsAndZaps when you have multiple events on the same page.
- */
-export function useReactionsAndZapsFromBatch(eventId: string, allEventIds: string[]) {
-  const { data: resultMap } = useReactionsAndZapsBatch(allEventIds);
-  
-  return {
-    data: resultMap?.get(eventId) || {
-      reactions: [],
-      zaps: [],
-      zapCount: 0,
-      totalSats: 0,
-      reactionGroups: {},
-    },
-    isLoading: false, // Batch query handles loading
-    error: null,
-  };
-}

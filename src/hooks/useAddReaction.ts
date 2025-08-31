@@ -3,7 +3,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
 import type { NostrEvent } from '@nostrify/nostrify';
-import type { ReactionsAndZapsResult } from '@/hooks/useReactionsAndZaps';
+import type { ReactionsAndZapsResult } from '@/types/reactions';
 import { logger } from '@/lib/logger';
 
 interface AddReactionParams {

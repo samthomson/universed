@@ -11,7 +11,7 @@ import { useAuthorBatch } from "@/hooks/useAuthorBatch";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { Zap } from "lucide-react";
-import { nip57 } from "nostr-tools";
+import { extractZapAmount, extractZapComment } from "@/lib/zapUtils";
 import pluralize from "pluralize";
 import type { NostrEvent } from "@/types/nostr";
 
@@ -41,47 +41,10 @@ export function ZapDetailsDialog({
   const { data: authors } = useAuthorBatch(allPubkeys);
 
   // Extract zap amounts and sort by amount (highest first)
-  const zapsWithAmounts = zaps.map(zap => {
-    let amount = 0;
-
-    // Try multiple methods to extract the amount:
-    // Method 1: amount tag (from zap request, sometimes copied to receipt)
-    const amountTag = zap.tags.find(([name]) => name === 'amount')?.[1];
-    if (amountTag) {
-      const millisats = parseInt(amountTag);
-      amount = Math.floor(millisats / 1000);
-      return { ...zap, amount };
-    }
-
-    // Method 2: Extract from bolt11 invoice
-    const bolt11Tag = zap.tags.find(([name]) => name === 'bolt11')?.[1];
-    if (bolt11Tag) {
-      try {
-        const invoiceSats = nip57.getSatoshisAmountFromBolt11(bolt11Tag);
-        return { ...zap, amount: invoiceSats };
-      } catch (error) {
-        console.warn('Failed to parse bolt11 amount:', error);
-      }
-    }
-
-    // Method 3: Parse from description (zap request JSON)
-    const descriptionTag = zap.tags.find(([name]) => name === 'description')?.[1];
-    if (descriptionTag) {
-      try {
-        const zapRequest = JSON.parse(descriptionTag);
-        const requestAmountTag = zapRequest.tags?.find(([name]: string[]) => name === 'amount')?.[1];
-        if (requestAmountTag) {
-          const millisats = parseInt(requestAmountTag);
-          amount = Math.floor(millisats / 1000);
-          return { ...zap, amount };
-        }
-      } catch (error) {
-        console.warn('Failed to parse description JSON:', error);
-      }
-    }
-
-    return { ...zap, amount };
-  }).sort((a, b) => b.amount - a.amount); // Sort by amount descending
+  const zapsWithAmounts = zaps.map(zap => ({
+    ...zap,
+    amount: extractZapAmount(zap)
+  })).sort((a, b) => b.amount - a.amount); // Sort by amount descending
 
   const getDisplayName = (pubkey: string) => {
     const author = authors?.[pubkey];
@@ -94,18 +57,7 @@ export function ZapDetailsDialog({
   };
 
   // Extract zap comment from description
-  const getZapComment = (zap: NostrEvent) => {
-    const descriptionTag = zap.tags.find(([name]) => name === 'description')?.[1];
-    if (descriptionTag) {
-      try {
-        const zapRequest = JSON.parse(descriptionTag);
-        return zapRequest.content || '';
-      } catch (error) {
-        console.warn('Failed to parse description JSON:', error);
-      }
-    }
-    return '';
-  };
+  const getZapComment = (zap: NostrEvent) => extractZapComment(zap);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
