@@ -414,7 +414,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
             description: `You sent ${zapAmount} sats via NWC to the author.`,
           });
           queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', target.id] });
-                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
           setOpen(false);
           return;
         } catch (nwcError) {
@@ -438,7 +438,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
             description: `You sent ${zapAmount} sats to the author.`,
           });
           queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', target.id] });
-                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
           setOpen(false);
         } catch (weblnError) {
           console.error('webln payment failed, falling back:', weblnError);
