@@ -12,7 +12,6 @@ export function createZapRequest(params: {
   comment?: string;
 }) {
   return nip57.makeZapRequest({
-    profile: params.event.pubkey,
     event: params.event,
     amount: params.amount,
     relays: params.relays,
