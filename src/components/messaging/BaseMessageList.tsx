@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { BaseMessageItem, type BaseMessageItemProps } from "./BaseMessageItem";
 import { PinnedMessages } from "@/components/chat/PinnedMessages";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { logger } from "@/lib/logger";
 import { getMessageProtocol } from "@/hooks/useDirectMessages";
-import { useReactionsAndZapsBatch } from "@/hooks/useReactionsAndZapsBatch";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
@@ -49,36 +48,33 @@ export function BaseMessageList({
   // Track if we've done the initial scroll
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
   const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
-
-  // Get all message IDs for batch loading reactions and zaps
-  const messageIds = useMemo(() => regularMessages.map(msg => msg.id), [regularMessages]);
-
+  
   // Effect to manage scroll behavior when messages change
   useEffect(() => {
     // If we're loading older messages (messages were added)
     if (regularMessages.length > prevMessageCount && prevMessageCount > 0 && isLoadingOlder) {
-
+      
       // Use Virtuoso's API to maintain scroll position
       setTimeout(() => {
         // We'll use a simpler approach to maintain scroll position
         const addedCount = regularMessages.length - prevMessageCount;
-
+        
         // Use a fixed index to maintain position, but adjust it to show the button too
         // We'll scroll to one message before what was previously the first visible message
         // This ensures the "Load older messages" button is still visible
         const targetIndex = Math.max(0, addedCount - 1);
-
+        
         virtuosoRef.current?.scrollToIndex({
           index: targetIndex,
           align: 'start',
           behavior: 'auto'
         });
-
+        
         // Reset loading flag
         setIsLoadingOlder(false);
       }, 0);
     }
-
+    
     // Update the previous count
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);
@@ -87,9 +83,6 @@ export function BaseMessageList({
   useEffect(() => {
     setHasInitiallyScrolled(false);
   }, [channelId]);
-
-  // Batch load reactions and zaps for all messages
-  const { data: reactionsAndZapsBatch } = useReactionsAndZapsBatch(messageIds);
 
   // Scroll to bottom on initial load only
   useEffect(() => {
@@ -171,15 +164,6 @@ export function BaseMessageList({
             getMessageProtocol(previousMessage.kind) !== getMessageProtocol(message.kind) // Different protocols
           );
 
-          // Get reactions and zaps data from batch for this specific message
-          const reactionsAndZapsData = reactionsAndZapsBatch?.get(message.id) || {
-            reactions: [],
-            zaps: [],
-            zapCount: 0,
-            totalSats: 0,
-            reactionGroups: {},
-          };
-
           return (
             <div className="message-item w-full max-w-full overflow-hidden py-0.5 px-4">
               <BaseMessageItem
@@ -187,7 +171,6 @@ export function BaseMessageList({
                 showAvatar={showAvatar}
                 communityId={communityId}
                 channelId={channelId}
-                reactionsAndZapsData={reactionsAndZapsData}
                 {...messageItemProps}
               />
             </div>

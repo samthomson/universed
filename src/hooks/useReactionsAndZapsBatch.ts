@@ -3,7 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { logger } from '@/lib/logger';
 import { validateReactionEvent, validateZapEvent } from '@/lib/eventValidation';
 import { extractZapAmount } from '@/lib/zapUtils';
-import type { ReactionsAndZapsResult } from '@/types/reactions';
+import type { ReactionsAndZapsResult } from '@/hooks/useReactionsAndZaps';
 
 /**
  * Optimized hook for fetching reactions and zaps for multiple events in a single batch query.

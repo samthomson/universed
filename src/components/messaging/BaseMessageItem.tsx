@@ -29,6 +29,7 @@ import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
+import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
 import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -37,7 +38,6 @@ import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/hooks/useDirectMessages";
 import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { NostrEvent } from "@/types/nostr";
-import type { ReactionsAndZapsResult } from "@/types/reactions";
 
 export interface MessageItemConfig {
   showContextMenu: boolean;
@@ -61,7 +61,6 @@ export interface BaseMessageItemProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
   communityId?: string;
   channelId?: string;
-  reactionsAndZapsData?: ReactionsAndZapsResult;
 }
 
 function BaseMessageItemComponent({
@@ -75,7 +74,6 @@ function BaseMessageItemComponent({
   onNavigateToDMs,
   communityId,
   channelId,
-  reactionsAndZapsData,
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [currentProfilePubkey, setCurrentProfilePubkey] = useState(message.pubkey);
@@ -97,20 +95,12 @@ function BaseMessageItemComponent({
   // Check if this message is from the current user for right alignment
   const shouldAlignRight = user?.pubkey === message.pubkey;
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
+  const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
   const { data: hasReplies } = useMessageHasReplies(message.id);
   const { data: replyCount } = useMessageReplyCount(message.id);
   const { currentCommunityId } = useCommunityContext();
   const { role } = useUserRole(currentCommunityId || '');
   const isAdmin = role === 'owner' || role === 'admin';
-
-  // Use reactions and zaps data from batch instead of individual query
-  const reactionsAndZaps = reactionsAndZapsData || {
-    reactions: [],
-    zaps: [],
-    zapCount: 0,
-    totalSats: 0,
-    reactionGroups: {},
-  };
 
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
@@ -492,9 +482,7 @@ export const BaseMessageItem = memo(
       prevProps.message.content === nextProps.message.content &&
       prevProps.message.isSending === nextProps.message.isSending &&
       prevProps.message.clientFirstSeen === nextProps.message.clientFirstSeen &&
-      prevProps.showAvatar === nextProps.showAvatar &&
-      prevProps.reactionsAndZapsData?.totalSats === nextProps.reactionsAndZapsData?.totalSats &&
-      prevProps.reactionsAndZapsData?.zapCount === nextProps.reactionsAndZapsData?.zapCount
+      prevProps.showAvatar === nextProps.showAvatar
     );
   },
 );
