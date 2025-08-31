@@ -326,9 +326,6 @@ function BaseMessageItemComponent({
                   >
                     <Zap className="w-3 h-3 mr-1" />
                     <span>{reactionsAndZaps.totalSats.toLocaleString()}</span>
-                    {reactionsAndZaps.zapCount > 1 && (
-                      <span className="text-muted-foreground ml-1">({reactionsAndZaps.zapCount})</span>
-                    )}
                   </Button>
                 )}
                 {/* Emoji Reactions - Only render wrapper if there are reactions */}

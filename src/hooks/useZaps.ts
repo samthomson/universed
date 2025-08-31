@@ -240,7 +240,9 @@ export function useZaps(
                 });
 
                 // Invalidate zap queries to refresh counts
-                queryClient.invalidateQueries({ queryKey: ['zaps'] });
+                queryClient.invalidateQueries({ queryKey: ['zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
 
                 // Close dialog last to ensure clean state
                 onZapSuccess?.();
@@ -272,7 +274,9 @@ export function useZaps(
                 });
 
                 // Invalidate zap queries to refresh counts
-                queryClient.invalidateQueries({ queryKey: ['zaps'] });
+                queryClient.invalidateQueries({ queryKey: ['zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
 
                 // Close dialog last to ensure clean state
                 onZapSuccess?.();
