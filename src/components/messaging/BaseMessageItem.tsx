@@ -21,6 +21,7 @@ import { EmojiPickerComponent } from "@/components/ui/emoji-picker";
 import { MessageReactions } from "@/components/chat/MessageReactions";
 import { MessageThread } from "@/components/chat/MessageThread";
 import { ZapButton } from "@/components/ZapButton";
+import { ZapDetailsDialog } from "@/components/chat/ZapDetailsDialog";
 import { ReportUserDialog } from "@/components/reporting/ReportUserDialog";
 import { useCommunityContext } from "@/contexts/communityHooks";
 import { useUserRole } from "@/hooks/useCommunityRoles";
@@ -28,7 +29,6 @@ import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
-import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
 import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -37,6 +37,7 @@ import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/hooks/useDirectMessages";
 import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { NostrEvent } from "@/types/nostr";
+import type { ReactionsAndZapsResult } from "@/hooks/useReactionsAndZapsBatch";
 
 export interface MessageItemConfig {
   showContextMenu: boolean;
@@ -60,6 +61,7 @@ export interface BaseMessageItemProps {
   onNavigateToDMs?: (targetPubkey: string) => void;
   communityId?: string;
   channelId?: string;
+  reactionsAndZapsData?: ReactionsAndZapsResult;
 }
 
 function BaseMessageItemComponent({
@@ -73,6 +75,7 @@ function BaseMessageItemComponent({
   onNavigateToDMs,
   communityId,
   channelId,
+  reactionsAndZapsData,
 }: BaseMessageItemProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [currentProfilePubkey, setCurrentProfilePubkey] = useState(message.pubkey);
@@ -82,6 +85,7 @@ function BaseMessageItemComponent({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showThreadDialog, setShowThreadDialog] = useState(false);
+  const [showZapDetails, setShowZapDetails] = useState(false);
   const [buttonPosition, setButtonPosition] = useState({ top: 0, left: 0 });
   const messageRef = useRef<HTMLDivElement>(null);
   const messageBubbleRef = useRef<HTMLDivElement>(null);
@@ -89,16 +93,24 @@ function BaseMessageItemComponent({
   const author = useAuthor(message.pubkey);
   const { user } = useCurrentUser();
   const { mutate: addReaction } = useAddReaction();
-  
+
   // Check if this message is from the current user for right alignment
   const shouldAlignRight = user?.pubkey === message.pubkey;
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
-  const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
   const { data: hasReplies } = useMessageHasReplies(message.id);
   const { data: replyCount } = useMessageReplyCount(message.id);
   const { currentCommunityId } = useCommunityContext();
   const { role } = useUserRole(currentCommunityId || '');
   const isAdmin = role === 'owner' || role === 'admin';
+
+  // Use reactions and zaps data from batch instead of individual query
+  const reactionsAndZaps = reactionsAndZapsData || {
+    reactions: [],
+    zaps: [],
+    zapCount: 0,
+    totalSats: 0,
+    reactionGroups: {},
+  };
 
   const metadata = author.data?.metadata;
   const isSending = message.isSending;
@@ -185,7 +197,7 @@ function BaseMessageItemComponent({
         // Left-aligned messages: normal flex with hover background
         "hover:bg-nostr-purple/5 rounded-2xl": !shouldAlignRight,
       })}>
-        <div 
+        <div
           ref={messageBubbleRef}
           className={cn("flex space-x-3 relative", {
             "flex-row-reverse space-x-reverse": shouldAlignRight,
@@ -302,27 +314,33 @@ function BaseMessageItemComponent({
 
             {/* Message Reactions */}
             {config.showReactions && reactionsAndZaps && (
-              <div className="flex flex-wrap items-start gap-2 mt-1">
-                {/* Zap Count Display - Left of emojis */}
-                  {reactionsAndZaps?.totalSats > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400 min-moveh-6">
-                      <Zap className="h-3 w-3 flex-shrink-0" />
-                      <span>{reactionsAndZaps.totalSats.toLocaleString()} sats</span>
-                      {reactionsAndZaps.zapCount > 1 && (
-                        <span className="text-muted-foreground">({reactionsAndZaps.zapCount} zaps)</span>
-                      )}
-                    </div>
-                  )}
+              <div className="flex flex-wrap items-start gap-1 mt-1">
+                {/* Zap Display - Like an emoji reaction */}
+                {reactionsAndZaps?.totalSats > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/20 border border-transparent hover:border-yellow-200 dark:hover:border-yellow-700"
+                    onClick={() => setShowZapDetails(true)}
+                    title="Click to see zap details"
+                  >
+                    <Zap className="w-3 h-3 mr-1" />
+                    <span>{reactionsAndZaps.totalSats.toLocaleString()}</span>
+                    {reactionsAndZaps.zapCount > 1 && (
+                      <span className="text-muted-foreground ml-1">({reactionsAndZaps.zapCount})</span>
+                    )}
+                  </Button>
+                )}
                 {/* Emoji Reactions - Only render wrapper if there are reactions */}
-                  {reactionsAndZaps.reactionGroups && Object.keys(reactionsAndZaps.reactionGroups).length > 0 && (
-                    <div className="flex-1">
-                      <MessageReactions
-                        message={message}
-                        onReactionClick={() => setIsHovered(false)}
-                        reactionGroups={reactionsAndZaps.reactionGroups}
-                      />
-                    </div>
-                  )}
+                {reactionsAndZaps.reactionGroups && Object.keys(reactionsAndZaps.reactionGroups).length > 0 && (
+                  <div className="flex-1">
+                    <MessageReactions
+                      message={message}
+                      onReactionClick={() => setIsHovered(false)}
+                      reactionGroups={reactionsAndZaps.reactionGroups}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -342,9 +360,9 @@ function BaseMessageItemComponent({
 
 
           {shouldShowActions && createPortal(
-            <div 
+            <div
               className="fixed bg-background border border-border backdrop-blur-sm rounded-xl shadow-sm flex items-center"
-              style={{ 
+              style={{
                 zIndex: 9999,
                 left: buttonPosition.left,
                 top: buttonPosition.top,
@@ -454,6 +472,17 @@ function BaseMessageItemComponent({
         onOpenChange={setShowThreadDialog}
         onNavigateToDMs={onNavigateToDMs}
       />
+
+      {/* Zap Details Dialog */}
+      {reactionsAndZaps && (
+        <ZapDetailsDialog
+          open={showZapDetails}
+          onOpenChange={setShowZapDetails}
+          zaps={reactionsAndZaps.zaps}
+          zapCount={reactionsAndZaps.zapCount}
+          totalSats={reactionsAndZaps.totalSats}
+        />
+      )}
     </div>
   );
 }
@@ -466,7 +495,9 @@ export const BaseMessageItem = memo(
       prevProps.message.content === nextProps.message.content &&
       prevProps.message.isSending === nextProps.message.isSending &&
       prevProps.message.clientFirstSeen === nextProps.message.clientFirstSeen &&
-      prevProps.showAvatar === nextProps.showAvatar
+      prevProps.showAvatar === nextProps.showAvatar &&
+      prevProps.reactionsAndZapsData?.totalSats === nextProps.reactionsAndZapsData?.totalSats &&
+      prevProps.reactionsAndZapsData?.zapCount === nextProps.reactionsAndZapsData?.zapCount
     );
   },
 );
