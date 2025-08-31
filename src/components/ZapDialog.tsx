@@ -375,15 +375,10 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
         throw new Error('Zap endpoint not found');
       }
 
-      const event = (target.kind >= 30000 && target.kind < 40000)
-        ? target
-        : target.id;
-
       const amountMillisats = zapAmount * 1000;
 
       const zapRequest = nip57.makeZapRequest({
-        profile: target.pubkey,
-        event: event,
+        event: target,
         amount: amountMillisats,
         relays: [config.relayUrl],
         comment: zapComment
