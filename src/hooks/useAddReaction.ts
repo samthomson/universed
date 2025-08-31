@@ -50,8 +50,7 @@ export function useAddReaction() {
       // Invalidate reactions queries to refetch
       queryClient.invalidateQueries({ queryKey: ['reactions', targetEvent.id] });
       queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', targetEvent.id] });
-      queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', targetEvent.id] });
-                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
+      queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
     },
     onError: (error) => {
       console.error('Failed to add reaction:', error);
