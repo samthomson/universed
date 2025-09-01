@@ -395,20 +395,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, nostr]);
 
   // Stage 1: Read all past messages from storage for a specific protocol
-  const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
+  const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17'): Promise<number | undefined> => {
     const startTime = Date.now();
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 - Loading past messages from storage`);
     
     // Skip NIP-17 if it's disabled
     if (protocol === 'nip17' && !settings.enableNIP17) {
-              logger.log('DMS: DataManager: NIP-17 disabled, skipping message loading');
-      return;
+      logger.log('DMS: DataManager: NIP-17 disabled, skipping message loading');
+      return undefined;
     }
     
     // Ensure we have a user pubkey
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping message loading');
-      return;
+      return undefined;
     }
     
     try {
@@ -482,115 +482,128 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.error('DMS: DataManager: Error reading from IndexedDB:', error);
       }
       
-      if (protocol === 'nip4') {
-        const relayStartTime = Date.now();
-        const messages = await loadPastNIP4Messages(sinceTimestamp);
-        const relayTime = Date.now() - relayStartTime;
-        logger.log(`DMS: DataManager: NIP-4 Stage 1 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
-        
-        // Store NIP-4 messages organized by participant
-        if (messages && messages.length > 0) {
-          // Build up new state
-          const newState = new Map();
-          
-          // Process messages and decrypt them
-          for (const message of messages) {
-            const isFromUser = message.pubkey === user?.pubkey;
-            const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
-            const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
-            
-            if (!otherPubkey || otherPubkey === user?.pubkey) continue;
-            
-            // Decrypt the NIP-4 message content using reusable method
-            const decryptedContent = await decryptNIP4Message(message, otherPubkey);
-            
-            // Create decrypted message
-            const decryptedMessage: NostrEvent = {
-              ...message,
-              content: decryptedContent,
-            };
-            
-            // Add to new state or create new participant
-            if (!newState.has(otherPubkey)) {
-              newState.set(otherPubkey, createEmptyParticipant());
-            }
-            
-            const participant = newState.get(otherPubkey)!;
-            participant.messages.push(decryptedMessage);
-            participant.hasNIP4 = true;
-          }
-          
-          // Sort all participants' messages once after adding all messages
-          newState.forEach(participant => {
-            sortAndUpdateParticipantState(participant);
-          });
-          
-          // Update state with new data - preserve existing protocol flags
-          mergeMessagesIntoState(newState);
-          
-          // Update lastSync for NIP-4 to the current time since we just processed new messages
-          const currentTime = Math.floor(Date.now() / 1000);
-          setLastSync(prev => ({ ...prev, nip4: currentTime }));
-          logger.log(`DMS: DataManager: Updated lastSync.nip4 to ${new Date(currentTime * 1000).toISOString()}`);
-          
-          logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
-        }
-      } else if (protocol === 'nip17') {
-        const relayStartTime = Date.now();
-        const messages = await loadPastNIP17Messages(sinceTimestamp);
-        const relayTime = Date.now() - relayStartTime;
-        logger.log(`DMS: DataManager: NIP-17 Stage 1 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
-        
-        // Store NIP-17 messages organized by participant
-        if (messages && messages.length > 0) {
-          // Build up new state
-          const newState = new Map();
-          
-          // Process messages and decrypt them
-          for (const giftWrap of messages) {
-            // Process the Gift Wrap message using reusable method
-            const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
-            
-            // Add message to state
-            if (!newState.has(conversationPartner)) {
-              newState.set(conversationPartner, createEmptyParticipant());
-            }
-            
-            newState.get(conversationPartner)!.messages.push(processedMessage);
-            newState.get(conversationPartner)!.hasNIP17 = true;
-          }
-          
-          // Sort all participants' messages once after adding all messages
-          newState.forEach(participant => {
-            sortAndUpdateParticipantState(participant);
-          });
-          
-          // Update state with new data - preserve existing protocol flags
-          mergeMessagesIntoState(newState);
-          
-          // Update lastSync for NIP-17 to the current time since we just processed new messages
-          const currentTime = Math.floor(Date.now() / 1000);
-          setLastSync(prev => ({ ...prev, nip17: currentTime }));
-          logger.log(`DMS: DataManager: Updated lastSync.nip17 to ${new Date(currentTime * 1000).toISOString()}`);
-          
-          logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
-        }
-      }
-      
       // Log total time for Stage 1
       const totalTime = Date.now() - startTime;
       logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 complete in ${totalTime}ms`);
+      
+      return sinceTimestamp;
     } catch (error) {
-              logger.error(`DMS: DataManager: Error in Stage 1 for ${protocol}:`, error);
+      logger.error(`DMS: DataManager: Error in Stage 1 for ${protocol}:`, error);
+      return undefined;
     }
-  }, [loadPastNIP4Messages, loadPastNIP17Messages, user, settings.enableNIP17, userPubkey]);
+  }, [user, settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    const lastSyncTime = lastSync[protocol];
-          logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${lastSyncTime || 'never'}`);
-    // TODO: Implement querying for messages since last sync
-  }, [lastSync]);
+  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17', sinceTimestamp?: number) => {
+    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
+    
+    // Skip NIP-17 if it's disabled
+    if (protocol === 'nip17' && !settings.enableNIP17) {
+      logger.log('DMS: DataManager: NIP-17 disabled, skipping relay querying');
+      return;
+    }
+    
+    // Ensure we have a user pubkey
+    if (!userPubkey) {
+      logger.log('DMS: DataManager: No user pubkey available, skipping relay querying');
+      return;
+    }
+    
+    if (protocol === 'nip4') {
+      const relayStartTime = Date.now();
+      const messages = await loadPastNIP4Messages(sinceTimestamp);
+      const relayTime = Date.now() - relayStartTime;
+      logger.log(`DMS: DataManager: NIP-4 Stage 2 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
+      
+      // Store NIP-4 messages organized by participant
+      if (messages && messages.length > 0) {
+        // Build up new state
+        const newState = new Map();
+        
+        // Process messages and decrypt them
+        for (const message of messages) {
+          const isFromUser = message.pubkey === user?.pubkey;
+          const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
+          const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+          
+          if (!otherPubkey || otherPubkey === user?.pubkey) continue;
+          
+          // Decrypt the NIP-4 message content using reusable method
+          const decryptedContent = await decryptNIP4Message(message, otherPubkey);
+          
+          // Create decrypted message
+          const decryptedMessage: NostrEvent = {
+            ...message,
+            content: decryptedContent,
+          };
+          
+          // Add to new state or create new participant
+          if (!newState.has(otherPubkey)) {
+            newState.set(otherPubkey, createEmptyParticipant());
+          }
+          
+          const participant = newState.get(otherPubkey)!;
+          participant.messages.push(decryptedMessage);
+          participant.hasNIP4 = true;
+        }
+        
+        // Sort all participants' messages once after adding all messages
+        newState.forEach(participant => {
+          sortAndUpdateParticipantState(participant);
+        });
+        
+        // Update state with new data - preserve existing protocol flags
+        mergeMessagesIntoState(newState);
+        
+        // Update lastSync for NIP-4 to the current time since we just processed new messages
+        const currentTime = Math.floor(Date.now() / 1000);
+        setLastSync(prev => ({ ...prev, nip4: currentTime }));
+        logger.log(`DMS: DataManager: Updated lastSync.nip4 to ${new Date(currentTime * 1000).toISOString()}`);
+        
+        logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
+      }
+    } else if (protocol === 'nip17') {
+      const relayStartTime = Date.now();
+      const messages = await loadPastNIP17Messages(sinceTimestamp);
+      const relayTime = Date.now() - relayStartTime;
+      logger.log(`DMS: DataManager: NIP-17 Stage 2 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
+      
+      // Store NIP-17 messages organized by participant
+      if (messages && messages.length > 0) {
+        // Build up new state
+        const newState = new Map();
+        
+        // Process messages and decrypt them
+        for (const giftWrap of messages) {
+          // Process the Gift Wrap message using reusable method
+          const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
+          
+          // Add message to state
+          if (!newState.has(conversationPartner)) {
+            newState.set(conversationPartner, createEmptyParticipant());
+          }
+          
+          newState.get(conversationPartner)!.messages.push(processedMessage);
+          newState.get(conversationPartner)!.hasNIP17 = true;
+        }
+        
+        // Sort all participants' messages once after adding all messages
+        newState.forEach(participant => {
+          sortAndUpdateParticipantState(participant);
+        });
+        
+        // Update state with new data - preserve existing protocol flags
+        mergeMessagesIntoState(newState);
+        
+        // Update lastSync for NIP-17 to the current time since we just processed new messages
+        const currentTime = Math.floor(Date.now() / 1000);
+        setLastSync(prev => ({ ...prev, nip17: currentTime }));
+        logger.log(`DMS: DataManager: Updated lastSync.nip17 to ${new Date(currentTime * 1000).toISOString()}`);
+        
+        logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
+      }
+    }
+  }, [loadPastNIP4Messages, loadPastNIP17Messages, user, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
   const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<string> => {
@@ -1005,8 +1018,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     setProtocolLoading(prev => ({ ...prev, [protocol]: true }));
     
     try {
-      await loadPastMessages(protocol);
-      await queryMissedMessages(protocol);
+      const sinceTimestamp = await loadPastMessages(protocol);
+      if (sinceTimestamp !== undefined) {
+        await queryMissedMessages(protocol, sinceTimestamp);
+      }
       await startMessageSubscription(protocol);
       
       // Update last sync time for this protocol to current time
