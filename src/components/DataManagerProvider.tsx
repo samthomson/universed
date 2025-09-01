@@ -677,13 +677,23 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       newState.forEach((value, key) => {
         const existing = finalMap.get(key);
         if (existing) {
-          // Merge with existing participant, preserving protocol flags
-          finalMap.set(key, {
-            ...existing,
-            messages: [...existing.messages, ...value.messages],
-            hasNIP4: existing.hasNIP4 || value.hasNIP4,
-            hasNIP17: existing.hasNIP17 || value.hasNIP17,
-          });
+                  // Merge with existing participant, preserving protocol flags and deduplicating messages
+        const existingMessageIds = new Set(existing.messages.map(msg => msg.id));
+        const newMessages = value.messages.filter(msg => !existingMessageIds.has(msg.id));
+        
+        if (newMessages.length > 0) {
+          logger.log(`DMS: DataManager: Merging ${newMessages.length} new messages for ${key} (${value.messages.length - newMessages.length} duplicates filtered out)`);
+        }
+        
+        const mergedMessages = [...existing.messages, ...newMessages];
+        mergedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+        
+        finalMap.set(key, {
+          ...existing,
+          messages: mergedMessages,
+          hasNIP4: existing.hasNIP4 || value.hasNIP4,
+          hasNIP17: existing.hasNIP17 || value.hasNIP17,
+        });
         } else {
           finalMap.set(key, value);
         }
