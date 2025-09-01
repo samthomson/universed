@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/useToast';
 import { useNWC } from '@/hooks/useNWCContext';
 import type { NWCConnection } from '@/hooks/useNWC';
 import { nip57 } from 'nostr-tools';
+import { createZapRequest } from '@/lib/zapUtils';
 import type { Event } from 'nostr-tools';
 import type { WebLNProvider } from 'webln';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -193,17 +194,10 @@ export function useZaps(
       }
 
       // Create zap request - use appropriate event format based on kind
-      // For addressable events (30000-39999), pass the object to get 'a' tag
-      // For all other events, pass the ID string to get 'e' tag
-      const event = (actualTarget.kind >= 30000 && actualTarget.kind < 40000)
-        ? actualTarget
-        : actualTarget.id;
-
       const zapAmount = amount * 1000; // convert to millisats
 
-      const zapRequest = nip57.makeZapRequest({
-        profile: actualTarget.pubkey,
-        event: event,
+      const zapRequest = createZapRequest({
+        event: actualTarget,
         amount: zapAmount,
         relays: [config.relayUrl],
         comment
@@ -246,7 +240,9 @@ export function useZaps(
                 });
 
                 // Invalidate zap queries to refresh counts
-                queryClient.invalidateQueries({ queryKey: ['zaps'] });
+                queryClient.invalidateQueries({ queryKey: ['zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
 
                 // Close dialog last to ensure clean state
                 onZapSuccess?.();
@@ -263,7 +259,7 @@ export function useZaps(
                 });
               }
             }
-            
+
             if (webln) {  // Try WebLN next
               try {
                 await webln.sendPayment(newInvoice);
@@ -278,7 +274,9 @@ export function useZaps(
                 });
 
                 // Invalidate zap queries to refresh counts
-                queryClient.invalidateQueries({ queryKey: ['zaps'] });
+                queryClient.invalidateQueries({ queryKey: ['zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', actualTarget.id] });
+                queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
 
                 // Close dialog last to ensure clean state
                 onZapSuccess?.();
