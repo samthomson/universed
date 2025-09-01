@@ -1048,12 +1048,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     setIsLoading(true);
     
     try {
-      // Always load NIP-4 messages
-      await loadMessagesForProtocol('nip4');
+      // Stage 1: Load from cache for all protocols
+      logger.log('DMS: DataManager: Stage 1: Loading cached messages for all protocols');
+      const nip4SinceTimestamp = await loadPastMessages('nip4');
+      const nip17SinceTimestamp = settings.enableNIP17 ? await loadPastMessages('nip17') : undefined;
       
-      // Load NIP-17 messages if enabled (regardless of sync status - this is initial load)
+      // Stage 2: Query relays for all protocols
+      logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
+      if (nip4SinceTimestamp !== undefined) {
+        await queryMissedMessages('nip4', nip4SinceTimestamp);
+      }
+      if (settings.enableNIP17 && nip17SinceTimestamp !== undefined) {
+        await queryMissedMessages('nip17', nip17SinceTimestamp);
+      }
+      
+      // Stage 3: Set up subscriptions for all protocols
+      logger.log('DMS: DataManager: Stage 3: Setting up real-time subscriptions');
+      await startMessageSubscription('nip4');
       if (settings.enableNIP17) {
-        await loadMessagesForProtocol('nip17');
+        await startMessageSubscription('nip17');
       }
       
       logger.log('DMS: DataManager: All protocol loading complete');
@@ -1063,7 +1076,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadMessagesForProtocol, isLoading]); // Remove settings dependency - it's handled in the function
+  }, [isLoading, loadPastMessages, queryMissedMessages, startMessageSubscription, settings.enableNIP17]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
