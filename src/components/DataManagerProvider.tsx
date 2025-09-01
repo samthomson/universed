@@ -546,10 +546,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           const decryptedContent = await decryptNIP4Message(message, otherPubkey);
             
             // Create decrypted message
-            const decryptedMessage: NostrEvent = {
+            const decryptedMessage: NostrEvent & { clientFirstSeen?: number } = {
               ...message,
               content: decryptedContent,
             };
+            
+            // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
+            const messageAge = Date.now() - (message.created_at * 1000);
+            if (messageAge < 5000) { // 5 seconds
+              decryptedMessage.clientFirstSeen = Date.now();
+            }
             
             // Add to new state or create new participant
             if (!newState.has(otherPubkey)) {
@@ -598,12 +604,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           // Process the Gift Wrap message using reusable method
           const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
           
+          // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
+          const messageWithAnimation: NostrEvent & { clientFirstSeen?: number } = {
+            ...processedMessage,
+          };
+          
+          const messageAge = Date.now() - (giftWrap.created_at * 1000);
+          if (messageAge < 5000) { // 5 seconds
+            messageWithAnimation.clientFirstSeen = Date.now();
+          }
+          
           // Add message to state
           if (!newState.has(conversationPartner)) {
             newState.set(conversationPartner, createEmptyParticipant());
           }
           
-          newState.get(conversationPartner)!.messages.push(processedMessage);
+          newState.get(conversationPartner)!.messages.push(messageWithAnimation);
           newState.get(conversationPartner)!.hasNIP17 = true;
         }
         
@@ -712,7 +728,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const debouncedWriteRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reusable method to add a message to the state
-  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean }, conversationPartner: string, protocol: MessageProtocol) => {
+  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean; clientFirstSeen?: number }, conversationPartner: string, protocol: MessageProtocol) => {
     setMessages(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(conversationPartner);
@@ -813,11 +829,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // Decrypt the message content
     const decryptedContent = await decryptNIP4Message(event, otherPubkey);
     
-    // Create decrypted message
-    const decryptedMessage: NostrEvent = {
+    // Create decrypted message with clientFirstSeen for animation
+    const decryptedMessage: NostrEvent & { clientFirstSeen?: number } = {
       ...event,
       content: decryptedContent,
     };
+    
+    // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
+    const messageAge = Date.now() - (event.created_at * 1000);
+    if (messageAge < 5000) { // 5 seconds
+      decryptedMessage.clientFirstSeen = Date.now();
+    }
     
     // Add to messages state using reusable method
     addMessageToState(decryptedMessage, otherPubkey, MESSAGE_PROTOCOL.NIP04);
@@ -920,8 +942,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // Process the Gift Wrap message using reusable method
     const { processedMessage, conversationPartner } = await processNIP17GiftWrap(event);
     
+    // Add clientFirstSeen for animation
+    const messageWithAnimation: NostrEvent & { clientFirstSeen?: number } = {
+      ...processedMessage,
+    };
+    
+    // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
+    const messageAge = Date.now() - (processedMessage.created_at * 1000);
+    if (messageAge < 5000) { // 5 seconds
+      messageWithAnimation.clientFirstSeen = Date.now();
+    }
+    
     // Add to messages state using reusable method
-    addMessageToState(processedMessage, conversationPartner, MESSAGE_PROTOCOL.NIP17);
+    addMessageToState(messageWithAnimation, conversationPartner, MESSAGE_PROTOCOL.NIP17);
     
     logger.log(`DMS: DataManager: Added incoming NIP-17 message to conversation with ${conversationPartner}`);
   }, [user, processNIP17GiftWrap, addMessageToState]);
@@ -1435,7 +1468,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
 
       // Create optimistic message with plain text content for display
-      const optimisticMessage: NostrEvent & { isSending?: boolean } = {
+      const optimisticMessage: NostrEvent & { isSending?: boolean; clientFirstSeen?: number } = {
         id: `optimistic-${Date.now()}-${Math.random()}`, // Temporary ID for optimistic message
         kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
         pubkey: userPubkey,
@@ -1444,9 +1477,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         content: content, // Plain text content for optimistic display
         sig: '',
         isSending: true, // Mark as optimistic
+        clientFirstSeen: Date.now(), // Mark as just created for animation
       };
 
-      // Add optimistic message to state immediately
+      // Add to messages state using reusable method
       addMessageToState(optimisticMessage, recipientPubkey, protocol === MESSAGE_PROTOCOL.NIP04 ? MESSAGE_PROTOCOL.NIP04 : MESSAGE_PROTOCOL.NIP17);
 
       try {
