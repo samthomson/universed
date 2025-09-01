@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
 import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
+import { LOADING_PHASES } from "@/lib/constants";
 
 
 interface DirectMessagesProps {
@@ -58,9 +59,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>
-            {loadingPhase === 'cache' && 'Loading from cache...'}
-            {loadingPhase === 'relays' && 'Fetching from relays...'}
-            {loadingPhase === 'subscriptions' && 'Setting up subscriptions...'}
+            {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
+            {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
+            {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
           </span>
         </div>
       );
@@ -443,9 +444,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   <h3 className="text-lg font-semibold text-gray-700">
                     {isLoading ? (
                       <>
-                        {loadingPhase === 'cache' && 'Loading from cache...'}
-                        {loadingPhase === 'relays' && 'Fetching from relays...'}
-                        {loadingPhase === 'subscriptions' && 'Setting up subscriptions...'}
+                        {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
+                        {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
+                        {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
                       </>
                     ) : (
                       'Scanning for messages...'

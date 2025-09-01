@@ -5,6 +5,7 @@ import { useSendDM } from '@/hooks/useSendDM';
 import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
+import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
 import type { MessageProtocol } from '@/hooks/useDirectMessages';
 import { MESSAGE_PROTOCOL } from '@/hooks/useDirectMessages';
@@ -30,17 +31,6 @@ const createErrorLogger = (name: string) => {
 
 // Create error loggers outside component to prevent recreation
 const nip17ErrorLogger = createErrorLogger('NIP-17');
-
-// Loading phase constants
-const LOADING_PHASES = {
-  IDLE: 'idle',
-  CACHE: 'cache',
-  RELAYS: 'relays',
-  SUBSCRIPTIONS: 'subscriptions',
-  READY: 'ready'
-} as const;
-
-type LoadingPhase = typeof LOADING_PHASES[keyof typeof LOADING_PHASES];
 
 interface DataManagerContextType {
   messages: Map<string, {
