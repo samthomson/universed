@@ -693,6 +693,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     });
   }, []);
 
+  // Debounced write ref for IndexedDB persistence
+  const debouncedWriteRef = useRef<NodeJS.Timeout | null>(null);
+
   // Reusable method to add a message to the state
   const addMessageToState = useCallback((message: NostrEvent, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
     setMessages(prev => {
@@ -734,6 +737,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
       
       logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
+      
+      // Trigger debounced write to IndexedDB after adding message to state
+      triggerDebouncedWrite();
+      
       return newMap;
     });
   }, []);
@@ -1181,6 +1188,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log('DMS: DataManager: Cleaned up NIP-17 subscription');
       }
       
+      // Clear debounced write timeout
+      if (debouncedWriteRef.current) {
+        clearTimeout(debouncedWriteRef.current);
+        logger.log('DMS: DataManager: Cleaned up debounced write timeout');
+      }
+      
       // Reset subscription status
       setSubscriptions({ nip4: false, nip17: false });
       
@@ -1325,6 +1338,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.error('DMS: DataManager: Error writing messages to IndexedDB:', error);
     }
   }, [messages, userPubkey, lastSync]);
+
+  // Trigger debounced write to IndexedDB
+  const triggerDebouncedWrite = useCallback(() => {
+    if (debouncedWriteRef.current) {
+      clearTimeout(debouncedWriteRef.current);
+    }
+    debouncedWriteRef.current = setTimeout(() => {
+      writeAllMessagesToStore();
+      debouncedWriteRef.current = null;
+    }, 15000); // 15 seconds
+  }, [writeAllMessagesToStore]);
 
   // Debug method to clear IndexedDB for current user
   const clearIndexedDB = useCallback(async () => {
