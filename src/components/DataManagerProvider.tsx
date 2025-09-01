@@ -1062,13 +1062,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
       setLoadingPhase(LOADING_PHASES.RELAYS);
       
-      let nip4LastMessageTimestamp: number | undefined;
-      let nip17LastMessageTimestamp: number | undefined;
+      // Always query NIP-4 relays for new messages (even if no cached messages)
+      const nip4LastMessageTimestamp = await queryMissedMessages('nip4', nip4SinceTimestamp);
       
-      if (nip4SinceTimestamp !== undefined) {
-        nip4LastMessageTimestamp = await queryMissedMessages('nip4', nip4SinceTimestamp);
-      }
-      if (settings.enableNIP17 && nip17SinceTimestamp !== undefined) {
+      // Query NIP-17 relays if enabled (even if no cached messages)
+      let nip17LastMessageTimestamp: number | undefined;
+      if (settings.enableNIP17) {
         nip17LastMessageTimestamp = await queryMissedMessages('nip17', nip17SinceTimestamp);
       }
       
