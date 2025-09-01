@@ -29,6 +29,17 @@ const createErrorLogger = (name: string) => {
 // Create error loggers outside component to prevent recreation
 const nip17ErrorLogger = createErrorLogger('NIP-17');
 
+// Loading phase constants
+const LOADING_PHASES = {
+  IDLE: 'idle',
+  CACHE: 'cache', 
+  RELAYS: 'relays',
+  SUBSCRIPTIONS: 'subscriptions',
+  READY: 'ready'
+} as const;
+
+type LoadingPhase = typeof LOADING_PHASES[keyof typeof LOADING_PHASES];
+
 interface DataManagerContextType {
   messages: Map<string, {
     messages: NostrEvent[];
@@ -38,7 +49,7 @@ interface DataManagerContextType {
     hasNIP17: boolean;
   }>;
   isLoading: boolean;
-  loadingPhase: 'idle' | 'cache' | 'relays' | 'subscriptions' | 'ready';
+  loadingPhase: LoadingPhase;
   lastSync: {
     nip4: number | null;
     nip17: number | null;
@@ -154,7 +165,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip17: null
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingPhase, setLoadingPhase] = useState<'idle' | 'cache' | 'relays' | 'subscriptions' | 'ready'>('idle');
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
   const [subscriptions, setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
     nip4: false,
     nip17: false
@@ -492,20 +503,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17', sinceTimestamp?: number) => {
+  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17', sinceTimestamp?: number): Promise<number | undefined> => {
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     // Skip NIP-17 if it's disabled
     if (protocol === 'nip17' && !settings.enableNIP17) {
       logger.log('DMS: DataManager: NIP-17 disabled, skipping relay querying');
-      return;
+      return sinceTimestamp; // Return the input timestamp if no processing happened
     }
     
     // Ensure we have a user pubkey
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping relay querying');
-      return;
-      }
+      return sinceTimestamp; // Return the input timestamp if no processing happened
+    }
       
       if (protocol === 'nip4') {
       const relayStartTime = Date.now();
@@ -559,6 +570,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`DMS: DataManager: Updated lastSync.nip4 to ${new Date(currentTime * 1000).toISOString()}`);
         
         logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
+        
+        // Return the timestamp of the newest message processed
+        const newestMessage = messages.reduce((newest, msg) => 
+          msg.created_at > newest.created_at ? msg : newest
+        );
+        return newestMessage.created_at;
         }
       } else if (protocol === 'nip17') {
       const relayStartTime = Date.now();
@@ -599,8 +616,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`DMS: DataManager: Updated lastSync.nip17 to ${new Date(currentTime * 1000).toISOString()}`);
         
         logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
+        
+        // Return the timestamp of the newest message processed
+        const newestMessage = messages.reduce((newest, msg) => 
+          msg.created_at > newest.created_at ? msg : newest
+        );
+        return newestMessage.created_at;
       }
     }
+    
+    // If no messages were processed, return the input timestamp
+    return sinceTimestamp;
   }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
@@ -804,12 +830,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                           content: '[Invalid recipient - malformed p tag]',
             },
             conversationPartner: event.pubkey,
-          };
-        } else {
-          conversationPartner = recipient;
-        }
-      } else {
-        conversationPartner = sealEvent.pubkey;
+                        };
+                      } else {
+                        conversationPartner = recipient;
+                      }
+                    } else {
+                      conversationPartner = sealEvent.pubkey;
       }
       
       return {
@@ -851,7 +877,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, processNIP17GiftWrap, addMessageToState]);
 
   // Start NIP-4 subscription for all conversations
-  const startNIP4Subscription = useCallback(async () => {
+  const startNIP4Subscription = useCallback(async (sinceTimestamp?: number) => {
     if (!user?.pubkey || !nostr) return;
     
     // Close existing subscription
@@ -861,27 +887,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
     
     try {
-      // Get most recent message timestamp for since filter
-      let sinceTimestamp = Math.floor(Date.now() / 1000);
-      if (lastSync.nip4) {
+      // Use provided timestamp or fall back to lastSync
+      let subscriptionSince = sinceTimestamp || Math.floor(Date.now() / 1000);
+      if (!sinceTimestamp && lastSync.nip4) {
         // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
-        sinceTimestamp = lastSync.nip4 - 60;
+        subscriptionSince = lastSync.nip4 - 60;
       }
       
       const filters = [
         {
           kinds: [4], // NIP-4 DMs sent to us
           '#p': [user.pubkey],
-          since: sinceTimestamp,
+          since: subscriptionSince,
         },
         {
           kinds: [4], // NIP-4 DMs sent by us
           authors: [user.pubkey],
-          since: sinceTimestamp,
+          since: subscriptionSince,
         }
       ];
       
-      logger.log(`DMS: DataManager: Starting NIP-4 subscription since ${new Date(sinceTimestamp * 1000).toISOString()}`);
+      logger.log(`DMS: DataManager: Starting NIP-4 subscription since ${new Date(subscriptionSince * 1000).toISOString()}`);
       logger.log(`DMS: DataManager: NIP-4 subscription filters:`, JSON.stringify(filters, null, 2));
       logger.log(`DMS: DataManager: User pubkey: ${user.pubkey}`);
       
@@ -919,19 +945,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-4 subscription started successfully');
       logger.log('DMS: DataManager: NIP-4 subscription ref:', !!nip4SubscriptionRef.current);
       
-      // If NIP-17 is disabled, we're done with subscriptions
-      if (!settings.enableNIP17) {
-        setLoadingPhase('ready');
-      }
-      
     } catch (error) {
       logger.error('DMS: DataManager: Failed to start NIP-4 subscription:', error);
       setSubscriptions(prev => ({ ...prev, nip4: false }));
     }
-  }, [user, nostr, lastSync.nip4, processIncomingNIP4Message, settings.enableNIP17]);
+  }, [user, nostr, lastSync.nip4, processIncomingNIP4Message]);
 
   // Start NIP-17 subscription for all conversations
-  const startNIP17Subscription = useCallback(async () => {
+  const startNIP17Subscription = useCallback(async (sinceTimestamp?: number) => {
     if (!user?.pubkey || !nostr || !settings.enableNIP17) return;
     
     // Close existing subscription
@@ -941,20 +962,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
     
     try {
-      // Get most recent message timestamp for since filter
-      let sinceTimestamp = Math.floor(Date.now() / 1000);
-      if (lastSync.nip17) {
+      // Use provided timestamp or fall back to lastSync
+      let subscriptionSince = sinceTimestamp || Math.floor(Date.now() / 1000);
+      if (!sinceTimestamp && lastSync.nip17) {
         // Subtract 60 seconds to ensure we don't miss messages due to optimistic updates
-        sinceTimestamp = lastSync.nip17 - 60;
+        subscriptionSince = lastSync.nip17 - 60;
       }
       
       const filters = [{
         kinds: [1059], // NIP-17 Gift Wrap messages
         '#p': [user.pubkey], // We are the recipient
-        since: sinceTimestamp,
+        since: subscriptionSince,
       }];
       
-      logger.log(`DMS: DataManager: Starting NIP-17 subscription since ${new Date(sinceTimestamp * 1000).toISOString()}`);
+      logger.log(`DMS: DataManager: Starting NIP-17 subscription since ${new Date(subscriptionSince * 1000).toISOString()}`);
       logger.log(`DMS: DataManager: NIP-17 subscription filters:`, JSON.stringify(filters, null, 2));
       logger.log(`DMS: DataManager: User pubkey: ${user.pubkey}`);
       
@@ -992,9 +1013,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-17 subscription started successfully');
       logger.log('DMS: DataManager: NIP-17 subscription ref:', !!nip17SubscriptionRef.current);
       
-      // This was the last subscription, we're ready
-      setLoadingPhase('ready');
-      
     } catch (error) {
       logger.error('DMS: DataManager: Failed to start NIP-17 subscription:', error);
       setSubscriptions(prev => ({ ...prev, nip17: false }));
@@ -1015,7 +1033,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     
     logger.log('DMS: DataManager: Starting message loading for all enabled protocols');
     setIsLoading(true);
-    setLoadingPhase('cache');
+    setLoadingPhase(LOADING_PHASES.CACHE);
     
     try {
       // Stage 1: Load from cache for all protocols
@@ -1025,28 +1043,35 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       
       // Stage 2: Query relays for all protocols
       logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
-      setLoadingPhase('relays');
+      setLoadingPhase(LOADING_PHASES.RELAYS);
+      
+      let nip4LastMessageTimestamp: number | undefined;
+      let nip17LastMessageTimestamp: number | undefined;
+      
       if (nip4SinceTimestamp !== undefined) {
-        await queryMissedMessages('nip4', nip4SinceTimestamp);
+        nip4LastMessageTimestamp = await queryMissedMessages('nip4', nip4SinceTimestamp);
       }
       if (settings.enableNIP17 && nip17SinceTimestamp !== undefined) {
-        await queryMissedMessages('nip17', nip17SinceTimestamp);
+        nip17LastMessageTimestamp = await queryMissedMessages('nip17', nip17SinceTimestamp);
       }
       
       // Stage 3: Set up subscriptions for all protocols
       logger.log('DMS: DataManager: Stage 3: Setting up real-time subscriptions');
-      setLoadingPhase('subscriptions');
-      await startNIP4Subscription();
+      setLoadingPhase(LOADING_PHASES.SUBSCRIPTIONS);
+      
+      // Use the timestamp of the last processed message for subscriptions
+      // This ensures no gaps between relay queries and subscriptions
+      await startNIP4Subscription(nip4LastMessageTimestamp);
       if (settings.enableNIP17) {
-        await startNIP17Subscription();
+        await startNIP17Subscription(nip17LastMessageTimestamp);
       }
       
       logger.log('DMS: DataManager: All protocol loading complete');
       setHasInitialLoadCompleted(true);
-      setLoadingPhase('ready');
+      setLoadingPhase(LOADING_PHASES.READY);
     } catch (error) {
       logger.error('DMS: DataManager: Error in message loading:', error);
-      setLoadingPhase('ready');
+      setLoadingPhase(LOADING_PHASES.READY);
     } finally {
       setIsLoading(false);
     }
@@ -1064,9 +1089,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
       const sinceTimestamp = await loadPastMessages('nip17');
       if (sinceTimestamp !== undefined) {
-        await queryMissedMessages('nip17', sinceTimestamp);
+        const lastMessageTimestamp = await queryMissedMessages('nip17', sinceTimestamp);
+        // Use the timestamp of the last processed message for subscription
+        await startNIP17Subscription(lastMessageTimestamp);
+      } else {
+        // No cached data, start subscription from now
+        await startNIP17Subscription();
       }
-      await startNIP17Subscription();
     } else {
       // User disabled NIP-17 - clear NIP-17 data and reset sync timestamp
       logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
