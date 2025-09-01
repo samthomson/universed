@@ -6,6 +6,8 @@ import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import type { NostrEvent } from '@/types/nostr';
+import type { MessageProtocol } from '@/hooks/useDirectMessages';
+import { MESSAGE_PROTOCOL } from '@/hooks/useDirectMessages';
 
 // Simple utility for debounced error logging
 const createErrorLogger = (name: string) => {
@@ -79,7 +81,7 @@ interface DataManagerContextType {
   writeAllMessagesToStore: () => Promise<void>;
   clearIndexedDB: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
-  sendMessage: (params: { recipientPubkey: string; content: string; protocol?: 'nip4' | 'nip17' }) => Promise<void>;
+  sendMessage: (params: { recipientPubkey: string; content: string; protocol?: MessageProtocol }) => Promise<void>;
   isNIP17Enabled: boolean;
   isDebugging: boolean;
   scanProgress: {
@@ -407,12 +409,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, nostr]);
 
   // Stage 1: Read all past messages from storage for a specific protocol
-  const loadPastMessages = useCallback(async (protocol: 'nip4' | 'nip17'): Promise<number | undefined> => {
+  const loadPastMessages = useCallback(async (protocol: MessageProtocol): Promise<number | undefined> => {
     const startTime = Date.now();
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 - Loading past messages from storage`);
     
     // Skip NIP-17 if it's disabled
-    if (protocol === 'nip17' && !settings.enableNIP17) {
+    if (protocol === MESSAGE_PROTOCOL.NIP17 && !settings.enableNIP17) {
       logger.log('DMS: DataManager: NIP-17 disabled, skipping message loading');
       return undefined;
     }
@@ -446,10 +448,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               );
           
           // Use the actual lastSync timestamps from the stored data, not recalculated from messages
-          if (protocol === 'nip4' && cachedStore.lastSync.nip4) {
+          if (protocol === MESSAGE_PROTOCOL.NIP04 && cachedStore.lastSync.nip4) {
             sinceTimestamp = cachedStore.lastSync.nip4;
             logger.log(`DMS: DataManager: Using stored NIP-4 lastSync timestamp: ${new Date(sinceTimestamp * 1000).toISOString()}`);
-          } else if (protocol === 'nip17' && cachedStore.lastSync.nip17) {
+          } else if (protocol === MESSAGE_PROTOCOL.NIP17 && cachedStore.lastSync.nip17) {
             sinceTimestamp = cachedStore.lastSync.nip17;
             logger.log(`DMS: DataManager: Using stored NIP-17 lastSync timestamp: ${new Date(sinceTimestamp * 1000).toISOString()}`);
           }
@@ -506,11 +508,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17', sinceTimestamp?: number): Promise<number | undefined> => {
+  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<number | undefined> => {
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
     
     // Skip NIP-17 if it's disabled
-    if (protocol === 'nip17' && !settings.enableNIP17) {
+    if (protocol === MESSAGE_PROTOCOL.NIP17 && !settings.enableNIP17) {
       logger.log('DMS: DataManager: NIP-17 disabled, skipping relay querying');
       return sinceTimestamp; // Return the input timestamp if no processing happened
     }
@@ -521,7 +523,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return sinceTimestamp; // Return the input timestamp if no processing happened
     }
       
-      if (protocol === 'nip4') {
+      if (protocol === MESSAGE_PROTOCOL.NIP04) {
       const relayStartTime = Date.now();
         const messages = await loadPastNIP4Messages(sinceTimestamp);
       const relayTime = Date.now() - relayStartTime;
@@ -580,7 +582,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         );
         return newestMessage.created_at;
         }
-      } else if (protocol === 'nip17') {
+      } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
       const relayStartTime = Date.now();
         const messages = await loadPastNIP17Messages(sinceTimestamp);
       const relayTime = Date.now() - relayStartTime;
@@ -710,7 +712,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const debouncedWriteRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reusable method to add a message to the state
-  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean }, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
+  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean }, conversationPartner: string, protocol: MessageProtocol) => {
     setMessages(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(conversationPartner);
@@ -718,7 +720,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (existing) {
         // Check if message already exists to prevent duplicates
         if (existing.messages.some(msg => msg.id === message.id)) {
-          logger.log(`DMS: DataManager: ${protocol.toUpperCase()} message ${message.id} already exists in conversation, skipping`);
+          logger.log(`DMS: DataManager: ${protocol} message ${message.id} already exists in conversation, skipping`);
           return prev; // Return unchanged state
         }
         
@@ -742,7 +744,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             messages: updatedMessages,
             lastActivity: message.created_at,
             lastMessage: message,
-            [`has${protocol.toUpperCase()}`]: true,
+            hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04 ? true : existing.hasNIP4,
+            hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17 ? true : existing.hasNIP17,
           });
           
           logger.log(`DMS: DataManager: Replaced optimistic message in conversation with ${conversationPartner}`);
@@ -756,7 +759,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             messages: updatedMessages,
             lastActivity: message.created_at,
             lastMessage: message,
-            [`has${protocol.toUpperCase()}`]: true,
+            hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04 ? true : existing.hasNIP4,
+            hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17 ? true : existing.hasNIP17,
           });
           
           logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
@@ -767,8 +771,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           messages: [message],
           lastActivity: message.created_at,
           lastMessage: message,
-          hasNIP4: protocol === 'nip4',
-          hasNIP17: protocol === 'nip17',
+          hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04,
+          hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17,
         };
         
         newMap.set(conversationPartner, newConversation);
@@ -816,7 +820,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
     
     // Add to messages state using reusable method
-    addMessageToState(decryptedMessage, otherPubkey, 'nip4');
+    addMessageToState(decryptedMessage, otherPubkey, MESSAGE_PROTOCOL.NIP04);
     
     logger.log(`DMS: DataManager: Added incoming NIP-4 message to conversation with ${otherPubkey}`);
   }, [user, decryptNIP4Message, addMessageToState]);
@@ -917,7 +921,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const { processedMessage, conversationPartner } = await processNIP17GiftWrap(event);
     
     // Add to messages state using reusable method
-    addMessageToState(processedMessage, conversationPartner, 'nip17');
+    addMessageToState(processedMessage, conversationPartner, MESSAGE_PROTOCOL.NIP17);
     
     logger.log(`DMS: DataManager: Added incoming NIP-17 message to conversation with ${conversationPartner}`);
   }, [user, processNIP17GiftWrap, addMessageToState]);
@@ -1084,20 +1088,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Stage 1: Load from cache for all protocols
       logger.log('DMS: DataManager: Stage 1: Loading cached messages for all protocols');
-      const nip4SinceTimestamp = await loadPastMessages('nip4');
-      const nip17SinceTimestamp = settings.enableNIP17 ? await loadPastMessages('nip17') : undefined;
+      const nip4SinceTimestamp = await loadPastMessages(MESSAGE_PROTOCOL.NIP04);
+      const nip17SinceTimestamp = settings.enableNIP17 ? await loadPastMessages(MESSAGE_PROTOCOL.NIP17) : undefined;
       
       // Stage 2: Query relays for all protocols
       logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
       setLoadingPhase(LOADING_PHASES.RELAYS);
       
       // Always query NIP-4 relays for new messages (even if no cached messages)
-      const nip4LastMessageTimestamp = await queryMissedMessages('nip4', nip4SinceTimestamp);
+      const nip4LastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP04, nip4SinceTimestamp);
       
       // Query NIP-17 relays if enabled (even if no cached messages)
       let nip17LastMessageTimestamp: number | undefined;
       if (settings.enableNIP17) {
-        nip17LastMessageTimestamp = await queryMissedMessages('nip17', nip17SinceTimestamp);
+        nip17LastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
       }
       
       // Stage 3: Set up subscriptions for all protocols
@@ -1132,10 +1136,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     if (enabled) {
       // User enabled NIP-17 - load messages now using 3-stage approach
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
-      const sinceTimestamp = await loadPastMessages('nip17');
+      const sinceTimestamp = await loadPastMessages(MESSAGE_PROTOCOL.NIP17);
       let lastMessageTimestamp: number | undefined;
       if (sinceTimestamp !== undefined) {
-        lastMessageTimestamp = await queryMissedMessages('nip17', sinceTimestamp);
+        lastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, sinceTimestamp);
       }
       await startNIP17Subscription(lastMessageTimestamp);
     } else {
@@ -1422,18 +1426,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     clearIndexedDB,
     handleNIP17SettingChange,
     sendMessage: async (params) => {
-      const { recipientPubkey, content, protocol = 'nip4' } = params;
+      const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
       if (!userPubkey) {
         logger.error('DMS: DataManager: Cannot send message, no user pubkey');
         return;
       }
 
-      logger.log(`DMS: DataManager: Sending ${protocol.toUpperCase()} message to ${recipientPubkey}`);
+      logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
 
       // Create optimistic message with plain text content for display
       const optimisticMessage: NostrEvent & { isSending?: boolean } = {
         id: `optimistic-${Date.now()}-${Math.random()}`, // Temporary ID for optimistic message
-        kind: protocol === 'nip4' ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
+        kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
         pubkey: userPubkey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['p', recipientPubkey]],
@@ -1443,25 +1447,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       };
 
       // Add optimistic message to state immediately
-      addMessageToState(optimisticMessage, recipientPubkey, protocol);
+      addMessageToState(optimisticMessage, recipientPubkey, protocol === MESSAGE_PROTOCOL.NIP04 ? MESSAGE_PROTOCOL.NIP04 : MESSAGE_PROTOCOL.NIP17);
 
       try {
         // Use the existing working send functions
-        if (protocol === 'nip4') {
+        if (protocol === MESSAGE_PROTOCOL.NIP04) {
           await sendNIP4Message.mutateAsync({
             recipientPubkey,
             content,
           });
-        } else if (protocol === 'nip17') {
+        } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
           await sendNIP17Message.mutateAsync({
             recipientPubkey,
             content,
           });
         }
         
-        logger.log(`DMS: DataManager: Successfully sent ${protocol.toUpperCase()} message to ${recipientPubkey}`);
+        logger.log(`DMS: DataManager: Successfully sent ${protocol} message to ${recipientPubkey}`);
       } catch (error) {
-        logger.error(`DMS: DataManager: Failed to send ${protocol.toUpperCase()} message to ${recipientPubkey}:`, error);
+        logger.error(`DMS: DataManager: Failed to send ${protocol} message to ${recipientPubkey}:`, error);
       }
     },
     isNIP17Enabled: settings.enableNIP17,

@@ -159,13 +159,10 @@ export function DMChatArea(
   ), [selectedProtocol]);
 
   const handleSendMessage = useCallback(async (content: string) => {
-    // Map legacy protocol format to new format
-    const protocol = selectedProtocol === MESSAGE_PROTOCOL.NIP04 ? 'nip4' : 'nip17';
-    
     await sendMessage({
       recipientPubkey: conversationId,
       content,
-      protocol,
+      protocol: selectedProtocol,
     });
 
     // Call the callback to notify that a message was sent
