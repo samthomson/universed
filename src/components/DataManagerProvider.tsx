@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
-// import { useDirectMessages } from '@/hooks/useDirectMessages';
+import { useSendDM } from '@/hooks/useSendDM';
 import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
@@ -79,6 +79,8 @@ interface DataManagerContextType {
   writeAllMessagesToStore: () => Promise<void>;
   clearIndexedDB: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
+  sendMessage: (params: { recipientPubkey: string; content: string; protocol?: 'nip4' | 'nip17' }) => Promise<void>;
+  isNIP17Enabled: boolean;
   isDebugging: boolean;
   scanProgress: {
     nip4: { current: number; status: string } | null;
@@ -146,6 +148,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { user } = useCurrentUser();
   const { settings } = useUserSettings();
   const { nostr } = useNostr();
+  const { sendNIP4Message, sendNIP17Message } = useSendDM();
   
   // Use existing hook to kick off message loading
   // const _directMessages = useDirectMessages();
@@ -707,7 +710,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const debouncedWriteRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reusable method to add a message to the state
-  const addMessageToState = useCallback((message: NostrEvent, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
+  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean }, conversationPartner: string, protocol: 'nip4' | 'nip17') => {
     setMessages(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(conversationPartner);
@@ -719,19 +722,45 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return prev; // Return unchanged state
         }
         
-        // Add to existing conversation
-        const updatedMessages = [...existing.messages, message];
-        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
-        
-        newMap.set(conversationPartner, {
-          ...existing,
-          messages: updatedMessages,
-          lastActivity: message.created_at,
-          lastMessage: message,
-          [`has${protocol.toUpperCase()}`]: true,
-        });
-        
-        logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
+        // Check if this real message should replace an optimistic message
+        // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
+        const optimisticMessageIndex = existing.messages.findIndex(msg =>
+          msg.isSending &&
+          msg.pubkey === message.pubkey &&
+          msg.content === message.content &&
+          Math.abs(msg.created_at - message.created_at) <= 30 // 30 second window
+        );
+
+        if (optimisticMessageIndex !== -1) {
+          // Replace the optimistic message with the real one
+          logger.log(`DMS: DataManager: Replacing optimistic message with real message: ${message.id}`);
+          const updatedMessages = [...existing.messages];
+          updatedMessages[optimisticMessageIndex] = message;
+          
+          newMap.set(conversationPartner, {
+            ...existing,
+            messages: updatedMessages,
+            lastActivity: message.created_at,
+            lastMessage: message,
+            [`has${protocol.toUpperCase()}`]: true,
+          });
+          
+          logger.log(`DMS: DataManager: Replaced optimistic message in conversation with ${conversationPartner}`);
+        } else {
+          // Add to existing conversation as new message
+          const updatedMessages = [...existing.messages, message];
+          updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+          
+          newMap.set(conversationPartner, {
+            ...existing,
+            messages: updatedMessages,
+            lastActivity: message.created_at,
+            lastMessage: message,
+            [`has${protocol.toUpperCase()}`]: true,
+          });
+          
+          logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
+        }
       } else {
         // Create new conversation
         const newConversation = {
@@ -1348,6 +1377,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, userPubkey, lastSync]);
 
+
   // Trigger debounced write to IndexedDB
   const triggerDebouncedWrite = useCallback(() => {
     if (debouncedWriteRef.current) {
@@ -1391,6 +1421,50 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     writeAllMessagesToStore,
     clearIndexedDB,
     handleNIP17SettingChange,
+    sendMessage: async (params) => {
+      const { recipientPubkey, content, protocol = 'nip4' } = params;
+      if (!userPubkey) {
+        logger.error('DMS: DataManager: Cannot send message, no user pubkey');
+        return;
+      }
+
+      logger.log(`DMS: DataManager: Sending ${protocol.toUpperCase()} message to ${recipientPubkey}`);
+
+      // Create optimistic message with plain text content for display
+      const optimisticMessage: NostrEvent & { isSending?: boolean } = {
+        id: `optimistic-${Date.now()}-${Math.random()}`, // Temporary ID for optimistic message
+        kind: protocol === 'nip4' ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
+        pubkey: userPubkey,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['p', recipientPubkey]],
+        content: content, // Plain text content for optimistic display
+        sig: '',
+        isSending: true, // Mark as optimistic
+      };
+
+      // Add optimistic message to state immediately
+      addMessageToState(optimisticMessage, recipientPubkey, protocol);
+
+      try {
+        // Use the existing working send functions
+        if (protocol === 'nip4') {
+          await sendNIP4Message.mutateAsync({
+            recipientPubkey,
+            content,
+          });
+        } else if (protocol === 'nip17') {
+          await sendNIP17Message.mutateAsync({
+            recipientPubkey,
+            content,
+          });
+        }
+        
+        logger.log(`DMS: DataManager: Successfully sent ${protocol.toUpperCase()} message to ${recipientPubkey}`);
+      } catch (error) {
+        logger.error(`DMS: DataManager: Failed to send ${protocol.toUpperCase()} message to ${recipientPubkey}:`, error);
+      }
+    },
+    isNIP17Enabled: settings.enableNIP17,
     isDebugging: true, // Hardcoded for now
     scanProgress,
   };

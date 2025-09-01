@@ -6,8 +6,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessages, MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
-import { useConversationMessages } from "@/components/DataManagerProvider";
+import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
+import { useConversationMessages, useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
@@ -86,7 +86,7 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { messages: conversationMessages } = useConversationMessages(conversationId);
-  const { sendMessage, isNIP17Enabled } = useDirectMessages();
+  const { sendMessage, isNIP17Enabled } = useDataManager();
   
   // Simple pagination from conversation messages
   const MESSAGES_PER_PAGE = 5; // Reduced for debugging
@@ -159,10 +159,13 @@ export function DMChatArea(
   ), [selectedProtocol]);
 
   const handleSendMessage = useCallback(async (content: string) => {
+    // Map legacy protocol format to new format
+    const protocol = selectedProtocol === MESSAGE_PROTOCOL.NIP04 ? 'nip4' : 'nip17';
+    
     await sendMessage({
       recipientPubkey: conversationId,
       content,
-      protocol: selectedProtocol,
+      protocol,
     });
 
     // Call the callback to notify that a message was sent
