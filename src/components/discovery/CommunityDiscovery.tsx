@@ -30,7 +30,7 @@ interface CommunityCardProps {
   onSelect?: (communityId: string) => void;
 }
 
-function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: CommunityCardProps) {
+function CommunityCard({ community, membershipStatus, onSelect }: CommunityCardProps) {
   const navigate = useNavigate();
   const author = useAuthor(community.creator);
   const metadata = author.data?.metadata;
@@ -128,26 +128,35 @@ function CommunityCard({ community, membershipStatus, onSelect: _onSelect }: Com
   };
 
   const handleCardClick = () => {
-    // Navigate to the main app with the community selected for preview
-    const naddr = generateCommunityNaddr(community.event);
-    const encodedNaddr = encodeNaddrForUrl(naddr);
-
-    // If user is already a member (approved, owner, or moderator), navigate directly
-    if (membershipStatus === 'approved' || membershipStatus === 'owner' || membershipStatus === 'moderator') {
-      navigate(`/space/${encodedNaddr}`);
-    } else if (membershipStatus === 'pending') {
-      // For pending requests, navigate to show the community but inform user
-      navigate(`/space/${encodedNaddr}`);
-      setTimeout(() => {
-        toast({
-          title: 'Request Pending',
-          description: `Your join request for ${community.name} is still being reviewed.`,
-          variant: 'default',
-        });
-      }, 500);
+    // Call the onSelect callback to update the selected community state
+    if (onSelect) {
+      onSelect(community.id);
+      
+      // Show appropriate toast messages based on membership status
+      if (membershipStatus === 'pending') {
+        setTimeout(() => {
+          toast({
+            title: 'Request Pending',
+            description: `Your join request for ${community.name} is still being reviewed.`,
+            variant: 'default',
+          });
+        }, 500);
+      }
     } else {
-      // For non-members (not-member, declined, banned), navigate to show preview and trigger join flow
+      // If no onSelect callback, navigate directly (for standalone usage)
+      const naddr = generateCommunityNaddr(community.event);
+      const encodedNaddr = encodeNaddrForUrl(naddr);
       navigate(`/space/${encodedNaddr}`);
+      
+      if (membershipStatus === 'pending') {
+        setTimeout(() => {
+          toast({
+            title: 'Request Pending',
+            description: `Your join request for ${community.name} is still being reviewed.`,
+            variant: 'default',
+          });
+        }, 500);
+      }
     }
   };
 
