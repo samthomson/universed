@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle, Settings } from "lucide-react";
+import { Search, Plus, MessageCircle, Settings, Wifi, WifiOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -40,10 +40,56 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const { user } = useCurrentUser();
   const { toast } = useToast();
   // Use the DataManager for all conversation data
-  const { conversations: newConversations, scanProgress } = useDataManager();
+  const { 
+    conversations: newConversations, 
+    scanProgress, 
+    isLoading, 
+    loadingPhase,
+    subscriptions 
+  } = useDataManager();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
+
+  // Status indicator component
+  const StatusIndicator = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>
+            {loadingPhase === 'cache' && 'Loading from cache...'}
+            {loadingPhase === 'relays' && 'Fetching from relays...'}
+            {loadingPhase === 'subscriptions' && 'Setting up subscriptions...'}
+          </span>
+        </div>
+      );
+    }
+
+    if (subscriptions.nip4 || subscriptions.nip17) {
+      return (
+        <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-3 h-3" />
+          <span>Connected</span>
+          <div className="flex items-center gap-1 ml-1">
+            {subscriptions.nip4 && (
+              <div className="w-2 h-2 bg-orange-500 rounded-full" title="NIP-4 active" />
+            )}
+            {subscriptions.nip17 && (
+              <div className="w-2 h-2 bg-purple-500 rounded-full" title="NIP-17 active" />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <WifiOff className="w-3 h-3" />
+        <span>Disconnected</span>
+      </div>
+    );
+  };
 
   const handleNewDM = useCallback(() => {
     setShowNewDM(true);
@@ -234,8 +280,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             {/* Header */}
             <div className="p-4 border-b border-gray-600 bg-secondary/30">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <h2 className="font-semibold text-white">Messages</h2>
+                  <StatusIndicator />
                   <Button
                     variant="ghost"
                     size="icon"
@@ -316,8 +363,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <h2 className="font-semibold text-foreground">Messages</h2>
+              <StatusIndicator />
               <Button
                 variant="ghost"
                 size="icon"
@@ -387,12 +435,22 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            {/* Show loading state when scanning */}
-            {(scanProgress.nip4 || scanProgress.nip17) ? (
+            {/* Show loading state when scanning or loading */}
+            {(isLoading || scanProgress.nip4 || scanProgress.nip17) ? (
               <div className="text-center space-y-6">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-700">Scanning for messages...</h3>
+                  <h3 className="text-lg font-semibold text-gray-700">
+                    {isLoading ? (
+                      <>
+                        {loadingPhase === 'cache' && 'Loading from cache...'}
+                        {loadingPhase === 'relays' && 'Fetching from relays...'}
+                        {loadingPhase === 'subscriptions' && 'Setting up subscriptions...'}
+                      </>
+                    ) : (
+                      'Scanning for messages...'
+                    )}
+                  </h3>
                   {scanProgress.nip4 && (
                     <div className="text-sm text-gray-500">
                       NIP-4: {scanProgress.nip4.current} messages found

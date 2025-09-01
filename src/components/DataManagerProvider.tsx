@@ -56,6 +56,10 @@ interface DataManagerContextType {
     nip4: number | null;
     nip17: number | null;
   };
+  subscriptions: {
+    nip4: boolean;
+    nip17: boolean;
+  };
   conversations: {
     id: string;
     pubkey: string;
@@ -68,11 +72,11 @@ interface DataManagerContextType {
     isRequest: boolean;
     lastMessageFromUser: boolean;
   }[];
-  getDebugInfo: () => {
-    messageCount: number;
+  getDebugInfo: () => { 
+    messageCount: number; 
     nip4Count: number;
     nip17Count: number;
-    nip4Sync: string;
+    nip4Sync: string; 
     nip17Sync: string;
     nip4Subscribed: boolean;
     nip17Subscribed: boolean;
@@ -1571,6 +1575,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     isNIP17Enabled: settings.enableNIP17,
     isDebugging: true, // Hardcoded for now
     scanProgress,
+    subscriptions,
   };
 
   return (
