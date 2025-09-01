@@ -38,6 +38,7 @@ interface DataManagerContextType {
     hasNIP17: boolean;
   }>;
   isLoading: boolean;
+  loadingPhase: 'idle' | 'cache' | 'relays' | 'subscriptions' | 'ready';
   lastSync: {
     nip4: number | null;
     nip17: number | null;
@@ -153,15 +154,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     nip17: null
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [protocolLoading, setProtocolLoading] = useState<{ nip4: boolean; nip17: boolean }>({
-    nip4: false,
-    nip17: false
-  });
+  const [loadingPhase, setLoadingPhase] = useState<'idle' | 'cache' | 'relays' | 'subscriptions' | 'ready'>('idle');
   const [subscriptions, setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
     nip4: false,
     nip17: false
   });
-  
+
   // Track whether initial load has already completed
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
   
@@ -491,7 +489,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.error(`DMS: DataManager: Error in Stage 1 for ${protocol}:`, error);
       return undefined;
     }
-  }, [user, settings.enableNIP17, userPubkey]);
+  }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
   const queryMissedMessages = useCallback(async (protocol: 'nip4' | 'nip17', sinceTimestamp?: number) => {
@@ -507,48 +505,48 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping relay querying');
       return;
-    }
-    
-    if (protocol === 'nip4') {
+      }
+      
+      if (protocol === 'nip4') {
       const relayStartTime = Date.now();
-      const messages = await loadPastNIP4Messages(sinceTimestamp);
+        const messages = await loadPastNIP4Messages(sinceTimestamp);
       const relayTime = Date.now() - relayStartTime;
       logger.log(`DMS: DataManager: NIP-4 Stage 2 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
-      
-      // Store NIP-4 messages organized by participant
-      if (messages && messages.length > 0) {
-        // Build up new state
-        const newState = new Map();
         
-        // Process messages and decrypt them
-        for (const message of messages) {
-          const isFromUser = message.pubkey === user?.pubkey;
-          const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
-          const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+        // Store NIP-4 messages organized by participant
+        if (messages && messages.length > 0) {
+          // Build up new state
+          const newState = new Map();
           
-          if (!otherPubkey || otherPubkey === user?.pubkey) continue;
-          
+          // Process messages and decrypt them
+          for (const message of messages) {
+            const isFromUser = message.pubkey === user?.pubkey;
+            const recipientPTag = message.tags?.find(([name]) => name === 'p')?.[1];
+            const otherPubkey = isFromUser ? recipientPTag : message.pubkey;
+            
+            if (!otherPubkey || otherPubkey === user?.pubkey) continue;
+            
           // Decrypt the NIP-4 message content using reusable method
           const decryptedContent = await decryptNIP4Message(message, otherPubkey);
-          
-          // Create decrypted message
-          const decryptedMessage: NostrEvent = {
-            ...message,
-            content: decryptedContent,
-          };
-          
-          // Add to new state or create new participant
-          if (!newState.has(otherPubkey)) {
+            
+            // Create decrypted message
+            const decryptedMessage: NostrEvent = {
+              ...message,
+              content: decryptedContent,
+            };
+            
+            // Add to new state or create new participant
+            if (!newState.has(otherPubkey)) {
             newState.set(otherPubkey, createEmptyParticipant());
+            }
+            
+            const participant = newState.get(otherPubkey)!;
+            participant.messages.push(decryptedMessage);
+            participant.hasNIP4 = true;
           }
           
-          const participant = newState.get(otherPubkey)!;
-          participant.messages.push(decryptedMessage);
-          participant.hasNIP4 = true;
-        }
-        
-        // Sort all participants' messages once after adding all messages
-        newState.forEach(participant => {
+          // Sort all participants' messages once after adding all messages
+          newState.forEach(participant => {
           sortAndUpdateParticipantState(participant);
         });
         
@@ -561,20 +559,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`DMS: DataManager: Updated lastSync.nip4 to ${new Date(currentTime * 1000).toISOString()}`);
         
         logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-4 messages for ${newState.size} participants`);
-      }
-    } else if (protocol === 'nip17') {
+        }
+      } else if (protocol === 'nip17') {
       const relayStartTime = Date.now();
-      const messages = await loadPastNIP17Messages(sinceTimestamp);
+        const messages = await loadPastNIP17Messages(sinceTimestamp);
       const relayTime = Date.now() - relayStartTime;
       logger.log(`DMS: DataManager: NIP-17 Stage 2 complete: ${messages?.length || 0} messages loaded from relays (${relayTime}ms)`);
-      
-      // Store NIP-17 messages organized by participant
-      if (messages && messages.length > 0) {
-        // Build up new state
-        const newState = new Map();
         
-        // Process messages and decrypt them
-        for (const giftWrap of messages) {
+        // Store NIP-17 messages organized by participant
+        if (messages && messages.length > 0) {
+          // Build up new state
+          const newState = new Map();
+          
+          // Process messages and decrypt them
+          for (const giftWrap of messages) {
           // Process the Gift Wrap message using reusable method
           const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
           
@@ -603,7 +601,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`DMS: DataManager: Stored ${messages.length} decrypted NIP-17 messages for ${newState.size} participants`);
       }
     }
-  }, [loadPastNIP4Messages, loadPastNIP17Messages, user, settings.enableNIP17, userPubkey]);
+  }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
   const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<string> => {
@@ -753,57 +751,57 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Reusable method to process NIP-17 Gift Wrap messages
   const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<{ processedMessage: NostrEvent; conversationPartner: string }> => {
-    if (!user?.signer?.nip44) {
-      // No decryption available - store with error placeholder
+            if (!user?.signer?.nip44) {
+              // No decryption available - store with error placeholder
       return {
         processedMessage: {
           ...event,
-          content: '[No NIP-44 decryption available]',
+                content: '[No NIP-44 decryption available]',
         },
         conversationPartner: event.pubkey,
-      };
+              };
     }
     
-    try {
-      // Decrypt Gift Wrap → Seal → Private DM
+              try {
+                // Decrypt Gift Wrap → Seal → Private DM
       const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
-      const sealEvent = JSON.parse(sealContent) as NostrEvent;
-      
-      if (sealEvent.kind !== 13) {
-        // Invalid Seal format - store with error placeholder
+                const sealEvent = JSON.parse(sealContent) as NostrEvent;
+                
+                if (sealEvent.kind !== 13) {
+                  // Invalid Seal format - store with error placeholder
         return {
           processedMessage: {
             ...event,
-            content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
+                    content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
           },
           conversationPartner: event.pubkey,
-        };
+                  };
       }
       
-      const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
-      const messageEvent = JSON.parse(messageContent) as NostrEvent;
-      
-      if (messageEvent.kind !== 14) {
-        // Invalid message format - store with error placeholder
+                  const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
+                  const messageEvent = JSON.parse(messageContent) as NostrEvent;
+                  
+                  if (messageEvent.kind !== 14) {
+                    // Invalid message format - store with error placeholder
         return {
           processedMessage: {
             ...event,
-            content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
+                      content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
           },
           conversationPartner: event.pubkey,
-        };
+                    };
       }
       
-      // Determine conversation partner
+                    // Determine conversation partner
       let conversationPartner: string;
-      if (sealEvent.pubkey === user.pubkey) {
-        const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
-        if (!recipient || recipient === user.pubkey) {
-          // Invalid recipient - store with error placeholder
+                    if (sealEvent.pubkey === user.pubkey) {
+                      const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
+                      if (!recipient || recipient === user.pubkey) {
+                        // Invalid recipient - store with error placeholder
           return {
             processedMessage: {
               ...event,
-              content: '[Invalid recipient - malformed p tag]',
+                          content: '[Invalid recipient - malformed p tag]',
             },
             conversationPartner: event.pubkey,
           };
@@ -818,13 +816,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         processedMessage: messageEvent,
         conversationPartner,
       };
-    } catch (error) {
-      // Decryption/parsing failed - store with error placeholder
+              } catch (error) {
+                // Decryption/parsing failed - store with error placeholder
       nip17ErrorLogger(error);
       return {
         processedMessage: {
           ...event,
-          content: '[Failed to decrypt or parse NIP-17 message]',
+                  content: '[Failed to decrypt or parse NIP-17 message]',
         },
         conversationPartner: event.pubkey,
       };
@@ -900,9 +898,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               await processIncomingNIP4Message(msg[2]);
             } else {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
-            }
-          }
-        } catch (error) {
+        }
+      }
+    } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-4 subscription error:', error);
           }
@@ -921,11 +919,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-4 subscription started successfully');
       logger.log('DMS: DataManager: NIP-4 subscription ref:', !!nip4SubscriptionRef.current);
       
+      // If NIP-17 is disabled, we're done with subscriptions
+      if (!settings.enableNIP17) {
+        setLoadingPhase('ready');
+      }
+      
     } catch (error) {
       logger.error('DMS: DataManager: Failed to start NIP-4 subscription:', error);
       setSubscriptions(prev => ({ ...prev, nip4: false }));
     }
-  }, [user, nostr, lastSync.nip4, processIncomingNIP4Message]);
+  }, [user, nostr, lastSync.nip4, processIncomingNIP4Message, settings.enableNIP17]);
 
   // Start NIP-17 subscription for all conversations
   const startNIP17Subscription = useCallback(async () => {
@@ -970,7 +973,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
             }
           }
-        } catch (error) {
+    } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-17 subscription error:', error);
           }
@@ -989,52 +992,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('DMS: DataManager: NIP-17 subscription started successfully');
       logger.log('DMS: DataManager: NIP-17 subscription ref:', !!nip17SubscriptionRef.current);
       
+      // This was the last subscription, we're ready
+      setLoadingPhase('ready');
+      
     } catch (error) {
       logger.error('DMS: DataManager: Failed to start NIP-17 subscription:', error);
       setSubscriptions(prev => ({ ...prev, nip17: false }));
     }
   }, [user, nostr, lastSync.nip17, settings.enableNIP17, processIncomingNIP17Message]);
 
-  // Stage 3: Create subscription for new messages going forward for a specific protocol
-  const startMessageSubscription = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 3 - Starting message subscription`);
-    
-    if (protocol === 'nip4') {
-      await startNIP4Subscription();
-    } else if (protocol === 'nip17') {
-      await startNIP17Subscription();
-    }
-  }, [startNIP4Subscription, startNIP17Subscription]);
 
-  // Load messages for a specific protocol using the 3-stage process
-  const loadMessagesForProtocol = useCallback(async (protocol: 'nip4' | 'nip17') => {
-    // Check if we're already loading this protocol
-    if (protocolLoading[protocol]) {
-      logger.log(`DMS: DataManager: Already loading ${protocol} messages, skipping duplicate request`);
-      return;
-    }
-    
-    logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Starting 3-stage process`);
-    setProtocolLoading(prev => ({ ...prev, [protocol]: true }));
-    
-    try {
-      const sinceTimestamp = await loadPastMessages(protocol);
-      if (sinceTimestamp !== undefined) {
-        await queryMissedMessages(protocol, sinceTimestamp);
-      }
-      await startMessageSubscription(protocol);
-      
-      // Update last sync time for this protocol to current time
-      const currentTime = Math.floor(Date.now() / 1000); // Convert to Unix timestamp
-      setLastSync(prev => ({ ...prev, [protocol]: currentTime }));
-      
-      logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] 3-stage process complete. Updated lastSync.${protocol} to ${new Date(currentTime * 1000).toISOString()}`);
-    } catch (error) {
-      logger.error(`DMS: DataManager: [${protocol.toUpperCase()}] Error in 3-stage process:`, error);
-    } finally {
-      setProtocolLoading(prev => ({ ...prev, [protocol]: false }));
-    }
-  }, [loadPastMessages, queryMissedMessages, startMessageSubscription, setLastSync]);
+
+
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
@@ -1046,6 +1015,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     
     logger.log('DMS: DataManager: Starting message loading for all enabled protocols');
     setIsLoading(true);
+    setLoadingPhase('cache');
     
     try {
       // Stage 1: Load from cache for all protocols
@@ -1055,6 +1025,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       
       // Stage 2: Query relays for all protocols
       logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
+      setLoadingPhase('relays');
       if (nip4SinceTimestamp !== undefined) {
         await queryMissedMessages('nip4', nip4SinceTimestamp);
       }
@@ -1064,19 +1035,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       
       // Stage 3: Set up subscriptions for all protocols
       logger.log('DMS: DataManager: Stage 3: Setting up real-time subscriptions');
-      await startMessageSubscription('nip4');
+      setLoadingPhase('subscriptions');
+      await startNIP4Subscription();
       if (settings.enableNIP17) {
-        await startMessageSubscription('nip17');
+        await startNIP17Subscription();
       }
       
       logger.log('DMS: DataManager: All protocol loading complete');
       setHasInitialLoadCompleted(true);
+      setLoadingPhase('ready');
     } catch (error) {
       logger.error('DMS: DataManager: Error in message loading:', error);
+      setLoadingPhase('ready');
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, loadPastMessages, queryMissedMessages, startMessageSubscription, settings.enableNIP17]);
+  }, [isLoading, loadPastMessages, queryMissedMessages, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
@@ -1086,9 +1060,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
     
     if (enabled) {
-      // User enabled NIP-17 - load messages now
+      // User enabled NIP-17 - load messages now using 3-stage approach
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
-      await loadMessagesForProtocol('nip17');
+      const sinceTimestamp = await loadPastMessages('nip17');
+      if (sinceTimestamp !== undefined) {
+        await queryMissedMessages('nip17', sinceTimestamp);
+      }
+      await startNIP17Subscription();
     } else {
       // User disabled NIP-17 - clear NIP-17 data and reset sync timestamp
       logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
@@ -1144,7 +1122,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         writeAllMessagesToStore();
       }, 500);
     }
-  }, []); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPastMessages, queryMissedMessages, startNIP17Subscription, userPubkey]);
   
   // Track previous NIP-17 setting to detect actual changes
   const prevNIP17Setting = useRef(settings.enableNIP17);
@@ -1347,6 +1325,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const contextValue: DataManagerContextType = {
     messages,
     isLoading,
+    loadingPhase,
     lastSync,
     conversations,
     getDebugInfo,
