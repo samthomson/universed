@@ -36,7 +36,7 @@ import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/hooks/useDirectMessages";
 import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
-import type { NostrEvent } from "@/types/nostr";
+import type { DecryptedMessage } from "@/types/nostr";
 
 export interface MessageItemConfig {
   showContextMenu: boolean;
@@ -50,12 +50,12 @@ export interface MessageItemConfig {
 }
 
 export interface BaseMessageItemProps {
-  message: NostrEvent;
+  message: DecryptedMessage;
   showAvatar: boolean;
   config: MessageItemConfig;
-  onReply?: (message: NostrEvent) => void;
-  onPin?: (message: NostrEvent) => void;
-  onDelete?: (message: NostrEvent, reason?: string) => void;
+  onReply?: (message: DecryptedMessage) => void;
+  onPin?: (message: DecryptedMessage) => void;
+  onDelete?: (message: DecryptedMessage, reason?: string) => void;
   onBan?: (pubkey: string, reason?: string) => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
   communityId?: string;
@@ -271,6 +271,18 @@ function BaseMessageItemComponent({
             })}>
               <div className="flex items-center gap-2">
                 {(() => {
+                  // Check if this message has an error
+                  if (message.error) {
+                    return (
+                      <div className="w-full">
+                        <div className="text-sm text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded-lg border border-red-200 dark:border-red-800">
+                          <div className="font-medium">Message Error:</div>
+                          <div className="text-xs">{message.error}</div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   // Check if this is a marketplace item message
                   const marketplaceItem = parseMarketplaceItemMessage(message.content);
                   if (marketplaceItem) {
@@ -287,8 +299,15 @@ function BaseMessageItemComponent({
                     );
                   }
 
+                  // Check if we have decrypted content to display
+                  const displayContent = message.decryptedContent || message.content;
+
                   return (
-                    <NoteContent event={message} className="text-sm leading-relaxed text-left" onNavigateToDMs={onNavigateToDMs} />
+                    <NoteContent 
+                      event={{ ...message, content: displayContent }} 
+                      className="text-sm leading-relaxed text-left" 
+                      onNavigateToDMs={onNavigateToDMs} 
+                    />
                   );
                 })()}
                 {isSending && !showAvatar && (

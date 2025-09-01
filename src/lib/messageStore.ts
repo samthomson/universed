@@ -5,7 +5,7 @@ import type { NostrEvent } from '@/types/nostr';
 
 // Match the in-memory structure exactly
 interface StoredParticipant {
-  messages: NostrEvent[];
+  messages: NostrEvent[]; // Store only basic NostrEvent in IndexedDB
   lastActivity: number;
   hasNIP4: boolean;
   hasNIP17: boolean;

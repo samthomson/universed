@@ -5,7 +5,7 @@ import { useSendDM } from '@/hooks/useSendDM';
 import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
-import type { NostrEvent } from '@/types/nostr';
+import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
 import type { MessageProtocol } from '@/hooks/useDirectMessages';
 import { MESSAGE_PROTOCOL } from '@/hooks/useDirectMessages';
 
@@ -44,9 +44,9 @@ type LoadingPhase = typeof LOADING_PHASES[keyof typeof LOADING_PHASES];
 
 interface DataManagerContextType {
   messages: Map<string, {
-    messages: NostrEvent[];
+    messages: DecryptedMessage[];
     lastActivity: number;
-    lastMessage: NostrEvent | null;
+    lastMessage: DecryptedMessage | null;
     hasNIP4: boolean;
     hasNIP17: boolean;
   }>;
@@ -59,11 +59,11 @@ interface DataManagerContextType {
   conversations: {
     id: string;
     pubkey: string;
-    lastMessage: NostrEvent | null;
+    lastMessage: DecryptedMessage | null;
     lastActivity: number;
     hasNIP4Messages: boolean;
     hasNIP17Messages: boolean;
-    recentMessages: NostrEvent[];
+    recentMessages: DecryptedMessage[];
     isKnown: boolean;
     isRequest: boolean;
     lastMessageFromUser: boolean;
@@ -159,9 +159,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
 
   const [messages, setMessages] = useState<Map<string, {
-    messages: NostrEvent[];
+    messages: DecryptedMessage[];
     lastActivity: number;
-    lastMessage: NostrEvent | null;
+    lastMessage: DecryptedMessage | null;
     hasNIP4: boolean;
     hasNIP17: boolean;
   }>>(new Map());
@@ -469,16 +469,46 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
           // Load filtered cached messages into state
           const newState = new Map();
-          Object.entries(filteredParticipants).forEach(([participantPubkey, participant]) => {
-            // Messages are already in NostrEvent format, just use them directly
+          for (const [participantPubkey, participant] of Object.entries(filteredParticipants)) {
+            // Messages from IndexedDB are encrypted - decrypt them on read
+            const processedMessages = await Promise.all(participant.messages.map(async (msg) => {
+              // Check if this is an encrypted message that needs decryption
+              if (msg.kind === 4) {
+                // NIP-4 message - decrypt it
+                const isFromUser = msg.pubkey === user?.pubkey;
+                const recipientPTag = msg.tags?.find(([name]) => name === 'p')?.[1];
+                const otherPubkey = isFromUser ? recipientPTag : msg.pubkey;
+                
+                if (otherPubkey && otherPubkey !== user?.pubkey) {
+                  const { decryptedContent, error } = await decryptNIP4Message(msg, otherPubkey);
+                  return {
+                    ...msg,
+                    content: msg.content, // Keep original encrypted content
+                    decryptedContent: decryptedContent,
+                    error: error,
+                  } as NostrEvent & { decryptedContent?: string; error?: string };
+                }
+              } else if (msg.kind === 1059) {
+                // NIP-17 message - decrypt it
+                const { processedMessage, error } = await processNIP17GiftWrap(msg);
+                return {
+                  ...processedMessage,
+                  error: error,
+                } as NostrEvent & { decryptedContent?: string; error?: string };
+              }
+              
+              // For non-encrypted messages, just return as-is
+              return msg;
+            }));
+            
             newState.set(participantPubkey, {
-              messages: participant.messages,
+              messages: processedMessages,
               lastActivity: participant.lastActivity,
-              lastMessage: participant.messages.length > 0 ? participant.messages[participant.messages.length - 1] : null, // Last after sorting (newest)
+              lastMessage: processedMessages.length > 0 ? processedMessages[processedMessages.length - 1] : null, // Last after sorting (newest)
               hasNIP4: participant.hasNIP4,
               hasNIP17: participant.hasNIP17,
             });
-          });
+          }
 
           // Update state with cached messages
           setMessages(newState);
@@ -543,12 +573,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           if (!otherPubkey || otherPubkey === user?.pubkey) continue;
 
           // Decrypt the NIP-4 message content using reusable method
-          const decryptedContent = await decryptNIP4Message(message, otherPubkey);
+          const { decryptedContent, error } = await decryptNIP4Message(message, otherPubkey);
 
           // Create decrypted message
-          const decryptedMessage: NostrEvent & { clientFirstSeen?: number } = {
+          const decryptedMessage: DecryptedMessage = {
             ...message,
-            content: decryptedContent,
+            content: message.content, // Keep original encrypted content
+            decryptedContent: decryptedContent, // Store decrypted content
+            error: error, // Add error field
           };
 
           // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
@@ -605,7 +637,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
 
           // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
-          const messageWithAnimation: NostrEvent & { clientFirstSeen?: number } = {
+          const messageWithAnimation: DecryptedMessage = {
             ...processedMessage,
           };
 
@@ -651,19 +683,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
-  const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<string> => {
+  const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<{ decryptedContent: string; error?: string }> => {
     try {
       if (user?.signer?.nip04) {
-        return await user.signer.nip04.decrypt(otherPubkey, event.content);
+        const decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
+        return { decryptedContent };
       } else {
         logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${event.id}`);
-        return '[Encrypted - No decryption available]';
+        return { 
+          decryptedContent: '', 
+          error: 'No NIP-04 decryption available' 
+        };
       }
     } catch (error) {
       logger.error(`DMS: DataManager: Failed to decrypt NIP-4 message ${event.id}:`, error);
-      return '[Decryption failed]';
+      return { 
+        decryptedContent: '', 
+        error: 'Decryption failed' 
+      };
     }
   }, [user]);
+
+  
 
   // Helper to create an empty participant with default values
   const createEmptyParticipant = useCallback(() => ({
@@ -675,7 +716,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }), []);
 
   // Helper to sort messages and update participant state
-  const sortAndUpdateParticipantState = useCallback((participant: { messages: NostrEvent[]; lastActivity: number; lastMessage: NostrEvent | null }) => {
+  const sortAndUpdateParticipantState = useCallback((participant: { messages: DecryptedMessage[]; lastActivity: number; lastMessage: DecryptedMessage | null }) => {
     participant.messages.sort((a, b) => a.created_at - b.created_at); // Oldest first
     if (participant.messages.length > 0) {
       participant.lastActivity = participant.messages[participant.messages.length - 1].created_at; // Last after sorting (newest)
@@ -685,9 +726,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Helper to merge new messages into existing state
   const mergeMessagesIntoState = useCallback((newState: Map<string, {
-    messages: NostrEvent[];
+    messages: DecryptedMessage[];
     lastActivity: number;
-    lastMessage: NostrEvent | null;
+    lastMessage: DecryptedMessage | null;
     hasNIP4: boolean;
     hasNIP17: boolean;
   }>) => {
@@ -728,7 +769,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const debouncedWriteRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reusable method to add a message to the state
-  const addMessageToState = useCallback((message: NostrEvent & { isSending?: boolean; clientFirstSeen?: number }, conversationPartner: string, protocol: MessageProtocol) => {
+  const addMessageToState = useCallback((message: DecryptedMessage, conversationPartner: string, protocol: MessageProtocol) => {
     setMessages(prev => {
       const newMap = new Map(prev);
       const existing = newMap.get(conversationPartner);
@@ -827,12 +868,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     // Decrypt the message content
-    const decryptedContent = await decryptNIP4Message(event, otherPubkey);
+    const { decryptedContent, error } = await decryptNIP4Message(event, otherPubkey);
 
     // Create decrypted message with clientFirstSeen for animation
-    const decryptedMessage: NostrEvent & { clientFirstSeen?: number } = {
+    const decryptedMessage: DecryptedMessage = {
       ...event,
-      content: decryptedContent,
+      content: event.content, // Keep original encrypted content
+      decryptedContent: decryptedContent, // Store decrypted content
+      error: error, // Add error field
     };
 
     // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
@@ -848,13 +891,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, decryptNIP4Message, addMessageToState]);
 
   // Reusable method to process NIP-17 Gift Wrap messages
-  const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<{ processedMessage: NostrEvent; conversationPartner: string }> => {
+  const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<{ processedMessage: NostrEvent & { decryptedContent?: string; error?: string }; conversationPartner: string; error?: string }> => {
     if (!user?.signer?.nip44) {
-      // No decryption available - store with error placeholder
+      // No decryption available - store with error
       return {
         processedMessage: {
           ...event,
-          content: '[No NIP-44 decryption available]',
+          content: '', // Keep original encrypted content
+          decryptedContent: '', // No decrypted content
+          error: 'No NIP-44 decryption available',
         },
         conversationPartner: event.pubkey,
       };
@@ -864,42 +909,48 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Decrypt Gift Wrap → Seal → Private DM
       const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
       const sealEvent = JSON.parse(sealContent) as NostrEvent;
-
+      
       if (sealEvent.kind !== 13) {
-        // Invalid Seal format - store with error placeholder
+        // Invalid Seal format - store with error
         return {
           processedMessage: {
             ...event,
-            content: `[Invalid Seal format - expected kind 13, got ${sealEvent.kind}]`,
+            content: '', // Keep original encrypted content
+            decryptedContent: '', // No decrypted content
+            error: `Invalid Seal format - expected kind 13, got ${sealEvent.kind}`,
           },
           conversationPartner: event.pubkey,
         };
       }
-
+      
       const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
       const messageEvent = JSON.parse(messageContent) as NostrEvent;
-
+      
       if (messageEvent.kind !== 14) {
-        // Invalid message format - store with error placeholder
+        // Invalid message format - store with error
         return {
           processedMessage: {
             ...event,
-            content: `[Invalid message format - expected kind 14, got ${messageEvent.kind}]`,
+            content: '', // Keep original encrypted content
+            decryptedContent: '', // No decrypted content
+            error: `Invalid message format - expected kind 14, got ${messageEvent.kind}`,
           },
           conversationPartner: event.pubkey,
         };
       }
-
+      
       // Determine conversation partner
       let conversationPartner: string;
       if (sealEvent.pubkey === user.pubkey) {
         const recipient = messageEvent.tags.find(([name]) => name === 'p')?.[1];
         if (!recipient || recipient === user.pubkey) {
-          // Invalid recipient - store with error placeholder
+          // Invalid recipient - store with error
           return {
             processedMessage: {
               ...event,
-              content: '[Invalid recipient - malformed p tag]',
+              content: '', // Keep original encrypted content
+              decryptedContent: '', // No decrypted content
+              error: 'Invalid recipient - malformed p tag',
             },
             conversationPartner: event.pubkey,
           };
@@ -909,25 +960,31 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       } else {
         conversationPartner = sealEvent.pubkey;
       }
-
+      
       return {
-        processedMessage: messageEvent,
+        processedMessage: {
+          ...messageEvent,
+          content: event.content, // Keep original encrypted content
+          decryptedContent: messageEvent.content, // Store decrypted content
+        },
         conversationPartner,
       };
     } catch (error) {
-      // Decryption/parsing failed - store with error placeholder
+      // Decryption/parsing failed - store with error
       nip17ErrorLogger(error);
       return {
         processedMessage: {
           ...event,
-          content: '[Failed to decrypt or parse NIP-17 message]',
+          content: '', // Keep original encrypted content
+          decryptedContent: '', // No decrypted content
+          error: 'Failed to decrypt or parse NIP-17 message',
         },
         conversationPartner: event.pubkey,
       };
     }
   }, [user]);
 
-  // Process incoming NIP-17 messages and add them to the data structure
+  // Reusable method to process NIP-17 Gift Wrap messages
   const processIncomingNIP17Message = useCallback(async (event: NostrEvent) => {
     if (!user?.pubkey) return;
 
@@ -943,7 +1000,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const { processedMessage, conversationPartner } = await processNIP17GiftWrap(event);
 
     // Add clientFirstSeen for animation
-    const messageWithAnimation: NostrEvent & { clientFirstSeen?: number } = {
+    const messageWithAnimation: DecryptedMessage = {
       ...processedMessage,
     };
 
@@ -1281,11 +1338,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const conversationsList: {
       id: string;
       pubkey: string;
-      lastMessage: NostrEvent | null;
+      lastMessage: DecryptedMessage | null;
       lastActivity: number;
       hasNIP4Messages: boolean;
       hasNIP17Messages: boolean;
-      recentMessages: NostrEvent[];
+      recentMessages: DecryptedMessage[];
       isKnown: boolean;
       isRequest: boolean;
       lastMessageFromUser: boolean;
@@ -1329,11 +1386,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     messages.forEach((participant) => {
       totalMessageCount += participant.messages.length;
       if (participant.hasNIP4) {
-        const nip4Messages = participant.messages.filter((msg: NostrEvent) => msg.kind === 4);
+        const nip4Messages = participant.messages.filter((msg: DecryptedMessage) => msg.kind === 4);
         nip4Count += nip4Messages.length;
       }
       if (participant.hasNIP17) {
-        const nip17Messages = participant.messages.filter((msg: NostrEvent) => msg.kind === 1059 || msg.kind === 14);
+        const nip17Messages = participant.messages.filter((msg: DecryptedMessage) => msg.kind === 1059 || msg.kind === 14);
         nip17Count += nip17Messages.length;
       }
     });
@@ -1360,17 +1417,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       const { writeMessagesToDB } = await import('@/lib/messageStore');
 
-      // Convert current messages state to MessageStore format (same structure!)
+      // Convert current messages state to MessageStore format
+      // Store the ORIGINAL encrypted messages, not decrypted content
       const messageStore = {
         participants: {} as Record<string, {
           messages: {
             id: string;
             pubkey: string;
-            content: string;
+            content: string; // This will be the ORIGINAL encrypted content
             created_at: number;
             kind: number;
             tags: string[][];
             sig: string;
+            isOriginallyEncrypted?: boolean; // Flag to indicate if this was decrypted
+            originalEncryptedContent?: string; // Store original encrypted content
           }[];
           lastActivity: number;
           hasNIP4: boolean;
@@ -1384,15 +1444,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       messages.forEach((participant, participantPubkey) => {
         messageStore.participants[participantPubkey] = {
-          messages: participant.messages.map(msg => ({
-            id: msg.id,
-            pubkey: msg.pubkey,
-            content: msg.content,
-            created_at: msg.created_at,
-            kind: msg.kind,
-            tags: msg.tags,
-            sig: msg.sig,
-          })),
+          messages: participant.messages.map(msg => {
+            // SECURITY: Store only the original encrypted content, not decrypted
+            // Drop decryptedContent and error when saving to IndexedDB
+            
+            return {
+              id: msg.id,
+              pubkey: msg.pubkey,
+              content: msg.content, // Keep original encrypted content
+              created_at: msg.created_at,
+              kind: msg.kind,
+              tags: msg.tags,
+              sig: msg.sig,
+              // Drop decryptedContent and error when saving to IndexedDB
+            } as NostrEvent;
+          }),
           lastActivity: participant.lastActivity,
           hasNIP4: participant.hasNIP4,
           hasNIP17: participant.hasNIP17,
@@ -1468,7 +1534,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
 
       // Create optimistic message with plain text content for display
-      const optimisticMessage: NostrEvent & { isSending?: boolean; clientFirstSeen?: number } = {
+      const optimisticMessage: DecryptedMessage = {
         id: `optimistic-${Date.now()}-${Math.random()}`, // Temporary ID for optimistic message
         kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
         pubkey: userPubkey,

@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthor } from "@/hooks/useAuthor";
+import { AlertTriangle } from "lucide-react";
 
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import type { DMConversation } from "@/lib/dmUtils";
+import type { DecryptedMessage } from "@/types/nostr";
 
 interface DMConversationListProps {
   conversations: DMConversation[];
@@ -34,10 +36,26 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
     ? new Date(conversation.lastMessage.created_at * 1000)
     : new Date();
 
-  // Get the display content - messages are now pre-decrypted
+  // Get the display content - use decrypted content if available, fall back to content
   const getDisplayContent = () => {
     if (!conversation.lastMessage) return "";
-    return conversation.lastMessage.content;
+    
+    const lastMessage = conversation.lastMessage as DecryptedMessage;
+    
+    // If there's an error, show error indicator
+    if (lastMessage.error) {
+      return null; // Return null to trigger error display
+    }
+    
+    // Use decrypted content if available, otherwise fall back to content
+    return lastMessage.decryptedContent || lastMessage.content;
+  };
+
+  // Check if we should show error indicator
+  const shouldShowError = () => {
+    if (!conversation.lastMessage) return false;
+    const lastMessage = conversation.lastMessage as DecryptedMessage;
+    return !!lastMessage.error;
   };
 
   // Helper function to highlight matching text
@@ -112,13 +130,24 @@ function ConversationItem({ conversation, isSelected, onSelect, searchQuery }: C
                   isSelected ? 'text-foreground dark:text-gray-300' : 'text-muted-foreground'
                 }`}>→</span>
               )}
-              <span className="truncate">
-                {searchQuery && conversation.lastMessage?.content && conversation.lastMessage.content.toLowerCase().includes(searchQuery.toLowerCase()) ? (
-                  highlightText(getDisplayContent(), searchQuery)
-                ) : (
-                  getDisplayContent()
-                )}
-              </span>
+              
+              {/* Show error indicator if there's a decryption error */}
+              {shouldShowError() ? (
+                <div className="flex items-center gap-1 text-red-500 dark:text-red-400">
+                  <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                  <span className="text-xs">Decryption error</span>
+                </div>
+              ) : (
+                <span className="truncate">
+                  {(() => {
+                    const displayContent = getDisplayContent();
+                    if (searchQuery && displayContent && displayContent.toLowerCase().includes(searchQuery.toLowerCase())) {
+                      return highlightText(displayContent, searchQuery);
+                    }
+                    return displayContent;
+                  })()}
+                </span>
+              )}
             </div>
           </div>
       </div>
