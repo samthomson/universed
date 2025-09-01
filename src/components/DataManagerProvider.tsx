@@ -1088,14 +1088,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // User enabled NIP-17 - load messages now using 3-stage approach
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
       const sinceTimestamp = await loadPastMessages('nip17');
+      let lastMessageTimestamp: number | undefined;
       if (sinceTimestamp !== undefined) {
-        const lastMessageTimestamp = await queryMissedMessages('nip17', sinceTimestamp);
-        // Use the timestamp of the last processed message for subscription
-        await startNIP17Subscription(lastMessageTimestamp);
-      } else {
-        // No cached data, start subscription from now
-        await startNIP17Subscription();
+        lastMessageTimestamp = await queryMissedMessages('nip17', sinceTimestamp);
       }
+      await startNIP17Subscription(lastMessageTimestamp);
     } else {
       // User disabled NIP-17 - clear NIP-17 data and reset sync timestamp
       logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
