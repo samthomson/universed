@@ -15,8 +15,7 @@ export function LegacyProtocolWarning({ className = '' }: LegacyProtocolWarningP
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs z-50" align="center" collisionPadding={8}>
         <p className="text-sm">
-          This message uses the deprecated NIP-04 encryption method, which is less secure than modern NIP-17.
-          New messages will use the more secure NIP-17 protocol automatically.
+          NIP-04 encryption, legacy support only
         </p>
       </TooltipContent>
     </Tooltip>
