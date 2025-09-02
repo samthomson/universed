@@ -209,8 +209,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   useEffect(() => {
     if (newConversations.length > 0) {
       toast({
-        title: "✅ Conversations Loaded",
-        description: `Found ${newConversations.length} conversations from DataManager`,
+        title: "✅ Messages Loaded",
+        description: `Found ${newConversations.length} conversations`,
       });
     }
   }, [newConversations.length, toast]);
