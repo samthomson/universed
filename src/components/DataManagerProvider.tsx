@@ -174,6 +174,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Track whether initial load has already completed
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
 
+  // Track whether we should save immediately (for relay messages)
+  const [shouldSaveImmediately, setShouldSaveImmediately] = useState(false);
+
   // Track scan progress for user feedback
   const [scanProgress, setScanProgress] = useState<{
     nip4: { current: number; status: string } | null;
@@ -211,6 +214,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log('DMS: DataManager: Starting initial message loading process');
     startMessageLoading();
   }, [userPubkey, hasInitialLoadCompleted, isLoading]); // Only depend on user pubkey - settings are handled separately
+
+
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
   const loadPastNIP4Messages = useCallback(async (sinceTimestamp?: number) => {
@@ -533,19 +538,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<number | undefined> => {
+  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<{ lastMessageTimestamp?: number; messageCount: number }> => {
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
 
     // Skip NIP-17 if it's disabled
     if (protocol === MESSAGE_PROTOCOL.NIP17 && !settings.enableNIP17) {
       logger.log('DMS: DataManager: NIP-17 disabled, skipping relay querying');
-      return sinceTimestamp; // Return the input timestamp if no processing happened
+      return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
     }
 
     // Ensure we have a user pubkey
     if (!userPubkey) {
       logger.log('DMS: DataManager: No user pubkey available, skipping relay querying');
-      return sinceTimestamp; // Return the input timestamp if no processing happened
+      return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
     }
 
     if (protocol === MESSAGE_PROTOCOL.NIP04) {
@@ -613,7 +618,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const newestMessage = messages.reduce((newest, msg) =>
           msg.created_at > newest.created_at ? msg : newest
         );
-        return newestMessage.created_at;
+        return { lastMessageTimestamp: newestMessage.created_at, messageCount: messages.length };
+      } else {
+        return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
       }
     } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
       const relayStartTime = Date.now();
@@ -669,12 +676,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const newestMessage = messages.reduce((newest, msg) =>
           msg.created_at > newest.created_at ? msg : newest
         );
-        return newestMessage.created_at;
+        return { lastMessageTimestamp: newestMessage.created_at, messageCount: messages.length };
+      } else {
+        return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
       }
     }
 
     // If no messages were processed, return the input timestamp
-    return sinceTimestamp;
+    return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
   }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
@@ -832,9 +841,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       logger.log(`DMS: DataManager: State update complete. Total conversations: ${newMap.size}`);
-
-      // Trigger debounced write to IndexedDB after adding message to state
-      triggerDebouncedWrite();
 
       return newMap;
     });
@@ -1181,22 +1187,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       setLoadingPhase(LOADING_PHASES.RELAYS);
 
       // Always query NIP-4 relays for new messages (even if no cached messages)
-      const nip4LastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP04, nip4SinceTimestamp);
+      const nip4Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP04, nip4SinceTimestamp);
 
       // Query NIP-17 relays if enabled (even if no cached messages)
-      let nip17LastMessageTimestamp: number | undefined;
+      let nip17Result: { lastMessageTimestamp?: number; messageCount: number } | undefined;
       if (settings.enableNIP17) {
-        nip17LastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
+        nip17Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
       }
 
-      // If we got new messages from either protocol, save to IndexedDB
-      const hadNewNIP4Messages = nip4LastMessageTimestamp !== nip4SinceTimestamp;
-      const hadNewNIP17Messages = settings.enableNIP17 && nip17LastMessageTimestamp !== nip17SinceTimestamp;
+      // If we got new messages from either protocol, trigger immediate save
+      const totalNewMessages = nip4Result.messageCount + (nip17Result?.messageCount || 0);
+      if (totalNewMessages > 0) {
+        logger.log(`DMS: DataManager: Found ${totalNewMessages} new messages from relays (NIP-4: ${nip4Result.messageCount}, NIP-17: ${nip17Result?.messageCount || 0}), will save to IndexedDB after state update`);
 
-      if (hadNewNIP4Messages || hadNewNIP17Messages) {
-        logger.log(`DMS: DataManager: Found new messages from relays (NIP-4: ${hadNewNIP4Messages}, NIP-17: ${hadNewNIP17Messages}), saving to IndexedDB`);
-        await writeAllMessagesToStore();
-        logger.log(`DMS: DataManager: Saved new relay messages to IndexedDB`);
+        // Set a flag to trigger immediate save when state updates
+        setShouldSaveImmediately(true);
       }
 
       // Stage 3: Set up subscriptions for all protocols
@@ -1205,9 +1210,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Use the timestamp of the last processed message for subscriptions
       // This ensures no gaps between relay queries and subscriptions
-      await startNIP4Subscription(nip4LastMessageTimestamp);
+      await startNIP4Subscription(nip4Result.lastMessageTimestamp);
       if (settings.enableNIP17) {
-        await startNIP17Subscription(nip17LastMessageTimestamp);
+        await startNIP17Subscription(nip17Result?.lastMessageTimestamp);
       }
 
       logger.log('DMS: DataManager: All protocol loading complete');
@@ -1232,11 +1237,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // User enabled NIP-17 - load messages now using 3-stage approach
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
       const sinceTimestamp = await loadPastMessages(MESSAGE_PROTOCOL.NIP17);
-      let lastMessageTimestamp: number | undefined;
+      let nip17Result: { lastMessageTimestamp?: number; messageCount: number } | undefined;
       if (sinceTimestamp !== undefined) {
-        lastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, sinceTimestamp);
+        nip17Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, sinceTimestamp);
       }
-      await startNIP17Subscription(lastMessageTimestamp);
+      await startNIP17Subscription(nip17Result?.lastMessageTimestamp);
     } else {
       // User disabled NIP-17 - clear NIP-17 data and reset sync timestamp
       logger.log('DMS: DataManager: NIP-17 disabled by user, clearing data');
@@ -1419,6 +1424,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
+    logger.log(`DMS: DataManager: writeAllMessagesToStore called with ${messages.size} participants`);
+
     try {
       const { writeMessagesToDB } = await import('@/lib/messageStore');
 
@@ -1470,7 +1477,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       });
 
+      logger.log(`DMS: DataManager: About to write ${Object.keys(messageStore.participants).length} participants to IndexedDB`);
       await writeMessagesToDB(userPubkey, messageStore);
+      logger.log(`DMS: DataManager: writeMessagesToDB completed successfully`);
 
       // Update lastSync timestamps to current time after successful save
       const currentTime = Math.floor(Date.now() / 1000); // Convert to Unix timestamp
@@ -1496,6 +1505,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       debouncedWriteRef.current = null;
     }, 15000); // 15 seconds
   }, [writeAllMessagesToStore]);
+
+  // Watch messages state and handle debounced saves
+  useEffect(() => {
+    if (messages.size === 0) return; // Don't save empty state
+
+    if (shouldSaveImmediately) {
+      // Clear the flag and save immediately
+      setShouldSaveImmediately(false);
+      logger.log('DMS: DataManager: Triggering immediate save after relay message processing');
+      writeAllMessagesToStore();
+    } else {
+      // Normal debounced save for real-time messages
+      triggerDebouncedWrite();
+    }
+  }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
 
   // Debug method to clear IndexedDB for current user
   const clearIndexedDB = useCallback(async () => {
