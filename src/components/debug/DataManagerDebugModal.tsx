@@ -1,13 +1,13 @@
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Database, Save, Trash2 } from "lucide-react";
+import { MessageSquare, RefreshCw } from "lucide-react";
 import { useDataManager } from "@/components/DataManagerProvider";
+import { format } from "date-fns";
 
 interface DataManagerDebugModalProps {
   open: boolean;
@@ -17,18 +17,16 @@ interface DataManagerDebugModalProps {
 export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugModalProps) {
   const dataManager = useDataManager();
   const debugInfo = dataManager.getDebugInfo();
+  const { subscriptions } = dataManager;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5" />
-            DataManager Debug
+            <MessageSquare className="w-5 h-5" />
+            Messages Summary
           </DialogTitle>
-          <DialogDescription>
-            Current state of the DataManager singleton
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -48,14 +46,16 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
                 {debugInfo.nip4Count}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-muted-foreground">Last Sync:</span>
-              <span className="text-muted-foreground">{debugInfo.nip4Sync}</span>
+              <span className="text-muted-foreground">
+                {debugInfo.nip4Sync ? format(debugInfo.nip4Sync, 'h:mm a do MMMM yyyy') : 'Never'}
+              </span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Subscribed:</span>
-              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip4Subscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                {debugInfo.nip4Subscribed ? 'Yes' : 'No'}
+              <span className={`text-xs px-1.5 py-0.5 rounded ${subscriptions.nip4 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {subscriptions.nip4 ? 'Yes' : 'No'}
               </span>
             </div>
           </div>
@@ -68,47 +68,36 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
                 {debugInfo.nip17Count}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-muted-foreground">Last Sync:</span>
-              <span className="text-muted-foreground">{debugInfo.nip17Sync}</span>
+              <span className="text-muted-foreground">
+                {debugInfo.nip17Sync ? format(debugInfo.nip17Sync, 'h:mm a do MMMM yyyy') : 'Never'}
+              </span>
             </div>
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs mb-1">
               <span className="text-muted-foreground">Enabled:</span>
-              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip17Enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded ${debugInfo.nip17Enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                 {debugInfo.nip17Enabled ? 'Yes' : 'No'}
               </span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Subscribed:</span>
-              <span className={`text-xs px-2 py-1 rounded ${debugInfo.nip17Subscribed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                {debugInfo.nip17Subscribed ? 'Yes' : 'No'}
+              <span className={`text-xs px-1.5 py-0.5 rounded ${subscriptions.nip17 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {subscriptions.nip17 ? 'Yes' : 'No'}
               </span>
             </div>
           </div>
 
-          {/* Write to Store Button */}
+          {/* Refresh Messages Button */}
           <div className="border-t pt-3">
             <Button
-              onClick={dataManager.writeAllMessagesToStore}
+              onClick={dataManager.resetMessageDataAndCache}
               className="w-full"
               variant="outline"
               size="sm"
             >
-              <Save className="w-4 h-4 mr-2" />
-              Write All Messages to IndexedDB
-            </Button>
-          </div>
-
-          {/* Reset Message Data & Cache Button */}
-          <div className="pt-2">
-            <Button
-              onClick={dataManager.resetMessageDataAndCache}
-              className="w-full"
-              variant="destructive"
-              size="sm"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear IndexedDB & Reset State
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh All Messages
             </Button>
           </div>
         </div>

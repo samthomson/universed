@@ -41,19 +41,19 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const { user } = useCurrentUser();
   const { toast } = useToast();
   // Use the DataManager for all conversation data
-  const { 
-    conversations: newConversations, 
-    isLoading, 
+  const {
+    conversations: newConversations,
+    isLoading,
     loadingPhase,
     isDoingInitialLoad,
-    subscriptions 
+    subscriptions
   } = useDataManager();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
 
-  // Status indicator component
-  const StatusIndicator = () => {
+  // Status indicator component - memoized for performance
+  const StatusIndicator = useMemo(() => {
     if (isLoading) {
       return (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -85,7 +85,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         <span>Disconnected</span>
       </div>
     );
-  };
+  }, [isLoading, subscriptions.nip4, subscriptions.nip17]);
 
   const handleNewDM = useCallback(() => {
     setShowNewDM(true);
@@ -240,7 +240,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       { knownCount: 0, requestsCount: 0 }
     );
   }, [newConversations]);
-  
+
 
   if (!user) {
     return (
@@ -278,7 +278,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <h2 className="font-semibold text-white">Messages</h2>
-                  <StatusIndicator />
+                  {StatusIndicator}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -374,7 +374,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-foreground">Messages</h2>
-              <StatusIndicator />
+              {StatusIndicator}
               <Button
                 variant="ghost"
                 size="icon"

@@ -69,8 +69,6 @@ interface DataManagerContextType {
     nip17Count: number;
     nip4Sync: string;
     nip17Sync: string;
-    nip4Subscribed: boolean;
-    nip17Subscribed: boolean;
     nip17Enabled: boolean;
   };
   writeAllMessagesToStore: () => Promise<void>;
@@ -1413,10 +1411,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       messageCount: totalMessageCount,
       nip4Count,
       nip17Count,
-      nip4Sync: lastSync.nip4 ? new Date(lastSync.nip4 * 1000).toLocaleString() : 'Never',
-      nip17Sync: lastSync.nip17 ? new Date(lastSync.nip17 * 1000).toLocaleString() : 'Never',
-      nip4Subscribed: subscriptions.nip4,
-      nip17Subscribed: subscriptions.nip17,
+      nip4Sync: lastSync.nip4 ? new Date(lastSync.nip4 * 1000) : null,
+      nip17Sync: lastSync.nip17 ? new Date(lastSync.nip17 * 1000) : null,
       nip17Enabled: settings.enableNIP17,
     };
   };
