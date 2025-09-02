@@ -2,6 +2,15 @@
 
 > Single‑relay dog‑food build to validate core community experience before broader release.
 
+---
+
+### Legend
+- ✅ — Complete
+- 🚧 - Under construction (in progress)
+- 🙅‍♀️ - Yeah, nah...
+
+---
+
 ## Scope & Constraints
 - **Relay:** `universes.to` (single relay for DF)
 - **URL:** DF app served at **`universes.social`**
