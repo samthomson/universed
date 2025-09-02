@@ -30,7 +30,7 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  // Respect user setting from MessagingSettings (see UserSettingsDialog -> MessagingSettings)
+  
   const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
 
   return useQuery({

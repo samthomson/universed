@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle, Settings } from "lucide-react";
+import { Search, Plus, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -7,8 +7,7 @@ import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
-import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
-import { ProtocolIndicator } from "./ProtocolIndicator";
+
 import { UserPanel } from "@/components/layout/UserPanel";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -18,7 +17,6 @@ import { useDirectMessages } from "@/hooks/useDirectMessages";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
 
 
 interface DirectMessagesProps {
@@ -32,7 +30,6 @@ interface DirectMessagesProps {
 export function DirectMessages({ targetPubkey, selectedConversation: propSelectedConversation, onTargetHandled, onNavigateToDMs, onConversationSelect }: DirectMessagesProps = {}) {
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
-  const [showMessagingSettings, setShowMessagingSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DMTabType>('known');
 
@@ -87,14 +84,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           isLoading={false}
           isVirtualized={true}
         />
-        <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
-          {conversation.hasNIP4Messages && (
-            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
-          )}
-          {conversation.hasNIP17Messages && (
-            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
-          )}
-        </div>
+
       </div>
     );
   }, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
@@ -203,7 +193,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       { knownCount: 0, requestsCount: 0 }
     );
   }, [newConversations.conversations]);
-  
+
 
   if (!user) {
     return (
@@ -241,14 +231,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-1">
                   <h2 className="font-semibold text-white">Messages</h2>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-6 h-6 hover:bg-gray-800/60 mobile-touch"
-                    onClick={() => setShowMessagingSettings(true)}
-                  >
-                    <Settings className="w-3 h-3" />
-                  </Button>
                 </div>
                 <Button
                   variant="ghost"
@@ -299,11 +281,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           onConversationCreated={handleConversationCreated}
         />
 
-        {/* Messaging Settings Dialog */}
-        <MessagingSettingsDialog
-          open={showMessagingSettings}
-          onOpenChange={setShowMessagingSettings}
-        />
+
       </div>
     );
   }
@@ -321,14 +299,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1">
               <h2 className="font-semibold text-foreground">Messages</h2>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-5 h-5 hover:bg-accent"
-                onClick={() => setShowMessagingSettings(true)}
-              >
-                <Settings className="w-3 h-3" />
-              </Button>
             </div>
             <Button
               variant="ghost"
@@ -408,11 +378,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         onConversationCreated={handleConversationCreated}
       />
 
-      {/* Messaging Settings Dialog */}
-      <MessagingSettingsDialog
-        open={showMessagingSettings}
-        onOpenChange={setShowMessagingSettings}
-      />
+
     </div>
   );
 
