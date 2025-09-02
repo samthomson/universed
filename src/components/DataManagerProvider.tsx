@@ -42,6 +42,7 @@ interface DataManagerContextType {
   }>;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
+  isDoingInitialLoad: boolean;
   lastSync: {
     nip4: number | null;
     nip17: number | null;
@@ -1508,10 +1509,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [userPubkey]);
 
+  // Derived state for cleaner loading logic
+  const isDoingInitialLoad = isLoading && (loadingPhase === LOADING_PHASES.CACHE || loadingPhase === LOADING_PHASES.RELAYS);
+
   const contextValue: DataManagerContextType = {
     messages,
     isLoading,
     loadingPhase,
+    isDoingInitialLoad,
     lastSync,
     conversations,
     getDebugInfo,

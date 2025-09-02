@@ -86,7 +86,7 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { messages: conversationMessages } = useConversationMessages(conversationId);
-  const { sendMessage, isNIP17Enabled } = useDataManager();
+  const { sendMessage, isNIP17Enabled, isDoingInitialLoad, isLoading } = useDataManager();
   
   // Simple pagination from conversation messages
   const MESSAGES_PER_PAGE = 5; // Reduced for debugging
@@ -107,8 +107,9 @@ export function DMChatArea(
     [displayLimit, conversationMessages.length]
   );
   
-  // todo: rethink these obsolete props
-  const isLoading = false; // DataManager handles loading
+  // Determine if we should show loading state for this conversation
+  // Show loading during initial load OR if we have no messages yet and are still loading (for direct conversation links)
+  const isConversationLoading = isDoingInitialLoad || (conversationMessages.length === 0 && isLoading);
   const loadingOlderMessages = false;
   
   const loadOlderMessages = useCallback(async () => {
@@ -209,7 +210,7 @@ export function DMChatArea(
     <BaseChatArea
       key={conversationId} // Force component remount when conversation changes
       messages={messages || []}
-      isLoading={isLoading}
+      isLoading={isConversationLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
       queryKey={queryKey}

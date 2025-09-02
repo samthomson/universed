@@ -43,9 +43,9 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   // Use the DataManager for all conversation data
   const { 
     conversations: newConversations, 
-    scanProgress, 
     isLoading, 
     loadingPhase,
+    isDoingInitialLoad,
     subscriptions 
   } = useDataManager();
 
@@ -327,12 +327,25 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
             {/* Conversation List */}
             <div className="flex-1 overflow-hidden bg-secondary/30 px-2">
-              <Virtuoso
-                data={filteredDiscoveredConversations}
-                itemContent={conversationItemContent}
-                components={virtuosoComponents}
-                className="h-full"
-              />
+              {/* Show loading state during initial load */}
+              {isDoingInitialLoad ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center text-gray-400">
+                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin opacity-50" />
+                    <p className="text-sm">
+                      {loadingPhase === LOADING_PHASES.CACHE && 'Loading conversations...'}
+                      {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching new messages...'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Virtuoso
+                  data={filteredDiscoveredConversations}
+                  itemContent={conversationItemContent}
+                  components={virtuosoComponents}
+                  className="h-full"
+                />
+              )}
             </div>
           </>
         )}
@@ -412,12 +425,21 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
         {/* Current Conversation List */}
         <div className="flex-1 overflow-hidden px-1">
-          <Virtuoso
-            data={filteredDiscoveredConversations}
-            itemContent={conversationItemContent}
-            components={virtuosoComponents}
-            className="h-full"
-          />
+          {/* Show loading state during initial load */}
+          {isDoingInitialLoad ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin opacity-50" />
+              </div>
+            </div>
+          ) : (
+            <Virtuoso
+              data={filteredDiscoveredConversations}
+              itemContent={conversationItemContent}
+              components={virtuosoComponents}
+              className="h-full"
+            />
+          )}
         </div>
 
         {/* User Panel at the bottom */}
@@ -426,7 +448,21 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
       {/* Chat Area */}
       <div className="flex-1">
-        {selectedConversation ? (
+        {/* Show loading state during initial load, regardless of selected conversation */}
+        {isDoingInitialLoad ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-gray-700">
+                  {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
+                  {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
+                  {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
+                </h3>
+              </div>
+            </div>
+          </div>
+        ) : selectedConversation ? (
           <DMChatArea
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
@@ -436,45 +472,15 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           />
         ) : (
           <div className="flex items-center justify-center h-full">
-            {/* Show loading state when scanning or loading */}
-            {(isLoading || scanProgress.nip4 || scanProgress.nip17) ? (
-              <div className="text-center space-y-6">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-gray-700">
-                    {isLoading ? (
-                      <>
-                        {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
-                        {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
-                        {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
-                      </>
-                    ) : (
-                      'Scanning for messages...'
-                    )}
-                  </h3>
-                  {scanProgress.nip4 && (
-                    <div className="text-sm text-gray-500">
-                      NIP-4: {scanProgress.nip4.current} messages found
-                    </div>
-                  )}
-                  {scanProgress.nip17 && (
-                    <div className="text-sm text-gray-500">
-                      NIP-17: {scanProgress.nip17.current} messages found
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center text-gray-400">
-                <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-                <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
-                <Button onClick={handleNewDM}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Start New Conversation
-                </Button>
-              </div>
-            )}
+            <div className="text-center text-gray-400">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
+              <p className="text-sm mb-4">Choose a conversation to start messaging!</p>
+              <Button onClick={handleNewDM}>
+                <Plus className="w-4 h-4 mr-2" />
+                Start New Conversation
+              </Button>
+            </div>
           </div>
         )}
       </div>
