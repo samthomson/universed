@@ -573,7 +573,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 // NIP-17 Gift Wrap message - decrypt it
                 const { processedMessage, error } = await processNIP17GiftWrap(msg);
                 return {
-                  ...processedMessage,
+                  ...msg, // Keep original Gift Wrap event structure
+                  decryptedContent: processedMessage.decryptedContent, // Store decrypted content
                   error: error,
                 } as NostrEvent & { decryptedContent?: string; error?: string };
               }
@@ -878,6 +879,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           updatedMessages = [...existing.messages];
           updatedMessages[optimisticIndex] = {
             ...message,
+            created_at: existingMessage.created_at, // Preserve optimistic timestamp to maintain position
             clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
           };
         } else {
@@ -1297,7 +1299,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, loadPastMessages, queryMissedMessages, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
+  }, [loadPastMessages, queryMissedMessages, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
@@ -1629,7 +1631,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
       const optimisticMessage: DecryptedMessage = {
         id: optimisticId, // Temporary ID for optimistic message
-        kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
+        kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 1059, // NIP-4 DM or NIP-17 Gift Wrap for display
         pubkey: userPubkey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['p', recipientPubkey]],
