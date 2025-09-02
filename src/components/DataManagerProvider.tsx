@@ -6,7 +6,7 @@ import { useNostr } from '@nostrify/react';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
-import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
+import type { NostrEvent } from '@/types/nostr';
 import type { MessageProtocol } from '@/lib/dmConstants';
 import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
 
@@ -82,6 +82,14 @@ interface MessageProcessingResult {
 interface DecryptionResult {
   decryptedContent: string;
   error?: string;
+}
+
+// Extended DecryptedMessage type
+interface DecryptedMessage extends NostrEvent {
+  decryptedContent?: string;
+  error?: string;
+  isSending?: boolean;
+  clientFirstSeen?: number;
 }
 
 // NIP-17 processing result
@@ -855,46 +863,40 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
 
         // Check if this real message should replace an optimistic message
-        // Look for optimistic messages with same content, author, and similar timestamp (within 30 seconds)
-        const optimisticMessageIndex = existing.messages.findIndex(msg =>
+        const optimisticIndex = existing.messages.findIndex(msg =>
           msg.isSending &&
           msg.pubkey === message.pubkey &&
-          msg.content === message.content &&
+          msg.decryptedContent === message.decryptedContent && // Both have decryptedContent
           Math.abs(msg.created_at - message.created_at) <= 30 // 30 second window
         );
 
-        if (optimisticMessageIndex !== -1) {
-          // Replace the optimistic message with the real one
-          logger.log(`DMS: DataManager: Replacing optimistic message with real message: ${message.id}`);
-          const updatedMessages = [...existing.messages];
-          updatedMessages[optimisticMessageIndex] = message;
-
-          newMap.set(conversationPartner, {
-            ...existing,
-            messages: updatedMessages,
-            lastActivity: message.created_at,
-            lastMessage: message,
-            hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04 ? true : existing.hasNIP4,
-            hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17 ? true : existing.hasNIP17,
-          });
-
-          logger.log(`DMS: DataManager: Replaced optimistic message in conversation with ${conversationPartner}`);
+        let updatedMessages: DecryptedMessage[];
+        if (optimisticIndex !== -1) {
+          // Replace the optimistic message with the real one (preserve animation timestamp)
+          logger.log(`DMS: DataManager: Replacing optimistic message at index ${optimisticIndex} with real message ${message.id}`);
+          const existingMessage = existing.messages[optimisticIndex];
+          updatedMessages = [...existing.messages];
+          updatedMessages[optimisticIndex] = {
+            ...message,
+            clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+          };
         } else {
-          // Add to existing conversation as new message
-          const updatedMessages = [...existing.messages, message];
-          updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
-
-          newMap.set(conversationPartner, {
-            ...existing,
-            messages: updatedMessages,
-            lastActivity: message.created_at,
-            lastMessage: message,
-            hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04 ? true : existing.hasNIP4,
-            hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17 ? true : existing.hasNIP17,
-          });
-
-          logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
+          // Add as new message
+          updatedMessages = [...existing.messages, message];
         }
+
+        updatedMessages.sort((a, b) => a.created_at - b.created_at); // Keep oldest first
+
+        newMap.set(conversationPartner, {
+          ...existing,
+          messages: updatedMessages,
+          lastActivity: message.created_at,
+          lastMessage: message,
+          hasNIP4: protocol === MESSAGE_PROTOCOL.NIP04 ? true : existing.hasNIP4,
+          hasNIP17: protocol === MESSAGE_PROTOCOL.NIP17 ? true : existing.hasNIP17,
+        });
+
+        logger.log(`DMS: DataManager: Updated existing conversation with ${conversationPartner}, now has ${updatedMessages.length} messages`);
       } else {
         // Create new conversation
         const newConversation = {
@@ -1409,8 +1411,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Reset subscription status
       setSubscriptions({ nip4: false, nip17: false });
-
-
     };
   }, []);
 
@@ -1578,6 +1578,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
 
+
+
   // Debug method to reset all message data and cache for current user
   const resetMessageDataAndCache = useCallback(async () => {
     if (!userPubkey) {
@@ -1623,14 +1625,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
 
-      // Create optimistic message with plain text content for display
+      // Create optimistic message with consistent structure
+      const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
       const optimisticMessage: DecryptedMessage = {
-        id: `optimistic-${Date.now()}-${Math.random()}`, // Temporary ID for optimistic message
+        id: optimisticId, // Temporary ID for optimistic message
         kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 14, // NIP-4 DM or NIP-17 Private DM for display
         pubkey: userPubkey,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['p', recipientPubkey]],
-        content: content, // Plain text content for optimistic display
+        content: '', // Empty encrypted content (will be filled when real message arrives)
+        decryptedContent: content, // Plain text content for display
         sig: '',
         isSending: true, // Mark as optimistic
         clientFirstSeen: Date.now(), // Mark as just created for animation
