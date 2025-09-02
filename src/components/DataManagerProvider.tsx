@@ -67,8 +67,8 @@ interface DataManagerContextType {
     messageCount: number;
     nip4Count: number;
     nip17Count: number;
-    nip4Sync: string;
-    nip17Sync: string;
+    nip4Sync: Date | null;
+    nip17Sync: Date | null;
     nip17Enabled: boolean;
   };
   writeAllMessagesToStore: () => Promise<void>;
