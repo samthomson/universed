@@ -1,4 +1,4 @@
-import { useLocalStorage } from './useLocalStorage';
+
 import { useConversationList } from './useConversationList';
 import { useNIP4DirectMessages } from './useNIP4DirectMessages';
 import { useNIP17DirectMessages } from './useNIP17DirectMessages';
@@ -51,20 +51,17 @@ interface NIP17MessageStore {
 // Message protocol types
 export const MESSAGE_PROTOCOL = {
   NIP04: 'NIP04',
-  NIP17: 'NIP17', 
+  NIP17: 'NIP17',
   UNKNOWN: 'UNKNOWN'
 } as const;
 
 // Constants for consistent naming across the app
 export const PROTOCOL_CONSTANTS = {
-  // localStorage keys
-  NIP17_ENABLED_KEY: 'enableNIP17',
-  
   // Query keys
   NIP4_MESSAGES_KEY: 'nip4-messages',
   NIP17_MESSAGES_KEY: 'nip17-all-messages',
   NIP4_CONVERSATIONS_KEY: 'nip4-all-conversations',
-  
+
   // Logger prefixes
   NIP4_LOG_PREFIX: '[NIP4]',
   NIP17_LOG_PREFIX: '[NIP17]',
@@ -98,25 +95,25 @@ function analyzeConversation(conv: { recentMessages?: NostrEvent[]; pubkey: stri
   lastMessageFromUser: boolean;
 } {
   const messages = conv.recentMessages || [];
-  
+
   if (!messages.length) {
     // If no recent messages but conversation exists, assume it's known
     // (conservative approach - better to show in Known than miss a conversation)
-    return { 
-      isKnown: true, 
-      isRequest: false, 
-      lastMessageFromUser: false 
+    return {
+      isKnown: true,
+      isRequest: false,
+      lastMessageFromUser: false
     };
   }
 
   // Check if user has sent any message in recent history
   const userHasSentMessage = messages.some((msg: NostrEvent) => msg.pubkey === userPubkey);
-  
+
   // Determine categorization - simplified as suggested by colleague
   // The distinction is simply whether the user has sent a message to this person
   const isKnown = userHasSentMessage;
   const isRequest = !isKnown;
-  
+
   // Who sent the last message?
   const lastMessage = conv.lastMessage;
   const lastMessageFromUser = lastMessage?.pubkey === userPubkey;
@@ -161,27 +158,25 @@ const MESSAGING_CONFIG = {
  * Combines NIP-4 and NIP-17 messages and manages global DM settings.
  */
 export function useDirectMessages() {
-  const [isNIP17Enabled, setNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
   const conversationList = useConversationList();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
-  
+
   // Get comprehensive NIP-4 conversation discovery if isWatchingAll is enabled
   const nip4AllConversations = useNIP4DirectMessages('', MESSAGING_CONFIG.isWatchingAll);
-  // Get comprehensive NIP-17 conversation discovery if user has enabled it
-  const nip17AllConversations = useNIP17DirectMessages('', isNIP17Enabled, true);
-  
+  // Get comprehensive NIP-17 conversation discovery (always enabled)
+  const nip17AllConversations = useNIP17DirectMessages('', true, true);
+
   // Extract dependency values to satisfy linter
   const nip4ConversationsLength = Array.isArray(nip4AllConversations.conversations) ? nip4AllConversations.conversations.length : 0;
-  
-  // Debug logging for NIP-17 status (only log when data changes)
+
+  // Debug logging for conversation data (only log when data changes)
   useEffect(() => {
-    logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 scan enabled: ${isNIP17Enabled}`);
     logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Friend-based conversations:`, conversationList.conversations?.length || 0);
     logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-4 comprehensive conversations:`, nip4ConversationsLength);
     logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 comprehensive conversations:`, nip17AllConversations.conversations?.length || 0);
-    
+
     // Log detailed NIP-17 conversation data
     if (nip17AllConversations.conversations && nip17AllConversations.conversations.length > 0) {
       logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} NIP-17 conversations detail:`, nip17AllConversations.conversations.map(conv => ({
@@ -200,7 +195,6 @@ export function useDirectMessages() {
       })));
     }
   }, [
-    isNIP17Enabled,
     conversationList.conversations?.length,
     nip4ConversationsLength,
     nip17AllConversations.conversations?.length,
@@ -225,16 +219,16 @@ export function useDirectMessages() {
   // Merge conversations from friend-based discovery and comprehensive scanning
   const allConversations = useMemo(() => {
     const friendBasedConvos = conversationList.conversations || [];
-    const nip4ComprehensiveConvos = MESSAGING_CONFIG.isWatchingAll && Array.isArray(nip4AllConversations.conversations) 
-      ? nip4AllConversations.conversations 
+    const nip4ComprehensiveConvos = MESSAGING_CONFIG.isWatchingAll && Array.isArray(nip4AllConversations.conversations)
+      ? nip4AllConversations.conversations
       : [];
-    const nip17ComprehensiveConvos = (isNIP17Enabled && Array.isArray(nip17AllConversations.conversations))
-      ? nip17AllConversations.conversations 
+    const nip17ComprehensiveConvos = Array.isArray(nip17AllConversations.conversations)
+      ? nip17AllConversations.conversations
       : [];
-    
+
     // Merge and deduplicate by pubkey
     const conversationMap = new Map();
-    
+
     // Add friend-based conversations first (for discovery, but messages will be overridden)
     friendBasedConvos.forEach(conv => {
       conversationMap.set(conv.pubkey, {
@@ -249,7 +243,7 @@ export function useDirectMessages() {
         recentMessages: [], // Friend-based discovery doesn't include message content
       });
     });
-    
+
     // Add comprehensive NIP-4 conversations (OVERRIDE existing ones with decrypted data)
     nip4ComprehensiveConvos.forEach(conv => {
       const existing = conversationMap.get(conv.pubkey);
@@ -277,7 +271,7 @@ export function useDirectMessages() {
         existing.recentMessages = conv.recentMessages || [];
       }
     });
-    
+
     // Add comprehensive NIP-17 conversations (merge with existing ones)
     nip17ComprehensiveConvos.forEach(conv => {
       const existing = conversationMap.get(conv.pubkey);
@@ -310,8 +304,8 @@ export function useDirectMessages() {
         }
       }
     });
-    
-    let finalConversations = Array.from(conversationMap.values())
+
+    const finalConversations = Array.from(conversationMap.values())
       .map(conv => {
         // Analyze conversation for categorization
         const analysis = analyzeConversation(conv, user?.pubkey || '');
@@ -324,13 +318,8 @@ export function useDirectMessages() {
       })
       .sort((a, b) => b.lastActivity - a.lastActivity);
 
-    // Filter out NIP-17-only conversations when NIP-17 is disabled
-    if (!isNIP17Enabled) {
-      finalConversations = finalConversations.filter(conv => 
-        conv.hasNIP4Messages // Only keep conversations that have NIP-4 messages
-      );
-    }
-    
+    // No filtering needed - NIP-17 is always enabled
+
     // Log final conversations only when count changes
     if (finalConversations.length > 0) {
       logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Final merged conversations:`, finalConversations.length);
@@ -346,22 +335,21 @@ export function useDirectMessages() {
         } : null
       })));
     }
-    
+
     return finalConversations;
-  }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, isNIP17Enabled, user?.pubkey]);
+  }, [conversationList.conversations, nip4AllConversations.conversations, nip17AllConversations.conversations, user?.pubkey]);
 
   // Memoize the conversation list data separately from progress data
   const conversationListData = useMemo(() => ({
     conversations: allConversations,
-    isLoading: conversationList.isLoading || nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
+    isLoading: conversationList.isLoading || nip4AllConversations.isLoading || nip17AllConversations.isLoading,
     // Comprehensive scanning status
-    isLoadingComprehensive: nip4AllConversations.isLoading || (isNIP17Enabled && nip17AllConversations.isLoading),
+    isLoadingComprehensive: nip4AllConversations.isLoading || nip17AllConversations.isLoading,
   }), [
     allConversations,
     conversationList.isLoading,
     nip4AllConversations.isLoading,
-    nip17AllConversations.isLoading,
-    isNIP17Enabled
+    nip17AllConversations.isLoading
   ]);
 
   // Separate progress data that can update independently
@@ -375,13 +363,13 @@ export function useDirectMessages() {
 
   const sendMessage = async (params: SendMessageParams) => {
     const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
-    
+
     if (!user) {
       throw new Error('User must be logged in to send messages');
     }
-    
+
     logger.log(`${PROTOCOL_CONSTANTS.DIRECT_MESSAGES_LOG_PREFIX} Sending message via ${protocol} to ${recipientPubkey}`);
-    
+
     // Add optimistic update for NIP-17 messages
     if (protocol === MESSAGE_PROTOCOL.NIP17) {
       // Create optimistic message event
@@ -416,12 +404,12 @@ export function useDirectMessages() {
 
         const updatedConversations = new Map(oldData.conversations);
         const updatedAllMessages = new Map(oldData.allMessages);
-        
+
         // Add to message history
         const existingMessages = updatedAllMessages.get(recipientPubkey) || [];
         const newMessages = [...existingMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
         updatedAllMessages.set(recipientPubkey, newMessages);
-        
+
         // Update conversation summary
         const existingConvo = updatedConversations.get(recipientPubkey);
         if (existingConvo) {
@@ -449,7 +437,7 @@ export function useDirectMessages() {
             lastMessageFromUser: true, // User just sent this message
           });
         }
-        
+
         return {
           conversations: updatedConversations,
           allMessages: updatedAllMessages,
@@ -462,7 +450,7 @@ export function useDirectMessages() {
         content,
       });
     }
-    
+
     // Add optimistic update for NIP-04 messages
     if (protocol === MESSAGE_PROTOCOL.NIP04) {
       // Create optimistic message event
@@ -484,7 +472,7 @@ export function useDirectMessages() {
         // Handle both old format (array) and new format (object with messages/hasMore)
         let existingMessages: OptimisticNostrEvent[] = [];
         let hasMore = false;
-        
+
         if (Array.isArray(oldData)) {
           // Legacy format - just an array
           existingMessages = oldData;
@@ -494,9 +482,9 @@ export function useDirectMessages() {
           existingMessages = oldData.messages || [];
           hasMore = oldData.hasMore || false;
         }
-        
+
         const updatedMessages = [...existingMessages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
-        
+
         // Return in new format
         return {
           messages: updatedMessages,
@@ -522,7 +510,7 @@ export function useDirectMessages() {
         // Find existing conversation or create new one
         const updatedConversations = [...oldConversations];
         const existingIndex = updatedConversations.findIndex(conv => conv.pubkey === recipientPubkey);
-        
+
         if (existingIndex !== -1) {
           // Update existing conversation
           updatedConversations[existingIndex] = {
@@ -558,7 +546,7 @@ export function useDirectMessages() {
         content,
       });
     }
-    
+
     throw new Error(`Unsupported protocol: ${protocol}`);
   };
 
@@ -566,15 +554,14 @@ export function useDirectMessages() {
     // Direct data access (no function calls needed)
     conversations: conversationListData,
     progress: progressData,
-    
+
     // Settings
-    isNIP17Enabled,
-    setNIP17Enabled,
-    
+    // NIP-17 is always enabled
+
     // Methods for specific operations
     getChatMessages,
     sendMessage,
-    
+
     // Legacy function for backward compatibility (deprecated)
     getConversationList: () => conversationListData,
   };
@@ -585,17 +572,14 @@ export function useDirectMessages() {
  * Combines NIP-4 and NIP-17 messages for a specific conversation with timestamp-based pagination
  */
 export function useDirectMessagesForChat(conversationId: string, until?: number) {
-  const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
-  
   // Get messages from both NIP-4 and NIP-17 hooks with timestamp filter
   const nip4Messages = useNIP4DirectMessages(conversationId, false, until); // Specific conversation mode
-  const nip17Messages = useNIP17ConversationData(isNIP17Enabled ? conversationId : '', until); // Lightweight data access (no subscription recreation)
-  
+  const nip17Messages = useNIP17ConversationData(conversationId, until); // Lightweight data access (no subscription recreation)
+
   logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} useDirectMessagesForChat called with conversationId: "${conversationId}", until: ${until}`);
-  logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} isNIP17Enabled: ${isNIP17Enabled}`);
   logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} NIP-4 messages loading: ${nip4Messages.isLoading}, count: ${nip4Messages.messages?.length || 0}`);
   logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} NIP-17 messages loading: ${nip17Messages.isLoading}, count: ${nip17Messages.messages?.length || 0}`);
-  
+
   // Memoize the message arrays to prevent unnecessary re-renders
   const stableNip4Messages = useMemo(() => (nip4Messages.messages as NostrEvent[]) || [], [nip4Messages.messages]);
   const stableNip17Messages = useMemo(() => nip17Messages.messages || [], [nip17Messages.messages]);
@@ -604,47 +588,45 @@ export function useDirectMessagesForChat(conversationId: string, until?: number)
   const combinedResult = useMemo(() => {
     // how many messages to show at first, and to fetch each time we press 'load older messages'
     const MESSAGES_PER_PAGE = 5;
-    
+
     const nip4Count = stableNip4Messages.length;
     const nip17Count = stableNip17Messages.length;
-    
-    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count}), NIP-17 enabled: ${isNIP17Enabled}`);
-    
-    // Only include NIP-17 messages if NIP-17 is enabled
-    const combined = isNIP17Enabled 
-      ? [...stableNip4Messages, ...stableNip17Messages]
-      : [...stableNip4Messages];
-    
-    logger.log(`[DEBUG] Message filtering - NIP-17 enabled: ${isNIP17Enabled}, NIP-4: ${stableNip4Messages.length}, NIP-17: ${stableNip17Messages.length}, Combined: ${combined.length}`);
-    
+
+    logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Combining messages: NIP-4 (${nip4Count}), NIP-17 (${nip17Count})`);
+
+    // Always include both NIP-4 and NIP-17 messages
+    const combined = [...stableNip4Messages, ...stableNip17Messages];
+
+    logger.log(`[DEBUG] Message filtering - NIP-4: ${stableNip4Messages.length}, NIP-17: ${stableNip17Messages.length}, Combined: ${combined.length}`);
+
     logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Total combined messages: ${combined.length}`);
-    
+
     // Sort by timestamp (newest first)
     const sorted = combined.sort((a, b) => b.created_at - a.created_at);
-    
+
     // Take most recent MESSAGES_PER_PAGE messages
     const paginated = sorted.slice(0, MESSAGES_PER_PAGE);
-    
-    // Check if either hook has more messages available (only consider NIP-17 if enabled)
-    const hasMore = nip4Messages.hasMoreMessages || 
-                   (isNIP17Enabled && nip17Messages.hasMoreMessages) || 
+
+    // Check if either hook has more messages available (always consider both NIP-4 and NIP-17)
+    const hasMore = nip4Messages.hasMoreMessages ||
+                   nip17Messages.hasMoreMessages ||
                    sorted.length > MESSAGES_PER_PAGE;
-    
+
     // Return in chronological order (oldest first) for chat display
     const chronological = paginated.reverse();
-    
+
     logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Final result: ${chronological.length} messages, hasMore: ${hasMore}`);
     if (chronological.length > 0) {
       logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} First (oldest) message:`, chronological[0]);
       logger.log(`${PROTOCOL_CONSTANTS.DMCHAT_LOG_PREFIX} Last (newest) message:`, chronological[chronological.length - 1]);
     }
-    
+
     return {
       messages: chronological,
       hasMore,
       oldestDisplayed: chronological.length > 0 ? chronological[0].created_at : undefined,
     };
-  }, [stableNip4Messages, stableNip17Messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages, isNIP17Enabled]);
+  }, [stableNip4Messages, stableNip17Messages, nip4Messages.hasMoreMessages, nip17Messages.hasMoreMessages]);
 
   return {
     data: combinedResult.messages,
@@ -695,7 +677,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
       // Add logging to debug the race condition
       logger.log(`[DEBUG] Setting messages for conversation: ${conversationId}`);
       logger.log(`[DEBUG] Messages received:`, currentPage.data.map(m => ({ id: m.id, pubkey: m.pubkey, content: m.content.slice(0, 50) })));
-      
+
       // Verify messages are actually for this conversation to prevent race conditions
       const validMessages = currentPage.data.filter(msg => {
         const isFromUser = msg.pubkey === user?.pubkey;
@@ -703,9 +685,9 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         const isToUser = recipientPTag === user?.pubkey;
         const isFromPartner = msg.pubkey === conversationId;
         const isToPartner = recipientPTag === conversationId;
-        
+
         let isValidForConversation: boolean;
-        
+
         if (msg.kind === 4) {
           // NIP-4 messages: Use p tag logic
           isValidForConversation = (isFromUser && isToPartner) || (isFromPartner && isToUser);
@@ -717,7 +699,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
           // Unknown message type - be conservative and include it
           isValidForConversation = true;
         }
-        
+
         logger.log(`[DEBUG] Message validation:`, {
           msgId: msg.id,
           msgKind: msg.kind,
@@ -732,16 +714,16 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
           isToPartner,
           isValidForConversation
         });
-        
+
         if (!isValidForConversation) {
           logger.log(`[DEBUG] ❌ FILTERING OUT message:`, msg.id);
         } else {
           logger.log(`[DEBUG] ✅ KEEPING message:`, msg.id);
         }
-        
+
         return isValidForConversation;
       });
-      
+
       if (validMessages.length > 0) {
         setAllMessages(prev => {
           // If this is the first load (until is undefined), replace all messages
@@ -750,7 +732,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
             return validMessages;
           }
           // Otherwise, prepend older messages (they should be in chronological order)
-          const newOlderMessages = validMessages.filter(msg => 
+          const newOlderMessages = validMessages.filter(msg =>
             !prev.some(existing => existing.id === msg.id)
           );
           logger.log(`[DEBUG] Adding ${newOlderMessages.length} older messages`);
@@ -761,7 +743,7 @@ export function useDirectMessagesForChatWithPagination(conversationId: string) {
         logger.log(`[DEBUG] All ${currentPage.data.length} messages filtered out - not for this conversation`);
         // Keep switching state true since we don't have valid messages yet
       }
-      
+
       setIsLoadingOlder(false);
     }
   }, [currentPage.data, currentPage.isLoading, until, conversationId, user]);

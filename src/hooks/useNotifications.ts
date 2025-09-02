@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
-import { PROTOCOL_CONSTANTS } from './useDirectMessages';
+
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 // import { logger } from '@/lib/logger';
 
@@ -30,8 +30,6 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  
-  const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
 
   return useQuery({
     queryKey: ['notifications', user?.pubkey],
@@ -74,10 +72,10 @@ export function useNotifications() {
           { kinds: APP_CONTENT_KINDS, authors: [user.pubkey], limit: 100, since },
         ], { signal }),
 
-        // Incoming DMs (respect NIP-17 setting). For NIP-17 we look for gift wraps (1059).
+        // Incoming DMs (always include both NIP-04 and NIP-17). For NIP-17 we look for gift wraps (1059).
         nostr.query([
           { kinds: [4], '#p': [user.pubkey], limit: 100, since },
-          ...(isNIP17Enabled ? [{ kinds: [1059] as number[], '#p': [user.pubkey], limit: 100, since }] : []),
+          { kinds: [1059], '#p': [user.pubkey], limit: 100, since },
         ], { signal }),
 
         // Membership list updates targeting the user (approved/declined/banned) — single REQ
