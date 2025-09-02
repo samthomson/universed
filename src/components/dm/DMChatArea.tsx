@@ -18,6 +18,7 @@ import { ProtocolSelector } from "./ProtocolSelector";
 import { useDefaultProtocol } from "@/hooks/useDefaultProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
+import { DATA_MANAGER_CONSTANTS } from "@/lib/dmDataManagerConstants";
 import { useMemo, useCallback, useState, useEffect } from "react";
 
 
@@ -86,10 +87,9 @@ export function DMChatArea(
 ) {
   const { messages: conversationMessages } = useConversationMessages(conversationId);
   const { sendMessage, isNIP17Enabled, isDoingInitialLoad, isLoading } = useDataManager();
-  
+
   // Simple pagination from conversation messages
-  const MESSAGES_PER_PAGE = 5; // Reduced for debugging
-  const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
+  const [displayLimit, setDisplayLimit] = useState<number>(DATA_MANAGER_CONSTANTS.MESSAGES_PER_PAGE);
 
   // Memoize paginated messages to prevent unnecessary recalculations
   // BaseMessageList expects oldest-first order, so we slice from the end to get newest messages
@@ -110,9 +110,9 @@ export function DMChatArea(
   // Show loading during initial load OR if we have no messages yet and are still loading (for direct conversation links)
   const isConversationLoading = isDoingInitialLoad || (conversationMessages.length === 0 && isLoading);
   const loadingOlderMessages = false;
-  
+
   const loadOlderMessages = useCallback(async () => {
-    setDisplayLimit(prev => prev + MESSAGES_PER_PAGE);
+    setDisplayLimit(prev => prev + DATA_MANAGER_CONSTANTS.MESSAGES_PER_PAGE);
   }, []);
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
