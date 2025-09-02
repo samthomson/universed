@@ -34,6 +34,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { nip57 } from 'nostr-tools';
+import { createZapRequest } from '@/lib/zapUtils';
 import { useNWC } from '@/hooks/useNWCContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type { Event } from 'nostr-tools';
@@ -375,15 +376,10 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
         throw new Error('Zap endpoint not found');
       }
 
-      const event = (target.kind >= 30000 && target.kind < 40000)
-        ? target
-        : target.id;
-
       const amountMillisats = zapAmount * 1000;
 
-      const zapRequest = nip57.makeZapRequest({
-        profile: target.pubkey,
-        event: event,
+      const zapRequest = createZapRequest({
+        event: target,
         amount: amountMillisats,
         relays: [config.relayUrl],
         comment: zapComment
@@ -417,7 +413,8 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
             title: 'Zap successful!',
             description: `You sent ${zapAmount} sats via NWC to the author.`,
           });
-          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps'] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', target.id] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
           setOpen(false);
           return;
         } catch (nwcError) {
@@ -440,7 +437,8 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
             title: 'Zap successful!',
             description: `You sent ${zapAmount} sats to the author.`,
           });
-          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps'] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps', target.id] });
+          queryClient.invalidateQueries({ queryKey: ['reactions-and-zaps-batch'] });
           setOpen(false);
         } catch (weblnError) {
           console.error('webln payment failed, falling back:', weblnError);
