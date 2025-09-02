@@ -63,3 +63,6 @@ export const PROTOCOL_CONSTANTS = {
 	DMCHAT_LOG_PREFIX: 'DMS: [DMCHAT]',
 	DIRECT_MESSAGES_LOG_PREFIX: 'DMS: [DirectMessages]',
 } as const;
+
+// Message pagination constants
+export const MESSAGES_PER_PAGE = 25;

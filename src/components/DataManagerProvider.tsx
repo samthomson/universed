@@ -9,21 +9,123 @@ import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
 import type { MessageProtocol } from '@/lib/dmConstants';
 import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
-import type {
-  MessagesState,
-  LastSyncData,
-  SubscriptionStatus,
-  ScanProgressState,
-  DebugInfo,
-  ConversationSummary,
-  MessageProcessingResult,
-  DecryptionResult,
-  NIP17ProcessingResult
-} from '@/types/dmDataManager';
-import {
-  DATA_MANAGER_CONSTANTS,
-  SCAN_STATUS_MESSAGES
-} from '@/lib/dmDataManagerConstants';
+
+// ============================================================================
+// DataManager Types and Constants (co-located for better maintainability)
+// ============================================================================
+
+// Core participant data structure used throughout DataManager
+interface ParticipantData {
+  messages: DecryptedMessage[];
+  lastActivity: number;
+  lastMessage: DecryptedMessage | null;
+  hasNIP4: boolean;
+  hasNIP17: boolean;
+}
+
+// Messages state structure
+type MessagesState = Map<string, ParticipantData>;
+
+// Last sync timestamps for each protocol
+interface LastSyncData {
+  nip4: number | null;
+  nip17: number | null;
+}
+
+// Subscription status for each protocol
+interface SubscriptionStatus {
+  nip4: boolean;
+  nip17: boolean;
+}
+
+// Scan progress tracking
+interface ScanProgress {
+  current: number;
+  status: string;
+}
+
+interface ScanProgressState {
+  nip4: ScanProgress | null;
+  nip17: ScanProgress | null;
+}
+
+// Debug information structure
+interface DebugInfo {
+  messageCount: number;
+  nip4Count: number;
+  nip17Count: number;
+  nip4Sync: Date | null;
+  nip17Sync: Date | null;
+  nip17Enabled: boolean;
+}
+
+// Conversation summary structure
+interface ConversationSummary {
+  id: string;
+  pubkey: string;
+  lastMessage: DecryptedMessage | null;
+  lastActivity: number;
+  hasNIP4Messages: boolean;
+  hasNIP17Messages: boolean;
+  isKnown: boolean;
+  isRequest: boolean;
+  lastMessageFromUser: boolean;
+}
+
+// Message processing result
+interface MessageProcessingResult {
+  lastMessageTimestamp?: number;
+  messageCount: number;
+}
+
+// Decryption result
+interface DecryptionResult {
+  decryptedContent: string;
+  error?: string;
+}
+
+// NIP-17 processing result
+interface NIP17ProcessingResult {
+  processedMessage: DecryptedMessage;
+  conversationPartner: string;
+  error?: string;
+}
+
+// Constants for DataManager operations
+const DATA_MANAGER_CONSTANTS = {
+  // Logging prefixes
+  LOG_PREFIX: 'DMS: DataManager:',
+  CONVERSATION_LOG_PREFIX: 'DMS: useConversationMessages:',
+
+  // Timing constants (in milliseconds)
+  DEBOUNCED_WRITE_DELAY: 15000, // 15 seconds
+  RECENT_MESSAGE_THRESHOLD: 5000, // 5 seconds
+  SUBSCRIPTION_OVERLAP_SECONDS: 60, // 60 seconds
+  NIP17_SETTING_CHANGE_DELAY: 500, // 500ms
+
+  // Scanning limits
+  SCAN_TOTAL_LIMIT: 20000,
+  SCAN_BATCH_SIZE: 1000,
+
+  // Query timeouts (in milliseconds)
+  NIP4_QUERY_TIMEOUT: 15000, // 15 seconds
+  NIP17_QUERY_TIMEOUT: 30000, // 30 seconds
+
+
+
+  // Error logging debounce
+  ERROR_LOG_DEBOUNCE_DELAY: 2000, // 2 seconds
+} as const;
+
+// Status messages for scan progress
+const SCAN_STATUS_MESSAGES = {
+  NIP4_STARTING: 'Starting NIP-4 scan...',
+  NIP17_STARTING: 'Starting NIP-17 scan...',
+  BATCH_COMPLETE: (batchNumber: number, messageCount: number) =>
+    `Batch ${batchNumber} complete: ${messageCount} messages`,
+} as const;
+
+
 
 // Simple utility for debounced error logging
 const createErrorLogger = (name: string) => {
