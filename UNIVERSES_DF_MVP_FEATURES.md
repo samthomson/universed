@@ -13,80 +13,83 @@
 ## Features
 
 ### 1) Performance & Reliability
-- [ ] Fast initial load and snappy navigation (TTI target on baseline devices)
-- [ ] Retry/backoff on relay hiccups; offline toasts with “Retry”
-- [ ] Error boundaries per page; preserve state on failure (no hard resets)
-- [ ] Client logs include error codes and relay responses (PII‑redactable)
+- 🚧 Fast initial load and snappy navigation (TTI target on baseline devices)
+- 🚧 Retry/backoff on relay hiccups; offline toasts with “Retry”
+- 🚧 Error boundaries per page; preserve state on failure (no hard resets)
+- 🚧 Client logs include error codes and relay responses (PII‑redactable)
 
 ### 2) Web Notifications
-- [ ] Explicit opt‑in prompt with clear explanation
-- [ ] Respect OS **Do Not Disturb**
+- ✅ Explicit opt‑in prompt with clear explanation
+- 🚧 Respect OS **Do Not Disturb**
 
 ### 3) Channels & Content
 **Channel types:** Text channels, Voice channels
 
 **Moderator capabilities**
-- [ ] Create / edit / delete channels (text & voice)
-- [ ] Pin / unpin posts
+- ✅ Create / edit / delete channels (text & voice)
+- ✅ Pin posts (automatically refreshes/updates)
+- 🚧 Unpin posts (adding automatic refresh/update)
 
 **User capabilities**
-- [ ] Create posts; threaded replies; emoji reactions
-- [ ] Zap posts
-- [ ] Create & share events (date/time + link)
-- [ ] Create & share polls (single/multi‑select; open/close time)
-- [ ] Upload files (images/docs/audio) with previews
-- [ ] Post links with previews
+- ✅ Create posts; threaded replies; emoji reactions
+- ✅ Zap posts
+- ✅ Create & share events (date/time + link)
+- ✅ Create & share polls (single/multi‑select; open/close time)
+- ✅ Upload files (images/docs/audio) with previews
+- ✅ Post links with previews
 
 **DF Decisions**
 - **File previews**
-  - Images → inline thumbnail + lightbox
-  - Docs/PDF → file card (name, size, type) + “View / Download”
-  - Audio → compact inline player (duration)
+  - ✅ Images → inline thumbnail + lightbox
+  - 🚧 Docs/PDF → file card (name, size, type) + “View / Download”
+  - 🚧 Audio → compact inline player (duration)
 - **Link previews**
-  - Basic unfurl (title/description/favicon/thumbnail) using server‑side fetch with caching
-  - Respect robots/no‑cache; user can collapse previews
+  - 🚧 Basic unfurl (title/description/favicon/thumbnail) using server‑side fetch with caching
+  - 🚧 Respect robots/no‑cache; user can collapse previews
 - **Hashtags**
   - **Not included** in DF MVP; revisit after behavior is defined (search/subscriptions semantics)
 
 ### 4) Moderation
 **Roles**
-- Owner(s) can grant/revoke **Mod** role
+- 🚧 Owner(s) can grant/revoke **Mod** role (currently have to do this via Chorus; creating capability in Universes)
 
 **Actions**
-- [ ] **Boot user** (removes membership & posting rights)  
+- ✅ **Boot user** (removes membership & posting rights)  
   Public‑read Universe: booted users may still read public content but cannot interact.  
   Private‑read Universe: booted users lose all visibility.
-- [ ] **Hide** vs **Delete** content  
+- 🚧 **Hide** vs **Delete** content  
   Hide → removes from member timelines; reversible; retained for audit.  
   Delete → removes where feasible; may leave tombstone.
-- [ ] **Report**: users can report posts/users with reason codes + notes
+  Needs to be more clearly explained to users
+- ✅ **Report**: users can report posts/users with reason codes + notes
+- 🚧 **Manage Reports**: mods can dismiss/hide unactioned reports (so they don't stack up endlessly)
 
 ### 5) Direct Messages (DMs)
-- [ ] Auto‑select modern private DMs when supported (NIP‑17 family); fall back to legacy encrypted DMs (NIP‑04)
-- [ ] Clear message state (sent / delivered / failed) with retry
-- [ ] First‑use tooltip explains tradeoffs & metadata leakage considerations
+- ✅ Auto‑select modern private DMs when supported (NIP‑17 family); fall back to legacy encrypted DMs (NIP‑04)
+- 🚧 Clear message state (sent / delivered / failed) with retry
+- 🚧 First‑use tooltip explains tradeoffs & metadata leakage considerations
 
 ### 6) Accessibility & UX
-- [ ] Keyboard navigable; visible focus states; motion‑reduced option
-- [ ] WCAG AA color contrast; light/dark/system modes
-- [ ] Alt‑text required on image uploads
+- 🚧 Keyboard navigable; visible focus states; motion‑reduced option
+- 🚧 WCAG AA color contrast; light/dark/system modes (partially implemented, but messy)
+- 🚧 Alt‑text requested on image uploads
 
 ### 7) Settings (Minimum)
-- [ ] Notifications (per‑event toggles)
-- [ ] Privacy (DM tooltips on/off)
-- [ ] Content (autoplay voice previews off by default)
-- [ ] Display (light/dark/system)
-- [ ] Data (clear cache)
+- 🚧 Notifications (per‑event toggles)
+- 🚧 Privacy (DM tooltips on/off)
+- 🚧 Content (autoplay voice previews off by default)
+- 🚧 Display (light/dark/system)
+- 🚧 Data (clear cache)
 
 ### 8) Telemetry for DF
-- [ ] Anonymous counters: channel ops, posts, replies, reactions, zaps, file/link preview renders, DMs, mod actions, errors
-- [ ] Daily CSV export for DF review
+- 🚧 Anonymous counters: channel ops, posts, replies, reactions, zaps, file/link preview renders, DMs, mod actions, errors
+- 🚧 Daily CSV export for DF review
 
 ---
 
 ## Non‑Goals (DF MVP)
-- Marketplace
-- Resources
+- ✅ Marketplace
+- ✅ Resources
 
 ## Definitions
 - **Boot:** Remove user from Universe membership & posting rights. Public‑read Universes remain viewable; private‑read Universes become invisible.
