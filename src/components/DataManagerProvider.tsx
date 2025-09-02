@@ -1335,7 +1335,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: participant.lastActivity,
         hasNIP4Messages: participant.hasNIP4,
         hasNIP17Messages: participant.hasNIP17,
-        recentMessages: participant.messages.slice(-10), // Last 10 messages
         isKnown: isKnown,
         isRequest: isRequest,
         lastMessageFromUser: isFromUser,

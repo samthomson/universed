@@ -19,7 +19,6 @@ export const DATA_MANAGER_CONSTANTS = {
   NIP17_QUERY_TIMEOUT: 30000, // 30 seconds
 
   // Message limits
-  RECENT_MESSAGES_PER_CONVERSATION: 10,
   MESSAGES_PER_PAGE: 25,
 
   // Error logging debounce

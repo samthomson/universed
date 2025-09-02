@@ -1,5 +1,4 @@
 import type { DecryptedMessage } from './nostr';
-import type { MessageProtocol } from '@/lib/dmConstants';
 
 // Core participant data structure used throughout DataManager
 export interface ParticipantData {
@@ -54,7 +53,6 @@ export interface ConversationSummary {
 	lastActivity: number;
 	hasNIP4Messages: boolean;
 	hasNIP17Messages: boolean;
-	recentMessages: DecryptedMessage[];
 	isKnown: boolean;
 	isRequest: boolean;
 	lastMessageFromUser: boolean;
