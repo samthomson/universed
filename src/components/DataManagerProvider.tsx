@@ -9,6 +9,21 @@ import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
 import type { MessageProtocol } from '@/lib/dmConstants';
 import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
+import type {
+  MessagesState,
+  LastSyncData,
+  SubscriptionStatus,
+  ScanProgressState,
+  DebugInfo,
+  ConversationSummary,
+  MessageProcessingResult,
+  DecryptionResult,
+  NIP17ProcessingResult
+} from '@/types/dmDataManager';
+import {
+  DATA_MANAGER_CONSTANTS,
+  SCAN_STATUS_MESSAGES
+} from '@/lib/dmDataManagerConstants';
 
 // Simple utility for debounced error logging
 const createErrorLogger = (name: string) => {
@@ -22,10 +37,10 @@ const createErrorLogger = (name: string) => {
 
     timeout = setTimeout(() => {
       if (count > 0) {
-        logger.error(`DMS: DataManager: ${name} processing complete with ${count} errors`);
+        logger.error(`${DATA_MANAGER_CONSTANTS.LOG_PREFIX} ${name} processing complete with ${count} errors`);
         count = 0;
       }
-    }, 2000);
+    }, DATA_MANAGER_CONSTANTS.ERROR_LOG_DEBOUNCE_DELAY);
   };
 };
 
@@ -33,54 +48,21 @@ const createErrorLogger = (name: string) => {
 const nip17ErrorLogger = createErrorLogger('NIP-17');
 
 interface DataManagerContextType {
-  messages: Map<string, {
-    messages: DecryptedMessage[];
-    lastActivity: number;
-    lastMessage: DecryptedMessage | null;
-    hasNIP4: boolean;
-    hasNIP17: boolean;
-  }>;
+  messages: MessagesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
   isDoingInitialLoad: boolean;
-  lastSync: {
-    nip4: number | null;
-    nip17: number | null;
-  };
-  subscriptions: {
-    nip4: boolean;
-    nip17: boolean;
-  };
-  conversations: {
-    id: string;
-    pubkey: string;
-    lastMessage: DecryptedMessage | null;
-    lastActivity: number;
-    hasNIP4Messages: boolean;
-    hasNIP17Messages: boolean;
-    recentMessages: DecryptedMessage[];
-    isKnown: boolean;
-    isRequest: boolean;
-    lastMessageFromUser: boolean;
-  }[];
-  getDebugInfo: () => {
-    messageCount: number;
-    nip4Count: number;
-    nip17Count: number;
-    nip4Sync: Date | null;
-    nip17Sync: Date | null;
-    nip17Enabled: boolean;
-  };
+  lastSync: LastSyncData;
+  subscriptions: SubscriptionStatus;
+  conversations: ConversationSummary[];
+  getDebugInfo: () => DebugInfo;
   writeAllMessagesToStore: () => Promise<void>;
   resetMessageDataAndCache: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   sendMessage: (params: { recipientPubkey: string; content: string; protocol?: MessageProtocol }) => Promise<void>;
   isNIP17Enabled: boolean;
   isDebugging: boolean;
-  scanProgress: {
-    nip4: { current: number; status: string } | null;
-    nip17: { current: number; status: string } | null;
-  };
+  scanProgress: ScanProgressState;
 }
 
 const DataManagerContext = createContext<DataManagerContextType | null>(null);
@@ -97,13 +79,13 @@ export function useDataManager(): DataManagerContextType {
 export function useConversationMessages(conversationId: string) {
   const { messages: allMessages } = useDataManager();
 
-  logger.log(`DMS: useConversationMessages: Hook called for conversation ${conversationId}, total conversations in state: ${allMessages.size}`);
+  logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} Hook called for conversation ${conversationId}, total conversations in state: ${allMessages.size}`);
 
   return useMemo(() => {
     const conversationData = allMessages.get(conversationId);
 
     if (!conversationData) {
-      logger.log(`DMS: useConversationMessages: No data for conversation ${conversationId}`);
+      logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} No data for conversation ${conversationId}`);
       return {
         messages: [],
         hasMoreMessages: false,
@@ -113,12 +95,12 @@ export function useConversationMessages(conversationId: string) {
       };
     }
 
-    logger.log(`DMS: useConversationMessages: Returning ${conversationData.messages.length} messages for conversation ${conversationId}`);
+    logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} Returning ${conversationData.messages.length} messages for conversation ${conversationId}`);
 
     // Log the last few messages to help debug
     if (conversationData.messages.length > 0) {
       const lastMessages = conversationData.messages.slice(-3);
-      logger.log(`DMS: useConversationMessages: Last 3 messages:`, lastMessages.map(m => ({
+      logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} Last 3 messages:`, lastMessages.map(m => ({
         id: m.id.slice(0, 8) + '...',
         content: m.content.slice(0, 30) + (m.content.length > 30 ? '...' : ''),
         created_at: new Date(m.created_at * 1000).toISOString()
@@ -151,20 +133,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
 
-  const [messages, setMessages] = useState<Map<string, {
-    messages: DecryptedMessage[];
-    lastActivity: number;
-    lastMessage: DecryptedMessage | null;
-    hasNIP4: boolean;
-    hasNIP17: boolean;
-  }>>(new Map());
-  const [lastSync, setLastSync] = useState<{ nip4: number | null; nip17: number | null }>({
+  const [messages, setMessages] = useState<MessagesState>(new Map());
+  const [lastSync, setLastSync] = useState<LastSyncData>({
     nip4: null,
     nip17: null
   });
   const [isLoading, setIsLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
-  const [subscriptions, setSubscriptions] = useState<{ nip4: boolean; nip17: boolean }>({
+  const [subscriptions, setSubscriptions] = useState<SubscriptionStatus>({
     nip4: false,
     nip17: false
   });
@@ -176,10 +152,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [shouldSaveImmediately, setShouldSaveImmediately] = useState(false);
 
   // Track scan progress for user feedback
-  const [scanProgress, setScanProgress] = useState<{
-    nip4: { current: number; status: string } | null;
-    nip17: { current: number; status: string } | null;
-  }>({
+  const [scanProgress, setScanProgress] = useState<ScanProgressState>({
     nip4: null,
     nip17: null
   });
@@ -229,13 +202,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     let allMessages: NostrEvent[] = [];
     let processedMessages = 0;
     let currentSince = sinceTimestamp || 0;
-    const SCAN_TOTAL_LIMIT = 20000;
-    const SCAN_BATCH_SIZE = 1000;
+    const SCAN_TOTAL_LIMIT = DATA_MANAGER_CONSTANTS.SCAN_TOTAL_LIMIT;
+    const SCAN_BATCH_SIZE = DATA_MANAGER_CONSTANTS.SCAN_BATCH_SIZE;
 
     logger.log(`DMS: DataManager: Starting NIP-4 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
 
     // Initialize scan progress
-    setScanProgress(prev => ({ ...prev, nip4: { current: 0, status: 'Starting NIP-4 scan...' } }));
+    setScanProgress(prev => ({ ...prev, nip4: { current: 0, status: SCAN_STATUS_MESSAGES.NIP4_STARTING } }));
 
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -260,7 +233,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       try {
         logger.log(`DMS: DataManager: NIP-4 Querying filters:`, JSON.stringify(filters, null, 2));
-        const batchDMs = await nostr.query(filters, { signal: AbortSignal.timeout(15000) });
+        const batchDMs = await nostr.query(filters, { signal: AbortSignal.timeout(DATA_MANAGER_CONSTANTS.NIP4_QUERY_TIMEOUT) });
         logger.log(`DMS: DataManager: NIP-4 Raw response: ${batchDMs.length} events`);
 
         const validBatchDMs = batchDMs.filter(validateDMEvent);
@@ -333,13 +306,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     let allNIP17Events: NostrEvent[] = [];
     let processedMessages = 0;
     let currentSince = sinceTimestamp || 0;
-    const SCAN_TOTAL_LIMIT = 20000;
-    const SCAN_BATCH_SIZE = 1000;
+    const SCAN_TOTAL_LIMIT = DATA_MANAGER_CONSTANTS.SCAN_TOTAL_LIMIT;
+    const SCAN_BATCH_SIZE = DATA_MANAGER_CONSTANTS.SCAN_BATCH_SIZE;
 
     logger.log(`DMS: DataManager: Starting NIP-17 batch processing (limit: ${SCAN_TOTAL_LIMIT}, batch: ${SCAN_BATCH_SIZE})`);
 
     // Initialize scan progress
-    setScanProgress(prev => ({ ...prev, nip17: { current: 0, status: 'Starting NIP-17 scan...' } }));
+    setScanProgress(prev => ({ ...prev, nip17: { current: 0, status: SCAN_STATUS_MESSAGES.NIP17_STARTING } }));
 
     while (processedMessages < SCAN_TOTAL_LIMIT) {
       const batchLimit = Math.min(SCAN_BATCH_SIZE, SCAN_TOTAL_LIMIT - processedMessages);
@@ -358,7 +331,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       try {
         logger.log(`DMS: DataManager: NIP-17 Querying filters:`, JSON.stringify(filters, null, 2));
-        const batchEvents = await nostr.query(filters, { signal: AbortSignal.timeout(30000) });
+        const batchEvents = await nostr.query(filters, { signal: AbortSignal.timeout(DATA_MANAGER_CONSTANTS.NIP17_QUERY_TIMEOUT) });
         logger.log(`DMS: DataManager: NIP-17 Raw response: ${batchEvents.length} events`);
 
         if (batchEvents.length === 0) {
@@ -536,7 +509,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<{ lastMessageTimestamp?: number; messageCount: number }> => {
+  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<MessageProcessingResult> => {
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
 
     // Skip NIP-17 if it's disabled
@@ -687,7 +660,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
 
   // Reusable method to decrypt NIP-4 message content
-  const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<{ decryptedContent: string; error?: string }> => {
+  const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<DecryptionResult> => {
     try {
       if (user?.signer?.nip04) {
         const decryptedContent = await user.signer.nip04.decrypt(otherPubkey, event.content);
@@ -729,13 +702,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, []);
 
   // Helper to merge new messages into existing state
-  const mergeMessagesIntoState = useCallback((newState: Map<string, {
-    messages: DecryptedMessage[];
-    lastActivity: number;
-    lastMessage: DecryptedMessage | null;
-    hasNIP4: boolean;
-    hasNIP17: boolean;
-  }>) => {
+  const mergeMessagesIntoState = useCallback((newState: MessagesState) => {
     setMessages(prev => {
       const finalMap = new Map(prev);
 
@@ -892,7 +859,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, decryptNIP4Message, addMessageToState]);
 
   // Reusable method to process NIP-17 Gift Wrap messages
-  const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<{ processedMessage: NostrEvent & { decryptedContent?: string; error?: string }; conversationPartner: string; error?: string }> => {
+  const processNIP17GiftWrap = useCallback(async (event: NostrEvent): Promise<NIP17ProcessingResult> => {
     if (!user?.signer?.nip44) {
       // No decryption available - store with error
       return {
@@ -1347,18 +1314,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Memoized conversation summary - now much simpler since messages are already organized by participant
   const conversations = useMemo(() => {
-    const conversationsList: {
-      id: string;
-      pubkey: string;
-      lastMessage: DecryptedMessage | null;
-      lastActivity: number;
-      hasNIP4Messages: boolean;
-      hasNIP17Messages: boolean;
-      recentMessages: DecryptedMessage[];
-      isKnown: boolean;
-      isRequest: boolean;
-      lastMessageFromUser: boolean;
-    }[] = [];
+    const conversationsList: ConversationSummary[] = [];
 
     messages.forEach((participant, participantPubkey) => {
       if (!participant.messages.length) return;
@@ -1503,7 +1459,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     debouncedWriteRef.current = setTimeout(() => {
       writeAllMessagesToStore();
       debouncedWriteRef.current = null;
-    }, 15000); // 15 seconds
+    }, DATA_MANAGER_CONSTANTS.DEBOUNCED_WRITE_DELAY);
   }, [writeAllMessagesToStore]);
 
   // Watch messages state and handle debounced saves
