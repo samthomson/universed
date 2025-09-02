@@ -63,11 +63,11 @@ interface DataManagerContextType {
     isRequest: boolean;
     lastMessageFromUser: boolean;
   }[];
-  getDebugInfo: () => { 
-    messageCount: number; 
+  getDebugInfo: () => {
+    messageCount: number;
     nip4Count: number;
     nip17Count: number;
-    nip4Sync: string; 
+    nip4Sync: string;
     nip17Sync: string;
     nip4Subscribed: boolean;
     nip17Subscribed: boolean;
@@ -473,7 +473,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 const isFromUser = msg.pubkey === user?.pubkey;
                 const recipientPTag = msg.tags?.find(([name]) => name === 'p')?.[1];
                 const otherPubkey = isFromUser ? recipientPTag : msg.pubkey;
-                
+
                 if (otherPubkey && otherPubkey !== user?.pubkey) {
                   const { decryptedContent, error } = await decryptNIP4Message(msg, otherPubkey);
                   return {
@@ -491,11 +491,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                   error: error,
                 } as NostrEvent & { decryptedContent?: string; error?: string };
               }
-              
+
               // For non-encrypted messages, just return as-is
               return msg;
             }));
-            
+
             newState.set(participantPubkey, {
               messages: processedMessages,
               lastActivity: participant.lastActivity,
@@ -685,21 +685,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return { decryptedContent };
       } else {
         logger.log(`DMS: DataManager: No NIP-04 decryption available for message ${event.id}`);
-        return { 
-          decryptedContent: '', 
-          error: 'No NIP-04 decryption available' 
+        return {
+          decryptedContent: '',
+          error: 'No NIP-04 decryption available'
         };
       }
     } catch (error) {
       logger.error(`DMS: DataManager: Failed to decrypt NIP-4 message ${event.id}:`, error);
-      return { 
-        decryptedContent: '', 
-        error: 'Decryption failed' 
+      return {
+        decryptedContent: '',
+        error: 'Decryption failed'
       };
     }
   }, [user]);
 
-  
+
 
   // Helper to create an empty participant with default values
   const createEmptyParticipant = useCallback(() => ({
@@ -904,7 +904,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Decrypt Gift Wrap → Seal → Private DM
       const sealContent = await user.signer.nip44.decrypt(event.pubkey, event.content);
       const sealEvent = JSON.parse(sealContent) as NostrEvent;
-      
+
       if (sealEvent.kind !== 13) {
         // Invalid Seal format - store with error
         return {
@@ -917,10 +917,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           conversationPartner: event.pubkey,
         };
       }
-      
+
       const messageContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
       const messageEvent = JSON.parse(messageContent) as NostrEvent;
-      
+
       if (messageEvent.kind !== 14) {
         // Invalid message format - store with error
         return {
@@ -933,7 +933,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           conversationPartner: event.pubkey,
         };
       }
-      
+
       // Determine conversation partner
       let conversationPartner: string;
       if (sealEvent.pubkey === user.pubkey) {
@@ -955,7 +955,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       } else {
         conversationPartner = sealEvent.pubkey;
       }
-      
+
       return {
         processedMessage: {
           ...messageEvent,
@@ -1187,6 +1187,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       let nip17LastMessageTimestamp: number | undefined;
       if (settings.enableNIP17) {
         nip17LastMessageTimestamp = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
+      }
+
+      // If we got new messages from either protocol, save to IndexedDB
+      const hadNewNIP4Messages = nip4LastMessageTimestamp !== nip4SinceTimestamp;
+      const hadNewNIP17Messages = settings.enableNIP17 && nip17LastMessageTimestamp !== nip17SinceTimestamp;
+
+      if (hadNewNIP4Messages || hadNewNIP17Messages) {
+        logger.log(`DMS: DataManager: Found new messages from relays (NIP-4: ${hadNewNIP4Messages}, NIP-17: ${hadNewNIP17Messages}), saving to IndexedDB`);
+        await writeAllMessagesToStore();
+        logger.log(`DMS: DataManager: Saved new relay messages to IndexedDB`);
       }
 
       // Stage 3: Set up subscriptions for all protocols
@@ -1442,7 +1452,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           messages: participant.messages.map(msg => {
             // SECURITY: Store only the original encrypted content, not decrypted
             // Drop decryptedContent and error when saving to IndexedDB
-            
+
             return {
               id: msg.id,
               pubkey: msg.pubkey,
