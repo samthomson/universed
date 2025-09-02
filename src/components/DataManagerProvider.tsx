@@ -74,7 +74,7 @@ interface DataManagerContextType {
     nip17Enabled: boolean;
   };
   writeAllMessagesToStore: () => Promise<void>;
-  clearIndexedDB: () => Promise<void>;
+  resetMessageDataAndCache: () => Promise<void>;
   handleNIP17SettingChange: (enabled: boolean) => Promise<void>;
   sendMessage: (params: { recipientPubkey: string; content: string; protocol?: MessageProtocol }) => Promise<void>;
   isNIP17Enabled: boolean;
@@ -1525,10 +1525,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
 
-  // Debug method to clear IndexedDB for current user
-  const clearIndexedDB = useCallback(async () => {
+  // Debug method to reset all message data and cache for current user
+  const resetMessageDataAndCache = useCallback(async () => {
     if (!userPubkey) {
-      logger.error('DMS: DataManager: No user pubkey available for clearing store');
+      logger.error('DMS: DataManager: No user pubkey available for resetting data');
       return;
     }
 
@@ -1541,9 +1541,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       setLastSync({ nip4: null, nip17: null });
       setHasInitialLoadCompleted(false);
 
-      logger.log('DMS: DataManager: Successfully cleared IndexedDB and reset state');
+      logger.log('DMS: DataManager: Successfully reset message data and cache');
     } catch (error) {
-      logger.error('DMS: DataManager: Error clearing IndexedDB:', error);
+      logger.error('DMS: DataManager: Error resetting message data and cache:', error);
     }
   }, [userPubkey]);
 
@@ -1559,7 +1559,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     conversations,
     getDebugInfo,
     writeAllMessagesToStore,
-    clearIndexedDB,
+    resetMessageDataAndCache,
     handleNIP17SettingChange,
     sendMessage: async (params) => {
       const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;

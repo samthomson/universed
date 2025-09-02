@@ -39,7 +39,7 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
               {debugInfo.messageCount}
             </span>
           </div>
-          
+
           {/* NIP-4 Section */}
           <div className="border-t pt-3">
             <div className="flex items-center justify-between mb-2">
@@ -59,7 +59,7 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
               </span>
             </div>
           </div>
-          
+
           {/* NIP-17 Section */}
           <div className="border-t pt-3">
             <div className="flex items-center justify-between mb-2">
@@ -85,10 +85,10 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
               </span>
             </div>
           </div>
-          
+
           {/* Write to Store Button */}
           <div className="border-t pt-3">
-            <Button 
+            <Button
               onClick={dataManager.writeAllMessagesToStore}
               className="w-full"
               variant="outline"
@@ -98,11 +98,11 @@ export function DataManagerDebugModal({ open, onOpenChange }: DataManagerDebugMo
               Write All Messages to IndexedDB
             </Button>
           </div>
-          
-          {/* Clear IndexedDB Button */}
+
+          {/* Reset Message Data & Cache Button */}
           <div className="pt-2">
-            <Button 
-              onClick={dataManager.clearIndexedDB}
+            <Button
+              onClick={dataManager.resetMessageDataAndCache}
               className="w-full"
               variant="destructive"
               size="sm"
