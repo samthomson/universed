@@ -1607,6 +1607,54 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Derived state for cleaner loading logic
   const isDoingInitialLoad = isLoading && (loadingPhase === LOADING_PHASES.CACHE || loadingPhase === LOADING_PHASES.RELAYS);
 
+  // Send message function with optimistic updates
+  const sendMessage = useCallback(async (params: { recipientPubkey: string; content: string; protocol?: MessageProtocol }) => {
+    const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
+    if (!userPubkey) {
+      logger.error('DMS: DataManager: Cannot send message, no user pubkey');
+      return;
+    }
+
+    logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
+
+    // Create optimistic message with consistent structure
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: DecryptedMessage = {
+      id: optimisticId, // Temporary ID for optimistic message
+      kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 1059, // NIP-4 DM or NIP-17 Gift Wrap for display
+      pubkey: userPubkey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [['p', recipientPubkey]],
+      content: '', // Empty encrypted content (will be filled when real message arrives)
+      decryptedContent: content, // Plain text content for display
+      sig: '',
+      isSending: true, // Mark as optimistic
+      clientFirstSeen: Date.now(), // Mark as just created for animation
+    };
+
+    // Add to messages state using reusable method
+    addMessageToState(optimisticMessage, recipientPubkey, protocol === MESSAGE_PROTOCOL.NIP04 ? MESSAGE_PROTOCOL.NIP04 : MESSAGE_PROTOCOL.NIP17);
+
+    try {
+      // Use the existing working send functions
+      if (protocol === MESSAGE_PROTOCOL.NIP04) {
+        await sendNIP4Message.mutateAsync({
+          recipientPubkey,
+          content,
+        });
+      } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
+        await sendNIP17Message.mutateAsync({
+          recipientPubkey,
+          content,
+        });
+      }
+
+      logger.log(`DMS: DataManager: Successfully sent ${protocol} message to ${recipientPubkey}`);
+    } catch (error) {
+      logger.error(`DMS: DataManager: Failed to send ${protocol} message to ${recipientPubkey}:`, error);
+    }
+  }, [userPubkey, addMessageToState, sendNIP4Message, sendNIP17Message]);
+
   const contextValue: DataManagerContextType = {
     messages,
     isLoading,
@@ -1618,52 +1666,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     writeAllMessagesToStore,
     resetMessageDataAndCache,
     handleNIP17SettingChange,
-    sendMessage: async (params) => {
-      const { recipientPubkey, content, protocol = MESSAGE_PROTOCOL.NIP04 } = params;
-      if (!userPubkey) {
-        logger.error('DMS: DataManager: Cannot send message, no user pubkey');
-        return;
-      }
-
-      logger.log(`DMS: DataManager: Sending ${protocol} message to ${recipientPubkey}`);
-
-      // Create optimistic message with consistent structure
-      const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
-      const optimisticMessage: DecryptedMessage = {
-        id: optimisticId, // Temporary ID for optimistic message
-        kind: protocol === MESSAGE_PROTOCOL.NIP04 ? 4 : 1059, // NIP-4 DM or NIP-17 Gift Wrap for display
-        pubkey: userPubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [['p', recipientPubkey]],
-        content: '', // Empty encrypted content (will be filled when real message arrives)
-        decryptedContent: content, // Plain text content for display
-        sig: '',
-        isSending: true, // Mark as optimistic
-        clientFirstSeen: Date.now(), // Mark as just created for animation
-      };
-
-      // Add to messages state using reusable method
-      addMessageToState(optimisticMessage, recipientPubkey, protocol === MESSAGE_PROTOCOL.NIP04 ? MESSAGE_PROTOCOL.NIP04 : MESSAGE_PROTOCOL.NIP17);
-
-      try {
-        // Use the existing working send functions
-        if (protocol === MESSAGE_PROTOCOL.NIP04) {
-          await sendNIP4Message.mutateAsync({
-            recipientPubkey,
-            content,
-          });
-        } else if (protocol === MESSAGE_PROTOCOL.NIP17) {
-          await sendNIP17Message.mutateAsync({
-            recipientPubkey,
-            content,
-          });
-        }
-
-        logger.log(`DMS: DataManager: Successfully sent ${protocol} message to ${recipientPubkey}`);
-      } catch (error) {
-        logger.error(`DMS: DataManager: Failed to send ${protocol} message to ${recipientPubkey}:`, error);
-      }
-    },
+    sendMessage,
     isNIP17Enabled: settings.enableNIP17,
     isDebugging: true, // Hardcoded for now
     scanProgress,
