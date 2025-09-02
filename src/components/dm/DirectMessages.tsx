@@ -10,7 +10,7 @@ import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { ProtocolIndicator } from "./ProtocolIndicator";
 import { UserPanel } from "@/components/layout/UserPanel";
-import { DataManagerDebugModal } from "@/components/debug/DataManagerDebugModal";
+import { MessagingInfoModal } from "@/components/debug/MessagingInfoModal";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -366,8 +366,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           onOpenChange={setShowMessagingSettings}
         />
 
-        {/* Debug Modal */}
-        <DataManagerDebugModal
+        {/* Messaging Info Modal */}
+        <MessagingInfoModal
           open={showDebugModal}
           onOpenChange={setShowDebugModal}
         />
@@ -515,8 +515,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         onOpenChange={setShowMessagingSettings}
       />
 
-      {/* Debug Modal */}
-      <DataManagerDebugModal
+      {/* Messaging Info Modal */}
+      <MessagingInfoModal
         open={showDebugModal}
         onOpenChange={setShowDebugModal}
       />
