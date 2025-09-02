@@ -84,7 +84,6 @@ function AppContent() {
             <QueryOptimizer />
             <Toaster />
             <Sonner />
-            
             <Suspense>
               <AppRouter />
             </Suspense>
