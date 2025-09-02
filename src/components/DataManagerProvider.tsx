@@ -489,7 +489,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                   } as NostrEvent & { decryptedContent?: string; error?: string };
                 }
               } else if (msg.kind === 1059) {
-                // NIP-17 message - decrypt it
+                // NIP-17 Gift Wrap message - decrypt it
                 const { processedMessage, error } = await processNIP17GiftWrap(msg);
                 return {
                   ...processedMessage,
@@ -638,9 +638,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           // Process the Gift Wrap message using reusable method
           const { processedMessage, conversationPartner } = await processNIP17GiftWrap(giftWrap);
 
-          // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
+          // Store the original Gift Wrap event with decrypted content for display
           const messageWithAnimation: DecryptedMessage = {
-            ...processedMessage,
+            ...giftWrap, // Keep original Gift Wrap event structure
+            decryptedContent: processedMessage.decryptedContent, // Store decrypted content
+            error: processedMessage.error, // Store any decryption errors
           };
 
           const messageAge = Date.now() - (giftWrap.created_at * 1000);
@@ -1000,13 +1002,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // Process the Gift Wrap message using reusable method
     const { processedMessage, conversationPartner } = await processNIP17GiftWrap(event);
 
-    // Add clientFirstSeen for animation
+    // Store the original Gift Wrap event with decrypted content for display
     const messageWithAnimation: DecryptedMessage = {
-      ...processedMessage,
+      ...event, // Keep original Gift Wrap event structure
+      decryptedContent: processedMessage.decryptedContent, // Store decrypted content
+      error: processedMessage.error, // Store any decryption errors
     };
 
     // Add clientFirstSeen for genuinely recent messages (created in last 5 seconds)
-    const messageAge = Date.now() - (processedMessage.created_at * 1000);
+    const messageAge = Date.now() - (event.created_at * 1000);
     if (messageAge < 5000) { // 5 seconds
       messageWithAnimation.clientFirstSeen = Date.now();
     }
