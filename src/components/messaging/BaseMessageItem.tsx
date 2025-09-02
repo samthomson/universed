@@ -35,7 +35,7 @@ import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
-import { getMessageProtocol } from "@/hooks/useDirectMessages";
+import { getMessageProtocol } from "@/lib/dmConstants";
 import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { DecryptedMessage } from "@/types/nostr";
 
@@ -192,7 +192,7 @@ function BaseMessageItemComponent({
           className={cn("flex space-x-3 relative", {
             "flex-row-reverse space-x-reverse": shouldAlignRight,
             // Message bubble styling for user's own messages
-          "max-w-[80%] bg-nostr-purple/20 rounded-2xl px-3 py-2": shouldAlignRight,
+            "max-w-[80%] bg-nostr-purple/20 rounded-2xl px-3 py-2": shouldAlignRight,
           })}>
           <div className="w-10 flex-shrink-0">
             {showAvatar
@@ -305,10 +305,10 @@ function BaseMessageItemComponent({
                   const displayContent = message.decryptedContent || message.content;
 
                   return (
-                    <NoteContent 
-                      event={{ ...message, content: displayContent }} 
-                      className="text-sm leading-relaxed text-left" 
-                      onNavigateToDMs={onNavigateToDMs} 
+                    <NoteContent
+                      event={{ ...message, content: displayContent }}
+                      className="text-sm leading-relaxed text-left"
+                      onNavigateToDMs={onNavigateToDMs}
                     />
                   );
                 })()}

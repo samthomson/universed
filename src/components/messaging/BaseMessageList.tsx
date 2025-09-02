@@ -8,7 +8,7 @@ import { Hash, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { logger } from "@/lib/logger";
-import { getMessageProtocol } from "@/hooks/useDirectMessages";
+import { getMessageProtocol } from "@/lib/dmConstants";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
@@ -48,33 +48,33 @@ export function BaseMessageList({
   // Track if we've done the initial scroll
   const [hasInitiallyScrolled, setHasInitiallyScrolled] = useState(false);
   const regularMessages = messages.filter((message) => !pinnedMessageIds.includes(message.id));
-  
+
   // Effect to manage scroll behavior when messages change
   useEffect(() => {
     // If we're loading older messages (messages were added)
     if (regularMessages.length > prevMessageCount && prevMessageCount > 0 && isLoadingOlder) {
-      
+
       // Use Virtuoso's API to maintain scroll position
       setTimeout(() => {
         // We'll use a simpler approach to maintain scroll position
         const addedCount = regularMessages.length - prevMessageCount;
-        
+
         // Use a fixed index to maintain position, but adjust it to show the button too
         // We'll scroll to one message before what was previously the first visible message
         // This ensures the "Load older messages" button is still visible
         const targetIndex = Math.max(0, addedCount - 1);
-        
+
         virtuosoRef.current?.scrollToIndex({
           index: targetIndex,
           align: 'start',
           behavior: 'auto'
         });
-        
+
         // Reset loading flag
         setIsLoadingOlder(false);
       }, 0);
     }
-    
+
     // Update the previous count
     setPrevMessageCount(regularMessages.length);
   }, [regularMessages.length, prevMessageCount, isLoadingOlder, virtuosoRef]);

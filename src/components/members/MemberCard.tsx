@@ -19,7 +19,7 @@ import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
 import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
 import { useIsMuted } from "@/hooks/useMutedUsers";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import { useState, KeyboardEvent } from "react";
@@ -61,7 +61,7 @@ export function MemberCard({
   const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
 
   // DM functionality
-  const { sendMessage: sendDM } = useDirectMessages();
+  const { sendMessage: sendDM } = useDataManager();
   const [isSendingDM, setIsSendingDM] = useState(false);
 
   // Follow state and actions
@@ -205,244 +205,243 @@ export function MemberCard({
             {children}
           </div>
           <Dialog open={mobileDialogOpen} onOpenChange={setMobileDialogOpen}>
-          <DialogContent className="max-w-md p-0 bg-gray-900 border-gray-700 shadow-xl">
-        <div className="relative">
-          {/* Banner */}
-          <div className="h-16 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-t-md relative overflow-hidden">
-            {banner && (
-              <div
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url(${banner})` }}
-              />
-            )}
-          </div>
-
-
-          <div className="px-4 pb-4">
-            {/* Avatar positioned over banner */}
-            <div className="-mt-8 mb-4">
-              <div
-                className="cursor-pointer relative inline-block"
-                onClick={handleOpenProfile}
-                title="View profile"
-              >
-                <Avatar className="w-16 h-16 border-4 border-background">
-                  <AvatarImage src={profileImage} alt={displayName} />
-                  <AvatarFallback className="bg-indigo-600 text-white text-sm">
-                    {displayName.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-
-                {/* Status indicator positioned on avatar */}
-                <div className="absolute bottom-2 right-0.5">
-                  <UserStatusIndicator pubkey={pubkey} />
-                </div>
-              </div>
-            </div>
-
-            {/* Profile Info */}
-            <div className="space-y-3">
-              <div>
-                <h3
-                  className="text-lg font-bold text-white leading-tight cursor-pointer hover:text-indigo-400 transition-colors"
-                  onClick={handleOpenProfile}
-                  title="View profile"
-                >
-                  {displayName}
-                </h3>
-
-                {/* Status message */}
-                {(userStatus?.emoji || userStatus?.message) && (
-                  <div className="flex items-center space-x-1 mt-1">
-                    <span className="text-sm">🌌</span>
-                    {userStatus.emoji && (
-                      <span className="text-sm">{userStatus.emoji}</span>
-                    )}
-                    {userStatus.message && (
-                      <p className="text-sm text-gray-300">{userStatus.message}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Music Status */}
-                {musicStatus && musicStatus.content && (
-                  <div className="flex items-center space-x-1 mt-1">
-                    <Music className="w-3 h-3 text-purple-500" />
-                    <p className="text-sm text-gray-300 truncate">
-                      {musicStatus.link ? (
-                        <a
-                          href={musicStatus.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="hover:text-purple-400 transition-colors"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {musicStatus.content}
-                        </a>
-                      ) : (
-                        musicStatus.content
-                      )}
-                    </p>
-                  </div>
-                )}
-
-                {/* npub with copy button */}
-                <div className="flex items-center space-x-2 mt-2">
-                  <p className="text-xs text-gray-400 font-mono">
-                    {npub.slice(0, 20)}...
-                  </p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleCopyNpub}
-                    className="h-5 w-5 hover:bg-gray-700 text-gray-400 hover:text-white"
-                    title="Copy npub"
-                  >
-                    {copied ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* NIP-05 verification */}
-                {nip05 && (
-                  <Badge variant="secondary" className="mt-2 text-xs bg-green-900/30 text-green-400 border-green-700">
-                    ✓ {nip05}
-                  </Badge>
-                )}
-              </div>
-
-              {/* About section (truncated) */}
-              {about && (
-                <p className="text-xs text-gray-300 leading-relaxed line-clamp-2 overflow-hidden">
-                  {about}
-                </p>
-              )}
-
-              {/* Mutual Communities */}
-              <MutualCommunities
-                targetPubkey={pubkey}
-                onCommunityClick={() => onOpenChange?.(false)}
-              />
-
-              {/* Action buttons */}
-              {!isOwnProfile && (
-                <div className="flex items-center space-x-2 pt-2">
-                  {/* Follow button */}
-                  <Button
-                    variant={isFollowing ? "outline" : "default"}
-                    size="sm"
-                    onClick={handleToggleFollow}
-                    disabled={isAddingFriend || isRemovingFriend}
-                    className={`flex-1 h-8 text-xs ${
-                      isFollowing
-                        ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
-                        : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                    }`}
-                  >
-                    <UserPlus className="w-3 h-3 mr-1" />
-                    {isAddingFriend || isRemovingFriend
-                      ? "..."
-                      : isFollowing
-                        ? "Following"
-                        : "Follow"
-                    }
-                  </Button>
-
-                  {/* DM button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleStartDM}
-                    className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white h-8 text-xs"
-                  >
-                    <MessageCircle className="w-3 h-3 mr-1" />
-                    Message
-                  </Button>
-
-                  {/* Zap button */}
-                  <ZapDialog target={fakeEvent}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-8 h-8 p-0 border-yellow-600 text-yellow-500 hover:bg-yellow-500/20 hover:border-yellow-500"
-                      title="Send zap"
-                    >
-                      <Zap className="w-3 h-3" />
-                    </Button>
-                  </ZapDialog>
-
-                  {/* More actions dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-8 h-8 p-0 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
-                      >
-                        <MoreHorizontal className="w-3 h-3" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="bg-gray-800 border-gray-600"
-                    >
-                      <DropdownMenuItem
-                        onClick={handleToggleMute}
-                        disabled={isMuting || isUnmuting}
-                        className="text-orange-400 focus:text-orange-300 focus:bg-orange-900/20"
-                      >
-                        <VolumeX className="w-4 h-4 mr-2" />
-                        {isMuting || isUnmuting ? "..." : isMuted ? "Unmute User" : "Mute User"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator className="bg-gray-600" />
-                      <DropdownMenuItem
-                        onClick={handleReport}
-                        className="text-red-400 focus:text-red-300 focus:bg-red-900/20"
-                      >
-                        <Flag className="w-4 h-4 mr-2" />
-                        Report User
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
-
-              {/* Quick DM Input */}
-              {!isOwnProfile && (
-                <div className="pt-2">
-                  <div className="flex items-center space-x-1">
-                    <Input
-                      type="text"
-                      placeholder={`Message @${displayName.split(' ')[0]}...`}
-                      value={dmMessage}
-                      onChange={(e) => setDmMessage(e.target.value)}
-                      onKeyPress={handleDMKeyPress}
-                      disabled={isSendingDM}
-                      className="flex-1 h-8 text-xs bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:ring-indigo-500/20"
+            <DialogContent className="max-w-md p-0 bg-gray-900 border-gray-700 shadow-xl">
+              <div className="relative">
+                {/* Banner */}
+                <div className="h-16 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-t-md relative overflow-hidden">
+                  {banner && (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url(${banner})` }}
                     />
-                    <Button
-                      onClick={handleSendQuickDM}
-                      disabled={!dmMessage.trim() || isSendingDM}
-                      size="sm"
-                      className="h-8 px-2 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                </div>
+
+
+                <div className="px-4 pb-4">
+                  {/* Avatar positioned over banner */}
+                  <div className="-mt-8 mb-4">
+                    <div
+                      className="cursor-pointer relative inline-block"
+                      onClick={handleOpenProfile}
+                      title="View profile"
                     >
-                      {isSendingDM ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Send className="w-3 h-3" />
+                      <Avatar className="w-16 h-16 border-4 border-background">
+                        <AvatarImage src={profileImage} alt={displayName} />
+                        <AvatarFallback className="bg-indigo-600 text-white text-sm">
+                          {displayName.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      {/* Status indicator positioned on avatar */}
+                      <div className="absolute bottom-2 right-0.5">
+                        <UserStatusIndicator pubkey={pubkey} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Info */}
+                  <div className="space-y-3">
+                    <div>
+                      <h3
+                        className="text-lg font-bold text-white leading-tight cursor-pointer hover:text-indigo-400 transition-colors"
+                        onClick={handleOpenProfile}
+                        title="View profile"
+                      >
+                        {displayName}
+                      </h3>
+
+                      {/* Status message */}
+                      {(userStatus?.emoji || userStatus?.message) && (
+                        <div className="flex items-center space-x-1 mt-1">
+                          <span className="text-sm">🌌</span>
+                          {userStatus.emoji && (
+                            <span className="text-sm">{userStatus.emoji}</span>
+                          )}
+                          {userStatus.message && (
+                            <p className="text-sm text-gray-300">{userStatus.message}</p>
+                          )}
+                        </div>
                       )}
-                    </Button>
+
+                      {/* Music Status */}
+                      {musicStatus && musicStatus.content && (
+                        <div className="flex items-center space-x-1 mt-1">
+                          <Music className="w-3 h-3 text-purple-500" />
+                          <p className="text-sm text-gray-300 truncate">
+                            {musicStatus.link ? (
+                              <a
+                                href={musicStatus.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-purple-400 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {musicStatus.content}
+                              </a>
+                            ) : (
+                              musicStatus.content
+                            )}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* npub with copy button */}
+                      <div className="flex items-center space-x-2 mt-2">
+                        <p className="text-xs text-gray-400 font-mono">
+                          {npub.slice(0, 20)}...
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleCopyNpub}
+                          className="h-5 w-5 hover:bg-gray-700 text-gray-400 hover:text-white"
+                          title="Copy npub"
+                        >
+                          {copied ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {/* NIP-05 verification */}
+                      {nip05 && (
+                        <Badge variant="secondary" className="mt-2 text-xs bg-green-900/30 text-green-400 border-green-700">
+                          ✓ {nip05}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* About section (truncated) */}
+                    {about && (
+                      <p className="text-xs text-gray-300 leading-relaxed line-clamp-2 overflow-hidden">
+                        {about}
+                      </p>
+                    )}
+
+                    {/* Mutual Communities */}
+                    <MutualCommunities
+                      targetPubkey={pubkey}
+                      onCommunityClick={() => onOpenChange?.(false)}
+                    />
+
+                    {/* Action buttons */}
+                    {!isOwnProfile && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        {/* Follow button */}
+                        <Button
+                          variant={isFollowing ? "outline" : "default"}
+                          size="sm"
+                          onClick={handleToggleFollow}
+                          disabled={isAddingFriend || isRemovingFriend}
+                          className={`flex-1 h-8 text-xs ${isFollowing
+                              ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                            }`}
+                        >
+                          <UserPlus className="w-3 h-3 mr-1" />
+                          {isAddingFriend || isRemovingFriend
+                            ? "..."
+                            : isFollowing
+                              ? "Following"
+                              : "Follow"
+                          }
+                        </Button>
+
+                        {/* DM button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStartDM}
+                          className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white h-8 text-xs"
+                        >
+                          <MessageCircle className="w-3 h-3 mr-1" />
+                          Message
+                        </Button>
+
+                        {/* Zap button */}
+                        <ZapDialog target={fakeEvent}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-8 h-8 p-0 border-yellow-600 text-yellow-500 hover:bg-yellow-500/20 hover:border-yellow-500"
+                            title="Send zap"
+                          >
+                            <Zap className="w-3 h-3" />
+                          </Button>
+                        </ZapDialog>
+
+                        {/* More actions dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-8 h-8 p-0 border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
+                            >
+                              <MoreHorizontal className="w-3 h-3" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-gray-800 border-gray-600"
+                          >
+                            <DropdownMenuItem
+                              onClick={handleToggleMute}
+                              disabled={isMuting || isUnmuting}
+                              className="text-orange-400 focus:text-orange-300 focus:bg-orange-900/20"
+                            >
+                              <VolumeX className="w-4 h-4 mr-2" />
+                              {isMuting || isUnmuting ? "..." : isMuted ? "Unmute User" : "Mute User"}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator className="bg-gray-600" />
+                            <DropdownMenuItem
+                              onClick={handleReport}
+                              className="text-red-400 focus:text-red-300 focus:bg-red-900/20"
+                            >
+                              <Flag className="w-4 h-4 mr-2" />
+                              Report User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+
+                    {/* Quick DM Input */}
+                    {!isOwnProfile && (
+                      <div className="pt-2">
+                        <div className="flex items-center space-x-1">
+                          <Input
+                            type="text"
+                            placeholder={`Message @${displayName.split(' ')[0]}...`}
+                            value={dmMessage}
+                            onChange={(e) => setDmMessage(e.target.value)}
+                            onKeyPress={handleDMKeyPress}
+                            disabled={isSendingDM}
+                            className="flex-1 h-8 text-xs bg-gray-800 border-gray-600 text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:ring-indigo-500/20"
+                          />
+                          <Button
+                            onClick={handleSendQuickDM}
+                            disabled={!dmMessage.trim() || isSendingDM}
+                            size="sm"
+                            className="h-8 px-2 bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isSendingDM ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Send className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </div>
+            </DialogContent>
+          </Dialog>
         </>
       ) : (
         // Desktop: Use Popover for hover/click overlay
@@ -585,11 +584,10 @@ export function MemberCard({
                         size="sm"
                         onClick={handleToggleFollow}
                         disabled={isAddingFriend || isRemovingFriend}
-                        className={`flex-1 h-8 text-xs ${
-                          isFollowing
+                        className={`flex-1 h-8 text-xs ${isFollowing
                             ? "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
                             : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                        }`}
+                          }`}
                       >
                         <UserPlus className="w-3 h-3 mr-1" />
                         {isAddingFriend || isRemovingFriend
@@ -694,23 +692,23 @@ export function MemberCard({
         </Popover>
       )}
 
-    {/* Profile Dialog */}
-    <ProfileModal
-      targetPubkey={currentProfilePubkey}
-      open={showProfileDialog}
-      onOpenChange={setShowProfileDialog}
-      onOpenSettings={() => _setShowSettingsDialog(true)}
-      onNavigateToDMs={onStartDM}
-      onProfileChange={handleProfileChange}
-    />
+      {/* Profile Dialog */}
+      <ProfileModal
+        targetPubkey={currentProfilePubkey}
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+        onOpenSettings={() => _setShowSettingsDialog(true)}
+        onNavigateToDMs={onStartDM}
+        onProfileChange={handleProfileChange}
+      />
 
-    {/* Report Dialog */}
-    <ReportUserDialog
-      targetPubkey={pubkey}
-      targetDisplayName={displayName}
-      open={showReportDialog}
-      onOpenChange={setShowReportDialog}
-    />
-  </>
+      {/* Report Dialog */}
+      <ReportUserDialog
+        targetPubkey={pubkey}
+        targetDisplayName={displayName}
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+      />
+    </>
   );
 }

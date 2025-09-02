@@ -7,7 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG, type MessageProtocol, useDirectMessages } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL, PROTOCOL_CONFIG, type MessageProtocol } from "@/lib/dmConstants";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import { ProtocolIndicator } from "./ProtocolIndicator";
 
 interface ProtocolSelectorProps {
@@ -16,17 +17,18 @@ interface ProtocolSelectorProps {
   className?: string;
 }
 
-export function ProtocolSelector({ 
-  selectedProtocol, 
-  onProtocolChange, 
-  className = "" 
+export function ProtocolSelector({
+  selectedProtocol,
+  onProtocolChange,
+  className = ""
 }: ProtocolSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { isNIP17Enabled } = useDirectMessages();
+  const { settings } = useUserSettings();
+  const isNIP17Enabled = settings.enableNIP17;
 
   // If NIP-17 is disabled and currently selected, show NIP-04 instead
-  const effectiveProtocol = !isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17 
-    ? MESSAGE_PROTOCOL.NIP04 
+  const effectiveProtocol = !isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17
+    ? MESSAGE_PROTOCOL.NIP04
     : selectedProtocol;
   const effectiveConfig = PROTOCOL_CONFIG[effectiveProtocol];
 

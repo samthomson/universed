@@ -6,7 +6,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/lib/dmConstants";
 import { useConversationMessages, useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
@@ -44,9 +44,8 @@ function DMChatHeader({
 
   return (
     <div
-      className={`${
-        isMobile ? "h-14" : "h-16"
-      } border-b flex items-center justify-between px-4 bg-background`}
+      className={`${isMobile ? "h-14" : "h-16"
+        } border-b flex items-center justify-between px-4 bg-background`}
     >
       <div className="flex items-center space-x-3">
         {isMobile && onBack && (
@@ -91,7 +90,7 @@ export function DMChatArea(
   // Simple pagination from conversation messages
   const MESSAGES_PER_PAGE = 5; // Reduced for debugging
   const [displayLimit, setDisplayLimit] = useState(MESSAGES_PER_PAGE);
-  
+
   // Memoize paginated messages to prevent unnecessary recalculations
   // BaseMessageList expects oldest-first order, so we slice from the end to get newest messages
   // This ensures newest messages appear at bottom and older messages load above
@@ -101,12 +100,12 @@ export function DMChatArea(
     const startIndex = Math.max(0, conversationMessages.length - displayLimit);
     return conversationMessages.slice(startIndex);
   }, [conversationMessages, displayLimit]);
-  
-  const hasMoreMessages = useMemo(() => 
-    displayLimit < conversationMessages.length, 
+
+  const hasMoreMessages = useMemo(() =>
+    displayLimit < conversationMessages.length,
     [displayLimit, conversationMessages.length]
   );
-  
+
   // Determine if we should show loading state for this conversation
   // Show loading during initial load OR if we have no messages yet and are still loading (for direct conversation links)
   const isConversationLoading = isDoingInitialLoad || (conversationMessages.length === 0 && isLoading);
@@ -120,7 +119,7 @@ export function DMChatArea(
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  
+
   // Get smart default protocol based on user settings and conversation history
   const defaultProtocol = useDefaultProtocol(conversationId);
   const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(defaultProtocol);

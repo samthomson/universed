@@ -30,7 +30,7 @@ import { useCommunities } from "@/hooks/useCommunities";
 import { useLeaveCommunity } from "@/hooks/useLeaveCommunity";
 import { useToast } from "@/hooks/useToast";
 import { handleInviteMembers } from "@/lib/communityUtils";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +110,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
   const { setHighlightedItemId } = useMarketplaceContext();
   const urlChannelId = urlParameters.channelId;
 
-  const { sendMessage: sendDM } = useDirectMessages();
+  const { sendMessage: sendDM } = useDataManager();
   const [pendingMarketplaceItem, setPendingMarketplaceItem] = useState<MarketplaceItem | null>(null);
 
   const handleNavigateToDMs = (targetPubkey?: string, marketplaceItem?: MarketplaceItem) => {
@@ -533,209 +533,209 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
 
     return (
       <CommunityProvider currentCommunityId={selectedCommunity}>
-          <>
-            <div className="flex h-screen bg-background text-foreground">
-          {/* Left Sidebar - only show in channels view or when no community selected */}
-          {showSidebar && (
-            <div className="w-16 bg-background/50 flex flex-col h-full border-r">
-              <AppSidebar
-                selectedCommunity={selectedCommunity}
-                showCommunitySelectionDialog={showCommunitySelectionDialog}
-                onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
-                onSelectCommunity={handleCommunitySelect}
-              />
-            </div>
-          )}
-
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Mobile Top Navigation Bar - only show when needed */}
-            {((!selectedCommunity && dmTargetPubkey) ||
-              (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ||
-              (mobileView === "chat" && selectedCommunity) ||
-              (mobileView === "members")) && (
-              <div className="flex items-center justify-between p-3 border-b bg-background z-20 flex-shrink-0">
-                {/* Back button - show for DM conversations or community chat/members */}
-                {(!selectedCommunity && dmTargetPubkey) || (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleBackNavigation}
-                    className="flex-shrink-0"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                ) : (
-                  <div className="flex-shrink-0 w-9"></div>
-                )}
-
-                {/* Center content - Minimal titles, no title for DM conversations */}
-                <div className="flex-1 text-center min-w-0">
-                  {mobileView === "chat" && selectedCommunity && (
-                    <>
-                      {activeTab === "channels" ? (
-                        <MobileChannelHeader
-                          communityId={selectedCommunity}
-                          channelId={selectedChannel}
-                          onNavigateToDMs={handleNavigateToDMs}
-                        />
-                      ) : (
-                        <h2 className="font-semibold text-lg truncate w-full">
-                          {activeTab === "marketplace" ? "Shop" :
-                           activeTab === "resources" ? "Files" : "Chat"}
-                        </h2>
-                      )}
-                    </>
-                  )}
-                  {mobileView === "members" && (
-                    <h2 className="font-semibold text-lg truncate">Members</h2>
-                  )}
-                </div>
-
-                {/* Action Buttons - show for community chat with channels tab */}
-                {mobileView === "chat" && selectedCommunity && activeTab === "channels" ? (
-                  <div className="flex items-center gap-1">
-                    {/* Moderation Button with Notification Badge */}
-                    {canModerate && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowMobileModeration(true)}
-                        className="relative flex-shrink-0"
-                      >
-                        <Shield className="h-5 w-5" />
-                        {pendingJoinRequests > 0 && (
-                          <Badge
-                            variant="destructive"
-                            className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
-                          >
-                            {pendingJoinRequests}
-                          </Badge>
-                        )}
-                      </Button>
-                    )}
-
-                    {/* Triple Dot Menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="flex-shrink-0">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={handleMobileInviteMembers}>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Invite Members
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={handleLeaveCommunity}
-                          disabled={isLeavingCommunity}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Leave Community
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ) : (
-                  <div className="flex-shrink-0 w-9"></div>
-                )}
+        <>
+          <div className="flex h-screen bg-background text-foreground">
+            {/* Left Sidebar - only show in channels view or when no community selected */}
+            {showSidebar && (
+              <div className="w-16 bg-background/50 flex flex-col h-full border-r">
+                <AppSidebar
+                  selectedCommunity={selectedCommunity}
+                  showCommunitySelectionDialog={showCommunitySelectionDialog}
+                  onShowCommunitySelectionDialogChange={setShowCommunitySelectionDialog}
+                  onSelectCommunity={handleCommunitySelect}
+                />
               </div>
             )}
 
-
-
             {/* Main Content Area */}
-            <div className="flex-1 overflow-hidden min-w-0">
-              {!selectedCommunity ? (
-                // Direct Messages - now controlled by parent state
-                <DirectMessages
-                  targetPubkey={dmTargetPubkey}
-                  selectedConversation={selectedDMConversation}
-                  onTargetHandled={() => {
-                    setDmTargetPubkey(null);
-                    setSelectedDMConversation(null);
-                  }}
-                  onNavigateToDMs={(pubkey) => {
-                    handleNavigateToDMs(pubkey);
-                  }}
-                  onConversationSelect={setSelectedDMConversation}
-                />
-              ) : mobileView === "chat"
-                ? (
-                  <>
-                    {activeTab === "channels" && (
-                      <ChatArea
-                        communityId={selectedCommunity}
-                        channelId={selectedChannel}
-                        onToggleMemberList={() => setMobileView("members")}
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Mobile Top Navigation Bar - only show when needed */}
+              {((!selectedCommunity && dmTargetPubkey) ||
+                (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ||
+                (mobileView === "chat" && selectedCommunity) ||
+                (mobileView === "members")) && (
+                  <div className="flex items-center justify-between p-3 border-b bg-background z-20 flex-shrink-0">
+                    {/* Back button - show for DM conversations or community chat/members */}
+                    {(!selectedCommunity && dmTargetPubkey) || (selectedCommunity && (mobileView === "chat" || mobileView === "members")) ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleBackNavigation}
+                        className="flex-shrink-0"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </Button>
+                    ) : (
+                      <div className="flex-shrink-0 w-9"></div>
                     )}
-                    {activeTab === "marketplace" && selectedCommunity && (
-                      <SpacesArea
-                        communityId={selectedCommunity}
-                        selectedSpace="marketplace"
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
-                    )}
-                    {activeTab === "resources" && selectedCommunity && (
-                      <SpacesArea
-                        communityId={selectedCommunity}
-                        selectedSpace="resources"
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
-                    )}
-                  </>
-                )
-                : mobileView === "channels"
-                ? (
-                  <CommunityPanel
-                    communityId={selectedCommunity}
-                    selectedChannel={selectedChannel}
-                    selectedSpace={selectedSpace}
-                    onSelectChannel={handleChannelSelect}
-                    onSelectSpace={handleSpaceSelect}
-                    onSelectCommunity={handleCommunitySelect}
-                    onNavigateToDMs={handleNavigateToDMs}
-                  />
-                )
-                : (
-                  <div className="h-full">
-                    {/* Mobile Members View */}
-                    {selectedCommunity && selectedChannel && (
-                      <MemberList
-                        communityId={selectedCommunity}
-                        channelId={selectedChannel}
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
+
+                    {/* Center content - Minimal titles, no title for DM conversations */}
+                    <div className="flex-1 text-center min-w-0">
+                      {mobileView === "chat" && selectedCommunity && (
+                        <>
+                          {activeTab === "channels" ? (
+                            <MobileChannelHeader
+                              communityId={selectedCommunity}
+                              channelId={selectedChannel}
+                              onNavigateToDMs={handleNavigateToDMs}
+                            />
+                          ) : (
+                            <h2 className="font-semibold text-lg truncate w-full">
+                              {activeTab === "marketplace" ? "Shop" :
+                                activeTab === "resources" ? "Files" : "Chat"}
+                            </h2>
+                          )}
+                        </>
+                      )}
+                      {mobileView === "members" && (
+                        <h2 className="font-semibold text-lg truncate">Members</h2>
+                      )}
+                    </div>
+
+                    {/* Action Buttons - show for community chat with channels tab */}
+                    {mobileView === "chat" && selectedCommunity && activeTab === "channels" ? (
+                      <div className="flex items-center gap-1">
+                        {/* Moderation Button with Notification Badge */}
+                        {canModerate && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowMobileModeration(true)}
+                            className="relative flex-shrink-0"
+                          >
+                            <Shield className="h-5 w-5" />
+                            {pendingJoinRequests > 0 && (
+                              <Badge
+                                variant="destructive"
+                                className="absolute -top-1 -right-1 h-4 w-4 p-0 text-xs flex items-center justify-center rounded-full"
+                              >
+                                {pendingJoinRequests}
+                              </Badge>
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Triple Dot Menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="flex-shrink-0">
+                              <MoreHorizontal className="h-5 w-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={handleMobileInviteMembers}>
+                              <Share2 className="w-4 h-4 mr-2" />
+                              Invite Members
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={handleLeaveCommunity}
+                              disabled={isLeavingCommunity}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <LogOut className="w-4 h-4 mr-2" />
+                              Leave Community
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ) : (
+                      <div className="flex-shrink-0 w-9"></div>
                     )}
                   </div>
                 )}
+
+
+
+              {/* Main Content Area */}
+              <div className="flex-1 overflow-hidden min-w-0">
+                {!selectedCommunity ? (
+                  // Direct Messages - now controlled by parent state
+                  <DirectMessages
+                    targetPubkey={dmTargetPubkey}
+                    selectedConversation={selectedDMConversation}
+                    onTargetHandled={() => {
+                      setDmTargetPubkey(null);
+                      setSelectedDMConversation(null);
+                    }}
+                    onNavigateToDMs={(pubkey) => {
+                      handleNavigateToDMs(pubkey);
+                    }}
+                    onConversationSelect={setSelectedDMConversation}
+                  />
+                ) : mobileView === "chat"
+                  ? (
+                    <>
+                      {activeTab === "channels" && (
+                        <ChatArea
+                          communityId={selectedCommunity}
+                          channelId={selectedChannel}
+                          onToggleMemberList={() => setMobileView("members")}
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      )}
+                      {activeTab === "marketplace" && selectedCommunity && (
+                        <SpacesArea
+                          communityId={selectedCommunity}
+                          selectedSpace="marketplace"
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      )}
+                      {activeTab === "resources" && selectedCommunity && (
+                        <SpacesArea
+                          communityId={selectedCommunity}
+                          selectedSpace="resources"
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      )}
+                    </>
+                  )
+                  : mobileView === "channels"
+                    ? (
+                      <CommunityPanel
+                        communityId={selectedCommunity}
+                        selectedChannel={selectedChannel}
+                        selectedSpace={selectedSpace}
+                        onSelectChannel={handleChannelSelect}
+                        onSelectSpace={handleSpaceSelect}
+                        onSelectCommunity={handleCommunitySelect}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                    )
+                    : (
+                      <div className="h-full">
+                        {/* Mobile Members View */}
+                        {selectedCommunity && selectedChannel && (
+                          <MemberList
+                            communityId={selectedCommunity}
+                            channelId={selectedChannel}
+                            onNavigateToDMs={handleNavigateToDMs}
+                          />
+                        )}
+                      </div>
+                    )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <JoinRequestDialog
-          open={showJoinDialog}
-          onOpenChange={handleJoinDialogClose}
-          onJoinSuccess={handleJoinSuccess}
-          communityId={urlCommunityId}
-        />
-
-
-
-        {/* Mobile Moderation Panel */}
-        {showMobileModeration && selectedCommunity && (
-          <CommunitySettings
-            communityId={selectedCommunity}
-            open={showMobileModeration}
-            onOpenChange={setShowMobileModeration}
+          <JoinRequestDialog
+            open={showJoinDialog}
+            onOpenChange={handleJoinDialogClose}
+            onJoinSuccess={handleJoinSuccess}
+            communityId={urlCommunityId}
           />
-        )}
-          </>
+
+
+
+          {/* Mobile Moderation Panel */}
+          {showMobileModeration && selectedCommunity && (
+            <CommunitySettings
+              communityId={selectedCommunity}
+              open={showMobileModeration}
+              onOpenChange={setShowMobileModeration}
+            />
+          )}
+        </>
       </CommunityProvider>
     );
   }
@@ -757,70 +757,70 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
             ? (
               <>
                 <div className="flex flex-1 overflow-hidden">
-                    <div className="w-72 bg-secondary/30 flex flex-col">
-                      <CommunityPanel
-                        communityId={selectedCommunity}
-                        selectedChannel={selectedChannel}
-                        selectedSpace={selectedSpace}
-                        onSelectChannel={handleChannelSelect}
-                        onSelectSpace={handleSpaceSelect}
-                        onSelectCommunity={handleCommunitySelect}
-                        onNavigateToDMs={handleNavigateToDMs}
-                      />
-                      <UserPanel />
-                    </div>
+                  <div className="w-72 bg-secondary/30 flex flex-col">
+                    <CommunityPanel
+                      communityId={selectedCommunity}
+                      selectedChannel={selectedChannel}
+                      selectedSpace={selectedSpace}
+                      onSelectChannel={handleChannelSelect}
+                      onSelectSpace={handleSpaceSelect}
+                      onSelectCommunity={handleCommunitySelect}
+                      onNavigateToDMs={handleNavigateToDMs}
+                    />
+                    <UserPanel />
+                  </div>
 
+                  <div className="flex-1 flex flex-col min-h-0">
+                    {/* Main Content Area */}
                     <div className="flex-1 flex flex-col min-h-0">
-                      {/* Main Content Area */}
-                      <div className="flex-1 flex flex-col min-h-0">
-                        {activeTab === "channels" && (
-                          <>
-                            {selectedSpace
-                              ? (
-                                <SpacesArea
-                                  communityId={selectedCommunity}
-                                  selectedSpace={selectedSpace}
-                                  onNavigateToDMs={handleNavigateToDMs}
-                                />
-                              )
-                              : (
-                                <ChatArea
-                                  communityId={selectedCommunity}
-                                  channelId={selectedChannel}
-                                  onToggleMemberList={() =>
-                                    setShowMemberList(!showMemberList)}
-                                  onNavigateToDMs={handleNavigateToDMs}
-                                />
-                              )}
-                          </>
-                        )}
-                        {activeTab === "marketplace" && selectedCommunity && (
-                          <SpacesArea
-                            communityId={selectedCommunity}
-                            selectedSpace="marketplace"
-                            onNavigateToDMs={handleNavigateToDMs}
-                          />
-                        )}
-                        {activeTab === "resources" && selectedCommunity && (
-                          <SpacesArea
-                            communityId={selectedCommunity}
-                            selectedSpace="resources"
-                            onNavigateToDMs={handleNavigateToDMs}
-                          />
-                        )}
-                      </div>
-                    </div>
-
-                    {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && (
-                      <div className="w-72 bg-secondary/30">
-                        <MemberList
+                      {activeTab === "channels" && (
+                        <>
+                          {selectedSpace
+                            ? (
+                              <SpacesArea
+                                communityId={selectedCommunity}
+                                selectedSpace={selectedSpace}
+                                onNavigateToDMs={handleNavigateToDMs}
+                              />
+                            )
+                            : (
+                              <ChatArea
+                                communityId={selectedCommunity}
+                                channelId={selectedChannel}
+                                onToggleMemberList={() =>
+                                  setShowMemberList(!showMemberList)}
+                                onNavigateToDMs={handleNavigateToDMs}
+                              />
+                            )}
+                        </>
+                      )}
+                      {activeTab === "marketplace" && selectedCommunity && (
+                        <SpacesArea
                           communityId={selectedCommunity}
-                          channelId={selectedChannel}
+                          selectedSpace="marketplace"
                           onNavigateToDMs={handleNavigateToDMs}
                         />
-                      </div>
-                    )}
+                      )}
+                      {activeTab === "resources" && selectedCommunity && (
+                        <SpacesArea
+                          communityId={selectedCommunity}
+                          selectedSpace="resources"
+                          onNavigateToDMs={handleNavigateToDMs}
+                        />
+                      )}
+                    </div>
                   </div>
+
+                  {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && (
+                    <div className="w-72 bg-secondary/30">
+                      <MemberList
+                        communityId={selectedCommunity}
+                        channelId={selectedChannel}
+                        onNavigateToDMs={handleNavigateToDMs}
+                      />
+                    </div>
+                  )}
+                </div>
               </>
             )
             : (

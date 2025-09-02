@@ -19,7 +19,7 @@ import { useDataManager } from "@/components/DataManagerProvider";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL } from "@/lib/dmConstants";
 import { LOADING_PHASES } from "@/lib/constants";
 
 

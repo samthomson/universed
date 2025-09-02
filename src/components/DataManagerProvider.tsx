@@ -7,8 +7,8 @@ import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent, DecryptedMessage } from '@/types/nostr';
-import type { MessageProtocol } from '@/hooks/useDirectMessages';
-import { MESSAGE_PROTOCOL } from '@/hooks/useDirectMessages';
+import type { MessageProtocol } from '@/lib/dmConstants';
+import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
 
 // Simple utility for debounced error logging
 const createErrorLogger = (name: string) => {
