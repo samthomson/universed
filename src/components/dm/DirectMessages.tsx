@@ -83,7 +83,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
     return (
       <div className="flex items-center gap-1 text-sm text-muted-foreground">
         <WifiOff className="w-3 h-3" />
-        <span>Disconnected</span>
       </div>
     );
   }, [isLoading, subscriptions.nip4, subscriptions.nip17]);
