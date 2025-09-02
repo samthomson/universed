@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle, Settings, Wifi, WifiOff, Loader2 } from "lucide-react";
+import { Search, Plus, MessageCircle, Settings, Wifi, WifiOff, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -10,6 +10,7 @@ import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { ProtocolIndicator } from "./ProtocolIndicator";
 import { UserPanel } from "@/components/layout/UserPanel";
+import { DataManagerDebugModal } from "@/components/debug/DataManagerDebugModal";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -34,6 +35,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [showMessagingSettings, setShowMessagingSettings] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DMTabType>('known');
 
@@ -66,8 +68,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       return (
         <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-3 h-3" />
-          <span>Connected</span>
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-1">
             {subscriptions.nip4 && (
               <div className="w-2 h-2 bg-orange-500 rounded-full" title="NIP-4 active" />
             )}
@@ -283,6 +284,14 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                     variant="ghost"
                     size="icon"
                     className="w-6 h-6 hover:bg-gray-800/60 mobile-touch"
+                    onClick={() => setShowDebugModal(true)}
+                  >
+                    <Info className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-6 h-6 hover:bg-gray-800/60 mobile-touch"
                     onClick={() => setShowMessagingSettings(true)}
                   >
                     <Settings className="w-3 h-3" />
@@ -357,6 +366,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           open={showMessagingSettings}
           onOpenChange={setShowMessagingSettings}
         />
+
+        {/* Debug Modal */}
+        <DataManagerDebugModal
+          open={showDebugModal}
+          onOpenChange={setShowDebugModal}
+        />
       </div>
     );
   }
@@ -375,6 +390,14 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-foreground">Messages</h2>
               {StatusIndicator}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-5 h-5 hover:bg-accent"
+                onClick={() => setShowDebugModal(true)}
+              >
+                <Info className="w-3 h-3" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -491,6 +514,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       <MessagingSettingsDialog
         open={showMessagingSettings}
         onOpenChange={setShowMessagingSettings}
+      />
+
+      {/* Debug Modal */}
+      <DataManagerDebugModal
+        open={showDebugModal}
+        onOpenChange={setShowDebugModal}
       />
     </div>
   );
