@@ -58,11 +58,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       return (
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>
-            {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
-            {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
-            {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
-          </span>
         </div>
       );
     }
