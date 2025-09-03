@@ -119,8 +119,6 @@ const DATA_MANAGER_CONSTANTS = {
   NIP4_QUERY_TIMEOUT: 15000, // 15 seconds
   NIP17_QUERY_TIMEOUT: 30000, // 30 seconds
 
-
-
   // Error logging debounce
   ERROR_LOG_DEBOUNCE_DELAY: 2000, // 2 seconds
 } as const;
@@ -237,9 +235,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { nostr } = useNostr();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
 
-  // Use existing hook to kick off message loading
-  // const _directMessages = useDirectMessages();
-
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
 
@@ -270,8 +265,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Subscription refs for real-time message processing
   const nip4SubscriptionRef = useRef<{ close: () => void } | null>(null);
   const nip17SubscriptionRef = useRef<{ close: () => void } | null>(null);
-
-
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
