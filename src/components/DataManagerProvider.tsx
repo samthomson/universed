@@ -287,21 +287,24 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     logger.log('DMS: DataManager: Starting initial message loading process');
     startMessageLoading();
+  }, [userPubkey, hasInitialLoadCompleted, isLoading]); // Only depend on user pubkey - settings are handled separately
 
-    // Cleanup function to close subscriptions when effect re-runs
+  // Separate effect for cleanup when user changes
+  useEffect(() => {
     return () => {
+      // Only clean up subscriptions when the user pubkey changes (component unmounts or user switches)
       if (nip4SubscriptionRef.current) {
         nip4SubscriptionRef.current.close();
         nip4SubscriptionRef.current = null;
-        logger.log('DMS: DataManager: Cleaned up NIP-4 subscription during effect cleanup');
+        logger.log('DMS: DataManager: Cleaned up NIP-4 subscription during user change cleanup');
       }
       if (nip17SubscriptionRef.current) {
         nip17SubscriptionRef.current.close();
         nip17SubscriptionRef.current = null;
-        logger.log('DMS: DataManager: Cleaned up NIP-17 subscription during effect cleanup');
+        logger.log('DMS: DataManager: Cleaned up NIP-17 subscription during user change cleanup');
       }
     };
-  }, [userPubkey, hasInitialLoadCompleted, isLoading]); // Only depend on user pubkey - settings are handled separately
+  }, [userPubkey]); // Only depend on userPubkey for cleanup
 
 
 
