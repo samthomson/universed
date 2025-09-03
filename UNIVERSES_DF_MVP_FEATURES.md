@@ -31,10 +31,13 @@
 - ✅ Explicit opt‑in prompt with clear explanation
 - 🚧 Respect OS **Do Not Disturb**
 
-### 3) Channels & Content
+### 3) Universes, Channels & Content
+**Universes:** Group spaces wtih channels where users can create and share content
+
 **Channel types:** Text channels, Voice channels
 
 **Moderator capabilities**
+- 🚧 Invite new users to join a Universe with (1) single-use invite links and (2) multi-use invite links with a custom expiration
 - ✅ Create / edit / delete channels (text & voice)
 - ✅ Pin posts (automatically refreshes/updates)
 - 🚧 Unpin posts (adding automatic refresh/update)
@@ -61,6 +64,7 @@
 ### 4) Moderation
 **Roles**
 - 🚧 Owner(s) can grant/revoke **Mod** role (currently have to do this via Chorus; creating capability in Universes)
+- ✅ All **Owners** are **Mods** for their Universe(s)
 
 **Actions**
 - ✅ **Boot user** (removes membership & posting rights)  
