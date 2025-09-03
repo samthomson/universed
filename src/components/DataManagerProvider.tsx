@@ -500,7 +500,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, nostr]);
 
   // Stage 1: Read all past messages from storage for a specific protocol
-  const loadPastMessages = useCallback(async (protocol: MessageProtocol): Promise<number | undefined> => {
+  const loadPreviousCachedMessages = useCallback(async (protocol: MessageProtocol): Promise<number | undefined> => {
     const startTime = Date.now();
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 1 - Loading past messages from storage`);
 
@@ -630,7 +630,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [settings.enableNIP17, userPubkey]);
 
   // Stage 2: Query for messages between last sync and now for a specific protocol
-  const queryMissedMessages = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<MessageProcessingResult> => {
+  const queryRelaysForMessagesSince = useCallback(async (protocol: MessageProtocol, sinceTimestamp?: number): Promise<MessageProcessingResult> => {
     logger.log(`DMS: DataManager: [${protocol.toUpperCase()}] Stage 2 - Querying for missed messages since ${sinceTimestamp ? new Date(sinceTimestamp * 1000).toISOString() : 'beginning'}`);
 
     // Skip NIP-17 if it's disabled
@@ -778,7 +778,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     // If no messages were processed, return the input timestamp
     return { lastMessageTimestamp: sinceTimestamp, messageCount: 0 };
-  }, [loadPastNIP4Messages, loadPastNIP17Messages, settings.enableNIP17, userPubkey]);
+  }, [settings.enableNIP17, userPubkey, loadPastNIP4Messages, loadPastNIP17Messages]);
 
   // Reusable method to decrypt NIP-4 message content
   const decryptNIP4Message = useCallback(async (event: NostrEvent, otherPubkey: string): Promise<DecryptionResult> => {
@@ -801,8 +801,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       };
     }
   }, [user]);
-
-
 
   // Helper to create an empty participant with default values
   const createEmptyParticipant = useCallback(() => ({
@@ -1264,20 +1262,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Stage 1: Load from cache for all protocols
       logger.log('DMS: DataManager: Stage 1: Loading cached messages for all protocols');
-      const nip4SinceTimestamp = await loadPastMessages(MESSAGE_PROTOCOL.NIP04);
-      const nip17SinceTimestamp = settings.enableNIP17 ? await loadPastMessages(MESSAGE_PROTOCOL.NIP17) : undefined;
+      const nip4SinceTimestamp = await loadPreviousCachedMessages(MESSAGE_PROTOCOL.NIP04);
+      const nip17SinceTimestamp = settings.enableNIP17 ? await loadPreviousCachedMessages(MESSAGE_PROTOCOL.NIP17) : undefined;
 
       // Stage 2: Query relays for all protocols
       logger.log('DMS: DataManager: Stage 2: Querying relays for new messages');
       setLoadingPhase(LOADING_PHASES.RELAYS);
 
       // Always query NIP-4 relays for new messages (even if no cached messages)
-      const nip4Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP04, nip4SinceTimestamp);
+      const nip4Result = await queryRelaysForMessagesSince(MESSAGE_PROTOCOL.NIP04, nip4SinceTimestamp);
 
       // Query NIP-17 relays if enabled (even if no cached messages)
       let nip17Result: { lastMessageTimestamp?: number; messageCount: number } | undefined;
       if (settings.enableNIP17) {
-        nip17Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
+        nip17Result = await queryRelaysForMessagesSince(MESSAGE_PROTOCOL.NIP17, nip17SinceTimestamp);
       }
 
       // If we got new messages from either protocol, trigger immediate save
@@ -1309,7 +1307,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadPastMessages, queryMissedMessages, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
+  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
@@ -1321,10 +1319,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     if (enabled) {
       // User enabled NIP-17 - load messages now using 3-stage approach
       logger.log('DMS: DataManager: NIP-17 enabled by user, loading messages now');
-      const sinceTimestamp = await loadPastMessages(MESSAGE_PROTOCOL.NIP17);
+      const sinceTimestamp = await loadPreviousCachedMessages(MESSAGE_PROTOCOL.NIP17);
       let nip17Result: { lastMessageTimestamp?: number; messageCount: number } | undefined;
       if (sinceTimestamp !== undefined) {
-        nip17Result = await queryMissedMessages(MESSAGE_PROTOCOL.NIP17, sinceTimestamp);
+        nip17Result = await queryRelaysForMessagesSince(MESSAGE_PROTOCOL.NIP17, sinceTimestamp);
       }
       await startNIP17Subscription(nip17Result?.lastMessageTimestamp);
     } else {
@@ -1382,7 +1380,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         writeAllMessagesToStore();
       }, 500);
     }
-  }, [loadPastMessages, queryMissedMessages, startNIP17Subscription, userPubkey]);
+  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP17Subscription, userPubkey]);
 
   // Track previous NIP-17 setting to detect actual changes
   const prevNIP17Setting = useRef(settings.enableNIP17);
