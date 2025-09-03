@@ -294,6 +294,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     logger.log('DMS: DataManager: Starting initial message loading process');
     startMessageLoading();
+
+    // Cleanup function to close subscriptions when effect re-runs
+    return () => {
+      if (nip4SubscriptionRef.current) {
+        nip4SubscriptionRef.current.close();
+        nip4SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Cleaned up NIP-4 subscription during effect cleanup');
+      }
+      if (nip17SubscriptionRef.current) {
+        nip17SubscriptionRef.current.close();
+        nip17SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Cleaned up NIP-17 subscription during effect cleanup');
+      }
+    };
   }, [userPubkey, hasInitialLoadCompleted, isLoading]); // Only depend on user pubkey - settings are handled separately
 
 
