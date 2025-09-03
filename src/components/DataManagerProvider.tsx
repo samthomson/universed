@@ -1456,7 +1456,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     return conversationsList.sort((a, b) => b.lastActivity - a.lastActivity);
   }, [messages, user?.pubkey]);
 
-  const getDebugInfo = () => {
+  const getDebugInfo = useCallback(() => {
     // Count total messages from all participants
     let totalMessageCount = 0;
     let nip4Count = 0;
@@ -1482,7 +1482,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       nip17Sync: lastSync.nip17 ? new Date(lastSync.nip17 * 1000) : null,
       nip17Enabled: settings.enableNIP17,
     };
-  };
+  }, [messages, lastSync.nip4, lastSync.nip17, settings.enableNIP17]);
 
   // Debug method to write all current messages to IndexedDB
   const writeAllMessagesToStore = useCallback(async () => {
