@@ -1,9 +1,10 @@
 import type { NostrEvent } from '@nostrify/nostrify';
+import type { DecryptedMessage } from '@/types/nostr';
 
 export interface DMConversation {
   id: string; // The other person's pubkey
   pubkey: string;
-  lastMessage?: NostrEvent;
+  lastMessage?: DecryptedMessage;
   lastMessageTime: number;
   unreadCount: number;
   // Conversation categorization
