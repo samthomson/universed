@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle, Settings } from "lucide-react";
+import { Search, Plus, MessageCircle, Settings, Wifi, WifiOff, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -10,15 +10,17 @@ import { NewDMDrawer } from "./NewDMDrawer";
 import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
 import { ProtocolIndicator } from "./ProtocolIndicator";
 import { UserPanel } from "@/components/layout/UserPanel";
+import { MessagingInfoModal } from "@/components/debug/MessagingInfoModal";
 import { type DMTabType } from "@/types/dm";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { logger } from "@/lib/logger";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { MESSAGE_PROTOCOL } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL } from "@/lib/dmConstants";
+import { LOADING_PHASES } from "@/lib/constants";
 
 
 interface DirectMessagesProps {
@@ -33,17 +35,57 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
   const [showMessagingSettings, setShowMessagingSettings] = useState(false);
+  const [showDebugModal, setShowDebugModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DMTabType>('known');
 
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const { toast } = useToast();
-  // Use the NEW system for all conversation data
-  const { conversations: newConversations } = useDirectMessages();
+  // Use the DataManager for all conversation data
+  const {
+    conversations: newConversations,
+    isLoading,
+    loadingPhase,
+    isDoingInitialLoad,
+    subscriptions
+  } = useDataManager();
 
   // Use controlled state if provided, otherwise use internal state
   const selectedConversation = propSelectedConversation !== undefined ? propSelectedConversation : internalSelectedConversation;
+
+  // Status indicator component - memoized for performance
+  const StatusIndicator = useMemo(() => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Loader2 className="w-3 h-3 animate-spin" />
+        </div>
+      );
+    }
+
+    if (subscriptions.nip4 || subscriptions.nip17) {
+      return (
+        <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+          <Wifi className="w-3 h-3" />
+          <div className="flex items-center gap-1">
+            {subscriptions.nip4 && (
+              <div className="w-2 h-2 bg-orange-500 rounded-full" title="NIP-4 active" />
+            )}
+            {subscriptions.nip17 && (
+              <div className="w-2 h-2 bg-purple-500 rounded-full" title="NIP-17 active" />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+        <WifiOff className="w-3 h-3" />
+      </div>
+    );
+  }, [isLoading, subscriptions.nip4, subscriptions.nip17]);
 
   const handleNewDM = useCallback(() => {
     setShowNewDM(true);
@@ -165,22 +207,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
   // Show discovery progress as toasts
   useEffect(() => {
-    if (newConversations.isLoadingComprehensive) {
+    if (newConversations.length > 0) {
       toast({
-        title: "🔍 Discovering Conversations",
-        description: "Scanning messages for conversations...",
-      });
-    } else if (!newConversations.isLoading && newConversations.conversations.length > 0) {
-      toast({
-        title: "✅ Discovery Complete",
-        description: `Found ${newConversations.conversations.length} conversations`,
+        title: "✅ Messages Loaded",
+        description: `Found ${newConversations.length} conversations`,
       });
     }
-  }, [newConversations.isLoadingComprehensive, newConversations.isLoading, newConversations.conversations.length, toast]);
+  }, [newConversations.length, toast]);
 
   // Memoize the expensive filtering and sorting operations (must be before early return)
   const filteredDiscoveredConversations = useMemo(() => {
-    return newConversations.conversations
+    return newConversations
       .filter(conv => {
         // Filter conversations based on active tab
         if (activeTab === 'known') {
@@ -190,11 +227,11 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         }
       })
       .sort((a, b) => b.lastActivity - a.lastActivity); // Sort by most recent message first
-  }, [newConversations.conversations, activeTab]);
+  }, [newConversations, activeTab]);
 
   // Calculate counts for tabs in a single pass
   const { knownCount, requestsCount } = useMemo(() => {
-    return newConversations.conversations.reduce(
+    return newConversations.reduce(
       (counts, conv) => {
         if (conv.isKnown) counts.knownCount++;
         if (conv.isRequest) counts.requestsCount++;
@@ -202,8 +239,8 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       },
       { knownCount: 0, requestsCount: 0 }
     );
-  }, [newConversations.conversations]);
-  
+  }, [newConversations]);
+
 
   if (!user) {
     return (
@@ -239,8 +276,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
             {/* Header */}
             <div className="p-4 border-b border-gray-600 bg-secondary/30">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <h2 className="font-semibold text-white">Messages</h2>
+                  {StatusIndicator}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-6 h-6 hover:bg-gray-800/60 mobile-touch"
+                    onClick={() => setShowDebugModal(true)}
+                  >
+                    <Info className="w-3 h-3" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -278,16 +324,31 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                   className="pl-9 bg-gray-600 border-gray-500 text-gray-100 placeholder:text-gray-400 focus:bg-gray-800/60 transition-colors text-base"
                 />
               </div>
+
+
             </div>
 
             {/* Conversation List */}
             <div className="flex-1 overflow-hidden bg-secondary/30 px-2">
-              <Virtuoso
-                data={filteredDiscoveredConversations}
-                itemContent={conversationItemContent}
-                components={virtuosoComponents}
-                className="h-full scrollbar-thin"
-              />
+              {/* Show loading state during initial load */}
+              {isDoingInitialLoad ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center text-gray-400">
+                    <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin opacity-50" />
+                    <p className="text-sm">
+                      {loadingPhase === LOADING_PHASES.CACHE && 'Loading conversations...'}
+                      {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching new messages...'}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Virtuoso
+                  data={filteredDiscoveredConversations}
+                  itemContent={conversationItemContent}
+                  components={virtuosoComponents}
+                  className="h-full"
+                />
+              )}
             </div>
           </>
         )}
@@ -304,6 +365,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           open={showMessagingSettings}
           onOpenChange={setShowMessagingSettings}
         />
+
+        {/* Messaging Info Modal */}
+        <MessagingInfoModal
+          open={showDebugModal}
+          onOpenChange={setShowDebugModal}
+        />
       </div>
     );
   }
@@ -319,8 +386,17 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <h2 className="font-semibold text-foreground">Messages</h2>
+              {StatusIndicator}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-5 h-5 hover:bg-accent"
+                onClick={() => setShowDebugModal(true)}
+              >
+                <Info className="w-3 h-3" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -360,16 +436,27 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
               className="pl-9 bg-background border-border text-foreground placeholder:text-muted-foreground focus:bg-accent/50 transition-colors"
             />
           </div>
+
+
         </div>
 
         {/* Current Conversation List */}
         <div className="flex-1 overflow-hidden px-1">
-          <Virtuoso
-            data={filteredDiscoveredConversations}
-            itemContent={conversationItemContent}
-            components={virtuosoComponents}
-            className="h-full scrollbar-thin"
-          />
+          {/* Show loading state during initial load */}
+          {isDoingInitialLoad ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center text-muted-foreground">
+                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin opacity-50" />
+              </div>
+            </div>
+          ) : (
+            <Virtuoso
+              data={filteredDiscoveredConversations}
+              itemContent={conversationItemContent}
+              components={virtuosoComponents}
+              className="h-full"
+            />
+          )}
         </div>
 
         {/* User Panel at the bottom */}
@@ -378,7 +465,21 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
 
       {/* Chat Area */}
       <div className="flex-1">
-        {selectedConversation ? (
+        {/* Show loading state during initial load, regardless of selected conversation */}
+        {isDoingInitialLoad ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-gray-700">
+                  {loadingPhase === LOADING_PHASES.CACHE && 'Loading from cache...'}
+                  {loadingPhase === LOADING_PHASES.RELAYS && 'Fetching from relays...'}
+                  {loadingPhase === LOADING_PHASES.SUBSCRIPTIONS && 'Setting up subscriptions...'}
+                </h3>
+              </div>
+            </div>
+          </div>
+        ) : selectedConversation ? (
           <DMChatArea
             conversationId={selectedConversation}
             onNavigateToDMs={onNavigateToDMs}
@@ -412,6 +513,12 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       <MessagingSettingsDialog
         open={showMessagingSettings}
         onOpenChange={setShowMessagingSettings}
+      />
+
+      {/* Messaging Info Modal */}
+      <MessagingInfoModal
+        open={showDebugModal}
+        onOpenChange={setShowDebugModal}
       />
     </div>
   );
