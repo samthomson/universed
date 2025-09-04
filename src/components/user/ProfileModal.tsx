@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContentNoClose
@@ -166,7 +166,7 @@ export function ProfileModal({
   const { data: userMemberships } = useUserMembership();
   
   // Get target user's memberships using efficient batch query
-  const { data: targetMemberships } = useUserMembershipsByPubkey(isOwnProfile ? undefined : profilePubkey);
+  const { data: targetMemberships } = useUserMembershipsByPubkey(isOwnProfile ? null : profilePubkey);
 
   // Get user's communities based on membership status
   const userCommunities = useMemo(() => {
