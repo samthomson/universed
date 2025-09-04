@@ -21,6 +21,7 @@ import { useFaviconBadge } from '@/hooks/useFaviconBadge';
 import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { SettingsProvider } from '@/contexts/settings.tsx';
 import { SettingsDialog } from '@/components/user/SettingsDialog';
+import { DataManagerProvider } from '@/components/DataManagerProvider';
 
 import AppRouter from './AppRouter';
 
@@ -77,17 +78,19 @@ function AppContent() {
 
   return (
     <SettingsProvider>
-      <MessageSystemProvider>
-        <TooltipProvider>
-          <QueryOptimizer />
-          <Toaster />
-          <Sonner />
-          <Suspense>
-            <AppRouter />
-          </Suspense>
-          <SettingsDialog />
-        </TooltipProvider>
-      </MessageSystemProvider>
+      <DataManagerProvider>
+        <MessageSystemProvider>
+          <TooltipProvider>
+            <QueryOptimizer />
+            <Toaster />
+            <Sonner />
+            <Suspense>
+              <AppRouter />
+            </Suspense>
+            <SettingsDialog />
+          </TooltipProvider>
+        </MessageSystemProvider>
+      </DataManagerProvider>
     </SettingsProvider>
   );
 }

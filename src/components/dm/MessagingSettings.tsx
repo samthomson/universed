@@ -2,8 +2,9 @@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDirectMessages } from "@/hooks/useDirectMessages";
+import { useUserSettings, USER_SETTING_KEYS } from "@/hooks/useUserSettings";
 import { useDefaultProtocolSetting, type DefaultProtocol } from "@/hooks/useDefaultProtocolSetting";
+
 import { cn } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 
@@ -12,7 +13,7 @@ interface MessagingSettingsProps {
 }
 
 export function MessagingSettings({ className }: MessagingSettingsProps) {
-  const { isNIP17Enabled, setNIP17Enabled } = useDirectMessages();
+  const { settings, updateSetting } = useUserSettings();
   const [defaultProtocol, setDefaultProtocol] = useDefaultProtocolSetting();
 
   return (
@@ -49,18 +50,14 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
             <div className="flex-shrink-0">
               <Switch
                 id="nip17-enabled"
-                checked={isNIP17Enabled}
+                checked={settings.enableNIP17}
                 onCheckedChange={(checked) => {
                   logger.log('[DEBUG] Switch toggled to:', checked);
-                  logger.log('[DEBUG] Before toggle - localStorage:', localStorage.getItem('enableNIP17'));
-                  setNIP17Enabled(checked);
+                  updateSetting(USER_SETTING_KEYS.ENABLE_NIP17, checked);
                   // If disabling NIP-17, force default protocol to NIP-04
                   if (!checked && defaultProtocol === 'nip17') {
                     setDefaultProtocol('nip04');
                   }
-                  setTimeout(() => {
-                    logger.log('[DEBUG] After toggle - localStorage:', localStorage.getItem('enableNIP17'));
-                  }, 100);
                 }}
               />
             </div>
@@ -71,8 +68,8 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
         <div className={cn(
           "overflow-hidden transition-all duration-300 ease-in-out",
           {
-            "max-h-40 opacity-100": isNIP17Enabled,
-            "max-h-0 opacity-0": !isNIP17Enabled,
+            "max-h-40 opacity-100": settings.enableNIP17,
+            "max-h-0 opacity-0": !settings.enableNIP17,
           }
         )}>
           <div className="space-y-4">
@@ -80,10 +77,10 @@ export function MessagingSettings({ className }: MessagingSettingsProps) {
               <Label htmlFor="default-protocol" className="text-sm font-medium">
                 Default Messaging Protocol
               </Label>
-              <Select 
-                value={defaultProtocol} 
+              <Select
+                value={defaultProtocol}
                 onValueChange={(value: DefaultProtocol) => setDefaultProtocol(value)}
-                disabled={!isNIP17Enabled}
+                disabled={!settings.enableNIP17}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select default protocol" />

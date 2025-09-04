@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/popover";
 import { useState } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useDataManager } from "@/components/DataManagerProvider";
 
 interface RelaySelectorProps {
   className?: string;
@@ -24,9 +25,15 @@ interface RelaySelectorProps {
 export function RelaySelector(props: RelaySelectorProps) {
   const { className } = props;
   const { config, updateConfig, presetRelays = [] } = useAppContext();
-  
+  const { resetMessageDataAndCache } = useDataManager();
+
   const selectedRelay = config.relayUrl;
   const setSelectedRelay = (relay: string) => {
+    // if we've changed the relay, reset the message cache - it should be a shortcut, not a source of truth
+    if (relay !== selectedRelay) {
+      // Reset message cache when relay changes since cached messages may be from different relays
+      resetMessageDataAndCache();
+    }
     updateConfig((current) => ({ ...current, relayUrl: relay }));
   };
 
@@ -83,9 +90,9 @@ export function RelaySelector(props: RelaySelectorProps) {
           <div className="flex items-center gap-2">
             <Wifi className="h-4 w-4" />
             <span className="truncate">
-              {selectedOption 
-                ? selectedOption.name 
-                : selectedRelay 
+              {selectedOption
+                ? selectedOption.name
+                : selectedRelay
                   ? selectedRelay.replace(/^wss?:\/\//, '')
                   : "Select relay..."
               }
@@ -96,8 +103,8 @@ export function RelaySelector(props: RelaySelectorProps) {
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command>
-          <CommandInput 
-            placeholder="Search relays or type URL..." 
+          <CommandInput
+            placeholder="Search relays or type URL..."
             value={inputValue}
             onValueChange={setInputValue}
           />
@@ -124,8 +131,8 @@ export function RelaySelector(props: RelaySelectorProps) {
             </CommandEmpty>
             <CommandGroup>
               {presetRelays
-                .filter((option) => 
-                  !inputValue || 
+                .filter((option) =>
+                  !inputValue ||
                   option.name.toLowerCase().includes(inputValue.toLowerCase()) ||
                   option.url.toLowerCase().includes(inputValue.toLowerCase())
                 )

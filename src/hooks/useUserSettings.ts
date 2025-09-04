@@ -1,21 +1,32 @@
-import { useLocalStorage } from './useLocalStorage';
+import { useReactiveLocalStorage } from './useReactiveLocalStorage';
 
 export interface UserSettings {
   showPendingCommunities: boolean;
   enableSpamFiltering: boolean;
+  enableNIP17: boolean;
   // Add more user settings here as needed
 }
+
+// Setting keys as constants for type safety
+export const USER_SETTING_KEYS = {
+  SHOW_PENDING_COMMUNITIES: 'showPendingCommunities',
+  ENABLE_SPAM_FILTERING: 'enableSpamFiltering', 
+  ENABLE_NIP17: 'enableNIP17',
+} as const;
+
+export type UserSettingKey = keyof UserSettings;
 
 const DEFAULT_USER_SETTINGS: UserSettings = {
   showPendingCommunities: false,
   enableSpamFiltering: false, // Disabled by default for debugging
+  enableNIP17: true, // Enable NIP17 by default
 };
 
 /**
  * Hook to manage user-specific settings stored in localStorage
  */
 export function useUserSettings() {
-  const [settings, setSettings] = useLocalStorage<UserSettings>(
+  const [settings, setSettings] = useReactiveLocalStorage<UserSettings>(
     'user-settings',
     DEFAULT_USER_SETTINGS
   );
