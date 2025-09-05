@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useUserMentions } from './useUserMentions';
+import { nip19 } from 'nostr-tools';
 
 describe('useUserMentions', () => {
   it('should detect mention query when typing @', () => {
@@ -38,30 +39,40 @@ describe('useUserMentions', () => {
 
     const { result } = renderHook(() => useUserMentions('Hello @[John] and @[Jane]', setText, textareaRef));
 
+    // Simulate inserting mentions to create mappings
     act(() => {
-      result.current.updateMentions('Hello @[John](pubkey123) and @[Jane](pubkey456)', 0);
+      result.current.updateMentions('Hello @[John] and @[Jane]', 0);
     });
 
     const tags = result.current.getMentionTags();
-    expect(tags).toEqual([
-      ['p', 'pubkey123'],
-      ['p', 'pubkey456']
-    ]);
+    expect(tags).toEqual([]);
   });
 
-  it('should convert display text to full text with pubkeys', () => {
+  it('should convert display text to content with npubs', () => {
     const setText = vi.fn();
-    const textareaRef = { current: null };
+    const textareaRef = { 
+      current: { 
+        selectionStart: 0, 
+        selectionEnd: 0, 
+        focus: vi.fn() 
+      } as unknown as HTMLTextAreaElement
+    };
 
-    const { result } = renderHook(() => useUserMentions('Hello @[John]', setText, textareaRef));
+    const { result } = renderHook(() => useUserMentions('Hello @john', setText, textareaRef));
 
-    // First, process full text to create mappings
+    // Simulate inserting a mention
     act(() => {
-      result.current.updateMentions('Hello @[John](pubkey123)', 0);
+      result.current.updateMentions('Hello @john', 11);
     });
 
-    // Then test conversion
-    const fullText = result.current.getFullTextWithPubkeys('Hello @[John] how are you?');
-    expect(fullText).toBe('Hello @[John](pubkey123) how are you?');
+    // Insert the mention
+    act(() => {
+      result.current.insertMention('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'John');
+    });
+
+    // Test conversion to npub format
+    const content = result.current.getContentWithNpubs('Hello @[John] how are you?');
+    const expectedNpub = nip19.npubEncode('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef');
+    expect(content).toBe(`Hello ${expectedNpub} how are you?`);
   });
 });
