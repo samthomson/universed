@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { nip19 } from 'nostr-tools';
+import { logger } from '@/lib/logger';
 
 export interface MentionData {
   pubkey: string;
@@ -84,7 +85,7 @@ export function useUserMentions(
           
           newMappings.push(newMapping);
         } catch (e) {
-          console.error('Failed to decode npub:', e);
+          logger.error('Failed to decode npub:', e);
         }
       }
     }
@@ -147,7 +148,7 @@ export function useUserMentions(
         const decoded = nip19.decode(npub);
         pubkey = decoded.data as string;
       } catch (e) {
-        console.error('Failed to decode npub:', e);
+        logger.error('Failed to decode npub:', e);
         pubkey = npubOrPubkey; // Fallback
       }
     } else {
