@@ -350,17 +350,6 @@ export function NoteContent({
                 alt="Shared image"
                 className="max-h-64 w-auto"
                 onClick={() => handleImageClick(url, allImages)}
-                onError={(e) => {
-                  // If image fails to load, fall back to link
-                  const fallbackLink = document.createElement('a');
-                  fallbackLink.href = url;
-                  fallbackLink.target = '_blank';
-                  fallbackLink.rel = 'noopener noreferrer';
-                  fallbackLink.className = 'text-blue-500 hover:underline';
-                  fallbackLink.textContent = url;
-                  const eventTarget = e.currentTarget as HTMLElement;
-                  eventTarget.parentNode?.replaceChild(fallbackLink, eventTarget);
-                }}
               />
             </div>
           );
