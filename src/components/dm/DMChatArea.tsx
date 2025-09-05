@@ -6,7 +6,6 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/lib/dmConstants";
 import { useConversationMessages, useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
@@ -18,7 +17,7 @@ import { useAutoProtocol } from "@/hooks/useAutoProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
 import { MESSAGES_PER_PAGE } from "@/lib/dmConstants";
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState } from "react";
 
 
 interface DMChatAreaProps {
@@ -85,7 +84,7 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { messages: conversationMessages } = useConversationMessages(conversationId);
-  const { sendMessage, isNIP17Enabled, isDoingInitialLoad, isLoading } = useDataManager();
+  const { sendMessage, isDoingInitialLoad, isLoading } = useDataManager();
 
   // Simple pagination from conversation messages
   const [displayLimit, setDisplayLimit] = useState<number>(MESSAGES_PER_PAGE);
@@ -119,11 +118,8 @@ export function DMChatArea(
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
-  // Get smart default protocol based on user settings and conversation history
-  const defaultProtocol = useDefaultProtocol(conversationId);
-
-  // Get automatic protocol selection - NIP-17 by default, falls back to NIP-04
-  const selectedProtocol = useAutoProtocol(conversationId);
+  // Get automatic protocol determination - NIP-17 by default, falls back to NIP-04
+  const protocol = useAutoProtocol(conversationId);
 
   const displayName = metadata?.name || genUserName(conversationId);
 
@@ -141,18 +137,16 @@ export function DMChatArea(
     />
   ), [conversationId, onBack]);
 
-  
-
   const handleSendMessage = useCallback(async (content: string) => {
     await sendMessage({
       recipientPubkey: conversationId,
       content,
-      protocol: selectedProtocol,
+      protocol,
     });
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  }, [sendMessage, conversationId, onMessageSent, selectedProtocol]);
+  }, [sendMessage, conversationId, onMessageSent, protocol]);
 
   const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
@@ -207,7 +201,6 @@ export function DMChatArea(
       hasMoreMessages={hasMoreMessages}
       loadingOlderMessages={loadingOlderMessages}
       onLoadOlderMessages={loadOlderMessages}
-
     />
   );
 }

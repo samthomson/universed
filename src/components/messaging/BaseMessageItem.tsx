@@ -29,7 +29,6 @@ import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
-import { getMessageProtocol } from "@/hooks/useDirectMessages";
 import { LegacyProtocolWarning } from "@/components/dm/LegacyProtocolWarning";
 import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
 import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
@@ -38,7 +37,6 @@ import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/lib/dmConstants";
-import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { DecryptedMessage } from "@/types/nostr";
 
 export interface MessageItemConfig {
