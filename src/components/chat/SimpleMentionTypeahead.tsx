@@ -75,7 +75,7 @@ function MentionItem({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate text-gray-100">{friendlyName}</span>
+          <span className="font-medium text-sm truncate text-foreground">{friendlyName}</span>
           {user.role && (
             <span className={cn("text-xs font-medium", roleColor)}>
               {user.role}
@@ -83,7 +83,7 @@ function MentionItem({
           )}
         </div>
         {username !== friendlyName && (
-          <div className="text-xs text-gray-400 truncate">@{username}</div>
+          <div className="text-xs text-muted-foreground truncate">@{username}</div>
         )}
       </div>
     </div>
@@ -269,7 +269,7 @@ export function SimpleMentionTypeahead({
             }
           </div>
         ) : isLoading ? (
-          <div className="py-4 text-center text-sm text-gray-400">
+          <div className="py-4 text-center text-sm text-muted-foreground">
             Searching...
           </div>
         ) : filteredUsers.length === 0 ? (
@@ -283,7 +283,7 @@ export function SimpleMentionTypeahead({
           </div>
         ) : (
           <div className="p-2">
-            <div className="text-xs font-medium text-gray-400 px-2 py-1 mb-1">
+            <div className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">
               {communityId ? "Community Members" : "Thread Participants"}
             </div>
             {filteredUsers.map((user, index) => (
