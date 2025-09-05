@@ -32,12 +32,9 @@ export function useUserMentions(
   const [currentMention, setCurrentMention] = useState<{ query: string; startIndex: number } | null>(null);
   const [mentionMappings, setMentionMappings] = useState<MentionMapping[]>([]);
 
-  // This function is no longer needed since we're directly inserting npubs
-  // But we'll keep it for backward compatibility
-  const getContentWithNpubs = useCallback((text: string): string => {
-    // No need to replace anything since we're already using npubs directly
-    return text;
-  }, []);
+  // Simple pass-through function kept for API compatibility
+  // With our new approach, npubs are already directly inserted in the text
+  const getContentWithNpubs = useCallback((text: string): string => text, []);
 
   // Update mentions when text changes
   const updateMentions = useCallback((newText: string, cursorPosition: number) => {
