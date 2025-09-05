@@ -6,7 +6,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useDirectMessagesForChatWithPagination, useDirectMessages } from "@/hooks/useDirectMessages";
+import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/lib/dmConstants";
+import { useConversationMessages, useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
   dmMessageInputConfig,
@@ -16,7 +17,8 @@ import {
 import { useAutoProtocol } from "@/hooks/useAutoProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
-import { useMemo, useCallback } from "react";
+import { MESSAGES_PER_PAGE } from "@/lib/dmConstants";
+import { useMemo, useCallback, useState, useEffect } from "react";
 
 
 interface DMChatAreaProps {
@@ -42,9 +44,8 @@ function DMChatHeader({
 
   return (
     <div
-      className={`${
-        isMobile ? "h-14" : "h-16"
-      } border-b flex items-center justify-between px-4 bg-background`}
+      className={`${isMobile ? "h-14" : "h-16"
+        } border-b flex items-center justify-between px-4 bg-background`}
     >
       <div className="flex items-center space-x-3">
         {isMobile && onBack && (
@@ -83,13 +84,43 @@ function DMChatHeader({
 export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
-  const { data: messages, isLoading, hasMoreMessages, loadingOlderMessages, loadOlderMessages } = useDirectMessagesForChatWithPagination(conversationId);
-  const { sendMessage } = useDirectMessages();
+  const { messages: conversationMessages } = useConversationMessages(conversationId);
+  const { sendMessage, isNIP17Enabled, isDoingInitialLoad, isLoading } = useDataManager();
+
+  // Simple pagination from conversation messages
+  const [displayLimit, setDisplayLimit] = useState<number>(MESSAGES_PER_PAGE);
+
+  // Memoize paginated messages to prevent unnecessary recalculations
+  // BaseMessageList expects oldest-first order, so we slice from the end to get newest messages
+  // This ensures newest messages appear at bottom and older messages load above
+  const messages = useMemo(() => {
+    // Take the NEWEST messages (from the end) for initial display
+    // This ensures newest messages appear at bottom of chat
+    const startIndex = Math.max(0, conversationMessages.length - displayLimit);
+    return conversationMessages.slice(startIndex);
+  }, [conversationMessages, displayLimit]);
+
+  const hasMoreMessages = useMemo(() =>
+    displayLimit < conversationMessages.length,
+    [displayLimit, conversationMessages.length]
+  );
+
+  // Determine if we should show loading state for this conversation
+  // Show loading during initial load OR if we have no messages yet and are still loading (for direct conversation links)
+  const isConversationLoading = isDoingInitialLoad || (conversationMessages.length === 0 && isLoading);
+  const loadingOlderMessages = false;
+
+  const loadOlderMessages = useCallback(async () => {
+    setDisplayLimit(prev => prev + MESSAGES_PER_PAGE);
+  }, []);
   const { mutateAsync: createEvent } = useNostrPublish();
   const author = useAuthor(conversationId);
   const metadata = author.data?.metadata;
   const { user } = useCurrentUser();
   const { toast } = useToast();
+
+  // Get smart default protocol based on user settings and conversation history
+  const defaultProtocol = useDefaultProtocol(conversationId);
 
   // Get automatic protocol selection - NIP-17 by default, falls back to NIP-04
   const selectedProtocol = useAutoProtocol(conversationId);
@@ -163,7 +194,7 @@ export function DMChatArea(
     <BaseChatArea
       key={conversationId} // Force component remount when conversation changes
       messages={messages || []}
-      isLoading={isLoading}
+      isLoading={isConversationLoading}
       onSendMessage={handleSendMessage}
       onDelete={handleDeleteMessage}
       queryKey={queryKey}

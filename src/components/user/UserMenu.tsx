@@ -92,6 +92,7 @@ export function UserMenu({
             <span>Settings</span>
           </DropdownMenuItem>
 
+
           {/* Switch Account section - Only show if multiple accounts */}
           {hasMultipleAccounts && (
             <>

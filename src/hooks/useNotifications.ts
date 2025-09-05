@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
-
+import { PROTOCOL_CONSTANTS } from '@/lib/dmConstants';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 // import { logger } from '@/lib/logger';
 

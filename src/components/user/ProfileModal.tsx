@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContentNoClose
@@ -15,6 +15,8 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { getTraditionalStatusText, useUserStatus, useUserMusicStatus } from "@/hooks/useUserStatus";
 
 import { useCommunities } from "@/hooks/useCommunities";
+import { useUserMembership } from "@/hooks/useUserMembership";
+import { useUserMembershipsByPubkey } from "@/hooks/useUserMembershipsByPubkey";
 import { useIsFriend } from "@/hooks/useFriends";
 import { useManageFriends } from "@/hooks/useManageFriends";
 import { useManageMutedUsers } from "@/hooks/useManageMutedUsers";
@@ -159,82 +161,75 @@ export function ProfileModal({
 
   // Get communities and mutual spaces
   const { data: communities } = useCommunities();
+  
+  // Get user's memberships using efficient batch query
+  const { data: userMemberships } = useUserMembership();
+  
+  // Get target user's memberships using efficient batch query
+  const { data: targetMemberships } = useUserMembershipsByPubkey(isOwnProfile ? null : profilePubkey);
 
-  // Function to check if a user is a member of a community
-  const isUserMemberOfCommunity = useCallback(async (userPubkey: string, communityId: string): Promise<boolean> => {
-    if (!nostr) return false;
-
-    // First check if user is owner or moderator from community definition
-    const community = communities?.find(c => c.id === communityId);
-    if (community) {
-      if (community.creator === userPubkey || community.moderators.includes(userPubkey)) {
-        return true;
+  // Get user's communities based on membership status
+  const userCommunities = useMemo(() => {
+    if (!user?.pubkey || !communities || !userMemberships) return [];
+    
+    // Create a set of community IDs where user is a member
+    const memberCommunityIds = new Set<string>();
+    
+    // Add communities from membership data
+    userMemberships.forEach(membership => {
+      if (membership.status === 'owner' || membership.status === 'moderator' || membership.status === 'approved') {
+        memberCommunityIds.add(membership.communityId);
       }
-    }
-
-    // Check if user is in the approved members list
-    try {
-      const membershipEvents = await nostr.query([
-        {
-          kinds: [34551], // Approved members list
-          '#d': [communityId],
-          '#p': [userPubkey],
-          limit: 1,
-        }
-      ]);
-
-      return membershipEvents.length > 0;
-    } catch {
-      return false;
-    }
-  }, [communities, nostr]);
-
-  // Get user's community memberships (including approved members)
-  const userCommunities = useQuery({
-    queryKey: ['user-communities', user?.pubkey, communities],
-    queryFn: async (_c) => {
-      if (!user?.pubkey || !communities) return [];
-
-      const userCommunityList: typeof communities = [];
-
-      for (const community of communities) {
-        if (await isUserMemberOfCommunity(user.pubkey, community.id)) {
-          userCommunityList.push(community);
-        }
+    });
+    
+    // Also check if user is owner/moderator from community definitions
+    communities.forEach(community => {
+      if (community.creator === user.pubkey || community.moderators.includes(user.pubkey)) {
+        memberCommunityIds.add(community.id);
       }
+    });
+    
+    // Filter communities where user is a member
+    return communities.filter(community => memberCommunityIds.has(community.id));
+  }, [user?.pubkey, communities, userMemberships]);
 
-      return userCommunityList;
-    },
-    enabled: !!user?.pubkey && !!communities,
-  });
-
-  // Get target user's community memberships (including approved members)
-  const targetCommunities = useQuery({
-    queryKey: ['target-communities', profilePubkey, communities, isOwnProfile],
-    queryFn: async (_c) => {
-      if (isOwnProfile || !profilePubkey || !communities) return userCommunities.data || [];
-
-      const targetCommunityList: typeof communities = [];
-
-      for (const community of communities) {
-        if (await isUserMemberOfCommunity(profilePubkey, community.id)) {
-          targetCommunityList.push(community);
-        }
+  // Get target user's communities based on membership status
+  const targetCommunities = useMemo(() => {
+    if (isOwnProfile) return userCommunities;
+    if (!profilePubkey || !communities || !targetMemberships) return [];
+    
+    // Create a set of community IDs where target user is a member
+    const memberCommunityIds = new Set<string>();
+    
+    // Add communities from membership data
+    targetMemberships.forEach(membership => {
+      if (membership.status === 'owner' || membership.status === 'moderator' || membership.status === 'approved') {
+        memberCommunityIds.add(membership.communityId);
       }
-
-      return targetCommunityList;
-    },
-    enabled: !!profilePubkey && !!communities && !isOwnProfile,
-  });
+    });
+    
+    // Also check if target user is owner/moderator from community definitions
+    communities.forEach(community => {
+      if (community.creator === profilePubkey || community.moderators.includes(profilePubkey)) {
+        memberCommunityIds.add(community.id);
+      }
+    });
+    
+    // Filter communities where target user is a member
+    return communities.filter(community => memberCommunityIds.has(community.id));
+  }, [isOwnProfile, profilePubkey, communities, targetMemberships, userCommunities]);
 
   // Get mutual spaces
   const mutualSpaces = useMemo(() => {
-    if (isOwnProfile || !userCommunities.data || !targetCommunities.data) return [];
+    if (isOwnProfile || !userCommunities || !targetCommunities) return [];
 
-    return userCommunities.data.filter(userCommunity =>
-      targetCommunities.data.some(targetCommunity => targetCommunity.id === userCommunity.id)
+    // Create a set for efficient lookup
+    const targetCommunityIds = new Set(targetCommunities.map(c => c.id));
+    
+    return userCommunities.filter(userCommunity =>
+      targetCommunityIds.has(userCommunity.id)
     );
-  }, [userCommunities.data, targetCommunities.data, isOwnProfile]);
+  }, [userCommunities, targetCommunities, isOwnProfile]);
 
   // Fetch user activity (notes, images, articles)
   const { data: userActivity } = useQuery({

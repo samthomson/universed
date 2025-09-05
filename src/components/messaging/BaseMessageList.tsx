@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { logger } from "@/lib/logger";
 
-
 interface BaseMessageListProps {
   messages: NostrEvent[];
   pinnedMessageIds?: string[];
