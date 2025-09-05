@@ -16,16 +16,8 @@ const Index = ({ dmTargetPubkey, spaceCommunityId, spaceChannelId }: IndexProps)
   const { user } = useCurrentUser();
 
 
-  // If dmTargetPubkey is provided, ensure user is logged in and handle URL updates
-  useEffect(() => {
-    if (dmTargetPubkey && user) {
-      // Update URL to remove the npub parameter after handling
-      // This prevents the parameter from persisting in the URL unnecessarily
-      const url = new URL(window.location.href);
-      url.pathname = '/dm';
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, [dmTargetPubkey, user]);
+  // Note: We don't modify the URL here as it breaks DM navigation
+  // The URL should remain as /dm/npub1... to maintain proper routing
 
   // If spaceCommunityId is provided, ensure user is logged in and handle URL updates
   useEffect(() => {
