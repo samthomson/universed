@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { CreateCommunityDialog } from "./CreateCommunityDialog";
@@ -18,11 +18,20 @@ export function CommunitySelectionDialog({
 }: CommunitySelectionDialogProps) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
+  // Reset showCreateDialog when the main dialog is closed
+  useEffect(() => {
+    if (!open) {
+      setShowCreateDialog(false);
+    }
+  }, [open]);
+
   const handleCreateCommunity = () => {
     setShowCreateDialog(true);
   };
 
   const handleCommunitySelect = (communityId: string) => {
+    // Reset the create dialog state when selecting a community
+    setShowCreateDialog(false);
     onCommunitySelect?.(communityId);
     onOpenChange(false);
   };
@@ -32,6 +41,8 @@ export function CommunitySelectionDialog({
   };
 
   const handleCommunityCreated = (communityId: string) => {
+    // Reset the create dialog state when a community is created
+    setShowCreateDialog(false);
     // When a community is created, close this dialog entirely
     onOpenChange(false);
     // Also select the newly created community so the user can see it
@@ -54,6 +65,7 @@ export function CommunitySelectionDialog({
       <DialogContent className="max-w-6xl max-h-[90vh] bg-background/95 backdrop-blur-sm border border-border">
         <div className="relative z-10">
           <DialogHeader className="pb-6">
+            <DialogTitle className="sr-only">Discover and Join Communities</DialogTitle>
             <div className="mt-6 space-y-6">
               <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-1">
