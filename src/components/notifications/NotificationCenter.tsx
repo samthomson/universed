@@ -114,6 +114,8 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
         return <Reply className="w-4 h-4 text-green-500" />;
       case 'reaction':
         return <Heart className="w-4 h-4 text-red-500" />;
+      case 'dm':
+        return <MessageCircle className="w-4 h-4 text-blue-500" />;
       case 'friend_request':
         return <UserPlus className="w-4 h-4 text-purple-500" />;
       default:
