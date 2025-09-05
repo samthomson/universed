@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
+import { useDataManager } from '@/components/DataManagerProvider';
 import { PROTOCOL_CONSTANTS } from '@/lib/dmConstants';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 // import { logger } from '@/lib/logger';
@@ -30,11 +31,12 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { messages: dmMessages } = useDataManager();
   // Respect user setting from MessagingSettings (see UserSettingsDialog -> MessagingSettings)
   const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
 
   return useQuery({
-    queryKey: ['notifications', user?.pubkey],
+    queryKey: ['notifications', user?.pubkey, dmMessages.size],
     queryFn: async (c) => {
       if (!user?.pubkey) return [];
 
@@ -56,11 +58,10 @@ export function useNotifications() {
 
       const since = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60); // last 14 days
 
-      // Fetch in parallel:
+      // Fetch in parallel (DMs now come from DataManagerProvider):
       const [
         mentionsInAppContent,
         userAppContent,
-        dmIncoming,
         membershipLists,
         communityScopeEvents,
       ] = await Promise.all([
@@ -72,12 +73,6 @@ export function useNotifications() {
         // Your app content (for reactions/replies)
         nostr.query([
           { kinds: APP_CONTENT_KINDS, authors: [user.pubkey], limit: 100, since },
-        ], { signal }),
-
-        // Incoming DMs (respect NIP-17 setting). For NIP-17 we look for gift wraps (1059).
-        nostr.query([
-          { kinds: [4], '#p': [user.pubkey], limit: 100, since },
-          ...(isNIP17Enabled ? [{ kinds: [1059] as number[], '#p': [user.pubkey], limit: 100, since }] : []),
         ], { signal }),
 
         // Membership list updates targeting the user (approved/declined/banned) — single REQ
@@ -187,25 +182,51 @@ export function useNotifications() {
           });
         });
 
-      // Direct messages (NIP‑04 and optionally NIP‑17 gift wraps) to the user
-      dmIncoming
-        .filter(e => e.pubkey !== user.pubkey)
-        .forEach(event => {
-          const isNip04 = event.kind === 4;
-          const isGiftWrap = event.kind === 1059; // NIP‑17 gift wrap (actual payload is unwrapped elsewhere)
-          if (!isNip04 && !isGiftWrap) return;
+      // Direct messages from DataManagerProvider (already decrypted)
+      // Get all conversations and find recent messages from others
+      dmMessages.forEach((participantData, participantPubkey) => {
+        if (participantPubkey === user.pubkey) return; // Skip self
+        
+        // Get the most recent message from this participant
+        const lastMessage = participantData.lastMessage;
+        if (!lastMessage) return;
+        
+        // Only show notifications for messages from others (not sent by user)
+        if (lastMessage.pubkey === user.pubkey) return;
+        
+        // Check if this is a recent message (within last 14 days)
+        const messageAge = Date.now() - (lastMessage.created_at * 1000);
+        const fourteenDays = 14 * 24 * 60 * 60 * 1000;
+        if (messageAge > fourteenDays) return;
+        
+        // Determine message content and title
+        let messageContent = '';
+        const title = 'New DM';
+        
+        if (lastMessage.decryptedContent) {
+          messageContent = lastMessage.decryptedContent;
+        } else if (lastMessage.error) {
+          messageContent = `[Decryption error: ${lastMessage.error}]`;
+        } else {
+          messageContent = '[Encrypted message]';
+        }
+        
+        // Truncate message for notification
+        const truncatedMessage = messageContent.length > 140 
+          ? messageContent.slice(0, 140) + '...' 
+          : messageContent;
 
-          notifications.push({
-            id: `${event.id}-dm`,
-            type: 'dm',
-            title: isNip04 ? 'New Direct Message' : 'Encrypted event',
-            message: isNip04 ? '[Encrypted message]' : '[Requires decryption]',
-            eventId: event.id,
-            fromPubkey: event.pubkey,
-            timestamp: event.created_at * 1000,
-            read: readNotifications.includes(`${event.id}-dm`),
-          });
+        notifications.push({
+          id: `${lastMessage.id}-dm`,
+          type: 'dm',
+          title,
+          message: truncatedMessage,
+          eventId: lastMessage.id,
+          fromPubkey: participantPubkey,
+          timestamp: lastMessage.created_at * 1000,
+          read: readNotifications.includes(`${lastMessage.id}-dm`),
         });
+      });
 
       // Membership list updates → notifications
       const pushMembershipNotification = (
