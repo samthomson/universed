@@ -3,7 +3,6 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useLocalStorage } from './useLocalStorage';
 import { useDataManager } from '@/components/DataManagerProvider';
-import { PROTOCOL_CONSTANTS } from '@/lib/dmConstants';
 import { reactQueryConfigs } from '@/lib/reactQueryConfigs';
 // import { logger } from '@/lib/logger';
 
@@ -32,8 +31,6 @@ export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { messages: dmMessages } = useDataManager();
-  // Respect user setting from MessagingSettings (see UserSettingsDialog -> MessagingSettings)
-  const [isNIP17Enabled] = useLocalStorage(PROTOCOL_CONSTANTS.NIP17_ENABLED_KEY, true);
 
   return useQuery({
     queryKey: ['notifications', user?.pubkey, dmMessages.size],
