@@ -65,14 +65,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       return (
         <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-3 h-3" />
-          <div className="flex items-center gap-1">
-            {subscriptions.nip4 && (
-              <div className="w-2 h-2 bg-orange-500 rounded-full" title="NIP-4 active" />
-            )}
-            {subscriptions.nip17 && (
-              <div className="w-2 h-2 bg-purple-500 rounded-full" title="NIP-17 active" />
-            )}
-          </div>
         </div>
       );
     }
