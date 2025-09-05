@@ -58,7 +58,7 @@ function ZoomControls() {
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/30 bg-transparent"
+        className="text-white hover:bg-white/30 bg-transparent rounded-full"
         onClick={(e) => {
           e.stopPropagation();
           zoomIn();
@@ -70,7 +70,7 @@ function ZoomControls() {
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/30 bg-transparent"
+        className="text-white hover:bg-white/30 bg-transparent rounded-full"
         onClick={(e) => {
           e.stopPropagation();
           zoomOut();
@@ -82,7 +82,7 @@ function ZoomControls() {
       <Button
         variant="ghost"
         size="icon"
-        className="text-white hover:bg-white/30 bg-transparent"
+        className="text-white hover:bg-white/30 bg-transparent rounded-full"
         onClick={(e) => {
           e.stopPropagation();
           resetTransform();
