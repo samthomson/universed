@@ -64,9 +64,10 @@ function containsMarkdown(text: string): boolean {
   // Check for markdown links, but exclude user mentions in the format @[name](pubkey)
   const hasMarkdownLinks = /\[.*?\]\(.*?\)/.test(text);
   const hasUserMentions = /@\[.*?\]\([0-9a-f]{64}\)/i.test(text);
+  const hasNpubMentions = /npub1[023456789acdefghjklmnpqrstuvwxyz]{58}/.test(text);
 
-  // Only consider it markdown if it has markdown links but no user mentions
-  const hasRealMarkdown = markdownPatterns.some(pattern => pattern.test(text)) || (hasMarkdownLinks && !hasUserMentions);
+  // Only consider it markdown if it has markdown links but no user mentions or npub mentions
+  const hasRealMarkdown = markdownPatterns.some(pattern => pattern.test(text)) || (hasMarkdownLinks && !hasUserMentions && !hasNpubMentions);
 
   return hasRealMarkdown;
 }
@@ -321,7 +322,7 @@ export function NoteContent({
     }
 
     // If no markdown, use the original regex-based processing
-    const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1|naddr1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
+    const regex = /(https?:\/\/[^\s]+)|(?:nostr:)?(npub1|note1|nprofile1|nevent1|naddr1)([023456789acdefghjklmnpqrstuvwxyz]+)|@\[([^\]]+)\]\(([^)]+)\)|(#\w+)/g;
 
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;

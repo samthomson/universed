@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { nip19 } from 'nostr-tools';
+import { logger } from '@/lib/logger';
 
 export interface MentionData {
   pubkey: string;
@@ -8,8 +10,7 @@ export interface MentionData {
 }
 
 interface MentionMapping {
-  displayText: string;
-  fullText: string;
+  npub: string;
   pubkey: string;
   displayName: string;
 }
@@ -20,7 +21,7 @@ export interface UseMentionsResult {
   insertMention: (pubkey: string, displayName: string) => void;
   updateMentions: (text: string, cursorPosition: number) => void;
   getMentionTags: () => string[][];
-  getFullTextWithPubkeys: (displayText: string) => string;
+  getContentWithNpubs: (text: string) => string;
 }
 
 export function useUserMentions(
@@ -32,89 +33,59 @@ export function useUserMentions(
   const [currentMention, setCurrentMention] = useState<{ query: string; startIndex: number } | null>(null);
   const [mentionMappings, setMentionMappings] = useState<MentionMapping[]>([]);
 
-  // Convert display text (with @[Name]) to full text (with @[Name](pubkey))
-  const getFullTextWithPubkeys = useCallback((displayText: string): string => {
-    let fullText = displayText;
-
-    // Replace each @[Name] with @[Name](pubkey) using our mappings
-    mentionMappings.forEach(mapping => {
-      fullText = fullText.replace(mapping.displayText, mapping.fullText);
-    });
-
-    return fullText;
-  }, [mentionMappings]);
-
-  // Convert full text (with pubkeys) to display text (without pubkeys)
-  const getDisplayText = useCallback((fullText: string): string => {
-    let displayText = fullText;
-
-    // Replace @[Name](pubkey) with @[Name]
-    const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
-    displayText = displayText.replace(mentionRegex, '@[$1]');
-
-    return displayText;
-  }, []);
+  // Simple pass-through function kept for API compatibility
+  // With our new approach, npubs are already directly inserted in the text
+  const getContentWithNpubs = useCallback((text: string): string => text, []);
 
   // Update mentions when text changes
   const updateMentions = useCallback((newText: string, cursorPosition: number) => {
-    // Check if this is display text (without pubkeys) or full text (with pubkeys)
-    const hasFullMentions = /@\[([^\]]+)\]\(([^)]+)\)/.test(newText);
-
-    let workingText = newText;
     const foundMentions: MentionData[] = [];
     const newMappings: MentionMapping[] = [];
 
-    if (hasFullMentions) {
-      // This is full text with pubkeys - extract mentions and create mappings
-      const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
-      let match;
+    // Find npub patterns in the text
+    const npubRegex = /npub1[023456789acdefghjklmnpqrstuvwxyz]{58}/g;
+    let match;
 
-      while ((match = mentionRegex.exec(newText)) !== null) {
-        const displayName = match[1];
-        const pubkey = match[2];
-        const displayText = `@[${displayName}]`;
-        const fullText = match[0];
-
+    while ((match = npubRegex.exec(newText)) !== null) {
+      const npub = match[0];
+      
+      // Find corresponding mapping or create a new one
+      const mapping = mentionMappings.find(m => m.npub === npub);
+      
+      if (mapping) {
         foundMentions.push({
-          displayName,
-          pubkey,
+          displayName: mapping.displayName,
+          pubkey: mapping.pubkey,
           startIndex: match.index,
-          endIndex: match.index + match[0].length
+          endIndex: match.index + npub.length
         });
-
-        newMappings.push({
-          displayText,
-          fullText,
-          pubkey,
-          displayName
-        });
-      }
-
-      // Convert to display text for the UI
-      workingText = getDisplayText(newText);
-
-      // Update the text in the UI if it's different
-      if (workingText !== newText) {
-        setText(workingText);
-      }
-    } else {
-      // This is display text - find @[Name] patterns and match with existing mappings
-      const displayMentionRegex = /@\[([^\]]+)\]/g;
-      let match;
-
-      while ((match = displayMentionRegex.exec(workingText)) !== null) {
-        const displayName = match[1];
-
-        // Find corresponding mapping
-        const mapping = mentionMappings.find(m => m.displayName === displayName);
-        if (mapping) {
+        newMappings.push(mapping);
+      } else {
+        // Try to decode the npub to get the pubkey
+        try {
+          const decoded = nip19.decode(npub);
+          const pubkey = typeof decoded.data === 'string' 
+            ? decoded.data 
+            : 'unknown';
+          
+          // Create a new mapping with a generic display name
+          const displayName = "user";
+          const newMapping: MentionMapping = {
+            npub,
+            pubkey,
+            displayName
+          };
+          
           foundMentions.push({
             displayName,
-            pubkey: mapping.pubkey,
+            pubkey,
             startIndex: match.index,
-            endIndex: match.index + match[0].length
+            endIndex: match.index + npub.length
           });
-          newMappings.push(mapping);
+          
+          newMappings.push(newMapping);
+        } catch (e) {
+          logger.error('Failed to decode npub:', e);
         }
       }
     }
@@ -151,29 +122,47 @@ export function useUserMentions(
     }
 
     setCurrentMention(null);
-  }, [mentionMappings, getDisplayText, setText]);
+  }, [mentionMappings]);
 
   // Insert a mention at the current position
-  const insertMention = useCallback((pubkey: string, displayName: string) => {
+  const insertMention = useCallback((npubOrPubkey: string, displayName: string) => {
     if (!currentMention || !textareaRef.current) return;
 
     const { startIndex } = currentMention;
     const textarea = textareaRef.current;
     const cursorPosition = textarea.selectionStart;
 
-    // Replace the @query with the display mention format
+    // Replace the @query with the npub directly
     // Note: startIndex includes the @ symbol, so we replace from startIndex
     const beforeMention = text.slice(0, startIndex);
     const afterMention = text.slice(cursorPosition);
-    const displayMentionText = `@[${displayName}]`; // Include @ in display text
-    const fullMentionText = `@[${displayName}](${pubkey})`;
-
-    const newDisplayText = beforeMention + displayMentionText + afterMention;
-
-    // Create new mapping
+    
+    // Determine if we received an npub or pubkey
+    let npub: string;
+    let pubkey: string;
+    
+    if (npubOrPubkey.startsWith('npub1')) {
+      // Already an npub
+      npub = npubOrPubkey;
+      try {
+        const decoded = nip19.decode(npub);
+        pubkey = decoded.data as string;
+      } catch (e) {
+        logger.error('Failed to decode npub:', e);
+        pubkey = npubOrPubkey; // Fallback
+      }
+    } else {
+      // It's a pubkey, convert to npub
+      pubkey = npubOrPubkey;
+      npub = nip19.npubEncode(pubkey);
+    }
+    
+    // Insert the npub directly into the text
+    const newDisplayText = beforeMention + npub + afterMention;
+    
+    // Create a mapping for future reference
     const newMapping: MentionMapping = {
-      displayText: displayMentionText,
-      fullText: fullMentionText,
+      npub,
       pubkey,
       displayName
     };
@@ -184,8 +173,8 @@ export function useUserMentions(
     // Set the display text
     setText(newDisplayText);
 
-    // Set cursor position after the mention
-    const newCursorPosition = startIndex + displayMentionText.length;
+    // Set cursor position after the npub
+    const newCursorPosition = startIndex + npub.length;
 
     // Update cursor position after React re-renders
     setTimeout(() => {
@@ -201,12 +190,12 @@ export function useUserMentions(
     return mentions.map(mention => ['p', mention.pubkey]);
   }, [mentions]);
 
-  return {
+  return {  
     mentions,
     currentMention,
     insertMention,
     updateMentions,
     getMentionTags,
-    getFullTextWithPubkeys
+    getContentWithNpubs
   };
 }

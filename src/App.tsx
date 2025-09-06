@@ -78,7 +78,6 @@ function AppContent() {
 
   return (
     <SettingsProvider>
-      <DataManagerProvider>
         <MessageSystemProvider>
           <TooltipProvider>
             <QueryOptimizer />
@@ -90,7 +89,6 @@ function AppContent() {
             <SettingsDialog />
           </TooltipProvider>
         </MessageSystemProvider>
-      </DataManagerProvider>
     </SettingsProvider>
   );
 }
@@ -105,7 +103,9 @@ export function App() {
               <NWCProvider>
                 <VoiceProvider>
                   <MarketplaceProvider>
-                    <AppContent />
+                    <DataManagerProvider>
+                      <AppContent />
+                    </DataManagerProvider>
                   </MarketplaceProvider>
                 </VoiceProvider>
               </NWCProvider>

@@ -210,7 +210,13 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
   useEffect(() => {
     // Only auto-select a community once on app initialization - never again
     // But don't auto-select if we have an initialSpaceCommunityId from URL navigation
-    if (!initializationRef.current && !urlCommunityId && userCommunities !== undefined && !initialSpaceCommunityId) {
+    // OR if we're in DM mode (initialDMTargetPubkey is set)
+    // Skip auto-selection if DM mode is being initialized
+    if (!initializationRef.current && 
+        !urlCommunityId && 
+        userCommunities !== undefined && 
+        !initialSpaceCommunityId && 
+        initialDMTargetPubkey === undefined) {
       initializationRef.current = true;
 
       if (userCommunities.length > 0) {
@@ -225,6 +231,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     urlCommunityId,
     userCommunities,
     initialSpaceCommunityId,
+    initialDMTargetPubkey,
   ]);
 
   useEffect(() => {

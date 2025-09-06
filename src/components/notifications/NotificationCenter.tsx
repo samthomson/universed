@@ -1,4 +1,6 @@
 import { useState, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 import { Bell, MessageCircle, Heart, Reply, UserPlus, Settings, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +16,7 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { genUserName } from '@/lib/genUserName';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { logger } from '@/lib/logger';
 
 // Small, focused building blocks to keep the file readable
 
@@ -103,6 +106,7 @@ const NotificationSkeleton = () => {
 const NotificationItem = memo(({ notification, onMarkRead }: { notification: Notification; onMarkRead: (id: string) => void }) => {
   const [copied, setCopied] = useState(false);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const author = useAuthor(notification.fromPubkey);
   const displayName = author.data?.metadata?.name || genUserName(notification.fromPubkey || '');
 
@@ -114,6 +118,8 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
         return <Reply className="w-4 h-4 text-green-500" />;
       case 'reaction':
         return <Heart className="w-4 h-4 text-red-500" />;
+      case 'dm':
+        return <MessageCircle className="w-4 h-4 text-blue-500" />;
       case 'friend_request':
         return <UserPlus className="w-4 h-4 text-purple-500" />;
       default:
@@ -125,8 +131,21 @@ const NotificationItem = memo(({ notification, onMarkRead }: { notification: Not
     if (!notification.read) {
       onMarkRead(notification.id);
     }
-    // TODO: Navigate to the relevant event/conversation
-  }, [notification.read, notification.id, onMarkRead]);
+    
+    // Navigate based on notification type
+    if (notification.type === 'dm' && notification.fromPubkey) {
+      try {
+        // Convert hex pubkey to npub format
+        const npub = nip19.npubEncode(notification.fromPubkey);
+        navigate(`/dm/${npub}`);
+      } catch (error) {
+        logger.error('Failed to encode pubkey to npub:', error);
+        // Don't navigate if encoding fails - this would create an invalid route
+        logger.error('Cannot navigate to DM: invalid pubkey format');
+      }
+    }
+    // TODO: Add navigation for other notification types (mentions, replies, etc.)
+  }, [notification.read, notification.id, notification.type, notification.fromPubkey, onMarkRead, navigate]);
 
   const handleCopyId = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
