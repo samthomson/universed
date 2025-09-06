@@ -72,6 +72,12 @@ export function useNotifications() {
           { kinds: APP_CONTENT_KINDS, authors: [user.pubkey], limit: 100, since },
         ], { signal }),
 
+        // Incoming DMs (always include both NIP-04 and NIP-17). For NIP-17 we look for gift wraps (1059).
+        nostr.query([
+          { kinds: [4], '#p': [user.pubkey], limit: 100, since },
+          { kinds: [1059], '#p': [user.pubkey], limit: 100, since },
+        ], { signal }),
+
         // Membership list updates targeting the user (approved/declined/banned) — single REQ
         nostr.query([
           { kinds: [34551], '#p': [user.pubkey], limit: 100, since },

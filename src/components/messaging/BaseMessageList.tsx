@@ -8,7 +8,6 @@ import { Hash, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { logger } from "@/lib/logger";
-import { getMessageProtocol } from "@/lib/dmConstants";
 
 interface BaseMessageListProps {
   messages: NostrEvent[];
@@ -160,8 +159,7 @@ export function BaseMessageList({
           const showAvatar = config.showAvatars && (
             !previousMessage ||
             previousMessage.pubkey !== message.pubkey ||
-            (message.created_at - previousMessage.created_at) > 300 || // 5 minutes
-            getMessageProtocol(previousMessage.kind) !== getMessageProtocol(message.kind) // Different protocols
+            (message.created_at - previousMessage.created_at) > 300 // 5 minutes
           );
 
           return (

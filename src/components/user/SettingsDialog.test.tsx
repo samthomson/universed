@@ -36,9 +36,7 @@ vi.mock('@/components/WalletConfigDialog', () => ({
   WalletConfigDialog: () => <div data-testid="wallet-config">Wallet Config</div>
 }));
 
-vi.mock('@/components/dm/MessagingSettings', () => ({
-  MessagingSettings: () => <div data-testid="messaging-settings">Messaging Settings</div>
-}));
+
 
 vi.mock('@/components/EditProfileForm', () => ({
   EditProfileForm: () => <div data-testid="edit-profile-form">Edit Profile Form</div>
@@ -103,7 +101,6 @@ describe('SettingsDialog', () => {
     expect(screen.getByText('Connection')).toBeInTheDocument();
     expect(screen.getByText('Wallet')).toBeInTheDocument();
     expect(screen.getByText('Communities')).toBeInTheDocument();
-    expect(screen.getByText('Messaging')).toBeInTheDocument();
   });
 
   it('shows profile content by default', async () => {

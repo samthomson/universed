@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Plus, MessageCircle, Settings, Wifi, WifiOff, Loader2, Info } from "lucide-react";
+import { Search, Plus, MessageCircle, Wifi, WifiOff, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Virtuoso } from "react-virtuoso";
@@ -7,8 +7,7 @@ import { DMConversationList } from "./DMConversationList";
 import { DMChatArea } from "./DMChatArea";
 import { NewDMDialog } from "./NewDMDialog";
 import { NewDMDrawer } from "./NewDMDrawer";
-import { MessagingSettingsDialog } from "./MessagingSettingsDialog";
-import { ProtocolIndicator } from "./ProtocolIndicator";
+
 import { UserPanel } from "@/components/layout/UserPanel";
 import { MessagingInfoModal } from "@/components/debug/MessagingInfoModal";
 import { type DMTabType } from "@/types/dm";
@@ -19,7 +18,6 @@ import { useDataManager } from "@/components/DataManagerProvider";
 import { useToast } from "@/hooks/useToast";
 import { DMTabs } from "./DMTabs";
 import { nip19 } from "nostr-tools";
-import { MESSAGE_PROTOCOL } from "@/lib/dmConstants";
 import { LOADING_PHASES } from "@/lib/constants";
 
 
@@ -34,7 +32,6 @@ interface DirectMessagesProps {
 export function DirectMessages({ targetPubkey, selectedConversation: propSelectedConversation, onTargetHandled, onNavigateToDMs, onConversationSelect }: DirectMessagesProps = {}) {
   const [internalSelectedConversation, setInternalSelectedConversation] = useState<string | null>(null);
   const [showNewDM, setShowNewDM] = useState(false);
-  const [showMessagingSettings, setShowMessagingSettings] = useState(false);
   const [showDebugModal, setShowDebugModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<DMTabType>('known');
@@ -68,14 +65,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
       return (
         <div className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
           <Wifi className="w-3 h-3" />
-          <div className="flex items-center gap-1">
-            {subscriptions.nip4 && (
-              <div className="w-2 h-2 bg-orange-500 rounded-full" title="NIP-4 active" />
-            )}
-            {subscriptions.nip17 && (
-              <div className="w-2 h-2 bg-purple-500 rounded-full" title="NIP-17 active" />
-            )}
-          </div>
         </div>
       );
     }
@@ -129,14 +118,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           isLoading={false}
           isVirtualized={true}
         />
-        <div className="absolute bottom-4 right-3 flex items-center space-x-1 pointer-events-none">
-          {conversation.hasNIP4Messages && (
-            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP04} />
-          )}
-          {conversation.hasNIP17Messages && (
-            <ProtocolIndicator protocol={MESSAGE_PROTOCOL.NIP17} />
-          )}
-        </div>
+
       </div>
     );
   }, [selectedConversation, searchQuery, propSelectedConversation, onConversationSelect]);
@@ -286,15 +268,7 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                     onClick={() => setShowDebugModal(true)}
                   >
                     <Info className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-6 h-6 hover:bg-gray-800/60 mobile-touch"
-                    onClick={() => setShowMessagingSettings(true)}
-                  >
-                    <Settings className="w-3 h-3" />
-                  </Button>
+                  </Button>                  
                 </div>
                 <Button
                   variant="ghost"
@@ -360,12 +334,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
           onConversationCreated={handleConversationCreated}
         />
 
-        {/* Messaging Settings Dialog */}
-        <MessagingSettingsDialog
-          open={showMessagingSettings}
-          onOpenChange={setShowMessagingSettings}
-        />
-
         {/* Messaging Info Modal */}
         <MessagingInfoModal
           open={showDebugModal}
@@ -396,14 +364,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
                 onClick={() => setShowDebugModal(true)}
               >
                 <Info className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-5 h-5 hover:bg-accent"
-                onClick={() => setShowMessagingSettings(true)}
-              >
-                <Settings className="w-3 h-3" />
               </Button>
             </div>
             <Button
@@ -507,12 +467,6 @@ export function DirectMessages({ targetPubkey, selectedConversation: propSelecte
         open={showNewDM}
         onOpenChange={setShowNewDM}
         onConversationCreated={handleConversationCreated}
-      />
-
-      {/* Messaging Settings Dialog */}
-      <MessagingSettingsDialog
-        open={showMessagingSettings}
-        onOpenChange={setShowMessagingSettings}
       />
 
       {/* Messaging Info Modal */}

@@ -29,6 +29,7 @@ import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
+import { LegacyProtocolWarning } from "@/components/dm/LegacyProtocolWarning";
 import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
 import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
@@ -36,7 +37,6 @@ import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { genUserName } from "@/lib/genUserName";
 import { formatDistanceToNowShort } from "@/lib/formatTime";
 import { getMessageProtocol } from "@/lib/dmConstants";
-import { ProtocolIndicator } from "@/components/dm/ProtocolIndicator";
 import type { DecryptedMessage } from "@/types/nostr";
 
 export interface MessageItemConfig {
@@ -249,11 +249,11 @@ function BaseMessageItemComponent({
                   {/* Only show protocol indicators for DM messages (kinds 4, 14, 1059) */}
                   {[4, 14, 1059].includes(message.kind) && (() => {
                     const protocol = getMessageProtocol(message.kind);
-                    // Only show indicator for known protocols
-                    if (protocol === 'NIP04' || protocol === 'NIP17') {
+                    // Show warning only for NIP-04 (legacy) messages
+                    if (protocol === 'NIP04') {
                       return (
                         <span className="inline-block ml-2">
-                          <ProtocolIndicator protocol={protocol} />
+                          <LegacyProtocolWarning />
                         </span>
                       );
                     }
