@@ -219,6 +219,37 @@ describe('NoteContent', () => {
     expect(linkText).toEqual("@Swift Falcon");
   });
 
+  it('renders standalone npub mentions (without nostr: prefix)', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: `Mentioning npub1zg69v7ys40x77y352eufp27daufrg4ncjz4ummcjx3t83y9tehhsqepuh0 directly`,
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // The mention should be rendered as a button
+    const mention = screen.getByRole('button');
+    expect(mention).toBeInTheDocument();
+
+    // Should have muted styling for generated names (gray instead of blue)
+    expect(mention).toHaveClass('text-gray-500');
+    expect(mention).not.toHaveClass('text-blue-500');
+
+    // The text should start with @ and contain a generated name (not a truncated npub)
+    const linkText = mention.textContent;
+    expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub
+    expect(linkText).toEqual("@Swift Falcon");
+  });
+
   it('renders image URLs as images instead of links', () => {
     const event: NostrEvent = {
       id: 'test-id',

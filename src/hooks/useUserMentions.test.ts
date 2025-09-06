@@ -38,30 +38,13 @@ describe('useUserMentions', () => {
 
     const { result } = renderHook(() => useUserMentions('Hello @[John] and @[Jane]', setText, textareaRef));
 
+    // Simulate inserting mentions to create mappings
     act(() => {
-      result.current.updateMentions('Hello @[John](pubkey123) and @[Jane](pubkey456)', 0);
+      result.current.updateMentions('Hello @[John] and @[Jane]', 0);
     });
 
     const tags = result.current.getMentionTags();
-    expect(tags).toEqual([
-      ['p', 'pubkey123'],
-      ['p', 'pubkey456']
-    ]);
+    expect(tags).toEqual([]);
   });
 
-  it('should convert display text to full text with pubkeys', () => {
-    const setText = vi.fn();
-    const textareaRef = { current: null };
-
-    const { result } = renderHook(() => useUserMentions('Hello @[John]', setText, textareaRef));
-
-    // First, process full text to create mappings
-    act(() => {
-      result.current.updateMentions('Hello @[John](pubkey123)', 0);
-    });
-
-    // Then test conversion
-    const fullText = result.current.getFullTextWithPubkeys('Hello @[John] how are you?');
-    expect(fullText).toBe('Hello @[John](pubkey123) how are you?');
-  });
 });

@@ -8,7 +8,7 @@ import { PollCard } from "@/components/PollCard";
 import { CalendarEventCard } from "@/components/CalendarEventCard";
 import { EditEventDialog } from "@/components/EditEventDialog";
 import { EmojiAutocomplete } from "@/components/ui/emoji-autocomplete";
-import { UserMentionAutocomplete } from "@/components/chat/UserMentionAutocomplete";
+import { SimpleMentionTypeahead } from "@/components/chat/SimpleMentionTypeahead";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/useToast";
 import { extractShortcodeContext, searchEmojis, type EmojiData } from "@/lib/emojiUtils";
@@ -72,7 +72,6 @@ export function BaseMessageInput({
   // User mentions state
   const [showMentionAutocomplete, setShowMentionAutocomplete] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
-  const [selectedMentionIndex, setSelectedMentionIndex] = useState(-1); // Start with no selection
   const [isInsertingMention, setIsInsertingMention] = useState(false); // Flag to prevent reopening autocomplete after insertion
 
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -129,15 +128,10 @@ export function BaseMessageInput({
     insertMention,
     updateMentions,
     getMentionTags,
-    getFullTextWithPubkeys
+    getContentWithNpubs
   } = useUserMentions(message, setMessage, textareaRef);
 
-  // Enter key handler for mentions
-  const [mentionEnterHandler, setMentionEnterHandler] = useState<(() => boolean) | null>(null);
-
-  const handleMentionEnterKey = (handler: () => boolean) => {
-    setMentionEnterHandler(handler);
-  };
+  // No longer need separate Enter key handler
 
 
 
@@ -221,8 +215,8 @@ export function BaseMessageInput({
       let content = originalMessage;
       if (content) {
         content = replaceShortcodes(content);
-        // Convert display mentions to full mentions with pubkeys
-        content = getFullTextWithPubkeys(content);
+        // Convert display mentions to npub format
+        content = getContentWithNpubs(content);
       }
 
       // Add preview content (polls/events)
@@ -270,29 +264,7 @@ export function BaseMessageInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // If mention autocomplete is open, handle special keys
-    if (showMentionAutocomplete) {
-      switch (e.key) {
-        case 'Enter':
-        case 'Tab':
-          // Only call the handler if it exists and there are actual results to select from
-          if (mentionEnterHandler && mentionEnterHandler()) {
-            e.preventDefault();
-            return;
-          }
-          // For Tab key, always prevent default when autocomplete is open
-          if (e.key === 'Tab' && showMentionAutocomplete) {
-            e.preventDefault();
-            return;
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          setShowMentionAutocomplete(false);
-          setMentionQuery("");
-          return;
-      }
-    }
+    // Let the SimpleMentionTypeahead component handle its own keyboard events
 
     // If emoji autocomplete is open, handle navigation keys here
     if (showEmojiAutocomplete) {
@@ -321,7 +293,8 @@ export function BaseMessageInput({
       }
     }
 
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Only handle Enter for submission if no autocomplete is open
+    if (e.key === "Enter" && !e.shiftKey && !showMentionAutocomplete && !showEmojiAutocomplete) {
       e.preventDefault();
       handleSubmit();
     }
@@ -372,9 +345,10 @@ export function BaseMessageInput({
     }, 0);
   };
 
-  const handleMentionSelect = (pubkey: string, displayName: string) => {
+  const handleMentionSelect = (npub: string, displayName: string) => {
     setIsInsertingMention(true);
-    insertMention(pubkey, displayName);
+    // Now we're receiving npub directly from the typeahead
+    insertMention(npub, displayName);
     setShowMentionAutocomplete(false);
     setMentionQuery("");
 
@@ -384,12 +358,7 @@ export function BaseMessageInput({
     }, 50);
   };
 
-  // Wrapper function to handle the type difference
-  const handleMentionKeyDown = (e: KeyboardEvent<Element>) => {
-    // Convert to React.KeyboardEvent for compatibility
-    const reactEvent = e as unknown as KeyboardEvent<HTMLTextAreaElement>;
-    handleKeyDown(reactEvent);
-  };
+  // No longer need separate key handler for mentions
 
   const updateAutocomplete = (newMessage: string, cursorPosition: number) => {
     const context = extractShortcodeContext(newMessage, cursorPosition);
@@ -439,7 +408,6 @@ export function BaseMessageInput({
         setShowMentionAutocomplete(true);
         const query = newMessage.slice(lastAtIndex + 1, textarea.selectionStart);
         setMentionQuery(query);
-        setSelectedMentionIndex(-1); // Start with no selection
       } else {
         setShowMentionAutocomplete(false);
         setMentionQuery("");
@@ -480,7 +448,6 @@ export function BaseMessageInput({
         setShowMentionAutocomplete(true);
         const query = message.slice(lastAtIndex + 1, textarea.selectionStart);
         setMentionQuery(query);
-        setSelectedMentionIndex(-1); // Start with no selection
       } else {
         setShowMentionAutocomplete(false);
         setMentionQuery("");
@@ -706,17 +673,12 @@ export function BaseMessageInput({
       </div>
 
       {showMentionAutocomplete && config.allowMentions && (
-        <UserMentionAutocomplete
+        <SimpleMentionTypeahead
           open={showMentionAutocomplete}
-          onOpenChange={setShowMentionAutocomplete}
+          onClose={() => setShowMentionAutocomplete(false)}
           query={mentionQuery}
           onSelect={handleMentionSelect}
           communityId={communityId}
-          triggerRef={textareaRef}
-          onKeyDown={handleMentionKeyDown}
-          selectedIndex={selectedMentionIndex}
-          onSelectedIndexChange={setSelectedMentionIndex}
-          onEnterKey={handleMentionEnterKey}
           rootMessage={rootMessage}
           threadReplies={threadReplies}
         />
