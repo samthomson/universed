@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wifi, Wallet, Sun, Moon, Monitor, Users, MessageSquare, Palette, User } from "lucide-react";
+import { Wifi, Wallet, Sun, Moon, Monitor, Users, Palette, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,7 +9,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { MessagingSettings } from "@/components/dm/MessagingSettings";
+
 import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
 
@@ -18,7 +18,7 @@ export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isOpen, closeSettings, activeTab, setActiveTab } = useSettings();
-  
+
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
 
@@ -67,7 +67,7 @@ export function SettingsDialog() {
                 [SETTINGS_TABS.CONNECTION]: Wifi,
                 [SETTINGS_TABS.WALLET]: Wallet,
                 [SETTINGS_TABS.COMMUNITIES]: Users,
-                [SETTINGS_TABS.MESSAGING]: MessageSquare,
+
               }[value];
 
               return (
@@ -76,7 +76,7 @@ export function SettingsDialog() {
                   onClick={() => setActiveTab(value)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors focus:outline-none ${
                     activeTab === value
-                      ? 'bg-gray-800 text-white' 
+                      ? 'bg-gray-800 text-white'
                       : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                   }`}
                 >
@@ -88,7 +88,7 @@ export function SettingsDialog() {
           </div>
 
           {/* Right Content Area */}
-          <div 
+          <div
             className="flex-1 transition-all duration-500 ease-in-out"
             style={{ height: contentHeight ? `${contentHeight}px` : 'auto' }}
           >
@@ -187,7 +187,7 @@ export function SettingsDialog() {
                           onCheckedChange={(checked) => updateSetting('showPendingCommunities', checked)}
                         />
                       </div>
-                      
+
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="space-y-1">
                           <Label htmlFor="spam-filtering" className="text-base">Enable Spam Filtering</Label>
@@ -206,14 +206,7 @@ export function SettingsDialog() {
                 </div>
               )}
 
-              {activeTab === SETTINGS_TABS.MESSAGING && (
-                <div className="space-y-6 animate-in fade-in-0 duration-200">
-                  <div>
-                    <h2 className="text-base font-semibold mb-6">Messaging</h2>
-                    <MessagingSettings />
-                  </div>
-                </div>
-              )}
+
             </div>
           </div>
         </div>

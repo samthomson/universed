@@ -6,7 +6,6 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { genUserName } from "@/lib/genUserName";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { MESSAGE_PROTOCOL, type MessageProtocol } from "@/lib/dmConstants";
 import { useConversationMessages, useDataManager } from "@/components/DataManagerProvider";
 import { BaseChatArea } from "@/components/messaging/BaseChatArea";
 import {
@@ -14,12 +13,11 @@ import {
   dmMessageItemConfig,
   dmMessageListConfig,
 } from "@/components/messaging/configs/dmConfig";
-import { ProtocolSelector } from "./ProtocolSelector";
-import { useDefaultProtocol } from "@/hooks/useDefaultProtocol";
+import { useAutoProtocol } from "@/hooks/useAutoProtocol";
 import type { NostrEvent } from "@nostrify/nostrify";
 import { useToast } from "@/hooks/useToast";
 import { MESSAGES_PER_PAGE } from "@/lib/dmConstants";
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState } from "react";
 
 
 interface DMChatAreaProps {
@@ -86,7 +84,7 @@ export function DMChatArea(
   { conversationId, onNavigateToDMs, onBack, onMessageSent }: DMChatAreaProps,
 ) {
   const { messages: conversationMessages } = useConversationMessages(conversationId);
-  const { sendMessage, isNIP17Enabled, isDoingInitialLoad, isLoading } = useDataManager();
+  const { sendMessage, isDoingInitialLoad, isLoading } = useDataManager();
 
   // Simple pagination from conversation messages
   const [displayLimit, setDisplayLimit] = useState<number>(MESSAGES_PER_PAGE);
@@ -120,19 +118,8 @@ export function DMChatArea(
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
-  // Get smart default protocol based on user settings and conversation history
-  const defaultProtocol = useDefaultProtocol(conversationId);
-  const [selectedProtocol, setSelectedProtocol] = useState<MessageProtocol>(defaultProtocol);
-
-  // Update selected protocol when default changes (e.g., settings change or conversation loads)
-  useEffect(() => {
-    setSelectedProtocol(defaultProtocol);
-  }, [defaultProtocol]);
-
-  // Auto-switch to NIP-04 if NIP-17 gets disabled while NIP-17 is selected
-  if (!isNIP17Enabled && selectedProtocol === MESSAGE_PROTOCOL.NIP17) {
-    setSelectedProtocol(MESSAGE_PROTOCOL.NIP04);
-  }
+  // Get automatic protocol determination - NIP-17 by default, falls back to NIP-04
+  const protocol = useAutoProtocol(conversationId);
 
   const displayName = metadata?.name || genUserName(conversationId);
 
@@ -150,24 +137,16 @@ export function DMChatArea(
     />
   ), [conversationId, onBack]);
 
-  // Memoize protocol selector to prevent re-renders
-  const protocolSelector = useMemo(() => (
-    <ProtocolSelector
-      selectedProtocol={selectedProtocol}
-      onProtocolChange={setSelectedProtocol}
-    />
-  ), [selectedProtocol]);
-
   const handleSendMessage = useCallback(async (content: string) => {
     await sendMessage({
       recipientPubkey: conversationId,
       content,
-      protocol: selectedProtocol,
+      protocol,
     });
 
     // Call the callback to notify that a message was sent
     onMessageSent?.(conversationId);
-  }, [sendMessage, conversationId, onMessageSent, selectedProtocol]);
+  }, [sendMessage, conversationId, onMessageSent, protocol]);
 
   const handleDeleteMessage = useCallback(async (message: NostrEvent) => {
     if (!user) {
@@ -222,7 +201,6 @@ export function DMChatArea(
       hasMoreMessages={hasMoreMessages}
       loadingOlderMessages={loadingOlderMessages}
       onLoadOlderMessages={loadOlderMessages}
-      protocolSelector={protocolSelector}
     />
   );
 }

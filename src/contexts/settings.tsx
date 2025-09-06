@@ -4,10 +4,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 export const SETTINGS_TABS = {
   PROFILE: 'profile',
   APPEARANCE: 'appearance',
-  CONNECTION: 'connection', 
+  CONNECTION: 'connection',
   WALLET: 'wallet',
   COMMUNITIES: 'communities',
-  MESSAGING: 'messaging',
 } as const;
 
 export type SettingsTab = typeof SETTINGS_TABS[keyof typeof SETTINGS_TABS];
@@ -79,9 +78,9 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
   };
 
   return (
-    <SettingsContext.Provider value={{ 
-      isOpen, 
-      openSettings, 
+    <SettingsContext.Provider value={{
+      isOpen,
+      openSettings,
       closeSettings,
       activeTab,
       setActiveTab
