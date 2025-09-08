@@ -201,6 +201,14 @@ interface CommunitiesDomain {
   communities: CommunitiesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
+  loadTime: number | null;
+  loadBreakdown: {
+    communities: number;
+    channels: number;
+    permissions: number;
+    messages: number;
+    total: number;
+  } | null;
   getDebugInfo: () => {
     communityCount: number;
     channelCount: number;
@@ -312,6 +320,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [communities, setCommunities] = useState<CommunitiesState>(new Map());
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communitiesLoadingPhase, setCommunitiesLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
+  const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
+  const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<{
+    communities: number;
+    channels: number;
+    permissions: number;
+    messages: number;
+    total: number;
+  } | null>(null);
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
@@ -1471,8 +1487,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       ];
 
       logger.log('Communities: Querying for user memberships...');
-      const membershipEvents = await nostr.query(membershipFilters, { 
-        signal: AbortSignal.timeout(15000) 
+      const membershipEvents = await nostr.query(membershipFilters, {
+        signal: AbortSignal.timeout(15000)
       });
 
       logger.log(`Communities: Found ${membershipEvents.length} membership records`);
@@ -1505,34 +1521,41 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       logger.log(`Communities: User is member of ${communityIds.size} communities`);
 
-      // Step 3: Load the actual community definitions
-      const communityFilters = Array.from(communityIds).map(communityId => {
-        // Find the membership event that contains this community ID
+      // Step 3: Load the actual community definitions - OPTIMIZED: Group by author
+      const communityByAuthor = new Map<string, string[]>();
+
+      Array.from(communityIds).forEach(communityId => {
         const membershipEvent = membershipEvents.find(e => {
           const communityRef = e.tags.find(([name]) => name === 'd')?.[1];
           return communityRef && communityRef.endsWith(`:${communityId}`);
         });
-        
-        const author = membershipEvent?.pubkey;
-        
-        return {
-          kinds: [34550],
-          authors: author ? [author] : [],
-          '#d': [communityId], // Use just the community ID, not the full reference
-          limit: 1,
-        };
-      }).filter(filter => filter.authors.length > 0);
+
+        if (membershipEvent?.pubkey) {
+          if (!communityByAuthor.has(membershipEvent.pubkey)) {
+            communityByAuthor.set(membershipEvent.pubkey, []);
+          }
+          communityByAuthor.get(membershipEvent.pubkey)!.push(communityId);
+        }
+      });
+
+      // Create one filter per author instead of one per community
+      const communityFilters = Array.from(communityByAuthor.entries()).map(([author, communityIds]) => ({
+        kinds: [34550],
+        authors: [author],
+        '#d': communityIds, // Multiple community IDs for this author
+        limit: communityIds.length,
+      }));
 
       if (communityFilters.length === 0) {
         logger.log('Communities: No valid community filters to query');
         return [];
       }
 
-      logger.log(`Communities: Querying for ${communityFilters.length} community definitions...`);
-      logger.log('Communities: Community filters:', JSON.stringify(communityFilters, null, 2));
-      
-      const communityDefinitions = await nostr.query(communityFilters, { 
-        signal: AbortSignal.timeout(15000) 
+      logger.log(`Communities: Querying for ${Array.from(communityIds).length} community definitions from ${communityFilters.length} authors...`);
+      logger.log('Communities: Optimized community filters:', JSON.stringify(communityFilters, null, 2));
+
+      const communityDefinitions = await nostr.query(communityFilters, {
+        signal: AbortSignal.timeout(15000)
       });
 
       logger.log(`Communities: Found ${communityDefinitions.length} community definitions`);
@@ -1549,8 +1572,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [user?.pubkey, nostr]);
 
-  // Load channels for a specific community (kind 32807)
-  const loadCommunityChannels = useCallback(async (communityId: string, communityPubkey: string): Promise<NostrEvent[]> => {
+  // Load channels for a specific community (kind 32807) - DEPRECATED: Now using batch loading
+  const _loadCommunityChannels = useCallback(async (communityId: string, communityPubkey: string): Promise<NostrEvent[]> => {
     logger.log(`Communities: Loading channels for community ${communityId}...`);
 
     try {
@@ -1563,8 +1586,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
       ];
 
-      const channelDefinitions = await nostr.query(filters, { 
-        signal: AbortSignal.timeout(15000) 
+      const channelDefinitions = await nostr.query(filters, {
+        signal: AbortSignal.timeout(15000)
       });
 
       logger.log(`Communities: Found ${channelDefinitions.length} channels for community ${communityId}`);
@@ -1575,8 +1598,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [nostr]);
 
-  // Load permissions and members for a community/channel
-  const loadPermissionsAndMembers = useCallback(async (communityId: string, communityPubkey: string, channelId?: string) => {
+  // Load permissions and members for a community/channel - DEPRECATED: Now using batch loading
+  const _loadPermissionsAndMembers = useCallback(async (communityId: string, communityPubkey: string, channelId?: string) => {
     const results = {
       permissions: null as NostrEvent | null,
       members: null as NostrEvent | null,
@@ -1595,8 +1618,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         ];
 
         logger.log(`Communities: Querying for channel permissions with filters:`, permissionFilters);
-        const permissionSettings = await nostr.query(permissionFilters, { 
-          signal: AbortSignal.timeout(10000) 
+        const permissionSettings = await nostr.query(permissionFilters, {
+          signal: AbortSignal.timeout(10000)
         });
 
         logger.log(`Communities: Found ${permissionSettings.length} permission events for channel ${channelId}`);
@@ -1619,8 +1642,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       ];
 
       logger.log(`Communities: Querying for approved members with filters:`, memberFilters);
-      const memberLists = await nostr.query(memberFilters, { 
-        signal: AbortSignal.timeout(10000) 
+      const memberLists = await nostr.query(memberFilters, {
+        signal: AbortSignal.timeout(10000)
       });
 
       logger.log(`Communities: Found ${memberLists.length} approved member events for community ${communityId}`);
@@ -1636,8 +1659,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     return results;
   }, [nostr]);
 
-  // Load messages for all channels in all communities
-  const loadAllChannelMessages = useCallback(async (communitiesData: Map<string, { id: string; pubkey: string; channels: Map<string, { id: string }> }>) => {
+  // Load messages for all channels in all communities - DEPRECATED: Now using batch loading
+  const _loadAllChannelMessages = useCallback(async (communitiesData: Map<string, { id: string; pubkey: string; channels: Map<string, { id: string }> }>) => {
     logger.log('Communities: Loading messages for all channels...');
 
     // Build filters for all community/channel combinations
@@ -1673,8 +1696,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     try {
       logger.log(`Communities: Querying messages with ${filters.length} filters...`);
-      const channelMessages = await nostr.query(filters, { 
-        signal: AbortSignal.timeout(30000) 
+      const channelMessages = await nostr.query(filters, {
+        signal: AbortSignal.timeout(30000)
       });
 
       logger.log(`Communities: Found ${channelMessages.length} total messages`);
@@ -1731,16 +1754,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
+    const startTime = Date.now();
     logger.log('Communities: Starting communities loading process');
     setCommunitiesLoading(true);
     setCommunitiesLoadingPhase(LOADING_PHASES.RELAYS);
 
     try {
       // Step 1: Load communities
+      const step1Start = Date.now();
       const communityDefinitions = await loadUserCommunities();
-      
+      const step1Time = Date.now() - step1Start;
+
       if (communityDefinitions.length === 0) {
         logger.log('Communities: No communities found for user');
+        const totalTime = Date.now() - startTime;
+        setCommunitiesLoadTime(totalTime);
+        setCommunitiesLoadBreakdown({
+          communities: step1Time,
+          channels: 0,
+          permissions: 0,
+          messages: 0,
+          total: totalTime,
+        });
         setHasCommunitiesInitialLoadCompleted(true);
         setCommunitiesLoading(false);
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
@@ -1749,6 +1784,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Step 2: Load ALL channels for ALL communities at once
       logger.log('Communities: Loading all channels for all communities...');
+      const step2Start = Date.now();
       const allChannelFilters = communityDefinitions.map(communityDef => {
         const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
         return {
@@ -1759,13 +1795,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       }).filter(filter => filter['#a'][0].includes(':'));
 
-      const allChannelDefinitions = await nostr.query(allChannelFilters, { 
-        signal: AbortSignal.timeout(15000) 
+      const allChannelDefinitions = await nostr.query(allChannelFilters, {
+        signal: AbortSignal.timeout(15000)
       });
-      logger.log(`Communities: Found ${allChannelDefinitions.length} total channel definitions`);
+      const step2Time = Date.now() - step2Start;
+      logger.log(`Communities: Found ${allChannelDefinitions.length} total channel definitions in ${step2Time}ms`);
 
       // Step 3: Load ALL permissions and members at once
       logger.log('Communities: Loading all permissions and members...');
+      const step3Start = Date.now();
       const allMemberFilters = communityDefinitions.map(communityDef => {
         const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
         const communityRef = `34550:${communityDef.pubkey}:${communityId}`;
@@ -1781,7 +1819,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
         const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
         if (!communityRef || !channelId) return null;
-        
+
         const [, communityPubkey, communityId] = communityRef.split(':');
         return {
           kinds: [30143], // Channel permissions events
@@ -1789,35 +1827,39 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           '#d': [`${communityId}/${channelId}`],
           limit: 1,
         };
-      }).filter(Boolean);
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
       const [allMemberLists, allPermissionSettings] = await Promise.all([
         nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) }),
         allPermissionFilters.length > 0 ? nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([])
       ]);
+      const step3Time = Date.now() - step3Start;
 
-      logger.log(`Communities: Found ${allMemberLists.length} member lists and ${allPermissionSettings.length} permission settings`);
+      logger.log(`Communities: Found ${allMemberLists.length} member lists and ${allPermissionSettings.length} permission settings in ${step3Time}ms`);
 
       // Step 4: Load ALL channel messages at once
+      logger.log('Communities: Loading all channel messages...');
+      const step4Start = Date.now();
       const allMessageFilters = allChannelDefinitions.map(channelDef => {
         const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
         const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
         if (!communityRef || !channelId) return null;
-        
-        const [, communityPubkey, communityId] = communityRef.split(':');
+
+        // We don't need to extract communityPubkey and communityId since we use communityRef directly
         return {
           kinds: [9411], // Channel messages (no special case for "general")
           '#a': [communityRef],
           '#t': [channelId],
           limit: 20,
         };
-      }).filter(Boolean);
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      const allChannelMessages = allMessageFilters.length > 0 
+      const allChannelMessages = allMessageFilters.length > 0
         ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) })
         : [];
-      
-      logger.log(`Communities: Found ${allChannelMessages.length} total channel messages`);
+      const step4Time = Date.now() - step4Start;
+
+      logger.log(`Communities: Found ${allChannelMessages.length} total channel messages in ${step4Time}ms`);
 
       // Step 5: Build final communities state
       const newCommunitiesState = new Map<string, CommunityData>();
@@ -1884,12 +1926,24 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       setCommunities(newCommunitiesState);
-      logger.log(`Communities: Successfully loaded ${newCommunitiesState.size} communities`);
+
+      const totalTime = Date.now() - startTime;
+      setCommunitiesLoadTime(totalTime);
+      setCommunitiesLoadBreakdown({
+        communities: step1Time,
+        channels: step2Time,
+        permissions: step3Time,
+        messages: step4Time,
+        total: totalTime,
+      });
+      logger.log(`Communities: Successfully loaded ${newCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, channels: ${step2Time}ms, permissions: ${step3Time}ms, messages: ${step4Time}ms)`);
 
       setHasCommunitiesInitialLoadCompleted(true);
       setCommunitiesLoadingPhase(LOADING_PHASES.READY);
     } catch (error) {
       logger.error('Communities: Error in communities loading:', error);
+      const totalTime = Date.now() - startTime;
+      setCommunitiesLoadTime(totalTime);
       setCommunitiesLoadingPhase(LOADING_PHASES.READY);
     } finally {
       setCommunitiesLoading(false);
@@ -2226,6 +2280,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     communities,
     isLoading: communitiesLoading,
     loadingPhase: communitiesLoadingPhase,
+    loadTime: communitiesLoadTime,
+    loadBreakdown: communitiesLoadBreakdown,
     getDebugInfo: getCommunitiesDebugInfo,
   };
 
