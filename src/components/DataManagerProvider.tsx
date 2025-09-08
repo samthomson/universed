@@ -1747,64 +1747,124 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Step 2: Load channels for each community
-      const communitiesWithChannels = new Map();
-      
-      for (const communityDef of communityDefinitions) {
+      // Step 2: Load ALL channels for ALL communities at once
+      logger.log('Communities: Loading all channels for all communities...');
+      const allChannelFilters = communityDefinitions.map(communityDef => {
         const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
-        if (!communityId) continue;
+        return {
+          kinds: [32807], // Channel definitions
+          authors: [communityDef.pubkey],
+          '#a': [`34550:${communityDef.pubkey}:${communityId}`], // Reference to parent community
+          limit: 50, // Max channels per community
+        };
+      }).filter(filter => filter['#a'][0].includes(':'));
 
-        const channelDefinitions = await loadCommunityChannels(communityId, communityDef.pubkey);
-        const channelsMap = new Map();
+      const allChannelDefinitions = await nostr.query(allChannelFilters, { 
+        signal: AbortSignal.timeout(15000) 
+      });
+      logger.log(`Communities: Found ${allChannelDefinitions.length} total channel definitions`);
+
+      // Step 3: Load ALL permissions and members at once
+      logger.log('Communities: Loading all permissions and members...');
+      const allMemberFilters = communityDefinitions.map(communityDef => {
+        const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${communityDef.pubkey}:${communityId}`;
+        return {
+          kinds: [34551], // Approved members events
+          authors: [communityDef.pubkey],
+          '#d': [communityRef],
+          limit: 1,
+        };
+      });
+
+      const allPermissionFilters = allChannelDefinitions.map(channelDef => {
+        const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+        const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef || !channelId) return null;
         
-        channelDefinitions.forEach(channelDef => {
-          const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
-          if (channelId) {
-            channelsMap.set(channelId, { id: channelId });
-          }
-        });
+        const [, communityPubkey, communityId] = communityRef.split(':');
+        return {
+          kinds: [30143], // Channel permissions events
+          authors: [communityPubkey],
+          '#d': [`${communityId}/${channelId}`],
+          limit: 1,
+        };
+      }).filter(Boolean);
 
-        communitiesWithChannels.set(communityId, {
-          id: communityId,
-          pubkey: communityDef.pubkey,
-          channels: channelsMap,
-        });
-      }
+      const [allMemberLists, allPermissionSettings] = await Promise.all([
+        nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) }),
+        allPermissionFilters.length > 0 ? nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([])
+      ]);
 
-      // Step 3: Load messages for all channels
-      const messagesByChannel = await loadAllChannelMessages(communitiesWithChannels);
+      logger.log(`Communities: Found ${allMemberLists.length} member lists and ${allPermissionSettings.length} permission settings`);
 
-      // Step 4: Build final communities state
+      // Step 4: Load ALL channel messages at once
+      const allMessageFilters = allChannelDefinitions.map(channelDef => {
+        const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+        const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef || !channelId) return null;
+        
+        const [, communityPubkey, communityId] = communityRef.split(':');
+        return {
+          kinds: [9411], // Channel messages (no special case for "general")
+          '#a': [communityRef],
+          '#t': [channelId],
+          limit: 20,
+        };
+      }).filter(Boolean);
+
+      const allChannelMessages = allMessageFilters.length > 0 
+        ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) })
+        : [];
+      
+      logger.log(`Communities: Found ${allChannelMessages.length} total channel messages`);
+
+      // Step 5: Build final communities state
       const newCommunitiesState = new Map<string, CommunityData>();
 
       for (const communityDef of communityDefinitions) {
         const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
         if (!communityId) continue;
 
-        const channelDefinitions = await loadCommunityChannels(communityId, communityDef.pubkey);
+        // Find channels for this community
+        const communityChannels = allChannelDefinitions.filter(channelDef => {
+          const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+          return communityRef && communityRef.includes(`:${communityId}`);
+        });
+
+        // Find members for this community
+        const communityRef = `34550:${communityDef.pubkey}:${communityId}`;
+        const communityMembers = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef;
+        });
+
         const channelsMap = new Map<string, ChannelData>();
 
-        // Load members for this community
-        const { members } = await loadPermissionsAndMembers(communityId, communityDef.pubkey);
-
-        for (const channelDef of channelDefinitions) {
+        for (const channelDef of communityChannels) {
           const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
           if (!channelId) continue;
 
-          // Get messages for this channel
-          const channelKey = `${communityId}/${channelId}`;
-          const messages = messagesByChannel.get(channelKey) || [];
+          // Find messages for this channel
+          const channelMessages = allChannelMessages.filter(msg => {
+            const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
+            const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
+            return msgCommunityRef && msgCommunityRef.includes(`:${communityId}`) && msgChannelId === channelId;
+          });
 
-          // Load permissions for this channel
-          const { permissions } = await loadPermissionsAndMembers(communityId, communityDef.pubkey, channelId);
+          // Find permissions for this channel
+          const channelPermissions = allPermissionSettings.find(perm => {
+            const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
+            return permRef === `${communityId}/${channelId}`;
+          });
 
           channelsMap.set(channelId, {
             id: channelId,
             communityId,
             definition: channelDef,
-            messages,
-            permissions,
-            lastActivity: messages.length > 0 ? messages[messages.length - 1].created_at : channelDef.created_at,
+            messages: channelMessages,
+            permissions: channelPermissions || null,
+            lastActivity: channelMessages.length > 0 ? channelMessages[channelMessages.length - 1].created_at : channelDef.created_at,
           });
         }
 
@@ -1813,7 +1873,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           pubkey: communityDef.pubkey,
           definition: communityDef,
           channels: channelsMap,
-          approvedMembers: members,
+          approvedMembers: communityMembers || null,
           lastActivity: Math.max(
             communityDef.created_at,
             ...Array.from(channelsMap.values()).map(c => c.lastActivity)
@@ -1834,7 +1894,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setCommunitiesLoading(false);
     }
-  }, [user?.pubkey, communitiesLoading, loadUserCommunities, loadCommunityChannels, loadPermissionsAndMembers, loadAllChannelMessages]);
+  }, [user?.pubkey, communitiesLoading, loadUserCommunities, nostr]);
 
   // Communities debug info
   const getCommunitiesDebugInfo = useCallback(() => {
