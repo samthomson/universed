@@ -155,7 +155,8 @@ const createErrorLogger = (name: string) => {
 // Create error loggers outside component to prevent recreation
 const nip17ErrorLogger = createErrorLogger('NIP-17');
 
-interface DataManagerContextType {
+// Messaging domain interface
+interface MessagingDomain {
   messages: MessagesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
@@ -173,6 +174,11 @@ interface DataManagerContextType {
   scanProgress: ScanProgressState;
 }
 
+// Main DataManager interface - organized by domain
+interface DataManagerContextType {
+  messaging: MessagingDomain;
+}
+
 const DataManagerContext = createContext<DataManagerContextType | null>(null);
 
 export function useDataManager(): DataManagerContextType {
@@ -185,7 +191,8 @@ export function useDataManager(): DataManagerContextType {
 
 // Hook for conversation-specific message subscriptions to avoid unnecessary re-renders
 export function useConversationMessages(conversationId: string) {
-  const { messages: allMessages } = useDataManager();
+  const { messaging } = useDataManager();
+  const { messages: allMessages } = messaging;
 
   logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} Hook called for conversation ${conversationId}, total conversations in state: ${allMessages.size}`);
 
@@ -1663,7 +1670,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [userPubkey, addMessageToState, sendNIP4Message, sendNIP17Message]);
 
-  const contextValue: DataManagerContextType = {
+  // Organize messaging functionality into its own domain
+  const messaging: MessagingDomain = {
     messages,
     isLoading,
     loadingPhase,
@@ -1679,6 +1687,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     isDebugging: true, // Hardcoded for now
     scanProgress,
     subscriptions,
+  };
+
+  const contextValue: DataManagerContextType = {
+    messaging,
   };
 
   return (
