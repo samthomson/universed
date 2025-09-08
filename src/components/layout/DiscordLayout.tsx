@@ -110,7 +110,8 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
   const { setHighlightedItemId } = useMarketplaceContext();
   const urlChannelId = urlParameters.channelId;
 
-  const { sendMessage: sendDM } = useDataManager();
+  const { messaging } = useDataManager();
+  const { sendMessage: sendDM } = messaging;
   const [pendingMarketplaceItem, setPendingMarketplaceItem] = useState<MarketplaceItem | null>(null);
 
   const handleNavigateToDMs = (targetPubkey?: string, marketplaceItem?: MarketplaceItem) => {
