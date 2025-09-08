@@ -10,6 +10,7 @@ import { Communities } from "./pages/Communities";
 import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
+import { CommunitiesDebug } from "./pages/CommunitiesDebug";
 import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +60,7 @@ export function AppRouter() {
         <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
+        <Route path="/communities-debug" element={<CommunitiesDebug />} />
 
         {/* DM Routes - always at /dm */}
         <Route path="/dm" element={<Index dmTargetPubkey={undefined} />} />
