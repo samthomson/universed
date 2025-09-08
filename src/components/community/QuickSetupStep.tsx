@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/useToast';
-import { generateCommunityIdentifier } from '@/lib/utils';
 import { nip19 } from 'nostr-tools';
 import QRCode from 'qrcode';
 
@@ -17,13 +16,15 @@ interface QuickSetupStepProps {
     image: string;
   };
   userPubkey: string;
+  communityIdentifier: string;
 }
 
 export function QuickSetupStep({
   onCreateCommunity,
   onPrevious,
   formData,
-  userPubkey
+  userPubkey,
+  communityIdentifier
 }: QuickSetupStepProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [moderatorQrCodeDataUrl, setModeratorQrCodeDataUrl] = useState<string>('');
@@ -35,12 +36,12 @@ export function QuickSetupStep({
 
   // Generate preview sharing links (memoized to prevent infinite re-renders)
   const { moderatorJoinUrl, memberJoinUrl } = useMemo(() => {
-    if (!formData.name.trim() || !userPubkey) return { moderatorJoinUrl: '', memberJoinUrl: '' };
+    if (!communityIdentifier || !userPubkey || userPubkey.length !== 64) {
+      return { moderatorJoinUrl: '', memberJoinUrl: '' };
+    }
 
     try {
-      const communityIdentifier = generateCommunityIdentifier(formData.name);
-      
-      // Generate naddr
+      // Generate naddr using the actual community identifier that will be used
       const naddr = nip19.naddrEncode({
         kind: 34550,
         pubkey: userPubkey,
@@ -57,7 +58,7 @@ export function QuickSetupStep({
       console.error('Failed to generate preview links:', error);
       return { moderatorJoinUrl: '', memberJoinUrl: '' };
     }
-  }, [formData.name, userPubkey]);
+  }, [communityIdentifier, userPubkey]);
 
   // Generate moderator QR code
   useEffect(() => {
@@ -149,7 +150,7 @@ export function QuickSetupStep({
       // Convert data URL to blob
       const response = await fetch(qrCodeDataUrl);
       const blob = await response.blob();
-      
+
       // Check if the browser supports ClipboardItem with images
       if (!window.ClipboardItem) {
         throw new Error('ClipboardItem not supported');
@@ -164,7 +165,7 @@ export function QuickSetupStep({
           'image/png': imageBlob
         })
       ]);
-      
+
       setCopiedField(field);
       toast({
         title: 'QR Code Copied!',
@@ -173,19 +174,19 @@ export function QuickSetupStep({
       setTimeout(() => setCopiedField(null), 2000);
     } catch (error) {
       console.error('Failed to copy QR code:', error);
-      
+
       // Try alternative approach: create a canvas and copy from there
       try {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
-        
+
         await new Promise((resolve, reject) => {
           img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
             ctx?.drawImage(img, 0, 0);
-            
+
             canvas.toBlob(async (blob) => {
               if (blob) {
                 try {
@@ -206,7 +207,7 @@ export function QuickSetupStep({
           img.onerror = reject;
           img.src = qrCodeDataUrl;
         });
-        
+
         setCopiedField(field);
         toast({
           title: 'QR Code Copied!',
@@ -215,7 +216,7 @@ export function QuickSetupStep({
         setTimeout(() => setCopiedField(null), 2000);
       } catch (canvasError) {
         console.error('Canvas approach also failed:', canvasError);
-        
+
         // Final fallback: Copy the data URL as text
         try {
           await navigator.clipboard.writeText(qrCodeDataUrl);
@@ -245,7 +246,7 @@ export function QuickSetupStep({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: 'QR Code Downloaded',
         description: 'The QR code has been saved to your downloads folder.',

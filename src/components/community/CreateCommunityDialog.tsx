@@ -35,6 +35,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [createdCommunityId, setCreatedCommunityId] = useState<string>("");
+  const [communityIdentifier, setCommunityIdentifier] = useState<string>("");
   const [requireApproval] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,6 +54,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
       setImageFile(null);
       setImagePreview("");
       setCreatedCommunityId("");
+      setCommunityIdentifier("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -101,7 +103,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
 
   // Optimistic community creation mutation
   const createCommunityMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (communityIdentifier: string) => {
       // Move to create step for animation
       setStep('create');
 
@@ -120,8 +122,6 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
           throw new Error("Failed to upload community icon");
         }
       }
-
-      const communityIdentifier = generateCommunityIdentifier(formData.name);
 
       // Create community definition event
       const communityTags = [
@@ -202,7 +202,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
 
       return communityEvent;
     },
-    onMutate: async () => {
+    onMutate: async (communityIdentifier: string) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['communities'] });
 
@@ -210,7 +210,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
       const previousCommunities = queryClient.getQueryData<Community[]>(['communities']);
 
       // Generate the same identifier that will be used in the mutation
-      const communityIdentifier = generateCommunityIdentifier(formData.name);
+
       const communityId = `34550:${user!.pubkey}:${communityIdentifier}`;
       setCreatedCommunityId(communityId);
 
@@ -284,7 +284,17 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
       return;
     }
 
-    createCommunityMutation.mutate();
+    // Use the already generated community identifier
+    if (!communityIdentifier) {
+      toast({
+        title: "Error",
+        description: "Community identifier not generated",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCommunityMutation.mutate(communityIdentifier);
   };
 
   const getTitle = () => {
@@ -434,6 +444,9 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
 
               <form onSubmit={(e) => {
                 e.preventDefault();
+                // Generate community identifier when transitioning to quicksetup step
+                const generatedIdentifier = generateCommunityIdentifier(formData.name);
+                setCommunityIdentifier(generatedIdentifier);
                 setStep('quicksetup');
               }} className="space-y-4 text-left">
                 <div className="space-y-2">
@@ -536,6 +549,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
               onPrevious={() => setStep('details')}
               formData={formData}
               userPubkey={user?.pubkey || ''}
+              communityIdentifier={communityIdentifier}
             />
           )}
 

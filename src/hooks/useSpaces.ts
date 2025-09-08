@@ -71,7 +71,7 @@ function validateSpaceEvent(event: NostrEvent): boolean {
   return true;
 }
 
-function parseSpaceEvent(event: NostrEvent, communityId: string): Space {
+export function parseSpaceEvent(event: NostrEvent, communityId: string): Space {
   const d = event.tags.find(([name]) => name === 'd')?.[1] || '';
   const name = event.tags.find(([name]) => name === 'name')?.[1] || '';
   const description = event.tags.find(([name]) => name === 'description')?.[1];
@@ -93,9 +93,31 @@ function parseSpaceEvent(event: NostrEvent, communityId: string): Space {
     };
   }
 
+  // Extract space ID from d tag or generate it consistently from the name
+  // This ensures the same ID is used during creation and parsing
+  const spaceName = content.name || name;
+  let spaceId: string;
+
+  if (d && d.startsWith(`${communityId}:`)) {
+    // Use the d tag if it exists and has the communityId:spaceId format
+    spaceId = d.substring(communityId.length + 1); // Remove communityId: prefix
+  } else if (d) {
+    // If d tag exists but doesn't have communityId prefix, use it as-is
+    // This handles legacy events that might not have the prefix
+    spaceId = d;
+  } else {
+    // Generate consistent ID from name (lowercase, hyphens instead of spaces)
+    // This ensures the ID matches what was used during creation in CreateSpaceForm
+    spaceId = spaceName
+      .toLowerCase()
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .trim(); // Remove leading/trailing hyphens
+  }
+
   return {
-    id: d || `${communityId}:${name}`,
-    name: content.name || name,
+    id: spaceId,
+    name: spaceName,
     description: content.description || description,
     type: content.type || spaceType,
     icon: content.icon || icon,
@@ -275,8 +297,14 @@ export function useUpdateSpace(communityId: string) {
         throw new Error('Only moderators and admins can update spaces');
       }
 
+      // Generate consistent space ID from name if this is a new custom space
+      // This ensures the d tag matches what will be parsed back
+      const consistentSpaceId = spaceId === name.toLowerCase().replace(/\s+/g, '-')
+        ? spaceId
+        : name.toLowerCase().replace(/\s+/g, '-');
+
       const tags = [
-        ['d', `${communityId}:${spaceId}`],
+        ['d', `${communityId}:${consistentSpaceId}`], // Use communityId:spaceId format for consistency
         ['a', communityId],
         ['name', name],
         ['description', description || ''],
