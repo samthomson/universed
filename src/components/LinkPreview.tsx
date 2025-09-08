@@ -30,9 +30,11 @@ export function LinkPreview({ url, className }: LinkPreviewProps) {
   }, [url]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchPreview = async () => {
       if (!url) return;
-      
+
       setLoading(true);
       setError(null);
 
@@ -40,31 +42,33 @@ export function LinkPreview({ url, className }: LinkPreviewProps) {
         // Try to use a CORS proxy service to fetch the page content
         // This is a common approach for client-side link previews
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        
+
         const response = await fetch(proxyUrl);
         const data = await response.json();
-        
+
+        if (cancelled) return;
+
         if (data.contents) {
           // Parse the HTML content to extract metadata
           const parser = new DOMParser();
           const doc = parser.parseFromString(data.contents, 'text/html');
-          
+
           // Extract title
-          const title = doc.querySelector('title')?.textContent || 
+          const title = doc.querySelector('title')?.textContent ||
                        doc.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
                        doc.querySelector('meta[name="title"]')?.getAttribute('content') ||
                        domain;
-          
+
           // Extract description
           const description = doc.querySelector('meta[name="description"]')?.getAttribute('content') ||
                             doc.querySelector('meta[property="og:description"]')?.getAttribute('content') ||
                             `Content from ${domain}`;
-          
+
           // Extract image
           const image = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') ||
                        doc.querySelector('meta[name="image"]')?.getAttribute('content') ||
                        undefined;
-          
+
           const preview: LinkPreviewData = {
             url,
             domain,
@@ -72,14 +76,16 @@ export function LinkPreview({ url, className }: LinkPreviewProps) {
             description,
             image,
           };
-          
+
           setPreviewData(preview);
         } else {
           throw new Error('Failed to fetch page content');
         }
       } catch (err) {
         console.warn('Failed to fetch link preview:', err);
-        
+
+        if (cancelled) return;
+
         // Fallback to basic domain info
         const fallbackPreview: LinkPreviewData = {
           url,
@@ -89,11 +95,17 @@ export function LinkPreview({ url, className }: LinkPreviewProps) {
         };
         setPreviewData(fallbackPreview);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPreview();
+
+    return () => {
+      cancelled = true;
+    };
   }, [url, domain]);
 
   if (loading) {
@@ -141,13 +153,13 @@ export function LinkPreview({ url, className }: LinkPreviewProps) {
             </h3>
             <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           </div>
-          
+
           {previewData.description && (
             <p className="text-xs text-muted-foreground line-clamp-2">
               {previewData.description}
             </p>
           )}
-          
+
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {previewData.domain}
