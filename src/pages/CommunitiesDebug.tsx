@@ -104,11 +104,12 @@ export function CommunitiesDebug() {
 								<div className="flex items-start justify-between">
 									<div>
 										<CardTitle className="text-lg">
-											{getCommunityName(community.definition) || communityId}
+											{community.info.name}
 										</CardTitle>
 										<div className="text-sm text-muted-foreground space-y-1">
 											<div>ID: {communityId}</div>
 											<div>Owner: {community.pubkey}</div>
+											<div>Status: {community.membershipStatus}</div>
 										</div>
 									</div>
 									<div className="text-right text-sm text-muted-foreground space-y-1">
@@ -119,15 +120,57 @@ export function CommunitiesDebug() {
 							</CardHeader>
 							<CardContent>
 								<div className="space-y-4">
-									{/* Community Description */}
-									{getCommunityDescription(community.definition) && (
-										<div>
-											<h4 className="font-medium mb-2">Description</h4>
-											<p className="text-sm text-muted-foreground">
-												{getCommunityDescription(community.definition)}
-											</p>
-										</div>
-									)}
+									{/* Community Info */}
+									<div className="space-y-2">
+										{community.info.description && (
+											<div>
+												<h4 className="font-medium mb-2">Description</h4>
+												<p className="text-sm text-muted-foreground">
+													{community.info.description}
+												</p>
+											</div>
+										)}
+										{community.info.image && (
+											<div>
+												<h4 className="font-medium mb-2">Image</h4>
+												<div className="text-sm text-muted-foreground break-all">
+													{community.info.image}
+												</div>
+											</div>
+										)}
+										{community.info.banner && (
+											<div>
+												<h4 className="font-medium mb-2">Banner</h4>
+												<div className="text-sm text-muted-foreground break-all">
+													{community.info.banner}
+												</div>
+											</div>
+										)}
+										{community.info.moderators.length > 0 && (
+											<div>
+												<h4 className="font-medium mb-2">Moderators</h4>
+												<ol className="text-xs space-y-1 list-decimal list-inside">
+													{community.info.moderators.map((pubkey, i) => (
+														<li key={i} className="bg-muted/30 rounded px-2 py-1 break-all">
+															{pubkey}
+														</li>
+													))}
+												</ol>
+											</div>
+										)}
+										{community.info.relays.length > 0 && (
+											<div>
+												<h4 className="font-medium mb-2">Relays</h4>
+												<ol className="text-xs space-y-1 list-decimal list-inside">
+													{community.info.relays.map((url, i) => (
+														<li key={i} className="bg-muted/30 rounded px-2 py-1 break-all">
+															{url}
+														</li>
+													))}
+												</ol>
+											</div>
+										)}
+									</div>
 
 									{/* Approved Members */}
 									{community.approvedMembers && (
@@ -171,7 +214,7 @@ export function CommunitiesDebug() {
 														</div>
 														<div className="text-right text-xs text-muted-foreground space-y-1">
 															<div>{channel.messages.length} messages</div>
-															<div>{formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
+															<div>Last Activity: {formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
 														</div>
 													</div>
 
@@ -235,24 +278,6 @@ export function CommunitiesDebug() {
 }
 
 // Helper functions to extract data from Nostr events
-function getCommunityName(definition: NostrEvent): string | null {
-	try {
-		const content = JSON.parse(definition.content);
-		return content.name || null;
-	} catch {
-		return definition.tags?.find(([name]: string[]) => name === 'name')?.[1] || null;
-	}
-}
-
-function getCommunityDescription(definition: NostrEvent): string | null {
-	try {
-		const content = JSON.parse(definition.content);
-		return content.about || content.description || null;
-	} catch {
-		return definition.tags?.find(([name]: string[]) => name === 'about')?.[1] || null;
-	}
-}
-
 function getChannelName(definition: NostrEvent): string | null {
 	try {
 		const content = JSON.parse(definition.content);
