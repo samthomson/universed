@@ -1535,7 +1535,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             return [id, { status, event }] as const;
           })
           // Remove invalid entries
-          .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+          .filter((entry) => !!entry)
       );
 
       // Get unique community IDs for querying
