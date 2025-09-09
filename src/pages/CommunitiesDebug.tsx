@@ -218,9 +218,9 @@ export function CommunitiesDebug() {
 													</div>
 
 													{/* Channel Description */}
-													{channel.info.about && (
+													{channel.info.description && (
 														<p className="text-xs text-muted-foreground mb-2">
-															{channel.info.about}
+															{channel.info.description}
 														</p>
 													)}
 

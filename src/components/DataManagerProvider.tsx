@@ -203,8 +203,10 @@ interface CommunityData {
 
 interface ChannelInfo {
   name: string;
-  about?: string;
-  picture?: string;
+  description?: string;
+  type: 'text' | 'voice';
+  folderId?: string;
+  position: number;
 }
 
 interface ChannelData {
@@ -1966,16 +1968,37 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
             // Parse channel info from tags
             const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
-            const channelAbout = channelDef.tags.find(([name]) => name === 'about')?.[1];
-            const channelPicture = channelDef.tags.find(([name]) => name === 'picture')?.[1];
+            const channelDescription = channelDef.tags.find(([name]) => name === 'description')?.[1] ||
+              channelDef.tags.find(([name]) => name === 'about')?.[1];
+            const channelType = channelDef.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
+            const folderId = channelDef.tags.find(([name]) => name === 'folder')?.[1];
+            const position = parseInt(channelDef.tags.find(([name]) => name === 'position')?.[1] || '0');
+
+            // Try to parse content for additional metadata
+            interface ChannelContent {
+              name?: string;
+              description?: string;
+              type?: 'text' | 'voice';
+              folderId?: string;
+              position?: number;
+            }
+
+            let contentData: ChannelContent = {};
+            try {
+              contentData = JSON.parse(channelDef.content) as ChannelContent;
+            } catch {
+              // Ignore parsing errors
+            }
 
             channelsMap.set(channelId, {
               id: channelId,
               communityId: community.id,
               info: {
-                name: channelName,
-                about: channelAbout,
-                picture: channelPicture,
+                name: contentData?.name || channelName,
+                description: contentData?.description || channelDescription,
+                type: contentData?.type || channelType,
+                folderId: contentData?.folderId || folderId,
+                position: contentData?.position || position || 0,
               },
               definition: channelDef,
               messages: channelMessages,
