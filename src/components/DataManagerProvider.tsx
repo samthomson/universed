@@ -14,6 +14,10 @@ import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
 // DataManager Types and Constants (co-located for better maintainability)
 // ============================================================================
 
+// ============================================================================
+// Messaging Domain Types
+// ============================================================================
+
 // Core participant data structure used throughout DataManager
 interface ParticipantData {
   messages: DecryptedMessage[];
@@ -174,7 +178,11 @@ interface MessagingDomain {
   scanProgress: ScanProgressState;
 }
 
-// Community data structures
+// ============================================================================
+// Communities Domain Types
+// ============================================================================
+
+// Community metadata parsed from kind 34550 events
 interface CommunityInfo {
   name: string; // from name tag
   description?: string; // from description tag
@@ -184,11 +192,13 @@ interface CommunityInfo {
   relays: string[]; // from relay tags
 }
 
+// Parsed member list from kind 34551/34552/34553 events
 interface MembersList {
   members: string[]; // list of member pubkeys
   event: NostrEvent; // original event
 }
 
+// Complete community data structure
 interface CommunityData {
   id: string; // community identifier (d tag)
   pubkey: string; // community creator/owner
@@ -199,8 +209,10 @@ interface CommunityData {
   pendingMembers: MembersList | null; // parsed pending members list
   membershipStatus: 'approved' | 'pending' | 'blocked'; // user's membership status
   lastActivity: number;
+  isLoadingChannels?: boolean; // indicates if channels are still loading
 }
 
+// Channel metadata parsed from kind 32807 events
 interface ChannelInfo {
   name: string;
   description?: string;
@@ -209,6 +221,7 @@ interface ChannelInfo {
   position: number;
 }
 
+// Complete channel data structure
 interface ChannelData {
   id: string; // channel identifier (d tag)
   communityId: string; // parent community id
@@ -217,10 +230,20 @@ interface ChannelData {
   messages: NostrEvent[]; // kind 9411 messages (and kind 1 for general)
   permissions: NostrEvent | null; // kind 30143 permissions settings
   lastActivity: number;
+  isLoadingData?: boolean; // indicates if channel data is still loading
 }
 
 // Communities state structure
 type CommunitiesState = Map<string, CommunityData>; // communityId -> community data
+
+// Community loading breakdown for performance tracking
+interface CommunityLoadBreakdown {
+  communities: number;
+  channels: number;
+  permissions: number;
+  messages: number;
+  total: number;
+}
 
 // Communities domain interface
 interface CommunitiesDomain {
@@ -228,13 +251,7 @@ interface CommunitiesDomain {
   isLoading: boolean;
   loadingPhase: LoadingPhase;
   loadTime: number | null;
-  loadBreakdown: {
-    communities: number;
-    channels: number;
-    permissions: number;
-    messages: number;
-    total: number;
-  } | null;
+  loadBreakdown: CommunityLoadBreakdown | null;
   getDebugInfo: () => {
     communityCount: number;
     channelCount: number;
@@ -347,13 +364,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communitiesLoadingPhase, setCommunitiesLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
   const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
-  const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<{
-    communities: number;
-    channels: number;
-    permissions: number;
-    messages: number;
-    total: number;
-  } | null>(null);
+  const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<CommunityLoadBreakdown | null>(null);
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
@@ -1810,7 +1821,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [nostr]);
 
-  // Main communities loading function
+  // Main communities loading function with progressive loading
   const startCommunitiesLoading = useCallback(async () => {
     if (!user?.pubkey) {
       logger.log('Communities: No user pubkey available, skipping communities loading');
@@ -1850,12 +1861,64 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Step 2: Load ALL channels for APPROVED communities only
-      logger.log('Communities: Loading all channels for approved communities...');
-      const step2Start = Date.now();
+      // PROGRESSIVE LOADING: Return communities immediately with isLoadingChannels=true
+      logger.log('Communities: Creating initial community state with basic info');
+      const initialCommunitiesState = new Map<string, CommunityData>();
 
-      // Filter to only approved communities first, then create channel filters
+      for (const community of communitiesWithStatus) {
+        const communityData: CommunityData = {
+          id: community.id,
+          pubkey: community.pubkey,
+          info: community.info,
+          definitionEvent: community.definitionEvent,
+          channels: new Map<string, ChannelData>(), // Empty initially
+          approvedMembers: null, // Will be loaded in background
+          pendingMembers: null, // Will be loaded in background
+          membershipStatus: community.membershipStatus,
+          lastActivity: community.definitionEvent.created_at,
+          isLoadingChannels: true, // Indicate channels are still loading
+        };
+
+        initialCommunitiesState.set(community.id, communityData);
+      }
+
+      // Set initial state so UI can show communities immediately
+      setCommunities(initialCommunitiesState);
+      logger.log(`Communities: Set initial state with ${initialCommunitiesState.size} communities (channels loading in background)`);
+
+      // Continue loading channels in background for approved communities only
       const approvedCommunities = communitiesWithStatus.filter(({ membershipStatus }) => membershipStatus === 'approved');
+
+      if (approvedCommunities.length === 0) {
+        logger.log('Communities: No approved communities, skipping channel loading');
+        // Update communities to remove loading flags
+        setCommunities(prev => {
+          const updated = new Map(prev);
+          updated.forEach(community => {
+            community.isLoadingChannels = false;
+          });
+          return updated;
+        });
+
+        const totalTime = Date.now() - startTime;
+        setCommunitiesLoadTime(totalTime);
+        setCommunitiesLoadBreakdown({
+          communities: step1Time,
+          channels: 0,
+          permissions: 0,
+          messages: 0,
+          total: totalTime,
+        });
+        setHasCommunitiesInitialLoadCompleted(true);
+        setCommunitiesLoading(false);
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        return;
+      }
+
+      // BACKGROUND LOADING: Load channels, permissions, and messages in parallel
+      logger.log('Communities: Loading channels, permissions, and messages in parallel...');
+
+      // Prepare all filters for parallel execution
       const allChannelFilters = approvedCommunities.map(({ definitionEvent }) => {
         const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         if (!communityId) return null;
@@ -1866,17 +1929,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           '#a': [`34550:${definitionEvent.pubkey}:${communityId}`], // Reference to parent community
           limit: 50, // Max channels per community
         };
-      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null filters (missing communityId)
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      const allChannelDefinitions = await nostr.query(allChannelFilters, {
-        signal: AbortSignal.timeout(15000)
-      });
-      const step2Time = Date.now() - step2Start;
-      logger.log(`Communities: Found ${allChannelDefinitions.length} total channel definitions in ${step2Time}ms`);
-
-      // Step 3: Load ALL permissions and members at once
-      logger.log('Communities: Loading all permissions and members...');
-      const step3Start = Date.now();
       const allMemberFilters = communitiesWithStatus.map(({ definitionEvent }) => {
         const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
@@ -1888,6 +1942,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       });
 
+      // Execute channels and members queries in parallel first
+      const parallelStart = Date.now();
+      const [allChannelDefinitions, allMemberLists] = await Promise.all([
+        nostr.query(allChannelFilters, { signal: AbortSignal.timeout(15000) }),
+        nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) })
+      ]);
+
+      // Now prepare permission and message filters based on channel results
       const allPermissionFilters = allChannelDefinitions.map(channelDef => {
         const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
         const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
@@ -1902,40 +1964,30 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      const [allMemberLists, allPermissionSettings] = await Promise.all([
-        nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) }),
-        allPermissionFilters.length > 0 ? nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([])
-      ]);
-      const step3Time = Date.now() - step3Start;
-
-      logger.log(`Communities: Found ${allMemberLists.length} member lists and ${allPermissionSettings.length} permission settings in ${step3Time}ms`);
-
-      // Step 4: Load ALL channel messages at once
-      logger.log('Communities: Loading all channel messages...');
-      const step4Start = Date.now();
       const allMessageFilters = allChannelDefinitions.map(channelDef => {
         const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
         const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
         if (!communityRef || !channelId) return null;
 
-        // We don't need to extract communityPubkey and communityId since we use communityRef directly
         return {
-          kinds: [9411], // Channel messages (no special case for "general")
+          kinds: [9411], // Channel messages
           '#a': [communityRef],
           '#t': [channelId],
           limit: 20,
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      const allChannelMessages = allMessageFilters.length > 0
-        ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) })
-        : [];
-      const step4Time = Date.now() - step4Start;
+      // Execute permissions and messages queries in parallel
+      const [allPermissionSettings, allChannelMessages] = await Promise.all([
+        allPermissionFilters.length > 0 ? nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([]),
+        allMessageFilters.length > 0 ? nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([])
+      ]);
 
-      logger.log(`Communities: Found ${allChannelMessages.length} total channel messages in ${step4Time}ms`);
+      const parallelTime = Date.now() - parallelStart;
+      logger.log(`Communities: Parallel loading complete in ${parallelTime}ms - Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}`);
 
-      // Step 5: Build final communities state
-      const newCommunitiesState = new Map<string, CommunityData>();
+      // Build final communities state with loaded channel data
+      const updatedCommunitiesState = new Map<string, CommunityData>();
 
       for (const community of communitiesWithStatus) {
         const isApproved = community.membershipStatus === 'approved';
@@ -2042,23 +2094,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           lastActivity: isApproved && channelsMap.size > 0
             ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
             : community.definitionEvent.created_at,
+          isLoadingChannels: false, // Channels have finished loading
         };
 
-        newCommunitiesState.set(community.id, communityData);
+        updatedCommunitiesState.set(community.id, communityData);
       }
 
-      setCommunities(newCommunitiesState);
+      // Update communities state with loaded channel data and remove loading flags
+      setCommunities(updatedCommunitiesState);
 
       const totalTime = Date.now() - startTime;
       setCommunitiesLoadTime(totalTime);
       setCommunitiesLoadBreakdown({
         communities: step1Time,
-        channels: step2Time,
-        permissions: step3Time,
-        messages: step4Time,
+        channels: parallelTime, // Use parallel time for all background loading
+        permissions: 0, // Included in parallel time
+        messages: 0, // Included in parallel time
         total: totalTime,
       });
-      logger.log(`Communities: Successfully loaded ${newCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, channels: ${step2Time}ms, permissions: ${step3Time}ms, messages: ${step4Time}ms)`);
+      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, parallel background loading: ${parallelTime}ms)`);
 
       setHasCommunitiesInitialLoadCompleted(true);
       setCommunitiesLoadingPhase(LOADING_PHASES.READY);

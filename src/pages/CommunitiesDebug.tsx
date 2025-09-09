@@ -102,8 +102,13 @@ export function CommunitiesDebug() {
 							<CardHeader>
 								<div className="flex items-start justify-between">
 									<div>
-										<CardTitle className="text-lg">
+										<CardTitle className="text-lg flex items-center gap-2">
 											{community.info.name}
+											{community.isLoadingChannels && (
+												<Badge variant="secondary" className="animate-pulse text-xs">
+													Loading channels...
+												</Badge>
+											)}
 										</CardTitle>
 										<div className="text-sm text-muted-foreground space-y-1">
 											<div>ID: {communityId}</div>
@@ -113,7 +118,12 @@ export function CommunitiesDebug() {
 									</div>
 									<div className="text-right text-sm text-muted-foreground space-y-1">
 										<div>Last Activity: {formatDistanceToNowShort(new Date(community.lastActivity * 1000))}</div>
-										<div>{community.channels.size} channels</div>
+										<div>
+											{community.channels.size} channels
+											{community.isLoadingChannels && (
+												<span className="text-orange-500 ml-1">(loading...)</span>
+											)}
+										</div>
 									</div>
 								</div>
 							</CardHeader>
@@ -198,73 +208,86 @@ export function CommunitiesDebug() {
 
 									{/* Channels */}
 									<div>
-										<h4 className="font-medium mb-3">Channels ({community.channels.size})</h4>
-										<div className="space-y-3">
-											{Array.from(community.channels.entries()).map(([channelId, channel]) => (
-												<div key={channelId} className="border rounded-lg p-3">
-													<div className="flex items-start justify-between mb-2">
-														<div>
-															<h5 className="font-medium">
-																{channel.info.name}
-															</h5>
-															<p className="text-xs text-muted-foreground">
-																ID: {channelId}
+										<h4 className="font-medium mb-3 flex items-center gap-2">
+											Channels ({community.channels.size})
+											{community.isLoadingChannels && (
+												<Badge variant="outline" className="text-xs animate-pulse">
+													Loading...
+												</Badge>
+											)}
+										</h4>
+										{community.isLoadingChannels && community.channels.size === 0 ? (
+											<div className="text-center py-8 text-muted-foreground">
+												<div className="animate-pulse">Loading channels...</div>
+											</div>
+										) : (
+											<div className="space-y-3">
+												{Array.from(community.channels.entries()).map(([channelId, channel]) => (
+													<div key={channelId} className="border rounded-lg p-3">
+														<div className="flex items-start justify-between mb-2">
+															<div>
+																<h5 className="font-medium">
+																	{channel.info.name}
+																</h5>
+																<p className="text-xs text-muted-foreground">
+																	ID: {channelId}
+																</p>
+															</div>
+															<div className="text-right text-xs text-muted-foreground space-y-1">
+																<div>{channel.messages.length} messages</div>
+																<div>Last Activity: {formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
+															</div>
+														</div>
+
+														{/* Channel Description */}
+														{channel.info.description && (
+															<p className="text-xs text-muted-foreground mb-2">
+																{channel.info.description}
 															</p>
-														</div>
-														<div className="text-right text-xs text-muted-foreground space-y-1">
-															<div>{channel.messages.length} messages</div>
-															<div>Last Activity: {formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
-														</div>
-													</div>
+														)}
 
-													{/* Channel Description */}
-													{channel.info.description && (
-														<p className="text-xs text-muted-foreground mb-2">
-															{channel.info.description}
-														</p>
-													)}
-
-													{/* Permissions */}
-													{channel.permissions && (
-														<div className="mb-2">
-															<div className="text-xs font-medium mb-1">Channel Permissions:</div>
-															<div className="text-xs text-muted-foreground space-y-1">
-																<div>Event ID: {channel.permissions.id.slice(0, 16)}...</div>
-																<div>Created: {formatDistanceToNowShort(new Date(channel.permissions.created_at * 1000))}</div>
-																{channel.permissions.content && (
-																	<div className="bg-muted/30 rounded p-2 mt-1">
-																		<pre className="text-xs whitespace-pre-wrap">
-																			{channel.permissions.content}
-																		</pre>
-																	</div>
-																)}
-															</div>
-														</div>
-													)}
-
-													{/* Recent Messages */}
-													{channel.messages.length > 0 && (
-														<div>
-															<h6 className="text-xs font-medium mb-2">Recent Messages:</h6>
-															<div className="space-y-2">
-																{channel.messages.slice(-3).map((message) => (
-																	<div key={message.id} className="text-xs bg-muted/50 rounded p-2">
-																		<div className="space-y-1 mb-2">
-																			<div>Author: {message.pubkey}</div>
-																			<div>Time: {formatDistanceToNowShort(new Date(message.created_at * 1000))}</div>
-																			<div>Kind: {message.kind}</div>
+														{/* Permissions */}
+														{channel.permissions && (
+															<div className="mb-2">
+																<div className="text-xs font-medium mb-1">Channel Permissions:</div>
+																<div className="text-xs text-muted-foreground space-y-1">
+																	<div>Event ID: {channel.permissions.id.slice(0, 16)}...</div>
+																	<div>Created: {formatDistanceToNowShort(new Date(channel.permissions.created_at * 1000))}</div>
+																	{channel.permissions.content && (
+																		<div className="bg-muted/30 rounded p-2 mt-1">
+																			<pre className="text-xs whitespace-pre-wrap">
+																				{channel.permissions.content}
+																			</pre>
 																		</div>
-																		<p className="break-words">
-																			{message.content}
-																		</p>
-																	</div>
-																))}
+																	)}
+																</div>
 															</div>
-														</div>
-													)}
-												</div>
-											))}
-										</div>
+														)}
+
+														{/* Recent Messages */}
+														{channel.messages.length > 0 && (
+															<div>
+																<h6 className="text-xs font-medium mb-2">Recent Messages:</h6>
+																<div className="space-y-2">
+																	{channel.messages.slice(-3).map((message) => (
+																		<div key={message.id} className="text-xs bg-muted/50 rounded p-2">
+																			<div className="space-y-1 mb-2">
+																				<div>Author: {message.pubkey}</div>
+																				<div>Time: {formatDistanceToNowShort(new Date(message.created_at * 1000))}</div>
+																				<div>Kind: {message.kind}</div>
+																			</div>
+																			<p className="break-words">
+																				{message.content}
+																			</p>
+																		</div>
+																	))}
+																</div>
+															</div>
+														)}
+													</div>
+												))}
+											</div>
+										)}
 									</div>
 								</div>
 							</CardContent>
