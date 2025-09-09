@@ -175,10 +175,20 @@ interface MessagingDomain {
 }
 
 // Community data structures
+interface CommunityInfo {
+  name: string; // from name tag
+  description?: string; // from description tag
+  image?: string; // from image tag
+  banner?: string; // from banner tag
+  moderators: string[]; // from p tags with role=moderator
+  relays: string[]; // from relay tags
+}
+
 interface CommunityData {
   id: string; // community identifier (d tag)
   pubkey: string; // community creator/owner
-  definition: NostrEvent; // original kind 34550 community definition
+  info: CommunityInfo; // metadata from community definition
+  definitionEvent: NostrEvent; // original kind 34550 community definition
   channels: Map<string, ChannelData>; // channelId -> channel data
   approvedMembers: NostrEvent | null; // kind 34551 approved members list
   pendingMembers: NostrEvent | null; // kind 34552 pending members list
@@ -1471,7 +1481,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Load communities the user is a member of with their membership status
   const loadUserCommunities = useCallback(async (): Promise<Array<{
-    definition: NostrEvent;
+    id: string;
+    pubkey: string;
+    info: CommunityInfo;
+    definitionEvent: NostrEvent;
     membershipStatus: 'approved' | 'pending' | 'blocked';
     membershipEvent: NostrEvent;
   }>> => {
@@ -1569,13 +1582,38 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log('Communities: 2. Community definitions have been deleted');
         logger.log('Communities: 3. Query filters are too restrictive');
       }
-      // Step 4: Combine community definitions with their membership status
+      // Step 4: Parse community definitions and combine with membership status
       const communitiesWithStatus = communityDefinitions.map(definition => {
         const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
         const membershipInfo = membershipStatusMap.get(communityId!);
 
+        // Parse community metadata from tags
+        const name = definition.tags.find(([name]) => name === 'name')?.[1] || communityId!;
+        const description = definition.tags.find(([name]) => name === 'description')?.[1];
+        const image = definition.tags.find(([name]) => name === 'image')?.[1];
+        const banner = definition.tags.find(([name]) => name === 'banner')?.[1];
+
+        // Get moderators and relays
+        const moderators = definition.tags
+          .filter(([name, , , role]) => name === 'p' && role === 'moderator')
+          .map(([, pubkey]) => pubkey);
+
+        const relays = definition.tags
+          .filter(([name]) => name === 'relay')
+          .map(([, url]) => url);
+
         return {
-          definition,
+          id: communityId!,
+          pubkey: definition.pubkey,
+          info: {
+            name,
+            description,
+            image,
+            banner,
+            moderators,
+            relays,
+          },
+          definitionEvent: definition,
           membershipStatus: membershipInfo!.status,
           membershipEvent: membershipInfo!.event,
         };
@@ -1804,14 +1842,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Filter to only approved communities first, then create channel filters
       const approvedCommunities = communitiesWithStatus.filter(({ membershipStatus }) => membershipStatus === 'approved');
-      const allChannelFilters = approvedCommunities.map(({ definition }) => {
-        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
+      const allChannelFilters = approvedCommunities.map(({ definitionEvent }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         if (!communityId) return null;
 
         return {
           kinds: [32807], // Channel definitions
-          authors: [definition.pubkey],
-          '#a': [`34550:${definition.pubkey}:${communityId}`], // Reference to parent community
+          authors: [definitionEvent.pubkey],
+          '#a': [`34550:${definitionEvent.pubkey}:${communityId}`], // Reference to parent community
           limit: 50, // Max channels per community
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null filters (missing communityId)
@@ -1825,12 +1863,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Step 3: Load ALL permissions and members at once
       logger.log('Communities: Loading all permissions and members...');
       const step3Start = Date.now();
-      const allMemberFilters = communitiesWithStatus.map(({ definition }) => {
-        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
-        const communityRef = `34550:${definition.pubkey}:${communityId}`;
+      const allMemberFilters = communitiesWithStatus.map(({ definitionEvent }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
         return {
           kinds: [34551], // Approved members events
-          authors: [definition.pubkey],
+          authors: [definitionEvent.pubkey],
           '#d': [communityRef],
           limit: 1,
         };
@@ -1885,11 +1923,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Step 5: Build final communities state
       const newCommunitiesState = new Map<string, CommunityData>();
 
-      for (const { definition, membershipStatus } of communitiesWithStatus) {
-        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
-        if (!communityId) continue;
-
-        const isApproved = membershipStatus === 'approved';
+      for (const community of communitiesWithStatus) {
+        const isApproved = community.membershipStatus === 'approved';
         const channelsMap = new Map<string, ChannelData>();
 
         // Only load channels/messages for approved communities
@@ -1897,7 +1932,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           // Find channels for this community
           const communityChannels = allChannelDefinitions.filter(channelDef => {
             const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
-            return communityRef && communityRef.includes(`:${communityId}`);
+            return communityRef && communityRef.includes(`:${community.id}`);
           });
 
           for (const channelDef of communityChannels) {
@@ -1908,18 +1943,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const channelMessages = allChannelMessages.filter(msg => {
               const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
               const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
-              return msgCommunityRef && msgCommunityRef.includes(`:${communityId}`) && msgChannelId === channelId;
+              return msgCommunityRef && msgCommunityRef.includes(`:${community.id}`) && msgChannelId === channelId;
             });
 
             // Find permissions for this channel
             const channelPermissions = allPermissionSettings.find(perm => {
               const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
-              return permRef === `${communityId}/${channelId}`;
+              return permRef === `${community.id}/${channelId}`;
             });
 
             channelsMap.set(channelId, {
               id: channelId,
-              communityId,
+              communityId: community.id,
               definition: channelDef,
               messages: channelMessages,
               permissions: channelPermissions || null,
@@ -1929,7 +1964,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
 
         // Find member lists for this community
-        const communityRef = `34550:${definition.pubkey}:${communityId}`;
+        const communityRef = `34550:${community.pubkey}:${community.id}`;
         const approvedMembers = allMemberLists.find(memberList => {
           const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
           return memberRef === communityRef && memberList.kind === 34551;
@@ -1940,19 +1975,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         });
 
         const communityData: CommunityData = {
-          id: communityId,
-          pubkey: definition.pubkey,
-          definition: definition,
+          id: community.id,
+          pubkey: community.pubkey,
+          info: community.info,
+          definitionEvent: community.definitionEvent,
           channels: channelsMap,
           approvedMembers: approvedMembers || null,
           pendingMembers: pendingMembers || null,
-          membershipStatus: membershipStatus,
+          membershipStatus: community.membershipStatus,
           lastActivity: isApproved && channelsMap.size > 0
-            ? Math.max(definition.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
-            : definition.created_at,
+            ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
+            : community.definitionEvent.created_at,
         };
 
-        newCommunitiesState.set(communityId, communityData);
+        newCommunitiesState.set(community.id, communityData);
       }
 
       setCommunities(newCommunitiesState);
