@@ -1504,50 +1504,39 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return [];
       }
 
-      // Step 2: Extract community identifiers from membership events
-      const communityIds = new Set<string>();
-      const communityAuthors = new Set<string>();
+      // Extract community IDs and their membership status from events
+      const membershipStatusMap = new Map(
+        membershipEvents
+          // Extract community ID and determine status
+          .map(event => {
+            const communityRef = event.tags.find(([name]) => name === 'd')?.[1];
+            if (!communityRef) return null;
 
-      // Track membership status for each community
-      const membershipStatusMap = new Map<string, { status: 'approved' | 'pending' | 'blocked'; event: NostrEvent }>();
-
-      membershipEvents.forEach(memberEvent => {
-        const communityRef = memberEvent.tags.find(([name]) => name === 'd')?.[1];
-        if (communityRef) {
-          // Extract the actual community ID from the full reference
-          // Format is "kind:pubkey:identifier", we want just the identifier
-          const parts = communityRef.split(':');
-          if (parts.length === 3) {
-            const communityId = parts[2]; // The actual identifier
-            communityIds.add(communityId);
-            communityAuthors.add(memberEvent.pubkey); // Community owner
-
-            // Determine membership status based on event kind
-            let status: 'approved' | 'pending' | 'blocked';
-            switch (memberEvent.kind) {
-              case 34551:
-                status = 'approved';
-                break;
-              case 34552:
-                status = 'pending';
-                break;
-              case 34553:
-                status = 'blocked';
-                break;
-              default:
-                logger.warn(`Communities: Unknown membership event kind ${memberEvent.kind}, skipping`);
-                return; // Skip unknown kinds
+            const [kind, pubkey, id] = communityRef.split(':');
+            if (!kind || !pubkey || !id) {
+              logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
+              return null;
             }
 
-            // Store the membership status (latest event wins if there are duplicates)
-            membershipStatusMap.set(communityId, { status, event: memberEvent });
+            let status: 'approved' | 'pending' | 'blocked';
+            switch (event.kind) {
+              case 34551: status = 'approved'; break;
+              case 34552: status = 'pending'; break;
+              case 34553: status = 'blocked'; break;
+              default:
+                logger.warn(`Communities: Unknown membership event kind ${event.kind}, skipping`);
+                return null;
+            }
 
-            logger.log(`Communities: Extracted community ID "${communityId}" from ref "${communityRef}" with status "${status}"`);
-          } else {
-            logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
-          }
-        }
-      });
+            logger.log(`Communities: Extracted community ID "${id}" from ref "${communityRef}" with status "${status}"`);
+            return [id, { status, event }] as const;
+          })
+          // Remove invalid entries
+          .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      );
+
+      // Get unique community IDs for querying
+      const communityIds = new Set(membershipStatusMap.keys());
 
       logger.log(`Communities: User is member of ${communityIds.size} communities`);
 
