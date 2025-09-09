@@ -181,6 +181,8 @@ interface CommunityData {
   definition: NostrEvent; // original kind 34550 community definition
   channels: Map<string, ChannelData>; // channelId -> channel data
   approvedMembers: NostrEvent | null; // kind 34551 approved members list
+  pendingMembers: NostrEvent | null; // kind 34552 pending members list
+  membershipStatus: 'approved' | 'pending' | 'blocked'; // user's membership status
   lastActivity: number;
 }
 
@@ -1467,8 +1469,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Communities Management Functions
   // ============================================================================
 
-  // Load communities the user is a member of (kind 34550)
-  const loadUserCommunities = useCallback(async (): Promise<NostrEvent[]> => {
+  // Load communities the user is a member of with their membership status
+  const loadUserCommunities = useCallback(async (): Promise<Array<{
+    definition: NostrEvent;
+    membershipStatus: 'approved' | 'pending' | 'blocked';
+    membershipEvent: NostrEvent;
+  }>> => {
     if (!user?.pubkey) {
       logger.log('Communities: No user pubkey available');
       return [];
@@ -1477,12 +1483,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log('Communities: Loading user communities...');
 
     try {
-      // Step 1: Find approved member lists that include this user
+      // Step 1: Find membership lists that include this user (approved + pending + blocked)
       const membershipFilters = [
         {
-          kinds: [34551], // Approved members events
+          kinds: [34551, 34552, 34553], // Approved + Pending + Blocked members events
           '#p': [user.pubkey], // User is mentioned in the member list
-          limit: 100,
+          limit: 1000,
         }
       ];
 
@@ -1502,6 +1508,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const communityIds = new Set<string>();
       const communityAuthors = new Set<string>();
 
+      // Track membership status for each community
+      const membershipStatusMap = new Map<string, { status: 'approved' | 'pending' | 'blocked'; event: NostrEvent }>();
+
       membershipEvents.forEach(memberEvent => {
         const communityRef = memberEvent.tags.find(([name]) => name === 'd')?.[1];
         if (communityRef) {
@@ -1512,7 +1521,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const communityId = parts[2]; // The actual identifier
             communityIds.add(communityId);
             communityAuthors.add(memberEvent.pubkey); // Community owner
-            logger.log(`Communities: Extracted community ID "${communityId}" from ref "${communityRef}"`);
+
+            // Determine membership status based on event kind
+            let status: 'approved' | 'pending' | 'blocked';
+            switch (memberEvent.kind) {
+              case 34551:
+                status = 'approved';
+                break;
+              case 34552:
+                status = 'pending';
+                break;
+              case 34553:
+                status = 'blocked';
+                break;
+              default:
+                logger.warn(`Communities: Unknown membership event kind ${memberEvent.kind}, skipping`);
+                return; // Skip unknown kinds
+            }
+
+            // Store the membership status (latest event wins if there are duplicates)
+            membershipStatusMap.set(communityId, { status, event: memberEvent });
+
+            logger.log(`Communities: Extracted community ID "${communityId}" from ref "${communityRef}" with status "${status}"`);
           } else {
             logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
           }
@@ -1521,51 +1551,45 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       logger.log(`Communities: User is member of ${communityIds.size} communities`);
 
-      // Step 3: Load the actual community definitions - OPTIMIZED: Group by author
-      const communityByAuthor = new Map<string, string[]>();
+      // Step 3: Load community definitions using efficient batch query
+      const communityIdArray = Array.from(communityIds);
 
-      Array.from(communityIds).forEach(communityId => {
-        const membershipEvent = membershipEvents.find(e => {
-          const communityRef = e.tags.find(([name]) => name === 'd')?.[1];
-          return communityRef && communityRef.endsWith(`:${communityId}`);
-        });
-
-        if (membershipEvent?.pubkey) {
-          if (!communityByAuthor.has(membershipEvent.pubkey)) {
-            communityByAuthor.set(membershipEvent.pubkey, []);
-          }
-          communityByAuthor.get(membershipEvent.pubkey)!.push(communityId);
-        }
-      });
-
-      // Create one filter per author instead of one per community
-      const communityFilters = Array.from(communityByAuthor.entries()).map(([author, communityIds]) => ({
-        kinds: [34550],
-        authors: [author],
-        '#d': communityIds, // Multiple community IDs for this author
-        limit: communityIds.length,
-      }));
-
-      if (communityFilters.length === 0) {
-        logger.log('Communities: No valid community filters to query');
+      if (communityIdArray.length === 0) {
+        logger.log('Communities: No community IDs to query');
         return [];
       }
 
-      logger.log(`Communities: Querying for ${Array.from(communityIds).length} community definitions from ${communityFilters.length} authors...`);
-      logger.log('Communities: Optimized community filters:', JSON.stringify(communityFilters, null, 2));
+      logger.log(`Communities: Querying for ${communityIdArray.length} community definitions in single batch...`);
 
-      const communityDefinitions = await nostr.query(communityFilters, {
+      // Query all community definitions in a single batch for efficiency
+      const communityDefinitions = await nostr.query([{
+        kinds: [34550],
+        '#d': communityIdArray, // Query specific community IDs
+        // No limit needed since we're querying specific IDs
+      }], {
         signal: AbortSignal.timeout(15000)
       });
 
       logger.log(`Communities: Found ${communityDefinitions.length} community definitions`);
-      if (communityDefinitions.length === 0 && communityFilters.length > 0) {
+      if (communityDefinitions.length === 0 && communityIdArray.length > 0) {
         logger.log('Communities: No community definitions found despite having membership records. This could mean:');
         logger.log('Communities: 1. Community definitions are on different relays');
         logger.log('Communities: 2. Community definitions have been deleted');
         logger.log('Communities: 3. Query filters are too restrictive');
       }
-      return communityDefinitions;
+      // Step 4: Combine community definitions with their membership status
+      const communitiesWithStatus = communityDefinitions.map(definition => {
+        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
+        const membershipInfo = membershipStatusMap.get(communityId!);
+
+        return {
+          definition,
+          membershipStatus: membershipInfo!.status,
+          membershipEvent: membershipInfo!.event,
+        };
+      });
+
+      return communitiesWithStatus;
     } catch (error) {
       logger.error('Communities: Error loading communities:', error);
       return [];
@@ -1760,12 +1784,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     setCommunitiesLoadingPhase(LOADING_PHASES.RELAYS);
 
     try {
-      // Step 1: Load communities
+      // Step 1: Load communities with membership status
       const step1Start = Date.now();
-      const communityDefinitions = await loadUserCommunities();
+      const communitiesWithStatus = await loadUserCommunities();
       const step1Time = Date.now() - step1Start;
 
-      if (communityDefinitions.length === 0) {
+      if (communitiesWithStatus.length === 0) {
         logger.log('Communities: No communities found for user');
         const totalTime = Date.now() - startTime;
         setCommunitiesLoadTime(totalTime);
@@ -1782,18 +1806,23 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Step 2: Load ALL channels for ALL communities at once
-      logger.log('Communities: Loading all channels for all communities...');
+      // Step 2: Load ALL channels for APPROVED communities only
+      logger.log('Communities: Loading all channels for approved communities...');
       const step2Start = Date.now();
-      const allChannelFilters = communityDefinitions.map(communityDef => {
-        const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
+
+      // Filter to only approved communities first, then create channel filters
+      const approvedCommunities = communitiesWithStatus.filter(({ membershipStatus }) => membershipStatus === 'approved');
+      const allChannelFilters = approvedCommunities.map(({ definition }) => {
+        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityId) return null;
+
         return {
           kinds: [32807], // Channel definitions
-          authors: [communityDef.pubkey],
-          '#a': [`34550:${communityDef.pubkey}:${communityId}`], // Reference to parent community
+          authors: [definition.pubkey],
+          '#a': [`34550:${definition.pubkey}:${communityId}`], // Reference to parent community
           limit: 50, // Max channels per community
         };
-      }).filter(filter => filter['#a'][0].includes(':'));
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null filters (missing communityId)
 
       const allChannelDefinitions = await nostr.query(allChannelFilters, {
         signal: AbortSignal.timeout(15000)
@@ -1804,12 +1833,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Step 3: Load ALL permissions and members at once
       logger.log('Communities: Loading all permissions and members...');
       const step3Start = Date.now();
-      const allMemberFilters = communityDefinitions.map(communityDef => {
-        const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
-        const communityRef = `34550:${communityDef.pubkey}:${communityId}`;
+      const allMemberFilters = communitiesWithStatus.map(({ definition }) => {
+        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${definition.pubkey}:${communityId}`;
         return {
           kinds: [34551], // Approved members events
-          authors: [communityDef.pubkey],
+          authors: [definition.pubkey],
           '#d': [communityRef],
           limit: 1,
         };
@@ -1864,62 +1893,71 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Step 5: Build final communities state
       const newCommunitiesState = new Map<string, CommunityData>();
 
-      for (const communityDef of communityDefinitions) {
-        const communityId = communityDef.tags.find(([name]) => name === 'd')?.[1];
+      for (const { definition, membershipStatus } of communitiesWithStatus) {
+        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
         if (!communityId) continue;
 
-        // Find channels for this community
-        const communityChannels = allChannelDefinitions.filter(channelDef => {
-          const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
-          return communityRef && communityRef.includes(`:${communityId}`);
-        });
-
-        // Find members for this community
-        const communityRef = `34550:${communityDef.pubkey}:${communityId}`;
-        const communityMembers = allMemberLists.find(memberList => {
-          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
-          return memberRef === communityRef;
-        });
-
+        const isApproved = membershipStatus === 'approved';
         const channelsMap = new Map<string, ChannelData>();
 
-        for (const channelDef of communityChannels) {
-          const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
-          if (!channelId) continue;
-
-          // Find messages for this channel
-          const channelMessages = allChannelMessages.filter(msg => {
-            const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
-            const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
-            return msgCommunityRef && msgCommunityRef.includes(`:${communityId}`) && msgChannelId === channelId;
+        // Only load channels/messages for approved communities
+        if (isApproved) {
+          // Find channels for this community
+          const communityChannels = allChannelDefinitions.filter(channelDef => {
+            const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+            return communityRef && communityRef.includes(`:${communityId}`);
           });
 
-          // Find permissions for this channel
-          const channelPermissions = allPermissionSettings.find(perm => {
-            const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
-            return permRef === `${communityId}/${channelId}`;
-          });
+          for (const channelDef of communityChannels) {
+            const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            if (!channelId) continue;
 
-          channelsMap.set(channelId, {
-            id: channelId,
-            communityId,
-            definition: channelDef,
-            messages: channelMessages,
-            permissions: channelPermissions || null,
-            lastActivity: channelMessages.length > 0 ? channelMessages[channelMessages.length - 1].created_at : channelDef.created_at,
-          });
+            // Find messages for this channel
+            const channelMessages = allChannelMessages.filter(msg => {
+              const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
+              const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
+              return msgCommunityRef && msgCommunityRef.includes(`:${communityId}`) && msgChannelId === channelId;
+            });
+
+            // Find permissions for this channel
+            const channelPermissions = allPermissionSettings.find(perm => {
+              const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
+              return permRef === `${communityId}/${channelId}`;
+            });
+
+            channelsMap.set(channelId, {
+              id: channelId,
+              communityId,
+              definition: channelDef,
+              messages: channelMessages,
+              permissions: channelPermissions || null,
+              lastActivity: channelMessages.length > 0 ? channelMessages[channelMessages.length - 1].created_at : channelDef.created_at,
+            });
+          }
         }
+
+        // Find member lists for this community
+        const communityRef = `34550:${definition.pubkey}:${communityId}`;
+        const approvedMembers = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34551;
+        });
+        const pendingMembers = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34552;
+        });
 
         const communityData: CommunityData = {
           id: communityId,
-          pubkey: communityDef.pubkey,
-          definition: communityDef,
+          pubkey: definition.pubkey,
+          definition: definition,
           channels: channelsMap,
-          approvedMembers: communityMembers || null,
-          lastActivity: Math.max(
-            communityDef.created_at,
-            ...Array.from(channelsMap.values()).map(c => c.lastActivity)
-          ),
+          approvedMembers: approvedMembers || null,
+          pendingMembers: pendingMembers || null,
+          membershipStatus: membershipStatus,
+          lastActivity: isApproved && channelsMap.size > 0
+            ? Math.max(definition.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
+            : definition.created_at,
         };
 
         newCommunitiesState.set(communityId, communityData);
