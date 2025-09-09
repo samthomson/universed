@@ -1518,15 +1518,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               return null;
             }
 
-            let status: 'approved' | 'pending' | 'blocked';
-            switch (event.kind) {
-              case 34551: status = 'approved'; break;
-              case 34552: status = 'pending'; break;
-              case 34553: status = 'blocked'; break;
-              default:
-                logger.warn(`Communities: Unknown membership event kind ${event.kind}, skipping`);
-                return null;
-            }
+            const status = (() => {
+              switch (event.kind) {
+                case 34551: return 'approved' as const;
+                case 34552: return 'pending' as const;
+                case 34553: return 'blocked' as const;
+                default:
+                  logger.warn(`Communities: Unknown membership event kind ${event.kind}, skipping`);
+                  return null;
+              }
+            })();
+
+            if (status === null) return null;
 
             logger.log(`Communities: Extracted community ID "${id}" from ref "${communityRef}" with status "${status}"`);
             return [id, { status, event }] as const;
