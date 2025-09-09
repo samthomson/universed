@@ -184,21 +184,33 @@ interface CommunityInfo {
   relays: string[]; // from relay tags
 }
 
+interface MembersList {
+  members: string[]; // list of member pubkeys
+  event: NostrEvent; // original event
+}
+
 interface CommunityData {
   id: string; // community identifier (d tag)
   pubkey: string; // community creator/owner
   info: CommunityInfo; // metadata from community definition
   definitionEvent: NostrEvent; // original kind 34550 community definition
   channels: Map<string, ChannelData>; // channelId -> channel data
-  approvedMembers: NostrEvent | null; // kind 34551 approved members list
-  pendingMembers: NostrEvent | null; // kind 34552 pending members list
+  approvedMembers: MembersList | null; // parsed approved members list
+  pendingMembers: MembersList | null; // parsed pending members list
   membershipStatus: 'approved' | 'pending' | 'blocked'; // user's membership status
   lastActivity: number;
+}
+
+interface ChannelInfo {
+  name: string;
+  about?: string;
+  picture?: string;
 }
 
 interface ChannelData {
   id: string; // channel identifier (d tag)
   communityId: string; // parent community id
+  info: ChannelInfo; // parsed metadata from channel definition
   definition: NostrEvent; // original kind 32807 channel definition
   messages: NostrEvent[]; // kind 9411 messages (and kind 1 for general)
   permissions: NostrEvent | null; // kind 30143 permissions settings
@@ -1952,9 +1964,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               return permRef === `${community.id}/${channelId}`;
             });
 
+            // Parse channel info from tags
+            const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
+            const channelAbout = channelDef.tags.find(([name]) => name === 'about')?.[1];
+            const channelPicture = channelDef.tags.find(([name]) => name === 'picture')?.[1];
+
             channelsMap.set(channelId, {
               id: channelId,
               communityId: community.id,
+              info: {
+                name: channelName,
+                about: channelAbout,
+                picture: channelPicture,
+              },
               definition: channelDef,
               messages: channelMessages,
               permissions: channelPermissions || null,
@@ -1965,14 +1987,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
         // Find member lists for this community
         const communityRef = `34550:${community.pubkey}:${community.id}`;
-        const approvedMembers = allMemberLists.find(memberList => {
+        const approvedMembersEvent = allMemberLists.find(memberList => {
           const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
           return memberRef === communityRef && memberList.kind === 34551;
         });
-        const pendingMembers = allMemberLists.find(memberList => {
+        const pendingMembersEvent = allMemberLists.find(memberList => {
           const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
           return memberRef === communityRef && memberList.kind === 34552;
         });
+
+        // Parse member lists from events
+        const approvedMembers = approvedMembersEvent ? {
+          members: approvedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: approvedMembersEvent
+        } : null;
+
+        const pendingMembers = pendingMembersEvent ? {
+          members: pendingMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: pendingMembersEvent
+        } : null;
 
         const communityData: CommunityData = {
           id: community.id,

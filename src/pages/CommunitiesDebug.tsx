@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
-import type { NostrEvent } from '@/types/nostr';
 
 export function CommunitiesDebug() {
 	const { communities } = useDataManager();
@@ -175,15 +174,15 @@ export function CommunitiesDebug() {
 									{/* Approved Members */}
 									{community.approvedMembers && (
 										<div>
-											<h4 className="font-medium mb-2">Approved Members ({getApprovedMembersCount(community.approvedMembers)})</h4>
+											<h4 className="font-medium mb-2">Approved Members ({community.approvedMembers.members.length})</h4>
 											<div className="text-xs text-muted-foreground space-y-1">
-												<div>Event ID: {community.approvedMembers.id.slice(0, 16)}...</div>
-												<div>Created: {formatDistanceToNowShort(new Date(community.approvedMembers.created_at * 1000))}</div>
-												{getApprovedMembersList(community.approvedMembers).length > 0 && (
+												<div>Event ID: {community.approvedMembers.event.id.slice(0, 16)}...</div>
+												<div>Created: {formatDistanceToNowShort(new Date(community.approvedMembers.event.created_at * 1000))}</div>
+												{community.approvedMembers.members.length > 0 && (
 													<div>
 														<div className="font-medium mt-2 mb-1">Member List:</div>
 														<ol className="text-xs space-y-1 list-decimal list-inside">
-															{getApprovedMembersList(community.approvedMembers).map((pubkey, i) => (
+															{community.approvedMembers.members.map((pubkey, i) => (
 																<li key={i} className="bg-muted/30 rounded px-2 py-1 break-all">
 																	{pubkey}
 																</li>
@@ -206,7 +205,7 @@ export function CommunitiesDebug() {
 													<div className="flex items-start justify-between mb-2">
 														<div>
 															<h5 className="font-medium">
-																{getChannelName(channel.definition) || channelId}
+																{channel.info.name}
 															</h5>
 															<p className="text-xs text-muted-foreground">
 																ID: {channelId}
@@ -219,9 +218,9 @@ export function CommunitiesDebug() {
 													</div>
 
 													{/* Channel Description */}
-													{getChannelDescription(channel.definition) && (
+													{channel.info.about && (
 														<p className="text-xs text-muted-foreground mb-2">
-															{getChannelDescription(channel.definition)}
+															{channel.info.about}
 														</p>
 													)}
 
@@ -232,10 +231,10 @@ export function CommunitiesDebug() {
 															<div className="text-xs text-muted-foreground space-y-1">
 																<div>Event ID: {channel.permissions.id.slice(0, 16)}...</div>
 																<div>Created: {formatDistanceToNowShort(new Date(channel.permissions.created_at * 1000))}</div>
-																{getPermissionsInfo(channel.permissions) && (
+																{channel.permissions.content && (
 																	<div className="bg-muted/30 rounded p-2 mt-1">
 																		<pre className="text-xs whitespace-pre-wrap">
-																			{JSON.stringify(getPermissionsInfo(channel.permissions), null, 2)}
+																			{channel.permissions.content}
 																		</pre>
 																	</div>
 																)}
@@ -277,60 +276,3 @@ export function CommunitiesDebug() {
 	);
 }
 
-// Helper functions to extract data from Nostr events
-function getChannelName(definition: NostrEvent): string | null {
-	try {
-		const content = JSON.parse(definition.content);
-		return content.name || null;
-	} catch {
-		return definition.tags?.find(([name]: string[]) => name === 'name')?.[1] || null;
-	}
-}
-
-function getChannelDescription(definition: NostrEvent): string | null {
-	try {
-		const content = JSON.parse(definition.content);
-		return content.about || content.description || null;
-	} catch {
-		return definition.tags?.find(([name]: string[]) => name === 'about')?.[1] || null;
-	}
-}
-
-function getApprovedMembersCount(membersList: NostrEvent): number {
-	try {
-		const content = JSON.parse(membersList.content);
-		return content.members?.length || 0;
-	} catch {
-		return membersList.tags?.filter(([name]: string[]) => name === 'p')?.length || 0;
-	}
-}
-
-function getApprovedMembersList(membersList: NostrEvent): string[] {
-	try {
-		const content = JSON.parse(membersList.content);
-		return content.members || [];
-	} catch {
-		return membersList.tags?.filter(([name]: string[]) => name === 'p')?.map(([, pubkey]: string[]) => pubkey) || [];
-	}
-}
-
-function getPermissionsInfo(permissions: NostrEvent): Record<string, unknown> | null {
-	try {
-		return JSON.parse(permissions.content);
-	} catch {
-		// If content is not JSON, return the tags as an object
-		const tagsObj: Record<string, string | string[]> = {};
-		permissions.tags?.forEach(([name, value]: string[]) => {
-			if (tagsObj[name]) {
-				if (Array.isArray(tagsObj[name])) {
-					tagsObj[name].push(value);
-				} else {
-					tagsObj[name] = [tagsObj[name], value];
-				}
-			} else {
-				tagsObj[name] = value;
-			}
-		});
-		return Object.keys(tagsObj).length > 0 ? tagsObj : null;
-	}
-}
