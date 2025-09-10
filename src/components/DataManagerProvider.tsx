@@ -227,7 +227,8 @@ interface ChannelData {
   communityId: string; // parent community id
   info: ChannelInfo; // parsed metadata from channel definition
   definition: NostrEvent; // original kind 32807 channel definition
-  messages: NostrEvent[]; // kind 9411 messages (and kind 1 for general)
+  messages: NostrEvent[]; // kind 9411 messages
+  replies: Map<string, NostrEvent[]>; // messageId -> replies (kind 1111)
   permissions: NostrEvent | null; // kind 30143 permissions settings
   lastActivity: number;
   isLoadingData?: boolean; // indicates if channel data is still loading
@@ -252,6 +253,10 @@ interface CommunityLoadBreakdown {
     total: number;
     permissionsQuery: number;
     messagesQuery: number;
+  };
+  step4_replies_batch: {
+    total: number;
+    repliesQuery: number;
   };
   total: number;
 }
@@ -1731,6 +1736,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             permissionsQuery: 0,
             messagesQuery: 0,
           },
+          step4_replies_batch: {
+            total: 0,
+            repliesQuery: 0,
+          },
           total: totalTime,
         });
         setHasCommunitiesInitialLoadCompleted(true);
@@ -1795,6 +1804,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             total: 0,
             permissionsQuery: 0,
             messagesQuery: 0,
+          },
+          step4_replies_batch: {
+            total: 0,
+            repliesQuery: 0,
           },
           total: totalTime,
         });
@@ -1883,10 +1896,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
         if (!communityRef || !channelId) return null;
 
+        // Parse community reference to get proper format
+        let properCommunityRef: string;
+        if (communityRef.includes(':')) {
+          // Already in proper format (34550:pubkey:id)
+          properCommunityRef = communityRef;
+        } else {
+          // Legacy simple format - need to construct proper reference
+          const community = communitiesWithStatus.find(c => c.id === communityRef);
+          if (community) {
+            properCommunityRef = `34550:${community.pubkey}:${communityRef}`;
+          } else {
+            properCommunityRef = communityRef; // Fallback to original
+          }
+        }
+
+        // All channels use kind 9411 only (correct approach)
         return {
-          kinds: [9411], // Channel messages
-          '#a': [communityRef],
-          '#t': [channelId],
+          kinds: [9411], // Only 9411 for all channels
+          '#a': [properCommunityRef],
+          '#t': [channelId], // All channels have channel tags
           limit: 20,
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
@@ -1923,9 +1952,54 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const allChannelMessages = messagesQueryResult.result;
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
-      const totalParallelTime = batch1Time + batch2Time;
 
-      logger.log(`Communities: Parallel loading complete in ${totalParallelTime}ms - Batch 1 (Channels + Members): ${batch1Time}ms, Batch 2 (Permissions + Messages): ${batch2Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}`);
+      // BATCH 3: Get replies (kind 1111) for all the messages we just loaded
+      const batch3Start = Date.now();
+      const messageIds = allChannelMessages.map(msg => msg.id);
+
+      let allReplies: NostrEvent[] = [];
+      let repliesQueryTime = 0;
+
+      if (messageIds.length > 0) {
+        const repliesQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            kinds: [1111], // Reply/comment events
+            '#e': messageIds, // Replies to our messages
+            // No limit - get all replies to our messages
+          }], { signal: AbortSignal.timeout(10000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const repliesResult = await repliesQueryPromise;
+        allReplies = repliesResult.result;
+        repliesQueryTime = repliesResult.time;
+      }
+
+      const batch3Time = Date.now() - batch3Start;
+      const totalParallelTime = batch1Time + batch2Time + batch3Time;
+
+      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}`);
+
+      // Organize replies by message ID for efficient lookup
+      const repliesByMessageId = new Map<string, NostrEvent[]>();
+      allReplies.forEach(reply => {
+        const eTags = reply.tags.filter(([name]) => name === 'e');
+        eTags.forEach(([, messageId]) => {
+          if (!repliesByMessageId.has(messageId)) {
+            repliesByMessageId.set(messageId, []);
+          }
+          repliesByMessageId.get(messageId)!.push(reply);
+        });
+      });
+
+      // Sort replies by timestamp for each message
+      repliesByMessageId.forEach(replies => {
+        replies.sort((a, b) => a.created_at - b.created_at);
+      });
+
+      logger.log(`Communities: Organized ${allReplies.length} replies for ${repliesByMessageId.size} messages`);
 
       // Build final communities state with loaded channel data
       const updatedCommunitiesState = new Map<string, CommunityData>();
@@ -1957,7 +2031,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
               // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
               const matchesCommunity = msgCommunityRef === community.id || msgCommunityRef.includes(`:${community.id}`);
-              return matchesCommunity && msgChannelId === channelId;
+
+              if (!matchesCommunity) return false;
+
+              // Only kind 9411 messages
+              if (msg.kind !== 9411) return false;
+
+              // Must have matching channel tag
+              return msgChannelId === channelId;
             });
 
             // Find permissions for this channel
@@ -1990,6 +2071,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               // Ignore parsing errors
             }
 
+            // Build replies map for this channel's messages
+            const channelReplies = new Map<string, NostrEvent[]>();
+            channelMessages.forEach(message => {
+              const messageReplies = repliesByMessageId.get(message.id) || [];
+              if (messageReplies.length > 0) {
+                channelReplies.set(message.id, messageReplies);
+              }
+            });
+
             channelsMap.set(channelId, {
               id: channelId,
               communityId: community.id,
@@ -2002,6 +2092,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               },
               definition: channelDef,
               messages: channelMessages,
+              replies: channelReplies,
               permissions: channelPermissions || null,
               lastActivity: channelMessages.length > 0 ? channelMessages[channelMessages.length - 1].created_at : channelDef.created_at,
             });
@@ -2069,6 +2160,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           permissionsQuery: permissionsQueryTime,
           messagesQuery: messagesQueryTime,
         },
+        step4_replies_batch: {
+          total: batch3Time,
+          repliesQuery: repliesQueryTime,
+        },
         total: totalTime,
       });
       logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, batch1: ${batch1Time}ms, batch2: ${batch2Time}ms)`);
@@ -2089,11 +2184,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const getCommunitiesDebugInfo = useCallback(() => {
     let totalChannels = 0;
     let totalMessages = 0;
+    let totalReplies = 0;
 
     communities.forEach((community) => {
       totalChannels += community.channels.size;
       community.channels.forEach((channel) => {
         totalMessages += channel.messages.length;
+        channel.replies.forEach((replies) => {
+          totalReplies += replies.length;
+        });
       });
     });
 
@@ -2101,6 +2200,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       communityCount: communities.size,
       channelCount: totalChannels,
       messageCount: totalMessages,
+      replyCount: totalReplies,
     };
   }, [communities]);
 

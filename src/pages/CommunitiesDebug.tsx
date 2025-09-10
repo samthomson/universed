@@ -66,6 +66,10 @@ export function CommunitiesDebug() {
 										<div>├─ Permissions Query: {loadBreakdown.step3_parallel_batch2.permissionsQuery}ms</div>
 										<div>└─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
 									</div>
+									<div>4. Replies Batch: {loadBreakdown.step4_replies_batch.total}ms</div>
+									<div className="ml-4 space-y-0.5">
+										<div>└─ Replies Query: {loadBreakdown.step4_replies_batch.repliesQuery}ms</div>
+									</div>
 								</div>
 							)}
 						</div>
@@ -85,7 +89,7 @@ export function CommunitiesDebug() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="grid grid-cols-3 gap-4 text-center">
+					<div className="grid grid-cols-4 gap-4 text-center">
 						<div>
 							<div className="text-2xl font-bold text-blue-600">{debugInfo.communityCount}</div>
 							<div className="text-sm text-muted-foreground">Communities</div>
@@ -97,6 +101,10 @@ export function CommunitiesDebug() {
 						<div>
 							<div className="text-2xl font-bold text-purple-600">{debugInfo.messageCount}</div>
 							<div className="text-sm text-muted-foreground">Messages</div>
+						</div>
+						<div>
+							<div className="text-2xl font-bold text-orange-600">{debugInfo.replyCount}</div>
+							<div className="text-sm text-muted-foreground">Replies</div>
 						</div>
 					</div>
 				</CardContent>
@@ -249,6 +257,8 @@ export function CommunitiesDebug() {
 															</div>
 															<div className="text-right text-xs text-muted-foreground space-y-1">
 																<div>{channel.messages.length} messages</div>
+																<div>{channel.replies.size} messages with replies</div>
+																<div>{Array.from(channel.replies.values()).reduce((sum, replies) => sum + replies.length, 0)} total replies</div>
 																<div>Last Activity: {formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
 															</div>
 														</div>
