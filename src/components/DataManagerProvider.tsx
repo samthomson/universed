@@ -1925,7 +1925,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
         return {
           kinds: [32807], // Channel definitions
-          authors: [definitionEvent.pubkey],
           '#a': [
             communityId, // Legacy simple format (existing channels)
             `34550:${definitionEvent.pubkey}:${communityId}` // Proper addressable event format (new channels)
