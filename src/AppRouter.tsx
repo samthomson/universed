@@ -3,6 +3,7 @@ import { ScrollToTop } from "./components/ScrollToTop";
 import { decodeNaddrFromUrl } from "./lib/utils";
 
 import Index from "./pages/Index";
+import DirectMessagesPage from "./pages/DirectMessagesPage";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -15,10 +16,10 @@ import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
 
-// Wrapper component to extract npub parameter and pass it to Index
+// Wrapper component to extract npub parameter and pass it to DirectMessagesPage
 function DMWrapper() {
   const { npub } = useParams<{ npub?: string }>();
-  return <Index dmTargetPubkey={npub} />;
+  return <DirectMessagesPage targetPubkey={npub} />;
 }
 
 // Wrapper component to extract community-id and channel parameters and pass them to Index
@@ -63,7 +64,7 @@ export function AppRouter() {
         <Route path="/communities-debug" element={<CommunitiesDebug />} />
 
         {/* DM Routes - always at /dm */}
-        <Route path="/dm" element={<Index dmTargetPubkey={undefined} />} />
+        <Route path="/dm" element={<DirectMessagesPage />} />
         <Route path="/dm/:npub" element={<DMWrapper />} />
 
         {/* Space Routes - show /space/community-id when joining communities */}
