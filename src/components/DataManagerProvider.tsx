@@ -238,10 +238,21 @@ type CommunitiesState = Map<string, CommunityData>; // communityId -> community 
 
 // Community loading breakdown for performance tracking
 interface CommunityLoadBreakdown {
-  communities: number;
-  channels: number;
-  permissions: number;
-  messages: number;
+  step1_communities: {
+    total: number;
+    membershipQuery: number;
+    definitionsQuery: number;
+  };
+  step2_parallel_batch1: {
+    total: number;
+    channelsQuery: number;
+    membersQuery: number;
+  };
+  step3_parallel_batch2: {
+    total: number;
+    permissionsQuery: number;
+    messagesQuery: number;
+  };
   total: number;
 }
 
@@ -1505,20 +1516,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // ============================================================================
 
   // Load communities the user is a member of with their membership status
-  const loadUserCommunities = useCallback(async (): Promise<Array<{
-    id: string;
-    pubkey: string;
-    info: CommunityInfo;
-    definitionEvent: NostrEvent;
-    membershipStatus: 'approved' | 'pending' | 'blocked';
-    membershipEvent: NostrEvent;
-  }>> => {
+  const loadUserCommunities = useCallback(async (): Promise<{
+    communities: Array<{
+      id: string;
+      pubkey: string;
+      info: CommunityInfo;
+      definitionEvent: NostrEvent;
+      membershipStatus: 'approved' | 'pending' | 'blocked';
+      membershipEvent: NostrEvent;
+    }>;
+    timing: {
+      membershipQuery: number;
+      definitionsQuery: number;
+      total: number;
+    };
+  }> => {
     if (!user?.pubkey) {
       logger.log('Communities: No user pubkey available');
-      return [];
+      return { communities: [], timing: { membershipQuery: 0, definitionsQuery: 0, total: 0 } };
     }
 
     logger.log('Communities: Loading user communities...');
+    const startTime = Date.now();
 
     try {
       // Step 1: Find membership lists that include this user (approved + pending + blocked)
@@ -1531,15 +1550,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       ];
 
       logger.log('Communities: Querying for user memberships...');
+      const membershipStart = Date.now();
       const membershipEvents = await nostr.query(membershipFilters, {
         signal: AbortSignal.timeout(15000)
       });
+      const membershipTime = Date.now() - membershipStart;
 
-      logger.log(`Communities: Found ${membershipEvents.length} membership records`);
+      logger.log(`Communities: Found ${membershipEvents.length} membership records in ${membershipTime}ms`);
 
       if (membershipEvents.length === 0) {
         logger.log('Communities: User is not a member of any communities');
-        return [];
+        const totalTime = Date.now() - startTime;
+        return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
       }
 
       // Extract community IDs and their membership status from events
@@ -1586,12 +1608,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       if (communityIdArray.length === 0) {
         logger.log('Communities: No community IDs to query');
-        return [];
+        const totalTime = Date.now() - startTime;
+        return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
       }
 
       logger.log(`Communities: Querying for ${communityIdArray.length} community definitions in single batch...`);
 
       // Query all community definitions in a single batch for efficiency
+      const definitionsStart = Date.now();
       const communityDefinitions = await nostr.query([{
         kinds: [34550],
         '#d': communityIdArray, // Query specific community IDs
@@ -1599,8 +1623,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }], {
         signal: AbortSignal.timeout(15000)
       });
+      const definitionsTime = Date.now() - definitionsStart;
 
-      logger.log(`Communities: Found ${communityDefinitions.length} community definitions`);
+      logger.log(`Communities: Found ${communityDefinitions.length} community definitions in ${definitionsTime}ms`);
       if (communityDefinitions.length === 0 && communityIdArray.length > 0) {
         logger.log('Communities: No community definitions found despite having membership records. This could mean:');
         logger.log('Communities: 1. Community definitions are on different relays');
@@ -1644,10 +1669,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       });
 
-      return communitiesWithStatus;
+      const totalTime = Date.now() - startTime;
+      return {
+        communities: communitiesWithStatus,
+        timing: {
+          membershipQuery: membershipTime,
+          definitionsQuery: definitionsTime,
+          total: totalTime,
+        },
+      };
     } catch (error) {
       logger.error('Communities: Error loading communities:', error);
-      return [];
+      const totalTime = Date.now() - startTime;
+      return { communities: [], timing: { membershipQuery: 0, definitionsQuery: 0, total: totalTime } };
     }
   }, [user?.pubkey, nostr]);
 
@@ -1674,7 +1708,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Step 1: Load communities with membership status
       const step1Start = Date.now();
-      const communitiesWithStatus = await loadUserCommunities();
+      const { communities: communitiesWithStatus, timing: step1Timing } = await loadUserCommunities();
       const step1Time = Date.now() - step1Start;
 
       if (communitiesWithStatus.length === 0) {
@@ -1682,10 +1716,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const totalTime = Date.now() - startTime;
         setCommunitiesLoadTime(totalTime);
         setCommunitiesLoadBreakdown({
-          communities: step1Time,
-          channels: 0,
-          permissions: 0,
-          messages: 0,
+          step1_communities: {
+            total: step1Time,
+            membershipQuery: step1Timing.membershipQuery,
+            definitionsQuery: step1Timing.definitionsQuery,
+          },
+          step2_parallel_batch1: {
+            total: 0,
+            channelsQuery: 0,
+            membersQuery: 0,
+          },
+          step3_parallel_batch2: {
+            total: 0,
+            permissionsQuery: 0,
+            messagesQuery: 0,
+          },
           total: totalTime,
         });
         setHasCommunitiesInitialLoadCompleted(true);
@@ -1736,10 +1781,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const totalTime = Date.now() - startTime;
         setCommunitiesLoadTime(totalTime);
         setCommunitiesLoadBreakdown({
-          communities: step1Time,
-          channels: 0,
-          permissions: 0,
-          messages: 0,
+          step1_communities: {
+            total: step1Time,
+            membershipQuery: step1Timing.membershipQuery,
+            definitionsQuery: step1Timing.definitionsQuery,
+          },
+          step2_parallel_batch1: {
+            total: 0,
+            channelsQuery: 0,
+            membersQuery: 0,
+          },
+          step3_parallel_batch2: {
+            total: 0,
+            permissionsQuery: 0,
+            messagesQuery: 0,
+          },
           total: totalTime,
         });
         setHasCommunitiesInitialLoadCompleted(true);
@@ -1778,12 +1834,34 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       });
 
-      // Execute channels and members queries in parallel first
-      const parallelStart = Date.now();
-      const [allChannelDefinitions, allMemberLists] = await Promise.all([
-        nostr.query(allChannelFilters, { signal: AbortSignal.timeout(15000) }),
-        nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) })
+      // BATCH 1: Execute channels and members queries in parallel
+      const batch1Start = Date.now();
+
+      // Wrap each query with individual timing
+      const channelsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = await nostr.query(allChannelFilters, { signal: AbortSignal.timeout(15000) });
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const membersQueryPromise = (async () => {
+        const start = Date.now();
+        const result = await nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) });
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [channelsQueryResult, membersQueryResult] = await Promise.all([
+        channelsQueryPromise,
+        membersQueryPromise
       ]);
+
+      const batch1Time = Date.now() - batch1Start;
+      const allChannelDefinitions = channelsQueryResult.result;
+      const allMemberLists = membersQueryResult.result;
+      const channelsQueryTime = channelsQueryResult.time;
+      const membersQueryTime = membersQueryResult.time;
 
       // Now prepare permission and message filters based on channel results
       const allPermissionFilters = allChannelDefinitions.map(channelDef => {
@@ -1813,14 +1891,41 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      // Execute permissions and messages queries in parallel
-      const [allPermissionSettings, allChannelMessages] = await Promise.all([
-        allPermissionFilters.length > 0 ? nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([]),
-        allMessageFilters.length > 0 ? nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) }) : Promise.resolve([])
+      // BATCH 2: Execute permissions and messages queries in parallel
+      const batch2Start = Date.now();
+
+      // Wrap each query with individual timing
+      const permissionsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allPermissionFilters.length > 0
+          ? await nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const messagesQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allMessageFilters.length > 0
+          ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [permissionsQueryResult, messagesQueryResult] = await Promise.all([
+        permissionsQueryPromise,
+        messagesQueryPromise
       ]);
 
-      const parallelTime = Date.now() - parallelStart;
-      logger.log(`Communities: Parallel loading complete in ${parallelTime}ms - Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}`);
+      const batch2Time = Date.now() - batch2Start;
+      const allPermissionSettings = permissionsQueryResult.result;
+      const allChannelMessages = messagesQueryResult.result;
+      const permissionsQueryTime = permissionsQueryResult.time;
+      const messagesQueryTime = messagesQueryResult.time;
+      const totalParallelTime = batch1Time + batch2Time;
+
+      logger.log(`Communities: Parallel loading complete in ${totalParallelTime}ms - Batch 1 (Channels + Members): ${batch1Time}ms, Batch 2 (Permissions + Messages): ${batch2Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}`);
 
       // Build final communities state with loaded channel data
       const updatedCommunitiesState = new Map<string, CommunityData>();
@@ -1949,13 +2054,24 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const totalTime = Date.now() - startTime;
       setCommunitiesLoadTime(totalTime);
       setCommunitiesLoadBreakdown({
-        communities: step1Time,
-        channels: parallelTime, // Use parallel time for all background loading
-        permissions: 0, // Included in parallel time
-        messages: 0, // Included in parallel time
+        step1_communities: {
+          total: step1Time,
+          membershipQuery: step1Timing.membershipQuery,
+          definitionsQuery: step1Timing.definitionsQuery,
+        },
+        step2_parallel_batch1: {
+          total: batch1Time,
+          channelsQuery: channelsQueryTime,
+          membersQuery: membersQueryTime,
+        },
+        step3_parallel_batch2: {
+          total: batch2Time,
+          permissionsQuery: permissionsQueryTime,
+          messagesQuery: messagesQueryTime,
+        },
         total: totalTime,
       });
-      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, parallel background loading: ${parallelTime}ms)`);
+      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, batch1: ${batch1Time}ms, batch2: ${batch2Time}ms)`);
 
       setHasCommunitiesInitialLoadCompleted(true);
       setCommunitiesLoadingPhase(LOADING_PHASES.READY);

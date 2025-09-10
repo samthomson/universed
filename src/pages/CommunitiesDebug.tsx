@@ -50,8 +50,22 @@ export function CommunitiesDebug() {
 								✓ Loading Complete {loadTime && `(${loadTime}ms)`}
 							</Badge>
 							{loadBreakdown && (
-								<div className="text-xs text-muted-foreground">
-									Communities: {loadBreakdown.communities}ms • Channels: {loadBreakdown.channels}ms • Permissions: {loadBreakdown.permissions}ms • Messages: {loadBreakdown.messages}ms
+								<div className="text-xs text-muted-foreground space-y-1">
+									<div>1. Communities: {loadBreakdown.step1_communities.total}ms</div>
+									<div className="ml-4 space-y-0.5">
+										<div>├─ Membership Query: {loadBreakdown.step1_communities.membershipQuery}ms</div>
+										<div>└─ Definitions Query: {loadBreakdown.step1_communities.definitionsQuery}ms</div>
+									</div>
+									<div>2. Parallel Batch 1: {loadBreakdown.step2_parallel_batch1.total}ms</div>
+									<div className="ml-4 space-y-0.5">
+										<div>├─ Channels Query: {loadBreakdown.step2_parallel_batch1.channelsQuery}ms</div>
+										<div>└─ Members Query: {loadBreakdown.step2_parallel_batch1.membersQuery}ms</div>
+									</div>
+									<div>3. Parallel Batch 2: {loadBreakdown.step3_parallel_batch2.total}ms</div>
+									<div className="ml-4 space-y-0.5">
+										<div>├─ Permissions Query: {loadBreakdown.step3_parallel_batch2.permissionsQuery}ms</div>
+										<div>└─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
+									</div>
 								</div>
 							)}
 						</div>
