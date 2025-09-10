@@ -1926,7 +1926,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return {
           kinds: [32807], // Channel definitions
           authors: [definitionEvent.pubkey],
-          '#a': [`34550:${definitionEvent.pubkey}:${communityId}`], // Reference to parent community
+          '#a': [
+            communityId, // Legacy simple format (existing channels)
+            `34550:${definitionEvent.pubkey}:${communityId}` // Proper addressable event format (new channels)
+          ],
+          '#t': ['channel'], // Filter for channel events specifically
           limit: 50, // Max channels per community
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
@@ -1998,7 +2002,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           // Find channels for this community
           const communityChannels = allChannelDefinitions.filter(channelDef => {
             const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
-            return communityRef && communityRef.includes(`:${community.id}`);
+            if (!communityRef) return false;
+
+            // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
+            return communityRef === community.id || communityRef.includes(`:${community.id}`);
           });
 
           for (const channelDef of communityChannels) {
@@ -2009,7 +2016,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const channelMessages = allChannelMessages.filter(msg => {
               const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
               const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
-              return msgCommunityRef && msgCommunityRef.includes(`:${community.id}`) && msgChannelId === channelId;
+              if (!msgCommunityRef) return false;
+
+              // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
+              const matchesCommunity = msgCommunityRef === community.id || msgCommunityRef.includes(`:${community.id}`);
+              return matchesCommunity && msgChannelId === channelId;
             });
 
             // Find permissions for this channel
