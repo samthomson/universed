@@ -7,12 +7,14 @@ Universes is a modern Nostr client that brings Discord-like community features t
 ## ✨ Features
 
 ### 🌐 **Decentralized Communities**
+
 - Create and join communities with organized channels
 - Discord-like interface with familiar UX patterns
 - Real-time messaging and conversations
 - Thread support for organized discussions
 
 ### 💬 **Advanced Chat System**
+
 - Real-time messaging with typing indicators
 - Message reactions and emoji support
 - File uploads via Blossom servers
@@ -21,18 +23,21 @@ Universes is a modern Nostr client that brings Discord-like community features t
 - Context menus for message actions
 
 ### 🛒 **Marketplace**
+
 - Buy and sell items with Bitcoin/Lightning
 - Community-specific marketplaces
 - Secure peer-to-peer transactions
 - Rich product listings with media
 
 ### 📚 **Resource Sharing**
+
 - Organize and share valuable content
 - Folder-based resource management
 - Community resource libraries
 - Link sharing and previews
 
 ### 👥 **Social Features**
+
 - User profiles with rich metadata
 - Friend systems and social connections
 - Direct messaging with NIP-44 encryption
@@ -40,6 +45,7 @@ Universes is a modern Nostr client that brings Discord-like community features t
 - Notification center
 
 ### 🛡️ **Moderation & Safety**
+
 - Comprehensive moderation tools
 - Admin panels and permissions
 - Content reporting system
@@ -48,12 +54,14 @@ Universes is a modern Nostr client that brings Discord-like community features t
 - Moderation logs and analytics
 
 ### 🔐 **Privacy & Security**
+
 - NIP-44 encrypted direct messages
 - Multiple account support
 - Secure key management
 - Privacy-focused design
 
 ### 🎨 **Modern UI/UX**
+
 - Beautiful dark/light theme system
 - Responsive design for all devices
 - Smooth animations and transitions
@@ -64,24 +72,27 @@ Universes is a modern Nostr client that brings Discord-like community features t
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - A Nostr identity (created automatically if needed)
 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd universes
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Start development server**
+
    ```bash
    npm run dev
    ```
@@ -104,29 +115,34 @@ npm test
 ## 🏗️ Technology Stack
 
 ### Core Technologies
+
 - **React 18** - Modern React with hooks and concurrent features
 - **TypeScript** - Type-safe JavaScript development
 - **Vite** - Fast build tool and development server
 - **TailwindCSS 3** - Utility-first CSS framework
 
 ### UI Components
+
 - **shadcn/ui** - Beautiful, accessible components built on Radix UI
 - **Radix UI** - Low-level UI primitives for accessibility
 - **Lucide React** - Beautiful icon library
 - **Sonner** - Toast notifications
 
 ### Nostr Integration
+
 - **Nostrify** - Modern Nostr framework for web applications
 - **nostr-tools** - Core Nostr protocol utilities
 - **NIP-44** - Encrypted direct messaging
 - **NIP-19** - Bech32-encoded identifiers
 
 ### State Management
+
 - **TanStack Query** - Powerful data fetching and caching
 - **React Context** - Global app state management
 - **Local Storage** - Persistent user preferences
 
 ### Development Tools
+
 - **ESLint** - Code linting and quality
 - **Vitest** - Fast unit testing
 - **Testing Library** - Component testing utilities
@@ -266,6 +282,22 @@ function useMessages(communityId: string) {
 ### Custom Event Kinds
 
 The app may use custom event kinds for specific features. See `NIP.md` (if present) for documentation of any custom protocol extensions.
+
+### Core Feature Implementation
+
+| **System** | **Component** | **Event Kind(s)** | **NIP** | **Replaceable** | **Purpose** | **Key Tags** |
+|------------|---------------|-------------------|---------|-------------|-------------|--------------|
+| **Communities** | Community Definition | `34550` | NIP-72 | ✓ | Community metadata and moderator lists | `d` (ID), `name`, `description`, `p` (moderators) |
+| | Member Management | `34551/34552/34553` | NIP-72 Ext | ✓ | Approved/declined/banned member lists | `d` (community ref), `p` (member pubkeys) |
+| | Content Reporting | `1984` | NIP-56 | | Report content/users for moderation | `e` (target event), `p` (target user), report type |
+| **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata within communities | `d` (ID), `name`, `a` (community ref) |
+| | *Channel Definition (Proposed)* | *`32807`* | | *✓* | *Proper addressable event references* | *`a` (`"34550:pubkey:universes"`)* |
+| | Channel Permissions | `30143` | | ✓ | Access control for channels | `d` (community:channel), JSON content, `p` (user permissions) |
+| | Channel Messages | `9411` | NIP-28 | | Real-time chat in channels | `a` (community), `t` (channel), `e` (thread) |
+| | Message Replies | `1111` | NIP-22 | | Replies to any message (9411, 1, etc.) | `e` (root message), `p` (root author) |
+| | Community Posts | `1111` | NIP-22 | | Threaded discussions | `A` (root community), `e` (parent), `k` (parent kind) |
+| **Direct Messages** | Legacy DMs | `4` | NIP-04 | | Simple encrypted messages | `#p` (recipient), `authors` (sender) |
+| | Modern DMs | `1059` | NIP-17 | | Gift-wrapped encrypted messages | `#p` (recipient) |
 
 ## 🧪 Testing
 
