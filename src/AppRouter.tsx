@@ -1,9 +1,15 @@
 import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { decodeNaddrFromUrl } from "./lib/utils";
+import { useCurrentUser } from "./hooks/useCurrentUser";
 
-import Index from "./pages/Index";
+import LandingPage from "./pages/LandingPage";
+import JoinPage from "./pages/JoinPage";
 import DirectMessagesPage from "./pages/DirectMessagesPage";
+import CommunityPage from "./pages/CommunityPage";
+import CommunityListPage from "./pages/CommunityListPage";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -16,19 +22,40 @@ import { NIP19Page } from "./pages/NIP19Page";
 import NotFound from "./pages/NotFound";
 
 
+// Simple root redirecter - shows landing page or redirects to /space
+function RootRedirecter() {
+  const { user } = useCurrentUser();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      // Logged in - redirect to space
+      navigate('/space', { replace: true });
+    }
+  }, [user, navigate]);
+
+  // Show landing page for logged-out users
+  if (!user) {
+    return <LandingPage />;
+  }
+
+  // Show brief loading while redirecting
+  return null;
+}
+
 // Wrapper component to extract npub parameter and pass it to DirectMessagesPage
 function DMWrapper() {
   const { npub } = useParams<{ npub?: string }>();
   return <DirectMessagesPage targetPubkey={npub} />;
 }
 
-// Wrapper component to extract community-id and channel parameters and pass them to Index
+// Wrapper component to extract community-id and channel parameters and pass them to CommunityPage
 // Handles both "kind:pubkey:d-tag" format and naddr format (URL-encoded)
 function SpacesWrapper() {
   const { communityId, channelId } = useParams<{ communityId?: string; channelId?: string }>();
 
   if (!communityId) {
-    return <Index />;
+    return <CommunityListPage />;
   }
 
   // Decode URL-encoded naddr if needed
@@ -40,8 +67,8 @@ function SpacesWrapper() {
     decodedCommunityId = communityId;
   }
 
-  // Pass the decoded communityId and channelId to Index
-  return <Index spaceCommunityId={decodedCommunityId} spaceChannelId={channelId} />;
+  // Pass the decoded communityId and channelId to CommunityPage
+  return <CommunityPage communityId={decodedCommunityId} channelId={channelId} />;
 }
 
 export function AppRouter() {
@@ -49,14 +76,14 @@ export function AppRouter() {
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<RootRedirecter />} />
         <Route path="/search" element={<Search />} />
         <Route path="/communities" element={<Communities />} />
         <Route
           path="/communities/:communityId/manage"
           element={<CommunityManagement />}
         />
-        <Route path="/join/:naddr" element={<Index />} />
+        <Route path="/join/:naddr" element={<JoinPage />} />
         <Route path="/profile/:npub" element={<Profile />} />
         <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
@@ -68,6 +95,7 @@ export function AppRouter() {
         <Route path="/dm/:npub" element={<DMWrapper />} />
 
         {/* Space Routes - show /space/community-id when joining communities */}
+        <Route path="/space" element={<CommunityListPage />} />
         <Route path="/space/:communityId" element={<SpacesWrapper />} />
         <Route path="/space/:communityId/:channelId" element={<SpacesWrapper />} />
 

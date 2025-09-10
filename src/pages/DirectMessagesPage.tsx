@@ -1,5 +1,3 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
 import { nip19 } from "nostr-tools";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { DiscordLayout } from "@/components/layout/DiscordLayout";
@@ -10,7 +8,6 @@ interface DirectMessagesPageProps {
 
 export function DirectMessagesPage({ targetPubkey }: DirectMessagesPageProps = {}) {
 	const { user } = useCurrentUser();
-	const navigate = useNavigate();
 
 	// Show landing page if not logged in - for now, redirect to home
 	if (!user) {
