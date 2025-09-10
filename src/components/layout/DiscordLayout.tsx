@@ -36,6 +36,7 @@ import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
 
 import { CommunitySettings } from "@/components/community/CommunitySettings";
+import { CommunityManagement } from "@/pages/CommunityManagement";
 import { createMarketplaceItemMessage } from "@/lib/marketplaceDM";
 import { updateSpaceUrl } from "@/lib/utils";
 import type { MarketplaceItem } from "@/components/spaces/MarketplaceSpace";
@@ -44,9 +45,10 @@ interface DiscordLayoutProps {
   initialDMTargetPubkey?: string | null;
   initialSpaceCommunityId?: string | null;
   initialSpaceChannelId?: string | null;
+  managementMode?: boolean;
 }
 
-export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, initialSpaceChannelId }: DiscordLayoutProps = {}) {
+export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, initialSpaceChannelId, managementMode = false }: DiscordLayoutProps = {}) {
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(
     null,
   );
@@ -213,11 +215,11 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
     // But don't auto-select if we have an initialSpaceCommunityId from URL navigation
     // OR if we're in DM mode (initialDMTargetPubkey is set)
     // Skip auto-selection if DM mode is being initialized
-    if (!initializationRef.current && 
-        !urlCommunityId && 
-        userCommunities !== undefined && 
-        !initialSpaceCommunityId && 
-        initialDMTargetPubkey === undefined) {
+    if (!initializationRef.current &&
+      !urlCommunityId &&
+      userCommunities !== undefined &&
+      !initialSpaceCommunityId &&
+      initialDMTargetPubkey === undefined) {
       initializationRef.current = true;
 
       if (userCommunities.length > 0) {
@@ -461,7 +463,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
       // When no community is selected, go back to /dm
       setSelectedChannel(null); // Only reset channel when leaving communities entirely
       const url = new URL(window.location.href);
-      url.pathname = '/dm';
+      url.pathname = '/space';
       window.history.replaceState({}, '', url.toString());
     }
   };
@@ -774,6 +776,7 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
                       onSelectSpace={handleSpaceSelect}
                       onSelectCommunity={handleCommunitySelect}
                       onNavigateToDMs={handleNavigateToDMs}
+                      managementMode={managementMode}
                     />
                     <UserPanel />
                   </div>
@@ -781,45 +784,51 @@ export function DiscordLayout({ initialDMTargetPubkey, initialSpaceCommunityId, 
                   <div className="flex-1 flex flex-col min-h-0">
                     {/* Main Content Area */}
                     <div className="flex-1 flex flex-col min-h-0">
-                      {activeTab === "channels" && (
+                      {managementMode && selectedCommunity ? (
+                        <CommunityManagement />
+                      ) : (
                         <>
-                          {selectedSpace
-                            ? (
-                              <SpacesArea
-                                communityId={selectedCommunity}
-                                selectedSpace={selectedSpace}
-                                onNavigateToDMs={handleNavigateToDMs}
-                              />
-                            )
-                            : (
-                              <ChatArea
-                                communityId={selectedCommunity}
-                                channelId={selectedChannel}
-                                onToggleMemberList={() =>
-                                  setShowMemberList(!showMemberList)}
-                                onNavigateToDMs={handleNavigateToDMs}
-                              />
-                            )}
+                          {activeTab === "channels" && (
+                            <>
+                              {selectedSpace
+                                ? (
+                                  <SpacesArea
+                                    communityId={selectedCommunity}
+                                    selectedSpace={selectedSpace}
+                                    onNavigateToDMs={handleNavigateToDMs}
+                                  />
+                                )
+                                : (
+                                  <ChatArea
+                                    communityId={selectedCommunity}
+                                    channelId={selectedChannel}
+                                    onToggleMemberList={() =>
+                                      setShowMemberList(!showMemberList)}
+                                    onNavigateToDMs={handleNavigateToDMs}
+                                  />
+                                )}
+                            </>
+                          )}
+                          {activeTab === "marketplace" && selectedCommunity && (
+                            <SpacesArea
+                              communityId={selectedCommunity}
+                              selectedSpace="marketplace"
+                              onNavigateToDMs={handleNavigateToDMs}
+                            />
+                          )}
+                          {activeTab === "resources" && selectedCommunity && (
+                            <SpacesArea
+                              communityId={selectedCommunity}
+                              selectedSpace="resources"
+                              onNavigateToDMs={handleNavigateToDMs}
+                            />
+                          )}
                         </>
-                      )}
-                      {activeTab === "marketplace" && selectedCommunity && (
-                        <SpacesArea
-                          communityId={selectedCommunity}
-                          selectedSpace="marketplace"
-                          onNavigateToDMs={handleNavigateToDMs}
-                        />
-                      )}
-                      {activeTab === "resources" && selectedCommunity && (
-                        <SpacesArea
-                          communityId={selectedCommunity}
-                          selectedSpace="resources"
-                          onNavigateToDMs={handleNavigateToDMs}
-                        />
                       )}
                     </div>
                   </div>
 
-                  {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && (
+                  {showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" && !managementMode && (
                     <div className="w-72 bg-secondary/30">
                       <MemberList
                         communityId={selectedCommunity}

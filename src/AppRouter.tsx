@@ -10,11 +10,11 @@ import JoinPage from "./pages/JoinPage";
 import DirectMessagesPage from "./pages/DirectMessagesPage";
 import CommunityPage from "./pages/CommunityPage";
 import CommunityListPage from "./pages/CommunityListPage";
+import CommunityManagementPage from "./pages/CommunityManagementPage";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import { Communities } from "./pages/Communities";
-import { CommunityManagement } from "./pages/CommunityManagement";
 import { EmojiReactionsDemo } from "./pages/EmojiReactionsDemo";
 import { VoiceDemo } from "./pages/VoiceDemo";
 import { CommunitiesDebug } from "./pages/CommunitiesDebug";
@@ -51,8 +51,8 @@ function DMWrapper() {
 
 // Wrapper component to extract community-id and channel parameters and pass them to CommunityPage
 // Handles both "kind:pubkey:d-tag" format and naddr format (URL-encoded)
-function SpacesWrapper() {
-  const { communityId, channelId } = useParams<{ communityId?: string; channelId?: string }>();
+function CommunityWrapper() {
+  const { communityId, channelId } = useParams<{ communityId: string; channelId?: string }>();
 
   if (!communityId) {
     return <CommunityListPage />;
@@ -67,7 +67,6 @@ function SpacesWrapper() {
     decodedCommunityId = communityId;
   }
 
-  // Pass the decoded communityId and channelId to CommunityPage
   return <CommunityPage communityId={decodedCommunityId} channelId={channelId} />;
 }
 
@@ -80,8 +79,8 @@ export function AppRouter() {
         <Route path="/search" element={<Search />} />
         <Route path="/communities" element={<Communities />} />
         <Route
-          path="/communities/:communityId/manage"
-          element={<CommunityManagement />}
+          path="/space/:communityId/manage"
+          element={<CommunityManagementPage />}
         />
         <Route path="/join/:naddr" element={<JoinPage />} />
         <Route path="/profile/:npub" element={<Profile />} />
@@ -96,8 +95,8 @@ export function AppRouter() {
 
         {/* Space Routes - show /space/community-id when joining communities */}
         <Route path="/space" element={<CommunityListPage />} />
-        <Route path="/space/:communityId" element={<SpacesWrapper />} />
-        <Route path="/space/:communityId/:channelId" element={<SpacesWrapper />} />
+        <Route path="/space/:communityId" element={<CommunityWrapper />} />
+        <Route path="/space/:communityId/:channelId" element={<CommunityWrapper />} />
 
         {/* NIP-19 identifier routes - handle at root level */}
         <Route path="/:nip19" element={<NIP19Page />} />

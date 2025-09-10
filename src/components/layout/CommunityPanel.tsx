@@ -1,4 +1,4 @@
-import { Users, Crown, Shield, MessageCircle } from "lucide-react";
+import { Users, Crown, Shield, MessageCircle, Settings } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DirectMessages } from "@/components/dm/DirectMessages";
@@ -14,7 +14,9 @@ import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
+import { useNavigate } from "react-router-dom";
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -26,15 +28,17 @@ interface CommunityPanelProps {
   dmTargetPubkey?: string | null;
   onDmTargetHandled?: () => void;
   onNavigateToDMs?: (targetPubkey: string) => void;
+  managementMode?: boolean;
 }
 
-export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs }: CommunityPanelProps) {
+export function CommunityPanel({ communityId, selectedChannel, selectedSpace, onSelectChannel, onSelectSpace, onSelectCommunity, dmTargetPubkey, onDmTargetHandled, onNavigateToDMs, managementMode = false }: CommunityPanelProps) {
   const { data: communities } = useCommunities();
   const { data: specificCommunity, isLoading: isLoadingSpecificCommunity } = useCommunityById(communityId);
   const { data: userCommunities, isLoading: isLoadingUserCommunities } = useUserCommunities();
   const { refetch: refetchChannels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId || '');
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<Channel | null>(null);
@@ -227,6 +231,19 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
                 {community.name}
               </h1>
             </div>
+
+            {/* Management Button for Owners/Moderators */}
+            {canModerate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(`/space/${encodeURIComponent(communityId)}/manage`)}
+                className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 flex-shrink-0"
+                title="Manage Community"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -235,22 +252,24 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
         <div className="p-2 space-y-4 w-full">
           {/* Spaces Navigator - Marketplace and Resources */}
           <div className="hidden">
-          <SpacesNavigator
-            communityId={communityId}
-            selectedSpace={selectedSpace || null}
-            onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
-          />
+            <SpacesNavigator
+              communityId={communityId}
+              selectedSpace={selectedSpace || null}
+              onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
+            />
           </div>
 
-          {/* Channel Organizer */}
-          <ChannelOrganizer
-            communityId={communityId}
-            selectedChannel={selectedChannel}
-            onSelectChannel={(channelId) => onSelectChannel(channelId)}
-            onChannelSettings={setSelectedChannelForSettings}
-            canModerate={canModerate}
-            onChannelCreated={handleChannelCreated}
-          />
+          {/* Channel Organizer - Hide in management mode */}
+          {!managementMode && (
+            <ChannelOrganizer
+              communityId={communityId}
+              selectedChannel={selectedChannel}
+              onSelectChannel={(channelId) => onSelectChannel(channelId)}
+              onChannelSettings={setSelectedChannelForSettings}
+              canModerate={canModerate}
+              onChannelCreated={handleChannelCreated}
+            />
+          )}
         </div>
       </ScrollArea>
 
