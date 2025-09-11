@@ -65,26 +65,14 @@ export function CommunityPage() {
 		}
 	}, [decodedCommunityId, channels, selectedChannel]);
 
-	const handleChannelSelect = (channelId: string) => {
-		setSelectedChannel(channelId);
-	};
-
-	const handleSpaceSelect = (spaceId: string) => {
-		// Navigate to the appropriate space page
+	const handleCommunityFeatureSelect = (featureName: string) => {
+		// Navigate to the appropriate community feature page
 		if (!communityId) return; // Guard against undefined
 
-		if (spaceId === 'marketplace') {
+		if (featureName === 'marketplace') {
 			navigate(`/space/${encodeURIComponent(communityId)}/marketplace`);
-		} else if (spaceId === 'resources') {
+		} else if (featureName === 'resources') {
 			navigate(`/space/${encodeURIComponent(communityId)}/resources`);
-		}
-	};
-
-	const handleNavigateToDMs = (targetPubkey?: string) => {
-		if (targetPubkey) {
-			navigate(`/dm/${targetPubkey}`);
-		} else {
-			navigate('/dm');
 		}
 	};
 
@@ -137,9 +125,8 @@ export function CommunityPage() {
 					communityId={finalCommunityId}
 					selectedChannel={selectedChannel}
 					selectedSpace={null} // No spaces selected on channel page
-					onSelectChannel={handleChannelSelect}
-					onSelectSpace={handleSpaceSelect}
-					onNavigateToDMs={handleNavigateToDMs}
+					onSelectChannel={setSelectedChannel}
+					onSelectSpace={handleCommunityFeatureSelect}
 				/>
 			}
 			mainContent={
@@ -155,7 +142,6 @@ export function CommunityPage() {
 					<MemberList
 						communityId={finalCommunityId}
 						channelId={selectedChannel}
-						onNavigateToDMs={handleNavigateToDMs}
 					/>
 				) : undefined
 			}
