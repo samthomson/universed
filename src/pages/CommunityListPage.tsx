@@ -7,7 +7,6 @@ export function CommunityListPage() {
 
 	return (
 		<BasePageLayout
-			leftPanel={<div />} // Empty left panel, just shows UserPanel at bottom
 			mainContent={
 				user ? (
 					<div className="flex items-center justify-center bg-background h-full">
