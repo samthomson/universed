@@ -11,38 +11,11 @@ export function CommunityManagementPage() {
 	const { user } = useCurrentUser();
 	const navigate = useNavigate();
 
-	// Decode naddr format if needed
-	let decodedCommunityId = communityId || '';
-	if (communityId && communityId.startsWith('naddr1')) {
-		try {
-			decodedCommunityId = decodeNaddrFromUrl(communityId);
-		} catch {
-			console.error('Failed to decode naddr');
-			decodedCommunityId = communityId;
-		}
-	}
-
-	return (
-		<BasePageLayout
-			leftPanel={
-				user && communityId ? (
-					<CommunityPanel
-						communityId={decodedCommunityId}
-						selectedChannel={null}
-						selectedSpace={null}
-						onSelectChannel={(channelId) => {
-							navigate(`/space/${encodeURIComponent(decodedCommunityId)}/${channelId}`);
-						}}
-						onSelectSpace={(_spaceId) => {
-							navigate(`/space/${encodeURIComponent(decodedCommunityId)}`);
-						}}
-					/>
-				) : (
-					<div />
-				)
-			}
-			mainContent={
-				!user ? (
+	// Fail fast - login required
+	if (!user) {
+		return (
+			<BasePageLayout
+				mainContent={
 					<div className="flex items-center justify-center bg-background h-full">
 						<div className="text-center max-w-md p-8">
 							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
@@ -51,7 +24,16 @@ export function CommunityManagementPage() {
 							</p>
 						</div>
 					</div>
-				) : !communityId ? (
+				}
+			/>
+		);
+	}
+
+	// Fail fast - community ID required
+	if (!communityId) {
+		return (
+			<BasePageLayout
+				mainContent={
 					<div className="flex items-center justify-center bg-background h-full">
 						<div className="text-center max-w-md p-8">
 							<h2 className="text-2xl font-bold mb-4">Community Not Found</h2>
@@ -60,10 +42,39 @@ export function CommunityManagementPage() {
 							</p>
 						</div>
 					</div>
-				) : (
-					<CommunityManagement />
-				)
+				}
+			/>
+		);
+	}
+
+	// Decode naddr format if needed
+	let decodedCommunityId = communityId;
+	if (communityId.startsWith('naddr1')) {
+		try {
+			decodedCommunityId = decodeNaddrFromUrl(communityId);
+		} catch {
+			console.error('Failed to decode naddr');
+			decodedCommunityId = communityId;
+		}
+	}
+
+	// Normal case - show management interface
+	return (
+		<BasePageLayout
+			leftPanel={
+				<CommunityPanel
+					communityId={decodedCommunityId}
+					selectedChannel={null}
+					selectedSpace={null}
+					onSelectChannel={(channelId) => {
+						navigate(`/space/${encodeURIComponent(decodedCommunityId)}/${channelId}`);
+					}}
+					onSelectSpace={(_spaceId) => {
+						navigate(`/space/${encodeURIComponent(decodedCommunityId)}`);
+					}}
+				/>
 			}
+			mainContent={<CommunityManagement />}
 		/>
 	);
 }

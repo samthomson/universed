@@ -14,13 +14,14 @@ export function CommunityPage() {
 	const { communityId, channelId } = useParams<{ communityId: string; channelId?: string }>();
 	const { user } = useCurrentUser();
 	const navigate = useNavigate();
+
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
 	const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
 	const [showMemberList, setShowMemberList] = useState(true);
 
 	// Decode naddr format if needed
-	let decodedCommunityId = communityId || '';
-	if (communityId && communityId.startsWith('naddr1')) {
+	let decodedCommunityId = communityId;
+	if (communityId.startsWith('naddr1')) {
 		try {
 			decodedCommunityId = decodeNaddrFromUrl(communityId);
 		} catch {
@@ -84,24 +85,16 @@ export function CommunityPage() {
 		}
 	};
 
-	return (
-		<BasePageLayout
-			leftPanel={
-				user && communityId ? (
-					<CommunityPanel
-						communityId={decodedCommunityId}
-						selectedChannel={selectedChannel}
-						selectedSpace={selectedSpace}
-						onSelectChannel={handleChannelSelect}
-						onSelectSpace={handleSpaceSelect}
-						onNavigateToDMs={handleNavigateToDMs}
-					/>
-				) : (
-					<div />
-				)
-			}
-			mainContent={
-				!user ? (
+	// Readable boolean conditions
+	const isViewingSpaces = !!selectedSpace; // User is viewing marketplace/resources (SpacesArea)
+	const isViewingChannels = !selectedSpace; // User is viewing chat channels (ChatArea)
+	const isShowingMemberList = showMemberList && selectedChannel && isViewingChannels;
+
+	// Fail fast - login required
+	if (!user) {
+		return (
+			<BasePageLayout
+				mainContent={
 					<div className="flex items-center justify-center bg-background h-full">
 						<div className="text-center max-w-md p-8">
 							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
@@ -110,7 +103,16 @@ export function CommunityPage() {
 							</p>
 						</div>
 					</div>
-				) : !communityId ? (
+				}
+			/>
+		);
+	}
+
+	// Fail fast - community ID required
+	if (!communityId) {
+		return (
+			<BasePageLayout
+				mainContent={
 					<div className="flex items-center justify-center bg-background h-full">
 						<div className="text-center max-w-md p-8">
 							<h2 className="text-2xl font-bold mb-4">Community Not Found</h2>
@@ -119,7 +121,25 @@ export function CommunityPage() {
 							</p>
 						</div>
 					</div>
-				) : selectedSpace ? (
+				}
+			/>
+		);
+	}
+
+	return (
+		<BasePageLayout
+			leftPanel={
+				<CommunityPanel
+					communityId={decodedCommunityId}
+					selectedChannel={selectedChannel}
+					selectedSpace={selectedSpace}
+					onSelectChannel={handleChannelSelect}
+					onSelectSpace={handleSpaceSelect}
+					onNavigateToDMs={handleNavigateToDMs}
+				/>
+			}
+			mainContent={
+				isViewingSpaces ? (
 					<SpacesArea
 						communityId={decodedCommunityId}
 						selectedSpace={selectedSpace}
@@ -133,7 +153,7 @@ export function CommunityPage() {
 				)
 			}
 			rightPanel={
-				user && communityId && showMemberList && selectedChannel && !selectedSpace ? (
+				isShowingMemberList ? (
 					<MemberList
 						communityId={decodedCommunityId}
 						channelId={selectedChannel}
