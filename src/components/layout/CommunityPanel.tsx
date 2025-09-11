@@ -7,7 +7,7 @@ import { useCommunityById } from "@/hooks/useCommunityById";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { FolderManagementDialog } from "@/components/community/FolderManagementDialog";
-import { ChannelOrganizer } from "@/components/community/ChannelOrganizer";
+import { CommunityChannelList } from "@/components/community/CommunityChannelList";
 import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { SpacesNavigator } from "@/components/spaces/SpacesNavigator";
+import { CommunityFeaturesNav } from "@/components/spaces/CommunityFeaturesNav";
 import { useNavigate } from "react-router-dom";
 
 interface CommunityPanelProps {
@@ -250,18 +250,18 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-4 w-full">
-          {/* Spaces Navigator - Marketplace and Resources */}
+          {/* Community Features Navigator - Marketplace and Resources */}
           <div className="hidden">
-            <SpacesNavigator
+            <CommunityFeaturesNav
               communityId={communityId}
               selectedSpace={selectedSpace || null}
               onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
             />
           </div>
 
-          {/* Channel Organizer - Hide in management mode */}
+          {/* Community Channel List - Hide in management mode */}
           {!managementMode && (
-            <ChannelOrganizer
+            <CommunityChannelList
               communityId={communityId}
               selectedChannel={selectedChannel}
               onSelectChannel={(channelId) => onSelectChannel(channelId)}

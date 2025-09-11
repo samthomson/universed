@@ -85,9 +85,9 @@ export function CommunityPage() {
 		}
 	};
 
-	// Readable boolean conditions
-	const isViewingSpaces = !!selectedSpace; // User is viewing marketplace/resources (SpacesArea)
-	const isViewingChannels = !selectedSpace; // User is viewing chat channels (ChatArea)
+	// What the user is currently viewing
+	const isViewingSpaces = !!selectedSpace; // User clicked on marketplace/resources tab
+	const isViewingChannels = !selectedSpace; // User clicked on a chat channel
 	const isShowingMemberList = showMemberList && selectedChannel && isViewingChannels;
 
 	// Fail fast - login required
@@ -143,11 +143,15 @@ export function CommunityPage() {
 			}
 			mainContent={
 				isViewingSpaces ? (
+					// MARKETPLACE/RESOURCES: User clicked on marketplace or resources tab
+					// Shows buying/selling interface, file sharing, etc.
 					<SpacesArea
 						communityId={finalCommunityId}
 						selectedSpace={selectedSpace}
 					/>
 				) : (
+					// CHANNEL CHAT: User clicked on a text/voice channel
+					// Shows chat messages, message input, voice controls, etc.
 					<ChatArea
 						communityId={finalCommunityId}
 						channelId={selectedChannel}

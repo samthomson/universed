@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
-import { SpacesNavigator } from './SpacesNavigator';
+import { CommunityFeaturesNav } from './CommunityFeaturesNav';
 
 // Mock the hooks to control loading states
 vi.mock('@/hooks/useSpaces', () => ({
@@ -17,14 +17,14 @@ vi.mock('@/hooks/useCommunityRoles', () => ({
   })),
 }));
 
-describe('SpacesNavigator', () => {
+describe('CommunityFeaturesNav', () => {
   it('shows loading skeleton when data is loading', () => {
     render(
       <TestApp>
-        <SpacesNavigator
+        <CommunityFeaturesNav
           communityId="test-community"
           selectedSpace={null}
-          onSelectSpace={() => {}}
+          onSelectSpace={() => { }}
         />
       </TestApp>
     );
