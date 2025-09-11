@@ -212,22 +212,22 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
           </div>
         ) : (
           <div className="flex items-center space-x-2 w-full">
-            {community.image ? (
+            {community.info.image ? (
               <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarImage src={community.image} alt={community.name} />
+                <AvatarImage src={community.info.image} alt={community.info.name} />
                 <AvatarFallback className="text-sm font-semibold">
-                  {community.name.slice(0, 2).toUpperCase()}
+                  {community.info.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             ) : (
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground font-semibold text-sm flex-shrink-0">
-                {community.name.slice(0, 2).toUpperCase()}
+                {community.info.name.slice(0, 2).toUpperCase()}
               </div>
             )}
 
             <div className="min-w-0 flex-1">
               <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                {community.name}
+                {community.info.name}
               </h1>
             </div>
 
