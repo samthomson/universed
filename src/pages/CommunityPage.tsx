@@ -65,13 +65,13 @@ export function CommunityPage() {
 		}
 	}, [decodedCommunityId, channels, selectedChannel]);
 
-	const handleCommunityFeatureSelect = (featureName: string) => {
-		// Navigate to the appropriate community feature page
+	const handleCommunitySectionSelect = (sectionName: string) => {
+		// Navigate to the appropriate community section page
 		if (!communityId) return; // Guard against undefined
 
-		if (featureName === 'marketplace') {
+		if (sectionName === 'marketplace') {
 			navigate(`/space/${encodeURIComponent(communityId)}/marketplace`);
-		} else if (featureName === 'resources') {
+		} else if (sectionName === 'resources') {
 			navigate(`/space/${encodeURIComponent(communityId)}/resources`);
 		}
 	};
@@ -126,7 +126,7 @@ export function CommunityPage() {
 					selectedChannel={selectedChannel}
 					selectedSpace={null} // No spaces selected on channel page
 					onSelectChannel={setSelectedChannel}
-					onSelectSpace={handleCommunityFeatureSelect}
+					onSelectSpace={handleCommunitySectionSelect}
 				/>
 			}
 			mainContent={
