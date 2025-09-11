@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { UserPanel } from "./UserPanel";
 
 interface BasePageLayoutProps {
-	children: ReactNode;
+	mainContent: ReactNode;
 	leftPanel?: ReactNode;
 	rightPanel?: ReactNode;
 	showUserPanel?: boolean;
@@ -10,7 +10,7 @@ interface BasePageLayoutProps {
 
 // Base layout template that all pages can use
 export function BasePageLayout({
-	children,
+	mainContent,
 	leftPanel,
 	rightPanel,
 	showUserPanel = true
@@ -27,7 +27,7 @@ export function BasePageLayout({
 
 			{/* Main Content Area */}
 			<div className="flex-1 flex flex-col min-h-0">
-				{children}
+				{mainContent}
 			</div>
 
 			{/* Right Panel */}

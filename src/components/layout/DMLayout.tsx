@@ -87,19 +87,25 @@ export function DMLayout({ targetPubkey }: DMLayoutProps = {}) {
 		/>
 	);
 
+	const mainContent = (
+		<DirectMessages
+			targetPubkey={dmTargetPubkey}
+			selectedConversation={selectedDMConversation}
+			onTargetHandled={() => {
+				setDmTargetPubkey(null);
+				setSelectedDMConversation(null);
+			}}
+			onNavigateToDMs={handleNavigateToDMs}
+			onConversationSelect={setSelectedDMConversation}
+		/>
+	);
+
 	return (
-		<BasePageLayout rightPanel={friendsPanel} showUserPanel={false}>
-			<DirectMessages
-				targetPubkey={dmTargetPubkey}
-				selectedConversation={selectedDMConversation}
-				onTargetHandled={() => {
-					setDmTargetPubkey(null);
-					setSelectedDMConversation(null);
-				}}
-				onNavigateToDMs={handleNavigateToDMs}
-				onConversationSelect={setSelectedDMConversation}
-			/>
-		</BasePageLayout>
+		<BasePageLayout
+			mainContent={mainContent}
+			rightPanel={friendsPanel}
+			showUserPanel={false}
+		/>
 	);
 }
 

@@ -2,6 +2,7 @@ import { CommunityPanel } from "@/components/layout/CommunityPanel";
 import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { CommunityManagement } from "@/pages/CommunityManagement";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useNavigate } from "react-router-dom";
 import { decodeNaddrFromUrl } from "@/lib/utils";
 
 interface CommunityManagementPageProps {
@@ -11,6 +12,7 @@ interface CommunityManagementPageProps {
 // Page component for Community Management pages
 export function CommunityManagementPage({ communityId }: CommunityManagementPageProps) {
 	const { user } = useCurrentUser();
+	const navigate = useNavigate();
 
 	// Decode naddr format if needed
 	let decodedCommunityId = communityId;
@@ -28,21 +30,23 @@ export function CommunityManagementPage({ communityId }: CommunityManagementPage
 		return <div>Please log in to access community management.</div>;
 	}
 
-	const communityPanel = (
-		<CommunityPanel
-			communityId={decodedCommunityId}
-			selectedChannel={null}
-			selectedSpace={null}
-			onSelectChannel={() => { }} // No-op in management mode
-			onSelectSpace={() => { }} // No-op in management mode
-			managementMode={true}
-		/>
-	);
-
 	return (
-		<BasePageLayout leftPanel={communityPanel}>
-			<CommunityManagement />
-		</BasePageLayout>
+		<BasePageLayout
+			leftPanel={
+				<CommunityPanel
+					communityId={decodedCommunityId}
+					selectedChannel={null}
+					selectedSpace={null}
+					onSelectChannel={(channelId) => {
+						navigate(`/space/${encodeURIComponent(decodedCommunityId)}/${channelId}`);
+					}}
+					onSelectSpace={(_spaceId) => {
+						navigate(`/space/${encodeURIComponent(decodedCommunityId)}`);
+					}}
+				/>
+			}
+			mainContent={<CommunityManagement />}
+		/>
 	);
 }
 

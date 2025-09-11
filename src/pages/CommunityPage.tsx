@@ -21,7 +21,6 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
 	const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
 	const [showMemberList, setShowMemberList] = useState(true);
-	const [activeTab, setActiveTab] = useState("channels");
 
 	// Decode naddr format if needed
 	let decodedCommunityId = communityId;
@@ -74,18 +73,11 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 	const handleChannelSelect = (channelId: string) => {
 		setSelectedChannel(channelId);
 		setSelectedSpace(null);
-		setActiveTab("channels");
 	};
 
 	const handleSpaceSelect = (spaceId: string) => {
 		setSelectedSpace(spaceId);
 		setSelectedChannel(null);
-
-		if (spaceId === "marketplace") {
-			setActiveTab("marketplace");
-		} else if (spaceId === "resources") {
-			setActiveTab("resources");
-		}
 	};
 
 	const handleNavigateToDMs = (targetPubkey?: string) => {
@@ -101,69 +93,42 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 		return <div>Please log in to access communities.</div>;
 	}
 
-	const communityPanel = (
-		<CommunityPanel
-			communityId={decodedCommunityId}
-			selectedChannel={selectedChannel}
-			selectedSpace={selectedSpace}
-			onSelectChannel={handleChannelSelect}
-			onSelectSpace={handleSpaceSelect}
-			onNavigateToDMs={handleNavigateToDMs}
-		/>
-	);
-
-	const memberListPanel = showMemberList && selectedChannel && !selectedSpace && activeTab === "channels" ? (
-		<MemberList
-			communityId={decodedCommunityId}
-			channelId={selectedChannel}
-			onNavigateToDMs={handleNavigateToDMs}
-		/>
-	) : undefined;
-
-	const mainContent = (
-		<>
-			{activeTab === "channels" && (
-				<>
-					{selectedSpace ? (
-						<SpacesArea
-							communityId={decodedCommunityId}
-							selectedSpace={selectedSpace}
-							onNavigateToDMs={handleNavigateToDMs}
-						/>
-					) : (
-						<ChatArea
-							communityId={decodedCommunityId}
-							channelId={selectedChannel}
-							onToggleMemberList={() => setShowMemberList(!showMemberList)}
-							onNavigateToDMs={handleNavigateToDMs}
-						/>
-					)}
-				</>
-			)}
-			{activeTab === "marketplace" && (
-				<SpacesArea
-					communityId={decodedCommunityId}
-					selectedSpace="marketplace"
-					onNavigateToDMs={handleNavigateToDMs}
-				/>
-			)}
-			{activeTab === "resources" && (
-				<SpacesArea
-					communityId={decodedCommunityId}
-					selectedSpace="resources"
-					onNavigateToDMs={handleNavigateToDMs}
-				/>
-			)}
-		</>
-	);
-
 	return (
 		<BasePageLayout
-			leftPanel={communityPanel}
-			rightPanel={memberListPanel}
-		>
-			{mainContent}
-		</BasePageLayout>
+			leftPanel={
+				<CommunityPanel
+					communityId={decodedCommunityId}
+					selectedChannel={selectedChannel}
+					selectedSpace={selectedSpace}
+					onSelectChannel={handleChannelSelect}
+					onSelectSpace={handleSpaceSelect}
+					onNavigateToDMs={handleNavigateToDMs}
+				/>
+			}
+			mainContent={
+				selectedSpace ? (
+					<SpacesArea
+						communityId={decodedCommunityId}
+						selectedSpace={selectedSpace}
+					/>
+				) : (
+					<ChatArea
+						communityId={decodedCommunityId}
+						channelId={selectedChannel}
+						onToggleMemberList={() => setShowMemberList(!showMemberList)}
+					/>
+				)
+			}
+			rightPanel={
+				showMemberList && selectedChannel && !selectedSpace ? (
+					<MemberList
+						communityId={decodedCommunityId}
+						channelId={selectedChannel}
+						onNavigateToDMs={handleNavigateToDMs}
+					/>
+				) : undefined
+			}
+		/>
 	);
 }
 
