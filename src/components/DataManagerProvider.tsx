@@ -272,6 +272,7 @@ interface CommunitiesDomain {
     communityCount: number;
     channelCount: number;
     messageCount: number;
+    replyCount: number;
   };
 }
 
