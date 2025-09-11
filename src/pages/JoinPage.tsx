@@ -1,10 +1,11 @@
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { DiscordLayout } from "@/components/layout/DiscordLayout";
+import { useUrlNavigation } from "@/hooks/useUrlNavigation";
+import { CommunityListPage } from "./CommunityListPage";
 
-// Page specifically for /join/:naddr routes
-// This handles community join flows via invite links
+// Page component for Join flow pages
 export function JoinPage() {
 	const { user } = useCurrentUser();
+	const { communityId, isJoinRequest } = useUrlNavigation();
 
 	// Show message if not logged in
 	if (!user) {
@@ -15,22 +16,18 @@ export function JoinPage() {
 					<p className="text-muted-foreground mb-6">
 						Please log in to join this community.
 					</p>
-					{/* TODO: Add proper login component */}
 				</div>
 			</div>
 		);
 	}
 
-	// Use DiscordLayout for join flow
-	// The useUrlNavigation hook will detect the /join/:naddr route
-	// and show the appropriate join dialog
-	return (
-		<DiscordLayout
-			initialDMTargetPubkey={null}
-			initialSpaceCommunityId={null}
-			initialSpaceChannelId={null}
-		/>
-	);
+	if (!isJoinRequest || !communityId) {
+		return <div>Invalid join link.</div>;
+	}
+
+	// For now, use the community list layout
+	// The join dialog will be handled by the existing useUrlNavigation logic
+	return <CommunityListPage />;
 }
 
 export default JoinPage;

@@ -19,6 +19,7 @@ import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
 import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DndContext,
   closestCenter,
@@ -86,12 +87,12 @@ function SortableCommunityItem({
     if (onMouseDown) {
       onMouseDown(community.id);
     }
-    
+
     // Clear existing timeout if any
     if (mouseDownTimeoutRef.current) {
       clearTimeout(mouseDownTimeoutRef.current);
     }
-    
+
     // Set timeout to show grab cursor after 250ms
     mouseDownTimeoutRef.current = setTimeout(() => {
       setIsDraggingAfterDelay(true);
@@ -170,11 +171,11 @@ function SortableCommunityItem({
   }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      {...attributes} 
-      {...listeners} 
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       className={containerClasses}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -260,9 +261,9 @@ function SortableCommunityItem({
           <div className="space-y-1">
             <p>{community.name}</p>
             <p className="text-xs text-muted-foreground capitalize">
-              {community.membershipStatus === 'approved' ? 'Member' : 
-               community.membershipStatus === 'pending' ? 'Pending approval' : 
-               community.membershipStatus}
+              {community.membershipStatus === 'approved' ? 'Member' :
+                community.membershipStatus === 'pending' ? 'Pending approval' :
+                  community.membershipStatus}
             </p>
             {isDragging && (
               <p className="text-xs text-blue-400">Dragging...</p>
@@ -288,6 +289,7 @@ export function AppSidebar({
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
   const { preloadCommunity } = usePreloadCommunity();
+  const navigate = useNavigate();
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
@@ -446,10 +448,9 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200 ${
-                  selectedCommunity === null ? 'bg-accent' : ''
-                }`}
-                onClick={() => onSelectCommunity(null)}
+                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200 ${selectedCommunity === null ? 'bg-accent' : ''
+                  }`}
+                onClick={() => navigate('/dm')}
               >
                 <MessageCircle className="w-6 h-6" />
               </Button>

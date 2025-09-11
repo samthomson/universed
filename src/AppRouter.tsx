@@ -1,16 +1,11 @@
-import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
-import { decodeNaddrFromUrl } from "./lib/utils";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 
 import LandingPage from "./pages/LandingPage";
-import JoinPage from "./pages/JoinPage";
-import DirectMessagesPage from "./pages/DirectMessagesPage";
-import CommunityPage from "./pages/CommunityPage";
-import CommunityListPage from "./pages/CommunityListPage";
-import CommunityManagementPage from "./pages/CommunityManagementPage";
+import { AppLayout } from "./components/layout/AppLayout";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -43,32 +38,7 @@ function RootRedirecter() {
   return null;
 }
 
-// Wrapper component to extract npub parameter and pass it to DirectMessagesPage
-function DMWrapper() {
-  const { npub } = useParams<{ npub?: string }>();
-  return <DirectMessagesPage targetPubkey={npub} />;
-}
-
-// Wrapper component to extract community-id and channel parameters and pass them to CommunityPage
-// Handles both "kind:pubkey:d-tag" format and naddr format (URL-encoded)
-function CommunityWrapper() {
-  const { communityId, channelId } = useParams<{ communityId: string; channelId?: string }>();
-
-  if (!communityId) {
-    return <CommunityListPage />;
-  }
-
-  // Decode URL-encoded naddr if needed
-  let decodedCommunityId = communityId;
-  try {
-    decodedCommunityId = decodeNaddrFromUrl(communityId);
-  } catch {
-    // Use original ID if decoding fails
-    decodedCommunityId = communityId;
-  }
-
-  return <CommunityPage communityId={decodedCommunityId} channelId={channelId} />;
-}
+// Remove old wrapper components - now handled in AppWithSidebar
 
 export function AppRouter() {
   return (
@@ -78,25 +48,16 @@ export function AppRouter() {
         <Route path="/" element={<RootRedirecter />} />
         <Route path="/search" element={<Search />} />
         <Route path="/communities" element={<Communities />} />
-        <Route
-          path="/space/:communityId/manage"
-          element={<CommunityManagementPage />}
-        />
-        <Route path="/join/:naddr" element={<JoinPage />} />
         <Route path="/profile/:npub" element={<Profile />} />
         <Route path="/profile/:npub/edit" element={<EditProfile />} />
         <Route path="/emoji-demo" element={<EmojiReactionsDemo />} />
         <Route path="/voice-demo" element={<VoiceDemo />} />
         <Route path="/communities-debug" element={<CommunitiesDebug />} />
 
-        {/* DM Routes - always at /dm */}
-        <Route path="/dm" element={<DirectMessagesPage />} />
-        <Route path="/dm/:npub" element={<DMWrapper />} />
-
-        {/* Space Routes - show /space/community-id when joining communities */}
-        <Route path="/space" element={<CommunityListPage />} />
-        <Route path="/space/:communityId" element={<CommunityWrapper />} />
-        <Route path="/space/:communityId/:channelId" element={<CommunityWrapper />} />
+        {/* App routes - with persistent sidebar */}
+        <Route path="/dm/*" element={<AppLayout />} />
+        <Route path="/space/*" element={<AppLayout />} />
+        <Route path="/join/*" element={<AppLayout />} />
 
         {/* NIP-19 identifier routes - handle at root level */}
         <Route path="/:nip19" element={<NIP19Page />} />
