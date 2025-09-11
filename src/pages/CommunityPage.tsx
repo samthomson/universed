@@ -19,9 +19,9 @@ export function CommunityPage() {
 	const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
 	const [showMemberList, setShowMemberList] = useState(true);
 
-	// Decode naddr format if needed
-	let decodedCommunityId = communityId;
-	if (communityId.startsWith('naddr1')) {
+	// Decode naddr format if needed (handle undefined case)
+	let decodedCommunityId = communityId || '';
+	if (communityId && communityId.startsWith('naddr1')) {
 		try {
 			decodedCommunityId = decodeNaddrFromUrl(communityId);
 		} catch {
@@ -126,11 +126,14 @@ export function CommunityPage() {
 		);
 	}
 
+	// At this point, communityId is guaranteed to exist, so decodedCommunityId is a string
+	const finalCommunityId = decodedCommunityId || communityId;
+
 	return (
 		<BasePageLayout
 			leftPanel={
 				<CommunityPanel
-					communityId={decodedCommunityId}
+					communityId={finalCommunityId}
 					selectedChannel={selectedChannel}
 					selectedSpace={selectedSpace}
 					onSelectChannel={handleChannelSelect}
@@ -141,12 +144,12 @@ export function CommunityPage() {
 			mainContent={
 				isViewingSpaces ? (
 					<SpacesArea
-						communityId={decodedCommunityId}
+						communityId={finalCommunityId}
 						selectedSpace={selectedSpace}
 					/>
 				) : (
 					<ChatArea
-						communityId={decodedCommunityId}
+						communityId={finalCommunityId}
 						channelId={selectedChannel}
 						onToggleMemberList={() => setShowMemberList(!showMemberList)}
 					/>
@@ -155,7 +158,7 @@ export function CommunityPage() {
 			rightPanel={
 				isShowingMemberList ? (
 					<MemberList
-						communityId={decodedCommunityId}
+						communityId={finalCommunityId}
 						channelId={selectedChannel}
 						onNavigateToDMs={handleNavigateToDMs}
 					/>
