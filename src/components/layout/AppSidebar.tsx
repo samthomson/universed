@@ -5,7 +5,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useCommunityOrder } from "@/hooks/useCommunityOrder";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
@@ -282,11 +281,10 @@ export function AppSidebar({
   onShowCommunitySelectionDialogChange,
   onSelectCommunity
 }: AppSidebarProps) {
-  const { data: communities, isLoading } = useUserCommunities();
   const { communities: dataManagerCommunities } = useDataManager();
 
   // Convert DataManager communities to UserCommunity format
-  const convertedCommunities = useMemo(() => {
+  const communitiesList = useMemo(() => {
     return Array.from(dataManagerCommunities.communities.values()).map(community => ({
       id: community.id,
       name: community.info.name,
@@ -301,11 +299,7 @@ export function AppSidebar({
     }));
   }, [dataManagerCommunities.communities]);
 
-  // Use DataManager communities if available, fallback to old method
-  const communitiesToUse = convertedCommunities.length > 0 ? convertedCommunities : communities;
-  const isLoadingToUse = dataManagerCommunities.isLoading || (convertedCommunities.length === 0 && isLoading);
-
-  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communitiesToUse);
+  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communitiesList);
   const { playSound } = useSoundEffect();
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
@@ -423,7 +417,7 @@ export function AppSidebar({
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
-    if (!isLoadingToUse && orderedCommunities) {
+    if (!dataManagerCommunities.isLoading && orderedCommunities) {
       return orderedCommunities.map((community) => (
         <SortableCommunityItem
           key={community.id}
@@ -436,7 +430,7 @@ export function AppSidebar({
           onMouseDown={handleCommunityMouseDown}
         />
       ));
-    } else if (isLoadingToUse) {
+    } else if (dataManagerCommunities.isLoading) {
       // Skeleton loading for communities
       return Array.from({ length: 3 }).map((_, i) => (
         <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
@@ -449,7 +443,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [isLoadingToUse, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
+  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
 
   return (
     <TooltipProvider>
