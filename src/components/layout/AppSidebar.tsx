@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useCommunityOrder } from "@/hooks/useCommunityOrder";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
@@ -282,7 +283,29 @@ export function AppSidebar({
   onSelectCommunity
 }: AppSidebarProps) {
   const { data: communities, isLoading } = useUserCommunities();
-  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communities);
+  const { communities: dataManagerCommunities } = useDataManager();
+
+  // Convert DataManager communities to UserCommunity format
+  const convertedCommunities = useMemo(() => {
+    return Array.from(dataManagerCommunities.communities.values()).map(community => ({
+      id: community.id,
+      name: community.info.name,
+      description: community.info.description || '',
+      image: community.info.image,
+      banner: community.info.banner,
+      creator: community.pubkey,
+      moderators: community.info.moderators,
+      relays: community.info.relays,
+      event: community.definitionEvent,
+      membershipStatus: community.membershipStatus,
+    }));
+  }, [dataManagerCommunities.communities]);
+
+  // Use DataManager communities if available, fallback to old method
+  const communitiesToUse = convertedCommunities.length > 0 ? convertedCommunities : communities;
+  const isLoadingToUse = dataManagerCommunities.isLoading || (convertedCommunities.length === 0 && isLoading);
+
+  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communitiesToUse);
   const { playSound } = useSoundEffect();
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
@@ -296,6 +319,7 @@ export function AppSidebar({
   const [landingCommunity, setLandingCommunity] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
+
 
   // Drag and drop sensors with click/drag distinction
   const sensors = useSensors(
@@ -399,7 +423,7 @@ export function AppSidebar({
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
-    if (!isLoading && orderedCommunities) {
+    if (!isLoadingToUse && orderedCommunities) {
       return orderedCommunities.map((community) => (
         <SortableCommunityItem
           key={community.id}
@@ -412,7 +436,7 @@ export function AppSidebar({
           onMouseDown={handleCommunityMouseDown}
         />
       ));
-    } else if (isLoading) {
+    } else if (isLoadingToUse) {
       // Skeleton loading for communities
       return Array.from({ length: 3 }).map((_, i) => (
         <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
@@ -425,7 +449,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
+  }, [isLoadingToUse, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
 
   return (
     <TooltipProvider>
