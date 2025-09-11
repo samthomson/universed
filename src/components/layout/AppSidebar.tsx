@@ -286,7 +286,7 @@ export function AppSidebar({
   // Convert DataManager communities to UserCommunity format
   const communitiesList = useMemo(() => {
     return Array.from(dataManagerCommunities.communities.values()).map(community => ({
-      id: community.id,
+      id: community.fullAddressableId, // Use full addressable ID for compatibility with old hooks
       name: community.info.name,
       description: community.info.description || '',
       image: community.info.image,

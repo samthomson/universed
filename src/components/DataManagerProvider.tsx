@@ -201,6 +201,7 @@ interface MembersList {
 // Complete community data structure
 interface CommunityData {
   id: string; // community identifier (d tag)
+  fullAddressableId: string; // full addressable format (34550:pubkey:identifier)
   pubkey: string; // community creator/owner
   info: CommunityInfo; // metadata from community definition
   definitionEvent: NostrEvent; // original kind 34550 community definition
@@ -1835,6 +1836,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       for (const community of communitiesWithStatus) {
         const communityData: CommunityData = {
           id: community.id,
+          fullAddressableId: `34550:${community.pubkey}:${community.id}`,
           pubkey: community.pubkey,
           info: community.info,
           definitionEvent: community.definitionEvent,
@@ -2203,6 +2205,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
         const communityData: CommunityData = {
           id: community.id,
+          fullAddressableId: `34550:${community.pubkey}:${community.id}`,
           pubkey: community.pubkey,
           info: community.info,
           definitionEvent: community.definitionEvent,
