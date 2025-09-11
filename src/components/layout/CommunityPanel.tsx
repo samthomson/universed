@@ -10,7 +10,6 @@ import { useChannels, type Channel } from "@/hooks/useChannels";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
