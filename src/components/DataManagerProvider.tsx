@@ -207,7 +207,7 @@ interface CommunityData {
   channels: Map<string, ChannelData>; // channelId -> channel data
   approvedMembers: MembersList | null; // parsed approved members list
   pendingMembers: MembersList | null; // parsed pending members list
-  membershipStatus: 'approved' | 'pending' | 'blocked'; // user's membership status
+  membershipStatus: 'approved' | 'pending' | 'banned'; // user's membership status
   lastActivity: number;
   isLoadingChannels?: boolean; // indicates if channels are still loading
 }
@@ -1528,7 +1528,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       pubkey: string;
       info: CommunityInfo;
       definitionEvent: NostrEvent;
-      membershipStatus: 'approved' | 'pending' | 'blocked';
+      membershipStatus: 'approved' | 'pending' | 'banned';
       membershipEvent: NostrEvent;
     }>;
     timing: {
@@ -1631,7 +1631,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               switch (event.kind) {
                 case 34551: return 'approved' as const;
                 case 34552: return 'pending' as const;
-                case 34553: return 'blocked' as const;
+                case 34553: return 'banned' as const;
                 default:
                   logger.warn(`Communities: Unknown membership event kind ${event.kind}, skipping`);
                   return null;
@@ -1702,15 +1702,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
 
         // Get membership status - check both explicit membership and owned/moderated status
-        let membershipStatus: 'approved' | 'pending' | 'blocked' | 'owner' | 'moderator';
+        let membershipStatus: 'approved' | 'pending' | 'banned';
         let membershipEvent: NostrEvent;
 
         const membershipInfo = membershipStatusMap.get(communityId!);
         const ownedInfo = ownedCommunityMap.get(communityId!);
 
         if (ownedInfo) {
-          // User owns or moderates this community
-          membershipStatus = ownedInfo.status === 'owner' ? 'approved' : 'approved'; // Owners and moderators are always approved
+          // User owns or moderates this community - always approved
+          membershipStatus = 'approved';
           membershipEvent = ownedInfo.event;
         } else if (membershipInfo) {
           // User has explicit membership
