@@ -24,7 +24,7 @@ import { SpaceManagementDialog } from './SpaceManagementDialog';
 import { useSpaces, type Space } from '@/hooks/useSpaces';
 import { useCanModerate } from '@/hooks/useCommunityRoles';
 
-interface CommunityFeaturesNavProps {
+interface CommunitySectionNavProps {
   communityId: string;
   selectedSpace: string | null;
   onSelectSpace: (spaceId: string | null) => void;
@@ -47,11 +47,11 @@ const ICON_COMPONENTS = {
   Zap,
 };
 
-export function CommunityFeaturesNav({
+export function CommunitySectionNav({
   communityId,
   selectedSpace,
   onSelectSpace
-}: CommunityFeaturesNavProps) {
+}: CommunitySectionNavProps) {
   const { data: spaces, isLoading: isLoadingSpaces } = useSpaces(communityId);
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
@@ -66,7 +66,7 @@ export function CommunityFeaturesNav({
 
   // Show loading skeleton only if we have no data AND we're actually loading (not background fetching)
   if (shouldShowLoading) {
-    return <CommunityFeaturesNavSkeleton />;
+    return <CommunitySectionNavSkeleton />;
   }
 
   if (!spaces || spaces.length === 0) {
@@ -123,8 +123,8 @@ export function CommunityFeaturesNav({
   );
 }
 
-// Loading skeleton for CommunityFeaturesNav
-function CommunityFeaturesNavSkeleton() {
+// Loading skeleton for CommunitySectionNav
+function CommunitySectionNavSkeleton() {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between group">

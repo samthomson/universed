@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { CommunityFeaturesNav } from "@/components/spaces/CommunityFeaturesNav";
+import { CommunitySectionNav } from "@/components/spaces/CommunitySectionNav";
 import { useNavigate } from "react-router-dom";
 
 interface CommunityPanelProps {
@@ -250,9 +250,9 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-2 space-y-4 w-full">
-          {/* Community Features Navigator - Marketplace and Resources */}
+          {/* Community Section Navigator - Marketplace and Resources */}
           <div className="hidden">
-            <CommunityFeaturesNav
+            <CommunitySectionNav
               communityId={communityId}
               selectedSpace={selectedSpace || null}
               onSelectSpace={(spaceId) => onSelectSpace?.(spaceId)}
