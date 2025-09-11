@@ -10,6 +10,8 @@ import { DMLayout } from "./components/layout/DMLayout";
 import { CommunityPage } from "./pages/CommunityPage";
 import { CommunityListPage } from "./pages/CommunityListPage";
 import { CommunityManagementPage } from "./pages/CommunityManagementPage";
+import { CommunityMarketplacePage } from "./pages/CommunityMarketplacePage";
+import { CommunityResourcesPage } from "./pages/CommunityResourcesPage";
 import { JoinPage } from "./pages/JoinPage";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
@@ -71,6 +73,13 @@ export function AppRouter() {
         <Route path="/space" element={<CommunityListPage />} />
         <Route path="/space/:communityId" element={<CommunityPage />} />
         <Route path="/space/:communityId/:channelId" element={<CommunityPage />} />
+        {/* TODO: Enable when marketplace/resources are ready */}
+        {process.env.NODE_ENV === 'never' && (
+          <>
+            <Route path="/space/:communityId/marketplace" element={<CommunityMarketplacePage />} />
+            <Route path="/space/:communityId/resources" element={<CommunityResourcesPage />} />
+          </>
+        )}
         <Route path="/space/:communityId/manage" element={<CommunityManagementPage />} />
         <Route path="/join/:naddr" element={<JoinPage />} />
 

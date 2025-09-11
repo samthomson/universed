@@ -3,7 +3,6 @@ import { CommunityPanel } from "@/components/layout/CommunityPanel";
 import { ChatArea } from "@/components/layout/ChatArea";
 import { MemberList } from "@/components/layout/MemberList";
 import { BasePageLayout } from "@/components/layout/BasePageLayout";
-import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useChannels } from "@/hooks/useChannels";
 import { useNavigate, useParams } from "react-router-dom";
@@ -16,7 +15,6 @@ export function CommunityPage() {
 	const navigate = useNavigate();
 
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
-	const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
 	const [showMemberList, setShowMemberList] = useState(true);
 
 	// Decode naddr format if needed (handle undefined case)
@@ -34,7 +32,7 @@ export function CommunityPage() {
 
 	// Auto-select default channel when community loads
 	useEffect(() => {
-		if (decodedCommunityId && !selectedSpace && channels && channels.length > 0) {
+		if (decodedCommunityId && channels && channels.length > 0) {
 			let newSelectedChannel = selectedChannel;
 
 			if (selectedChannel) {
@@ -65,16 +63,21 @@ export function CommunityPage() {
 				setSelectedChannel(newSelectedChannel);
 			}
 		}
-	}, [decodedCommunityId, selectedSpace, channels, selectedChannel]);
+	}, [decodedCommunityId, channels, selectedChannel]);
 
 	const handleChannelSelect = (channelId: string) => {
 		setSelectedChannel(channelId);
-		setSelectedSpace(null);
 	};
 
 	const handleSpaceSelect = (spaceId: string) => {
-		setSelectedSpace(spaceId);
-		setSelectedChannel(null);
+		// Navigate to the appropriate space page
+		if (!communityId) return; // Guard against undefined
+
+		if (spaceId === 'marketplace') {
+			navigate(`/space/${encodeURIComponent(communityId)}/marketplace`);
+		} else if (spaceId === 'resources') {
+			navigate(`/space/${encodeURIComponent(communityId)}/resources`);
+		}
 	};
 
 	const handleNavigateToDMs = (targetPubkey?: string) => {
@@ -85,10 +88,8 @@ export function CommunityPage() {
 		}
 	};
 
-	// What the user is currently viewing
-	const isViewingSpaces = !!selectedSpace; // User clicked on marketplace/resources tab
-	const isViewingChannels = !selectedSpace; // User clicked on a chat channel
-	const isShowingMemberList = showMemberList && selectedChannel && isViewingChannels;
+	// Always viewing channels on this page (spaces have separate routes now)
+	const isShowingMemberList = showMemberList && selectedChannel;
 
 	// Fail fast - login required
 	if (!user) {
@@ -135,29 +136,19 @@ export function CommunityPage() {
 				<CommunityPanel
 					communityId={finalCommunityId}
 					selectedChannel={selectedChannel}
-					selectedSpace={selectedSpace}
+					selectedSpace={null} // No spaces selected on channel page
 					onSelectChannel={handleChannelSelect}
 					onSelectSpace={handleSpaceSelect}
 					onNavigateToDMs={handleNavigateToDMs}
 				/>
 			}
 			mainContent={
-				isViewingSpaces ? (
-					// MARKETPLACE/RESOURCES: User clicked on marketplace or resources tab
-					// Shows buying/selling interface, file sharing, etc.
-					<SpacesArea
-						communityId={finalCommunityId}
-						selectedSpace={selectedSpace}
-					/>
-				) : (
-					// CHANNEL CHAT: User clicked on a text/voice channel
-					// Shows chat messages, message input, voice controls, etc.
-					<ChatArea
-						communityId={finalCommunityId}
-						channelId={selectedChannel}
-						onToggleMemberList={() => setShowMemberList(!showMemberList)}
-					/>
-				)
+				// CHANNEL CHAT: Always show chat interface (spaces have separate routes)
+				<ChatArea
+					communityId={finalCommunityId}
+					channelId={selectedChannel}
+					onToggleMemberList={() => setShowMemberList(!showMemberList)}
+				/>
 			}
 			rightPanel={
 				isShowingMemberList ? (

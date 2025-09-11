@@ -22,7 +22,7 @@ interface CommunityPanelProps {
   communityId: string | null;
   selectedChannel: string | null;
   selectedSpace?: string | null;
-  onSelectChannel: (channelId: string | null) => void;
+  onSelectChannel?: (channelId: string | null) => void;
   onSelectSpace?: (spaceId: string | null) => void;
   onSelectCommunity?: (communityId: string | null) => void;
   dmTargetPubkey?: string | null;
@@ -264,7 +264,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
             <CommunityChannelList
               communityId={communityId}
               selectedChannel={selectedChannel}
-              onSelectChannel={(channelId) => onSelectChannel(channelId)}
+              onSelectChannel={(channelId) => onSelectChannel?.(channelId)}
               onChannelSettings={setSelectedChannelForSettings}
               canModerate={canModerate}
               onChannelCreated={handleChannelCreated}
