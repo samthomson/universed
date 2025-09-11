@@ -1546,25 +1546,66 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const startTime = Date.now();
 
     try {
-      // Step 1: Find membership lists that include this user (approved + pending + blocked)
-      const membershipFilters = [
+      // Step 1: Find communities where user is a member (both explicit and implicit) - single efficient query
+      const allCommunityEvents = await nostr.query([
+        // Filter 1: Find membership lists that include this user (approved + pending + blocked)
         {
           kinds: [34551, 34552, 34553], // Approved + Pending + Blocked members events
           '#p': [user.pubkey], // User is mentioned in the member list
           limit: 1000,
+        },
+        // Filter 2: Find communities where user is creator/owner
+        {
+          kinds: [34550], // Community definitions
+          authors: [user.pubkey], // User created the community
+          limit: 1000, // Increased from 500 - no reason to artificially limit
+        },
+        // Filter 3: Find communities where user is mentioned as moderator
+        {
+          kinds: [34550], // Community definitions
+          '#p': [user.pubkey], // User is mentioned as moderator
+          limit: 1000, // Increased from 500 - no reason to artificially limit
         }
-      ];
-
-      logger.log('Communities: Querying for user memberships...');
-      const membershipStart = Date.now();
-      const membershipEvents = await nostr.query(membershipFilters, {
+      ], {
         signal: AbortSignal.timeout(15000)
       });
-      const membershipTime = Date.now() - membershipStart;
 
-      logger.log(`Communities: Found ${membershipEvents.length} membership records in ${membershipTime}ms`);
+      // Separate the results by event kind
+      const membershipEvents = allCommunityEvents.filter(event =>
+        [34551, 34552, 34553].includes(event.kind)
+      );
+      const ownedCommunities = allCommunityEvents.filter(event =>
+        event.kind === 34550
+      );
 
-      if (membershipEvents.length === 0) {
+      const membershipTime = Date.now() - startTime;
+
+      logger.log(`Communities: Found ${membershipEvents.length} membership records and ${ownedCommunities.length} owned/moderated communities in ${membershipTime}ms`);
+
+      // Extract community IDs from owned/moderated communities
+      const ownedCommunityIds = new Set<string>();
+      const ownedCommunityMap = new Map<string, { event: NostrEvent; status: 'owner' | 'moderator' }>();
+
+      ownedCommunities.forEach(event => {
+        const communityId = event.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityId) return;
+
+        // Check if user is creator (owner) or moderator
+        const isCreator = event.pubkey === user.pubkey;
+        const isModerator = event.tags.some(([name, pubkey, , role]) =>
+          name === 'p' && pubkey === user.pubkey && role === 'moderator'
+        );
+
+        if (isCreator) {
+          ownedCommunityIds.add(communityId);
+          ownedCommunityMap.set(communityId, { event, status: 'owner' });
+        } else if (isModerator) {
+          ownedCommunityIds.add(communityId);
+          ownedCommunityMap.set(communityId, { event, status: 'moderator' });
+        }
+      });
+
+      if (membershipEvents.length === 0 && ownedCommunityIds.size === 0) {
         logger.log('Communities: User is not a member of any communities');
         const totalTime = Date.now() - startTime;
         return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
@@ -1604,10 +1645,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           .filter((entry) => !!entry)
       );
 
-      // Get unique community IDs for querying
-      const communityIds = new Set(membershipStatusMap.keys());
+      // Combine community IDs from both membership events and owned communities
+      const communityIds = new Set([
+        ...membershipStatusMap.keys(),
+        ...ownedCommunityIds
+      ]);
 
-      logger.log(`Communities: User is member of ${communityIds.size} communities`);
+      logger.log(`Communities: User is member of ${communityIds.size} communities (${membershipStatusMap.size} from membership events, ${ownedCommunityIds.size} owned/moderated)`);
 
       // Step 3: Load community definitions using efficient batch query
       const communityIdArray = Array.from(communityIds);
@@ -1620,15 +1664,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       logger.log(`Communities: Querying for ${communityIdArray.length} community definitions in single batch...`);
 
-      // Query all community definitions in a single batch for efficiency
+      // Query community definitions - combine with already fetched owned communities
       const definitionsStart = Date.now();
-      const communityDefinitions = await nostr.query([{
-        kinds: [34550],
-        '#d': communityIdArray, // Query specific community IDs
-        // No limit needed since we're querying specific IDs
-      }], {
-        signal: AbortSignal.timeout(15000)
-      });
+
+      // Get community IDs that we don't already have definitions for
+      const alreadyHaveDefinitions = new Set(ownedCommunities.map(event =>
+        event.tags.find(([name]) => name === 'd')?.[1]
+      ).filter(Boolean));
+
+      const needDefinitions = communityIdArray.filter(id => !alreadyHaveDefinitions.has(id));
+
+      let additionalDefinitions: NostrEvent[] = [];
+      if (needDefinitions.length > 0) {
+        additionalDefinitions = await nostr.query([{
+          kinds: [34550],
+          '#d': needDefinitions, // Query specific community IDs we don't have
+        }], {
+          signal: AbortSignal.timeout(15000)
+        });
+      }
+
+      // Combine owned communities with additional definitions
+      const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
       const definitionsTime = Date.now() - definitionsStart;
 
       logger.log(`Communities: Found ${communityDefinitions.length} community definitions in ${definitionsTime}ms`);
@@ -1641,7 +1698,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Step 4: Parse community definitions and combine with membership status
       const communitiesWithStatus = communityDefinitions.map(definition => {
         const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
+
+        // Get membership status - check both explicit membership and owned/moderated status
+        let membershipStatus: 'approved' | 'pending' | 'blocked' | 'owner' | 'moderator';
+        let membershipEvent: NostrEvent;
+
         const membershipInfo = membershipStatusMap.get(communityId!);
+        const ownedInfo = ownedCommunityMap.get(communityId!);
+
+        if (ownedInfo) {
+          // User owns or moderates this community
+          membershipStatus = ownedInfo.status === 'owner' ? 'approved' : 'approved'; // Owners and moderators are always approved
+          membershipEvent = ownedInfo.event;
+        } else if (membershipInfo) {
+          // User has explicit membership
+          membershipStatus = membershipInfo.status;
+          membershipEvent = membershipInfo.event;
+        } else {
+          // This shouldn't happen, but fallback
+          logger.warn(`Communities: No membership info found for community ${communityId}`);
+          return null;
+        }
 
         // Parse community metadata from tags
         const name = definition.tags.find(([name]) => name === 'name')?.[1] || communityId!;
@@ -1670,10 +1747,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             relays,
           },
           definitionEvent: definition,
-          membershipStatus: membershipInfo!.status,
-          membershipEvent: membershipInfo!.event,
+          membershipStatus,
+          membershipEvent,
         };
-      });
+      }).filter(community => !!community);
 
       const totalTime = Date.now() - startTime;
       return {

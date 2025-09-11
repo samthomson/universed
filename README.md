@@ -48,6 +48,7 @@ The app may use custom event kinds for specific features. See `NIP.md` (if prese
 |------------|---------------|-------------------|---------|-------------|-------------|--------------|
 | **Communities** | Community Definition | `34550` | NIP-72 | ✓ | Community metadata and moderator lists | `d` (ID), `name`, `description`, `p` (moderators) |
 | | Member Management | `34551/34552/34553` | NIP-72 Ext | ✓ | Approved/declined/banned member lists | `d` (community ref), `p` (member pubkeys) |
+| | | | | | *Note: Membership can be explicit (via 34551-34553 events) or implicit (community creator/moderators)* | |
 | | Content Reporting | `1984` | NIP-56 | | Report content/users for moderation | `e` (target event), `p` (target user), report type |
 | **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata within communities | `d` (ID), `name`, `a` (community ref) |
 | | *Channel Definition (Proposed)* | *`32807`* | | *✓* | *Proper addressable event references* | *`a` (`"34550:pubkey:universes"`)* |
