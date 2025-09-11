@@ -1558,13 +1558,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         {
           kinds: [34550], // Community definitions
           authors: [user.pubkey], // User created the community
-          limit: 1000, // Increased from 500 - no reason to artificially limit
+          limit: 1000,
         },
         // Filter 3: Find communities where user is mentioned as moderator
         {
           kinds: [34550], // Community definitions
           '#p': [user.pubkey], // User is mentioned as moderator
-          limit: 1000, // Increased from 500 - no reason to artificially limit
+          limit: 1000,
         }
       ], {
         signal: AbortSignal.timeout(15000)
@@ -1596,12 +1596,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           name === 'p' && pubkey === user.pubkey && role === 'moderator'
         );
 
-        if (isCreator) {
+        // We query both by authors and #p to catch all cases:
+        // - authors: catches communities where user is creator (even without moderator tag)
+        // - #p: catches communities where user is added as moderator by someone else
+        if (isCreator || isModerator) {
           ownedCommunityIds.add(communityId);
-          ownedCommunityMap.set(communityId, { event, status: 'owner' });
-        } else if (isModerator) {
-          ownedCommunityIds.add(communityId);
-          ownedCommunityMap.set(communityId, { event, status: 'moderator' });
+          // Prioritize creator status over moderator status
+          const status = isCreator ? 'owner' : 'moderator';
+          ownedCommunityMap.set(communityId, { event, status });
         }
       });
 
