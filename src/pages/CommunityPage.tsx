@@ -6,16 +6,12 @@ import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { SpacesArea } from "@/components/spaces/SpacesArea";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useChannels } from "@/hooks/useChannels";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { decodeNaddrFromUrl } from "@/lib/utils";
 
-interface CommunityPageProps {
-	communityId: string;
-	channelId?: string;
-}
-
 // Page component for Community pages
-export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
+export function CommunityPage() {
+	const { communityId, channelId } = useParams<{ communityId: string; channelId?: string }>();
 	const { user } = useCurrentUser();
 	const navigate = useNavigate();
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
@@ -23,7 +19,7 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 	const [showMemberList, setShowMemberList] = useState(true);
 
 	// Decode naddr format if needed
-	let decodedCommunityId = communityId;
+	let decodedCommunityId = communityId || '';
 	if (communityId && communityId.startsWith('naddr1')) {
 		try {
 			decodedCommunityId = decodeNaddrFromUrl(communityId);
@@ -88,25 +84,42 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 		}
 	};
 
-	// Show message if not logged in
-	if (!user) {
-		return <div>Please log in to access communities.</div>;
-	}
-
 	return (
 		<BasePageLayout
 			leftPanel={
-				<CommunityPanel
-					communityId={decodedCommunityId}
-					selectedChannel={selectedChannel}
-					selectedSpace={selectedSpace}
-					onSelectChannel={handleChannelSelect}
-					onSelectSpace={handleSpaceSelect}
-					onNavigateToDMs={handleNavigateToDMs}
-				/>
+				user && communityId ? (
+					<CommunityPanel
+						communityId={decodedCommunityId}
+						selectedChannel={selectedChannel}
+						selectedSpace={selectedSpace}
+						onSelectChannel={handleChannelSelect}
+						onSelectSpace={handleSpaceSelect}
+						onNavigateToDMs={handleNavigateToDMs}
+					/>
+				) : (
+					<div />
+				)
 			}
 			mainContent={
-				selectedSpace ? (
+				!user ? (
+					<div className="flex items-center justify-center bg-background h-full">
+						<div className="text-center max-w-md p-8">
+							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
+							<p className="text-muted-foreground">
+								Please log in to access communities.
+							</p>
+						</div>
+					</div>
+				) : !communityId ? (
+					<div className="flex items-center justify-center bg-background h-full">
+						<div className="text-center max-w-md p-8">
+							<h2 className="text-2xl font-bold mb-4">Community Not Found</h2>
+							<p className="text-muted-foreground">
+								The requested community could not be found.
+							</p>
+						</div>
+					</div>
+				) : selectedSpace ? (
 					<SpacesArea
 						communityId={decodedCommunityId}
 						selectedSpace={selectedSpace}
@@ -120,7 +133,7 @@ export function CommunityPage({ communityId, channelId }: CommunityPageProps) {
 				)
 			}
 			rightPanel={
-				showMemberList && selectedChannel && !selectedSpace ? (
+				user && communityId && showMemberList && selectedChannel && !selectedSpace ? (
 					<MemberList
 						communityId={decodedCommunityId}
 						channelId={selectedChannel}

@@ -51,10 +51,6 @@ export function DMLayout({ targetPubkey }: DMLayoutProps = {}) {
 		}
 	};
 
-	// Show message if not logged in
-	if (!user) {
-		return <div>Please log in to access direct messages.</div>;
-	}
 
 	const friendsPanel = (
 		<Virtuoso
@@ -102,8 +98,19 @@ export function DMLayout({ targetPubkey }: DMLayoutProps = {}) {
 
 	return (
 		<BasePageLayout
-			mainContent={mainContent}
-			rightPanel={friendsPanel}
+			mainContent={
+				user ? mainContent : (
+					<div className="flex items-center justify-center bg-background h-full">
+						<div className="text-center max-w-md p-8">
+							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
+							<p className="text-muted-foreground">
+								Please log in to access direct messages.
+							</p>
+						</div>
+					</div>
+				)
+			}
+			rightPanel={user ? friendsPanel : undefined}
 			showUserPanel={false}
 		/>
 	);

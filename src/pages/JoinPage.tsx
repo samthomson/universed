@@ -25,7 +25,7 @@ export function JoinPage() {
 		return <div>Invalid join link.</div>;
 	}
 
-	// For now, use the community list layout
+	// For now, use the community list layout (already has AppWithSidebar)
 	// The join dialog will be handled by the existing useUrlNavigation logic
 	return <CommunityListPage />;
 }

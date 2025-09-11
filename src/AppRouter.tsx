@@ -4,8 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 
+import { useParams } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
-import { AppLayout } from "./components/layout/AppLayout";
+import { DMLayout } from "./components/layout/DMLayout";
+import { CommunityPage } from "./pages/CommunityPage";
+import { CommunityListPage } from "./pages/CommunityListPage";
+import { CommunityManagementPage } from "./pages/CommunityManagementPage";
+import { JoinPage } from "./pages/JoinPage";
 import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
@@ -38,6 +43,12 @@ function RootRedirecter() {
   return null;
 }
 
+// Wrapper for DMLayout with URL params
+function DMWithParams() {
+  const { npub } = useParams<{ npub?: string }>();
+  return <DMLayout targetPubkey={npub} />;
+}
+
 // Remove old wrapper components - now handled in AppWithSidebar
 
 export function AppRouter() {
@@ -54,10 +65,14 @@ export function AppRouter() {
         <Route path="/voice-demo" element={<VoiceDemo />} />
         <Route path="/communities-debug" element={<CommunitiesDebug />} />
 
-        {/* App routes - with persistent sidebar */}
-        <Route path="/dm/*" element={<AppLayout />} />
-        <Route path="/space/*" element={<AppLayout />} />
-        <Route path="/join/*" element={<AppLayout />} />
+        {/* App routes - each page handles its own layout */}
+        <Route path="/dm" element={<DMLayout />} />
+        <Route path="/dm/:npub" element={<DMWithParams />} />
+        <Route path="/space" element={<CommunityListPage />} />
+        <Route path="/space/:communityId" element={<CommunityPage />} />
+        <Route path="/space/:communityId/:channelId" element={<CommunityPage />} />
+        <Route path="/space/:communityId/manage" element={<CommunityManagementPage />} />
+        <Route path="/join/:naddr" element={<JoinPage />} />
 
         {/* NIP-19 identifier routes - handle at root level */}
         <Route path="/:nip19" element={<NIP19Page />} />
