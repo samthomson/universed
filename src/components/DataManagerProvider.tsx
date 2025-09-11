@@ -208,7 +208,7 @@ interface CommunityData {
   channels: Map<string, ChannelData>; // channelId -> channel data
   approvedMembers: MembersList | null; // parsed approved members list
   pendingMembers: MembersList | null; // parsed pending members list
-  membershipStatus: 'approved' | 'pending' | 'banned'; // user's membership status
+  membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator'; // user's membership status
   lastActivity: number;
   isLoadingChannels?: boolean; // indicates if channels are still loading
 }
@@ -1529,7 +1529,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       pubkey: string;
       info: CommunityInfo;
       definitionEvent: NostrEvent;
-      membershipStatus: 'approved' | 'pending' | 'banned';
+      membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator';
       membershipEvent: NostrEvent;
     }>;
     timing: {
@@ -1834,6 +1834,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const initialCommunitiesState = new Map<string, CommunityData>();
 
       for (const community of communitiesWithStatus) {
+        // Determine the user's role in this community
+        let finalMembershipStatus = community.membershipStatus;
+        if (community.pubkey === userPubkey) {
+          finalMembershipStatus = 'owner' as const;
+        } else if (community.info.moderators.includes(userPubkey || '')) {
+          finalMembershipStatus = 'moderator' as const;
+        }
+
         const communityData: CommunityData = {
           id: community.id,
           fullAddressableId: `34550:${community.pubkey}:${community.id}`,
@@ -1843,7 +1851,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: new Map<string, ChannelData>(), // Empty initially
           approvedMembers: null, // Will be loaded in background
           pendingMembers: null, // Will be loaded in background
-          membershipStatus: community.membershipStatus,
+          membershipStatus: finalMembershipStatus,
           lastActivity: community.definitionEvent.created_at,
           isLoadingChannels: true, // Indicate channels are still loading
         };
@@ -2203,6 +2211,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           event: pendingMembersEvent
         } : null;
 
+        // Determine the user's role in this community
+        let finalMembershipStatus = community.membershipStatus;
+        if (community.pubkey === userPubkey) {
+          finalMembershipStatus = 'owner' as const;
+        } else if (community.info.moderators.includes(userPubkey || '')) {
+          finalMembershipStatus = 'moderator' as const;
+        }
+
         const communityData: CommunityData = {
           id: community.id,
           fullAddressableId: `34550:${community.pubkey}:${community.id}`,
@@ -2212,7 +2228,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: channelsMap,
           approvedMembers: approvedMembers || null,
           pendingMembers: pendingMembers || null,
-          membershipStatus: community.membershipStatus,
+          membershipStatus: finalMembershipStatus,
           lastActivity: isApproved && channelsMap.size > 0
             ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
             : community.definitionEvent.created_at,
