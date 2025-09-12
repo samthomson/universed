@@ -38,6 +38,12 @@ import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders
 import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 import { useVoiceChannel } from "@/hooks/useVoiceChannel";
 
+// Extended Channel interface that includes cached permissions
+interface ChannelWithPermissions extends Channel {
+  permissions?: any; // NostrEvent | null
+  hasAccess?: boolean;
+}
+
 interface CommunityChannelListProps {
   communityId: string;
   selectedChannel: string | null;
@@ -45,6 +51,7 @@ interface CommunityChannelListProps {
   onChannelSettings: (channel: Channel) => void;
   canModerate: boolean;
   onChannelCreated: () => void;
+  channels?: ChannelWithPermissions[]; // Optional: if provided, use these instead of querying
 }
 
 export function CommunityChannelList({
@@ -54,13 +61,18 @@ export function CommunityChannelList({
   onChannelSettings,
   canModerate,
   onChannelCreated,
+  channels: providedChannels,
 }: CommunityChannelListProps) {
   const { toast } = useToast();
-  const { data: channels, isLoading: isLoadingChannels } = useChannels(communityId);
+  const { data: queriedChannels, isLoading: isLoadingChannels } = useChannels(communityId);
+
+  // Use provided channels if available, otherwise fall back to queried channels
+  const channels = providedChannels || queriedChannels;
   const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
 
   // Show loading only if we have no data AND we're actually loading (not just fetching in background)
-  const shouldShowLoading = (isLoadingChannels && !channels) || (isLoadingFolders && !folders);
+  // If channels are provided, don't show loading for channels
+  const shouldShowLoading = (providedChannels ? false : (isLoadingChannels && !channels)) || (isLoadingFolders && !folders);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
@@ -474,7 +486,7 @@ function CategorySection({
 
 // Wrapper component that checks permissions before rendering
 function ChannelItemWithPermissionCheck(props: {
-  channel: Channel;
+  channel: ChannelWithPermissions;
   isSelected: boolean;
   onSelect: () => void;
   onSettings: () => void;
@@ -484,8 +496,17 @@ function ChannelItemWithPermissionCheck(props: {
   communityId: string;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
-  const { canAccess, reason } = useCanAccessChannel(props.communityId, props.channel.id, 'read');
-  const isLoadingPermissions = reason === 'Loading permissions...';
+  // Use cached permissions if available, otherwise fall back to hook
+  const shouldUseHook = props.channel.hasAccess === undefined;
+  const { canAccess: hookCanAccess, reason } = useCanAccessChannel(
+    shouldUseHook ? props.communityId : '',
+    shouldUseHook ? props.channel.id : '',
+    shouldUseHook ? 'read' : undefined
+  );
+
+  // Use cached access if available, otherwise use hook result
+  const canAccess = props.channel.hasAccess !== undefined ? props.channel.hasAccess : hookCanAccess;
+  const isLoadingPermissions = shouldUseHook && reason === 'Loading permissions...';
 
   // If user can't access the channel and is not a moderator, don't show it
   // BUT: Show channels while permissions are loading (they'll be disabled)
@@ -516,7 +537,7 @@ function ChannelItem({
   isLoadingPermissions = false,
   onChannelPreload
 }: {
-  channel: Channel;
+  channel: ChannelWithPermissions;
   isSelected: boolean;
   onSelect: () => void;
   onSettings: () => void;
@@ -532,7 +553,14 @@ function ChannelItem({
   const { voiceState } = useVoiceChannel(channel.type === 'voice' ? channel.id : '');
   const memberCount = voiceState?.members.length || 0;
   const hasUsersConnected = memberCount > 0;
-  const { data: permissions } = useChannelPermissions(communityId || '', channel.id);
+
+  // Use cached permissions if available, otherwise fall back to hook
+  const shouldUsePermissionsHook = !channel.permissions && channel.permissions !== null;
+  const { data: hookPermissions } = useChannelPermissions(
+    shouldUsePermissionsHook ? (communityId || '') : '',
+    shouldUsePermissionsHook ? channel.id : ''
+  );
+  const permissions = channel.permissions !== undefined ? channel.permissions : hookPermissions;
 
   // Determine icon type once based on channel properties
   const iconType = channel.type === 'voice' ? 'voice' : 'text';

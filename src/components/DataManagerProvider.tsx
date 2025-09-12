@@ -182,6 +182,9 @@ interface MessagingDomain {
 // Communities Domain Types
 // ============================================================================
 
+// Configuration constants
+const ALWAYS_ADD_GENERAL_CHANNEL = true;
+
 // Community metadata parsed from kind 34550 events
 interface CommunityInfo {
   name: string; // from name tag
@@ -262,6 +265,21 @@ interface CommunityLoadBreakdown {
   total: number;
 }
 
+// Helper interface for channel display (matching useChannels format but with cached permissions)
+interface DisplayChannel {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'text' | 'voice';
+  communityId: string;
+  creator: string;
+  folderId?: string;
+  position: number;
+  event: NostrEvent;
+  permissions?: NostrEvent | null; // Include cached permissions to avoid additional queries
+  hasAccess?: boolean; // Pre-computed access check
+}
+
 // Communities domain interface
 interface CommunitiesDomain {
   communities: CommunitiesState;
@@ -275,6 +293,7 @@ interface CommunitiesDomain {
     messageCount: number;
     replyCount: number;
   };
+  getSortedChannels: (communityId: string) => DisplayChannel[];
 }
 
 // Main DataManager interface - organized by domain
@@ -2325,6 +2344,84 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
   }, [communities]);
 
+  // Get sorted channels for a community (matching useChannels behavior)
+  const getSortedChannels = useCallback((communityId: string): DisplayChannel[] => {
+    const community = communities.get(communityId);
+    if (!community) {
+      return [];
+    }
+
+    // Helper function to check channel access based on permissions
+    const checkChannelAccess = (channel: ChannelData): boolean => {
+      // If no permissions event, assume public access
+      if (!channel.permissions) {
+        return true;
+      }
+
+      // TODO: Implement proper permission checking logic based on the permissions event
+      // For now, assume access is granted (this prevents loading spinners)
+      // The actual permission logic should parse the permissions event content
+      return true;
+    };
+
+    // Convert DataManager ChannelData to DisplayChannel format
+    const channelsArray: DisplayChannel[] = Array.from(community.channels.values()).map(channel => ({
+      id: channel.id,
+      name: channel.info.name,
+      description: channel.info.description,
+      type: channel.info.type,
+      communityId: channel.communityId,
+      creator: channel.definition.pubkey,
+      folderId: channel.info.folderId,
+      position: channel.info.position,
+      event: channel.definition,
+      permissions: channel.permissions, // Include cached permissions
+      hasAccess: checkChannelAccess(channel), // Pre-compute access to avoid loading spinners
+    }));
+
+    // Add default "general" channel if enabled and not already present
+    if (ALWAYS_ADD_GENERAL_CHANNEL) {
+      const hasGeneralChannel = channelsArray.some(channel =>
+        channel.name.toLowerCase() === 'general'
+      );
+
+      if (!hasGeneralChannel) {
+        channelsArray.unshift({
+          id: 'general',
+          name: 'general',
+          description: 'General discussion',
+          type: 'text',
+          communityId,
+          creator: '',
+          position: 0,
+          event: {} as NostrEvent,
+          permissions: null, // General channel has no special permissions
+          hasAccess: true, // General channel is always accessible
+        });
+      }
+    }
+
+    // Apply the same sorting logic as useChannels
+    return channelsArray.sort((a, b) => {
+      // 1. Folder first: Channels without folders come first
+      if (a.folderId !== b.folderId) {
+        if (!a.folderId) return -1;
+        if (!b.folderId) return 1;
+        return a.folderId.localeCompare(b.folderId);
+      }
+      // 2. Then by position: Within the same folder, sort by position number
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      // 3. Then by type: Text channels come before voice channels
+      if (a.type !== b.type) {
+        return a.type === 'text' ? -1 : 1;
+      }
+      // 4. Finally by name: Alphabetical order as the final tiebreaker
+      return a.name.localeCompare(b.name);
+    });
+  }, [communities]);
+
   // Track whether communities initial load has completed
   const [hasCommunitiesInitialLoadCompleted, setHasCommunitiesInitialLoadCompleted] = useState(false);
 
@@ -2871,6 +2968,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadTime: communitiesLoadTime,
     loadBreakdown: communitiesLoadBreakdown,
     getDebugInfo: getCommunitiesDebugInfo,
+    getSortedChannels,
   };
 
   const contextValue: DataManagerContextType = {

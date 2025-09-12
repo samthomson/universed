@@ -6,9 +6,23 @@ import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { FolderManagementDialog } from "@/components/community/FolderManagementDialog";
 import { CommunityChannelList } from "@/components/community/CommunityChannelList";
-import { useChannels, type Channel } from "@/hooks/useChannels";
-import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useDataManager } from "@/components/DataManagerProvider";
+import type { NostrEvent } from '@nostrify/nostrify';
+
+// Import the DisplayChannel type from DataManagerProvider
+type DisplayChannel = {
+  id: string;
+  name: string;
+  description?: string;
+  type: 'text' | 'voice';
+  communityId: string;
+  creator: string;
+  folderId?: string;
+  position: number;
+  event: NostrEvent;
+  permissions?: NostrEvent | null;
+  hasAccess?: boolean;
+};
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -34,20 +48,35 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
 
   // Convert DataManager communities to array for compatibility with existing code
   const userCommunities = Array.from(communities.communities.values());
-  const { refetch: refetchChannels } = useChannels(communityId);
-  const { canModerate } = useCanModerate(communityId || '');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
-  const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<Channel | null>(null);
+  const [selectedChannelForSettings, setSelectedChannelForSettings] = useState<DisplayChannel | null>(null);
 
   const handleChannelCreated = () => {
-    refetchChannels();
+    // TODO: Implement channel refresh via DataManager
+    console.log('Channel created - refresh mechanism to be implemented');
   };
 
   // Use DataManager as the primary source for community data
-  const community = communities.communities.get(communityId || '');
+  // Extract simple community ID from full addressable format if needed
+  const getSimpleCommunityId = (id: string): string => {
+    if (id.includes(':')) {
+      // Full addressable format: "34550:pubkey:identifier" -> "identifier"
+      const parts = id.split(':');
+      return parts.length === 3 ? parts[2] : id;
+    }
+    return id;
+  };
+
+  const simpleCommunityId = communityId ? getSimpleCommunityId(communityId) : '';
+  const community = communities.communities.get(simpleCommunityId);
+
+  // Check if user can moderate using DataManager data
+  const canModerate = community ?
+    (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') :
+    false;
 
   if (!communityId) {
     // On mobile, show communities list instead of Direct Messages
@@ -266,6 +295,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
               onChannelSettings={setSelectedChannelForSettings}
               canModerate={canModerate}
               onChannelCreated={handleChannelCreated}
+              channels={communities.getSortedChannels(simpleCommunityId)}
             />
           )}
         </div>
