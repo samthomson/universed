@@ -384,6 +384,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
   const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<CommunityLoadBreakdown | null>(null);
 
+  // Track whether we should save communities immediately (for network loads)
+  const [shouldSaveCommunitiesImmediately, setShouldSaveCommunitiesImmediately] = useState(false);
+
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
     logger.log('DMS: DataManager: Main effect triggered with:', { userPubkey, hasInitialLoadCompleted, isLoading });
@@ -1775,21 +1778,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
 
   // Main communities loading function with progressive loading
-  const startCommunitiesLoading = useCallback(async () => {
+  const startCommunitiesLoading = useCallback(async (isBackgroundRefresh = false) => {
     if (!user?.pubkey) {
       logger.log('Communities: No user pubkey available, skipping communities loading');
       return;
     }
 
-    if (communitiesLoading) {
+    if (communitiesLoading && !isBackgroundRefresh) {
       logger.log('Communities: Loading already in progress, skipping duplicate request');
       return;
     }
 
     const startTime = Date.now();
-    logger.log('Communities: Starting communities loading process');
-    setCommunitiesLoading(true);
-    setCommunitiesLoadingPhase(LOADING_PHASES.RELAYS);
+    logger.log(`Communities: Starting communities loading process${isBackgroundRefresh ? ' (background refresh)' : ''}`);
+
+    // Only show loading states for non-background refreshes
+    if (!isBackgroundRefresh) {
+      setCommunitiesLoading(true);
+      setCommunitiesLoadingPhase(LOADING_PHASES.RELAYS);
+    }
 
     try {
       // Step 1: Load communities with membership status
@@ -1799,6 +1806,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       if (communitiesWithStatus.length === 0) {
         logger.log('Communities: No communities found for user');
+
+        // Set empty communities state and cache it (to avoid re-querying immediately)
+        setCommunities(new Map());
+
         const totalTime = Date.now() - startTime;
         setCommunitiesLoadTime(totalTime);
         setCommunitiesLoadBreakdown({
@@ -1876,6 +1887,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           });
           return updated;
         });
+
 
         const totalTime = Date.now() - startTime;
         setCommunitiesLoadTime(totalTime);
@@ -2241,6 +2253,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Update communities state with loaded channel data and remove loading flags
       setCommunities(updatedCommunitiesState);
 
+      // Flag for immediate cache write after successful network load (like messages do)
+      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities from network, will save to cache after state update`);
+      setShouldSaveCommunitiesImmediately(true);
+
       const totalTime = Date.now() - startTime;
       setCommunitiesLoadTime(totalTime);
       setCommunitiesLoadBreakdown({
@@ -2267,15 +2283,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       });
       logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, batch1: ${batch1Time}ms, batch2: ${batch2Time}ms)`);
 
-      setHasCommunitiesInitialLoadCompleted(true);
-      setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+      if (!isBackgroundRefresh) {
+        setHasCommunitiesInitialLoadCompleted(true);
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+      }
     } catch (error) {
       logger.error('Communities: Error in communities loading:', error);
       const totalTime = Date.now() - startTime;
       setCommunitiesLoadTime(totalTime);
-      setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+      if (!isBackgroundRefresh) {
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+      }
     } finally {
-      setCommunitiesLoading(false);
+      if (!isBackgroundRefresh) {
+        setCommunitiesLoading(false);
+      }
     }
   }, [user?.pubkey, communitiesLoading, loadUserCommunities, nostr]);
 
@@ -2322,10 +2344,62 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     logger.log(`Communities: writeCommunitiesToCache called with ${communities.size} communities`);
 
+    // Debug: Log first few community IDs
+    const communityIds = Array.from(communities.keys()).slice(0, 3);
+    logger.log(`Communities: Writing communities to cache: ${communityIds.join(', ')}${communities.size > 3 ? ` and ${communities.size - 3} more` : ''}`);
+
     try {
-      // TODO: Implement IndexedDB storage for communities
-      // Similar to writeMessagesToDB but for communities data
-      // Structure: { communities: Map<string, CommunityData>, lastSync: timestamp, version: number }
+      // Import the IndexedDB utilities
+      const { openDB } = await import('idb');
+
+      // Open or create the communities database
+      const db = await openDB('nostr-communities', 1, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains('communities')) {
+            db.createObjectStore('communities', { keyPath: 'userPubkey' });
+          }
+        },
+      });
+
+      // Convert Map to serializable format
+      const communitiesArray = Array.from(communities.entries()).map(([id, community]) => ({
+        id,
+        fullAddressableId: community.fullAddressableId,
+        pubkey: community.pubkey,
+        info: community.info,
+        definitionEvent: community.definitionEvent,
+        // Convert channels Map to array for serialization
+        channels: Array.from(community.channels.entries()).map(([channelId, channel]) => ({
+          id: channelId,
+          communityId: channel.communityId,
+          info: channel.info,
+          definition: channel.definition,
+          messages: channel.messages,
+          // Convert replies Map to array for serialization
+          replies: Array.from(channel.replies.entries()).map(([messageId, replies]) => ({
+            messageId,
+            replies,
+          })),
+          permissions: channel.permissions,
+          lastActivity: channel.lastActivity,
+        })),
+        approvedMembers: community.approvedMembers,
+        pendingMembers: community.pendingMembers,
+        membershipStatus: community.membershipStatus,
+        lastActivity: community.lastActivity,
+      }));
+
+      // Create the cache object
+      const cacheData = {
+        userPubkey,
+        communities: communitiesArray,
+        lastSync: Date.now(),
+        version: 1,
+      };
+
+      // Write to IndexedDB
+      await db.put('communities', cacheData);
+      await db.close();
 
       logger.log('Communities: Successfully wrote communities cache to IndexedDB');
     } catch (error) {
@@ -2343,12 +2417,85 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log('Communities: Reading communities from cache...');
 
     try {
-      // TODO: Implement IndexedDB reading for communities
-      // Check cache version, validate data freshness, return parsed communities Map
-      // Return null if cache is stale, corrupted, or doesn't exist
+      // Import the IndexedDB utilities
+      const { openDB } = await import('idb');
 
-      logger.log('Communities: Successfully read communities cache from IndexedDB');
-      return null; // Placeholder - return actual cached data
+      // Open the communities database
+      const db = await openDB('nostr-communities', 1, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains('communities')) {
+            db.createObjectStore('communities', { keyPath: 'userPubkey' });
+          }
+        },
+      });
+
+      // Read cached data for this user
+      const cacheData = await db.get('communities', userPubkey);
+      await db.close();
+
+      if (!cacheData) {
+        logger.log('Communities: No cached data found for user');
+        return null;
+      }
+
+      // Check cache version and freshness
+      if (cacheData.version !== 1) {
+        logger.log('Communities: Cache version mismatch, ignoring cached data');
+        return null;
+      }
+
+      // Check if cache is too old (older than 1 week)
+      const cacheAge = Date.now() - cacheData.lastSync;
+      const maxCacheAge = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
+      if (cacheAge > maxCacheAge) {
+        logger.log(`Communities: Cache is too old (${Math.round(cacheAge / 1000 / 60 / 60 / 24)} days), ignoring`);
+        return null;
+      }
+
+      // Convert serialized data back to Map format
+      const communitiesMap = new Map<string, CommunityData>();
+
+      for (const communityData of cacheData.communities) {
+        // Convert channels array back to Map
+        const channelsMap = new Map<string, ChannelData>();
+        for (const channelData of communityData.channels) {
+          // Convert replies array back to Map
+          const repliesMap = new Map<string, NostrEvent[]>();
+          for (const replyData of channelData.replies) {
+            repliesMap.set(replyData.messageId, replyData.replies);
+          }
+
+          channelsMap.set(channelData.id, {
+            id: channelData.id,
+            communityId: channelData.communityId,
+            info: channelData.info,
+            definition: channelData.definition,
+            messages: channelData.messages,
+            replies: repliesMap,
+            permissions: channelData.permissions,
+            lastActivity: channelData.lastActivity,
+          });
+        }
+
+        communitiesMap.set(communityData.id, {
+          id: communityData.id,
+          fullAddressableId: communityData.fullAddressableId,
+          pubkey: communityData.pubkey,
+          info: communityData.info,
+          definitionEvent: communityData.definitionEvent,
+          channels: channelsMap,
+          approvedMembers: communityData.approvedMembers,
+          pendingMembers: communityData.pendingMembers,
+          membershipStatus: communityData.membershipStatus,
+          lastActivity: communityData.lastActivity,
+          isLoadingChannels: false, // Always false when loading from cache
+        });
+      }
+
+      // Debug: Log first few community IDs from cache
+      const cachedCommunityIds = Array.from(communitiesMap.keys()).slice(0, 3);
+      logger.log(`Communities: Successfully read ${communitiesMap.size} communities from cache (age: ${Math.round(cacheAge / 1000)}s): ${cachedCommunityIds.join(', ')}${communitiesMap.size > 3 ? ` and ${communitiesMap.size - 3} more` : ''}`);
+      return communitiesMap;
     } catch (error) {
       logger.error('Communities: Error reading communities from IndexedDB:', error);
       return null;
@@ -2384,8 +2531,34 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     logger.log('Communities: Starting communities loading for user');
-    startCommunitiesLoading();
-  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading]);
+
+    // Try to load from cache first, then fall back to network
+    const loadCommunitiesWithCache = async () => {
+      try {
+        const cachedCommunities = await readCommunitiesFromCache();
+
+        if (cachedCommunities && cachedCommunities.size > 0) {
+          logger.log(`Communities: Loaded ${cachedCommunities.size} communities from cache, starting background refresh`);
+
+          // Set cached data immediately for fast UI
+          setCommunities(cachedCommunities);
+          setHasCommunitiesInitialLoadCompleted(true);
+          setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+
+          // Cache loaded successfully - no background refresh needed
+          logger.log('Communities: Cache loaded successfully, no background refresh');
+        } else {
+          logger.log('Communities: No valid cache found, loading from network');
+          startCommunitiesLoading();
+        }
+      } catch (error) {
+        logger.error('Communities: Error loading from cache, falling back to network:', error);
+        startCommunitiesLoading();
+      }
+    };
+
+    loadCommunitiesWithCache();
+  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache]);
 
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
@@ -2581,13 +2754,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
 
-  // Watch communities state and handle debounced cache writes
+  // Watch communities state and handle cache writes (like messages pattern)
   useEffect(() => {
     if (communities.size === 0) return; // Don't save empty state
 
-    // Trigger debounced write when communities data changes
-    triggerDebouncedCommunitiesWrite();
-  }, [communities, triggerDebouncedCommunitiesWrite]);
+    if (shouldSaveCommunitiesImmediately) {
+      // Clear the flag and save immediately
+      setShouldSaveCommunitiesImmediately(false);
+      logger.log('Communities: Triggering immediate save after network loading');
+      writeCommunitiesToCache();
+    } else {
+      // Normal debounced save for real-time updates
+      triggerDebouncedCommunitiesWrite();
+    }
+  }, [communities, shouldSaveCommunitiesImmediately, writeCommunitiesToCache, triggerDebouncedCommunitiesWrite]);
 
 
 
