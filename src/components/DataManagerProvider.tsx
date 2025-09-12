@@ -2306,6 +2306,66 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Track whether communities initial load has completed
   const [hasCommunitiesInitialLoadCompleted, setHasCommunitiesInitialLoadCompleted] = useState(false);
 
+  // Debounced write ref for communities cache persistence
+  const debouncedCommunitiesWriteRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ============================================================================
+  // Communities Cache Management Functions
+  // ============================================================================
+
+  // 1. Write communities data to cache (IndexedDB)
+  const writeCommunitiesToCache = useCallback(async () => {
+    if (!userPubkey) {
+      logger.error('Communities: No user pubkey available for writing to cache');
+      return;
+    }
+
+    logger.log(`Communities: writeCommunitiesToCache called with ${communities.size} communities`);
+
+    try {
+      // TODO: Implement IndexedDB storage for communities
+      // Similar to writeMessagesToDB but for communities data
+      // Structure: { communities: Map<string, CommunityData>, lastSync: timestamp, version: number }
+
+      logger.log('Communities: Successfully wrote communities cache to IndexedDB');
+    } catch (error) {
+      logger.error('Communities: Error writing communities to IndexedDB:', error);
+    }
+  }, [communities, userPubkey]);
+
+  // 2. Read communities data from cache (IndexedDB)
+  const readCommunitiesFromCache = useCallback(async (): Promise<CommunitiesState | null> => {
+    if (!userPubkey) {
+      logger.log('Communities: No user pubkey available for reading from cache');
+      return null;
+    }
+
+    logger.log('Communities: Reading communities from cache...');
+
+    try {
+      // TODO: Implement IndexedDB reading for communities
+      // Check cache version, validate data freshness, return parsed communities Map
+      // Return null if cache is stale, corrupted, or doesn't exist
+
+      logger.log('Communities: Successfully read communities cache from IndexedDB');
+      return null; // Placeholder - return actual cached data
+    } catch (error) {
+      logger.error('Communities: Error reading communities from IndexedDB:', error);
+      return null;
+    }
+  }, [userPubkey]);
+
+  // 3. Debounced write to cache (similar to messages debouncing)
+  const triggerDebouncedCommunitiesWrite = useCallback(() => {
+    if (debouncedCommunitiesWriteRef.current) {
+      clearTimeout(debouncedCommunitiesWriteRef.current);
+    }
+    debouncedCommunitiesWriteRef.current = setTimeout(() => {
+      writeCommunitiesToCache();
+      debouncedCommunitiesWriteRef.current = null;
+    }, DATA_MANAGER_CONSTANTS.DEBOUNCED_WRITE_DELAY); // Reuse same 15s delay
+  }, [writeCommunitiesToCache]);
+
   // Start communities loading when user is available
   useEffect(() => {
     if (!userPubkey) {
@@ -2344,6 +2404,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (debouncedWriteRef.current) {
         clearTimeout(debouncedWriteRef.current);
         logger.log('DMS: DataManager: Cleaned up debounced write timeout');
+      }
+
+      // Clear debounced communities write timeout
+      if (debouncedCommunitiesWriteRef.current) {
+        clearTimeout(debouncedCommunitiesWriteRef.current);
+        logger.log('Communities: DataManager: Cleaned up debounced communities write timeout');
       }
 
       // Reset subscription status
@@ -2514,6 +2580,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       triggerDebouncedWrite();
     }
   }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
+
+  // Watch communities state and handle debounced cache writes
+  useEffect(() => {
+    if (communities.size === 0) return; // Don't save empty state
+
+    // Trigger debounced write when communities data changes
+    triggerDebouncedCommunitiesWrite();
+  }, [communities, triggerDebouncedCommunitiesWrite]);
 
 
 
