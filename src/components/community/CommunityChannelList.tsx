@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { cn, generateSpaceUrl } from '@/lib/utils';
 import {
   Hash,
@@ -33,25 +33,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateChannelDialog } from "./CreateChannelDialog";
 import { FolderManagementDialog } from "./FolderManagementDialog";
-import { useChannels, type Channel } from "@/hooks/useChannels";
-import { useChannelFolders, type ChannelFolder } from "@/hooks/useChannelFolders";
-import { useChannelPermissions, useCanAccessChannel } from "@/hooks/useChannelPermissions";
 import { useVoiceChannel } from "@/hooks/useVoiceChannel";
-
-// Extended Channel interface that includes cached permissions
-interface ChannelWithPermissions extends Channel {
-  permissions?: any; // NostrEvent | null
-  hasAccess?: boolean;
-}
+import { useDataManager, type DisplayChannel, type ChannelFolder } from "@/components/DataManagerProvider";
 
 interface CommunityChannelListProps {
   communityId: string;
   selectedChannel: string | null;
   onSelectChannel: (channelId: string) => void;
-  onChannelSettings: (channel: Channel) => void;
+  onChannelSettings: (channel: DisplayChannel) => void;
   canModerate: boolean;
   onChannelCreated: () => void;
-  channels?: ChannelWithPermissions[]; // Optional: if provided, use these instead of querying
 }
 
 export function CommunityChannelList({
@@ -61,45 +52,19 @@ export function CommunityChannelList({
   onChannelSettings,
   canModerate,
   onChannelCreated,
-  channels: providedChannels,
 }: CommunityChannelListProps) {
   const { toast } = useToast();
-  const { data: queriedChannels, isLoading: isLoadingChannels } = useChannels(communityId);
+  const { communities } = useDataManager();
 
-  // Use provided channels if available, otherwise fall back to queried channels
-  const channels = providedChannels || queriedChannels;
-  const { data: folders, isLoading: isLoadingFolders } = useChannelFolders(communityId);
+  // Get all data from DataManager - no network calls needed
+  const folders = communities.getFolders(communityId);
+  const channelsWithoutFolder = communities.getChannelsWithoutFolder(communityId);
+  const isLoading = communities.isLoading;
 
-  // Show loading only if we have no data AND we're actually loading (not just fetching in background)
-  // If channels are provided, don't show loading for channels
-  const shouldShowLoading = (providedChannels ? false : (isLoadingChannels && !channels)) || (isLoadingFolders && !folders);
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
   const [showFolderManagement, setShowFolderManagement] = useState(false);
   const [folderStates, setFolderStates] = useState<Record<string, boolean>>({});
-
-  // Filter channels to only show those the user can access
-  const visibleChannels = useMemo(() => {
-    if (!channels) return [];
-    // We'll filter channels in the ChannelItem component to avoid too many permission checks
-    // For now, return all channels but they'll be hidden if no access
-    return channels;
-  }, [channels]);
-
-  // Group channels by folder and type
-  const channelsWithoutFolder = visibleChannels?.filter(c => !c.folderId) || [];
-  const textChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'text');
-  const voiceChannelsWithoutFolder = channelsWithoutFolder.filter(c => c.type === 'voice');
-
-  const channelsByFolder = folders?.reduce((acc, folder) => {
-    const folderChannels = visibleChannels?.filter(c => c.folderId === folder.id) || [];
-    acc[folder.id] = {
-      folder,
-      textChannels: folderChannels.filter(c => c.type === 'text'),
-      voiceChannels: folderChannels.filter(c => c.type === 'voice'),
-    };
-    return acc;
-  }, {} as Record<string, { folder: ChannelFolder; textChannels: Channel[]; voiceChannels: Channel[] }>) || {};
 
   const toggleFolder = (folderId: string) => {
     setFolderStates(prev => ({
@@ -112,11 +77,15 @@ export function CommunityChannelList({
     return folderStates[folderId] !== false;
   };
 
-  const copyChannelLink = (channel: Channel) => {
+  const copyChannelLink = (channel: DisplayChannel) => {
     // Create a link to the channel using naddr format
     try {
       const channelLink = generateSpaceUrl(communityId, channel.id);
       navigator.clipboard.writeText(channelLink);
+      toast({
+        title: "Link copied",
+        description: "Channel link copied to clipboard",
+      });
     } catch {
       // Show error to user
       toast({
@@ -127,22 +96,20 @@ export function CommunityChannelList({
     }
   };
 
-  // Show loading skeleton only if we have no data AND we're actually loading (not background fetching)
-  if (shouldShowLoading) {
+  // Show loading skeleton if DataManager is still loading
+  if (isLoading) {
     return <CommunityChannelListSkeleton />;
   }
 
   return (
     <div className="space-y-1 overflow-hidden">
       {/* Folders */}
-      {Object.entries(channelsByFolder).map(([folderId, { folder, textChannels, voiceChannels }]) => (
+      {folders.map((folder) => (
         <FolderSection
-          key={folderId}
+          key={folder.id}
           folder={folder}
-          textChannels={textChannels}
-          voiceChannels={voiceChannels}
-          isOpen={isFolderOpen(folderId)}
-          onToggle={() => toggleFolder(folderId)}
+          isOpen={isFolderOpen(folder.id)}
+          onToggle={() => toggleFolder(folder.id)}
           selectedChannel={selectedChannel}
           onSelectChannel={onSelectChannel}
           onChannelSettings={onChannelSettings}
@@ -154,7 +121,7 @@ export function CommunityChannelList({
       ))}
 
       {/* Text Channels (Root Level) */}
-      {textChannelsWithoutFolder.length > 0 && (
+      {channelsWithoutFolder.text.length > 0 && (
         <CategorySection
           title="TEXT CHANNELS"
           isOpen={textChannelsOpen}
@@ -163,8 +130,8 @@ export function CommunityChannelList({
           onChannelCreated={onChannelCreated}
           defaultChannelType="text"
         >
-          {textChannelsWithoutFolder.map((channel) => (
-            <ChannelItemWithPermissionCheck
+          {channelsWithoutFolder.text.map((channel) => (
+            <ChannelItem
               key={channel.id}
               channel={channel}
               isSelected={selectedChannel === channel.id}
@@ -179,7 +146,7 @@ export function CommunityChannelList({
       )}
 
       {/* Voice Channels (Root Level) */}
-      {voiceChannelsWithoutFolder.length > 0 && (
+      {channelsWithoutFolder.voice.length > 0 && (
         <CategorySection
           title="VOICE CHANNELS"
           isOpen={voiceChannelsOpen}
@@ -188,8 +155,8 @@ export function CommunityChannelList({
           onChannelCreated={onChannelCreated}
           defaultChannelType="voice"
         >
-          {voiceChannelsWithoutFolder.map((channel) => (
-            <ChannelItemWithPermissionCheck
+          {channelsWithoutFolder.voice.map((channel) => (
+            <ChannelItem
               key={channel.id}
               channel={channel}
               isSelected={selectedChannel === channel.id}
@@ -307,8 +274,6 @@ function CommunityChannelListSkeleton() {
 // Folder Section Component
 function FolderSection({
   folder,
-  textChannels,
-  voiceChannels,
   isOpen,
   onToggle,
   selectedChannel,
@@ -321,20 +286,19 @@ function FolderSection({
   onChannelPreload
 }: {
   folder: ChannelFolder;
-  textChannels: Channel[];
-  voiceChannels: Channel[];
   isOpen: boolean;
   onToggle: () => void;
   selectedChannel: string | null;
   onSelectChannel: (channelId: string) => void;
-  onChannelSettings: (channel: Channel) => void;
-  onCopyChannelLink: (channel: Channel) => void;
+  onChannelSettings: (channel: DisplayChannel) => void;
+  onCopyChannelLink: (channel: DisplayChannel) => void;
   canModerate: boolean;
   communityId: string;
   onChannelCreated: () => void;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
-  const allChannels = [...textChannels, ...voiceChannels];
+  // Channels are already included in the folder from DataManager
+  const allChannels = folder.channels;
 
   return (
     <div className="space-y-1 overflow-hidden">
@@ -398,7 +362,7 @@ function FolderSection({
 
             <CollapsibleContent className="space-y-0.5 ml-1 border-l border-gray-600/40 pl-1 overflow-hidden">
               {allChannels.map((channel) => (
-                <ChannelItemWithPermissionCheck
+                <ChannelItem
                   key={channel.id}
                   channel={channel}
                   isSelected={selectedChannel === channel.id}
@@ -484,46 +448,9 @@ function CategorySection({
   );
 }
 
-// Wrapper component that checks permissions before rendering
-function ChannelItemWithPermissionCheck(props: {
-  channel: ChannelWithPermissions;
-  isSelected: boolean;
-  onSelect: () => void;
-  onSettings: () => void;
-  onCopyLink: () => void;
-  canModerate: boolean;
-  inFolder?: boolean;
-  communityId: string;
-  onChannelPreload?: (communityId: string, channelId: string) => void;
-}) {
-  // Use cached permissions if available, otherwise fall back to hook
-  const shouldUseHook = props.channel.hasAccess === undefined;
-  const { canAccess: hookCanAccess, reason } = useCanAccessChannel(
-    shouldUseHook ? props.communityId : '',
-    shouldUseHook ? props.channel.id : '',
-    shouldUseHook ? 'read' : undefined
-  );
+// No wrapper needed - all data is pre-computed in DataManager
 
-  // Use cached access if available, otherwise use hook result
-  const canAccess = props.channel.hasAccess !== undefined ? props.channel.hasAccess : hookCanAccess;
-  const isLoadingPermissions = shouldUseHook && reason === 'Loading permissions...';
-
-  // If user can't access the channel and is not a moderator, don't show it
-  // BUT: Show channels while permissions are loading (they'll be disabled)
-  if (!canAccess && !props.canModerate && !isLoadingPermissions) {
-    return null;
-  }
-
-  return (
-    <ChannelItem
-      {...props}
-      hasAccess={canAccess}
-      isLoadingPermissions={isLoadingPermissions}
-    />
-  );
-}
-
-// Enhanced Channel Item with Discord-like styling and context menu
+// Pure view component - all data pre-computed in DataManager
 function ChannelItem({
   channel,
   isSelected,
@@ -533,11 +460,9 @@ function ChannelItem({
   canModerate,
   inFolder = false,
   communityId,
-  hasAccess = true,
-  isLoadingPermissions = false,
   onChannelPreload
 }: {
-  channel: ChannelWithPermissions;
+  channel: DisplayChannel;
   isSelected: boolean;
   onSelect: () => void;
   onSettings: () => void;
@@ -545,8 +470,6 @@ function ChannelItem({
   canModerate: boolean;
   inFolder?: boolean;
   communityId?: string;
-  hasAccess?: boolean;
-  isLoadingPermissions?: boolean;
   onChannelPreload?: (communityId: string, channelId: string) => void;
 }) {
   // Get real-time voice channel status for voice channels
@@ -554,46 +477,8 @@ function ChannelItem({
   const memberCount = voiceState?.members.length || 0;
   const hasUsersConnected = memberCount > 0;
 
-  // Use cached permissions if available, otherwise fall back to hook
-  const shouldUsePermissionsHook = !channel.permissions && channel.permissions !== null;
-  const { data: hookPermissions } = useChannelPermissions(
-    shouldUsePermissionsHook ? (communityId || '') : '',
-    shouldUsePermissionsHook ? channel.id : ''
-  );
-  const permissions = channel.permissions !== undefined ? channel.permissions : hookPermissions;
-
-  // Determine icon type once based on channel properties
-  const iconType = channel.type === 'voice' ? 'voice' : 'text';
-
-  // Stable icon rendering without dynamic checks
-  const ChannelIcon = iconType === 'voice' ? Volume2 : Hash;
-
-  // Determine privacy icon - only show for restricted channels
-  const getPrivacyIcon = () => {
-    // No access - always show lock
-    if (!hasAccess) {
-      return <Lock className="w-3 h-3 text-muted-foreground opacity-50" />;
-    }
-
-    // No permissions data yet - return empty space to prevent layout shift
-    if (!permissions) {
-      return <span className="w-3 h-3 block" />;
-    }
-
-    // Show lock only for channels restricted to moderators or specific people
-    const isRestricted =
-      permissions.readPermissions === 'moderators' ||
-      permissions.readPermissions === 'specific' ||
-      permissions.writePermissions === 'moderators' ||
-      permissions.writePermissions === 'specific';
-
-    if (isRestricted) {
-      return <Lock className="w-3 h-3 text-muted-foreground opacity-50" />;
-    }
-
-    // Public or member-accessible channel - no icon needed, just empty space
-    return <span className="w-3 h-3 block" />;
-  };
+  // All data is pre-computed in DataManager - no processing needed
+  const ChannelIcon = channel.type === 'voice' ? Volume2 : Hash;
 
   return (
     <div className={`${inFolder ? 'ml-1' : 'ml-4'}`}>
@@ -622,30 +507,22 @@ function ChannelItem({
             {/* Channel name - clickable area */}
             <button
               className={`
-                flex-1 text-left text-sm font-medium truncate min-w-0 flex items-center gap-1
+                flex-1 text-left text-sm font-medium truncate min-w-0
                 ${isSelected
                   ? 'text-foreground font-semibold'
-                  : isLoadingPermissions
-                    ? 'text-muted-foreground cursor-wait'
-                    : hasAccess
-                      ? 'text-foreground hover:text-nostr-purple'
-                      : 'text-muted-foreground hover:text-foreground italic'
+                  : 'text-foreground hover:text-nostr-purple'
                 }
               `}
-              onClick={isLoadingPermissions ? undefined : onSelect}
-              disabled={isLoadingPermissions}
+              onClick={onSelect}
             >
               {channel.name}
-              {isLoadingPermissions && (
-                <div className="w-3 h-3 border border-muted-foreground border-t-transparent rounded-full animate-spin flex-shrink-0" />
-              )}
             </button>
 
             {/* Right side indicators - fixed width container */}
             <div className="flex items-center gap-1 ml-1 flex-shrink-0">
               {/* Privacy icon slot - always reserve space */}
               <div className="w-3 h-3 flex items-center justify-center flex-shrink-0">
-                {getPrivacyIcon()}
+                {channel.isRestricted && <Lock className="w-3 h-3 text-muted-foreground opacity-50" />}
               </div>
 
               {/* Voice channel users - fixed width */}

@@ -265,8 +265,19 @@ interface CommunityLoadBreakdown {
   total: number;
 }
 
+// Folder information extracted from channels
+export interface ChannelFolder {
+  id: string;
+  name: string;
+  description?: string;
+  position: number;
+  communityId: string;
+  creator: string;
+  channels: DisplayChannel[]; // Channels in this folder
+}
+
 // Helper interface for channel display (matching useChannels format but with cached permissions)
-interface DisplayChannel {
+export interface DisplayChannel {
   id: string;
   name: string;
   description?: string;
@@ -277,7 +288,12 @@ interface DisplayChannel {
   position: number;
   event: NostrEvent;
   permissions?: NostrEvent | null; // Include cached permissions to avoid additional queries
-  hasAccess?: boolean; // Pre-computed access check
+  hasAccess: boolean; // Pre-computed access check - REQUIRED, no fallback
+  parsedPermissions: {
+    readPermissions: 'everyone' | 'members' | 'moderators' | 'specific';
+    writePermissions: 'everyone' | 'members' | 'moderators' | 'specific';
+  }; // Pre-parsed permissions - REQUIRED
+  isRestricted: boolean; // Pre-computed restriction check - REQUIRED
 }
 
 // Communities domain interface
@@ -294,6 +310,8 @@ interface CommunitiesDomain {
     replyCount: number;
   };
   getSortedChannels: (communityId: string) => DisplayChannel[];
+  getFolders: (communityId: string) => ChannelFolder[];
+  getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
 }
 
 // Main DataManager interface - organized by domain
@@ -2344,40 +2362,110 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
   }, [communities]);
 
-  // Get sorted channels for a community (matching useChannels behavior)
+  // Helper function to parse permissions from NostrEvent
+  const parsePermissions = useCallback((permissionsEvent: NostrEvent | null) => {
+    if (!permissionsEvent) {
+      return {
+        readPermissions: 'everyone' as const,
+        writePermissions: 'members' as const,
+      };
+    }
+
+    try {
+      const content = JSON.parse(permissionsEvent.content);
+      return {
+        readPermissions: content.readPermissions || 'everyone',
+        writePermissions: content.writePermissions || 'members',
+      };
+    } catch {
+      return {
+        readPermissions: 'everyone' as const,
+        writePermissions: 'members' as const,
+      };
+    }
+  }, []);
+
+  // Helper function to check channel access based on permissions
+  const checkChannelAccess = useCallback((channel: ChannelData, community: CommunityData): boolean => {
+    // If no permissions event, assume public access
+    if (!channel.permissions) {
+      return true;
+    }
+
+    const parsedPermissions = parsePermissions(channel.permissions);
+
+    // Owners and moderators always have access
+    if (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') {
+      return true;
+    }
+
+    // Check read permissions
+    switch (parsedPermissions.readPermissions) {
+      case 'everyone':
+        return true;
+      case 'members':
+        return ['approved', 'owner', 'moderator'].includes(community.membershipStatus);
+      case 'moderators':
+        return ['owner', 'moderator'].includes(community.membershipStatus);
+      case 'specific':
+        // TODO: Check if user is in allowed readers list from permissions event tags
+        return true; // For now, assume access
+      default:
+        return true;
+    }
+  }, [parsePermissions]);
+
+  // Get sorted channels for a community with all data pre-computed and filtered by access
   const getSortedChannels = useCallback((communityId: string): DisplayChannel[] => {
     const community = communities.get(communityId);
     if (!community) {
       return [];
     }
 
-    // Helper function to check channel access based on permissions
-    const checkChannelAccess = (channel: ChannelData): boolean => {
-      // If no permissions event, assume public access
-      if (!channel.permissions) {
-        return true;
-      }
+    // Convert DataManager ChannelData to DisplayChannel format with all data pre-computed
+    const channelsArray: DisplayChannel[] = Array.from(community.channels.values())
+      .map(channel => {
+        const hasAccess = checkChannelAccess(channel, community);
+        const parsedPermissions = parsePermissions(channel.permissions);
 
-      // TODO: Implement proper permission checking logic based on the permissions event
-      // For now, assume access is granted (this prevents loading spinners)
-      // The actual permission logic should parse the permissions event content
-      return true;
-    };
+        // Assert that we can determine access - fail fast if not
+        if (hasAccess === undefined || hasAccess === null) {
+          throw new Error(`DataManager: Cannot determine access for channel ${channel.id} in community ${communityId}`);
+        }
 
-    // Convert DataManager ChannelData to DisplayChannel format
-    const channelsArray: DisplayChannel[] = Array.from(community.channels.values()).map(channel => ({
-      id: channel.id,
-      name: channel.info.name,
-      description: channel.info.description,
-      type: channel.info.type,
-      communityId: channel.communityId,
-      creator: channel.definition.pubkey,
-      folderId: channel.info.folderId,
-      position: channel.info.position,
-      event: channel.definition,
-      permissions: channel.permissions, // Include cached permissions
-      hasAccess: checkChannelAccess(channel), // Pre-compute access to avoid loading spinners
-    }));
+        // Assert that we can parse permissions - fail fast if not
+        if (!parsedPermissions) {
+          throw new Error(`DataManager: Cannot parse permissions for channel ${channel.id} in community ${communityId}`);
+        }
+
+        // Pre-compute restriction check
+        const isRestricted =
+          parsedPermissions.readPermissions === 'moderators' ||
+          parsedPermissions.readPermissions === 'specific' ||
+          parsedPermissions.writePermissions === 'moderators' ||
+          parsedPermissions.writePermissions === 'specific';
+
+        return {
+          id: channel.id,
+          name: channel.info.name,
+          description: channel.info.description,
+          type: channel.info.type,
+          communityId: channel.communityId,
+          creator: channel.definition.pubkey,
+          folderId: channel.info.folderId,
+          position: channel.info.position,
+          event: channel.definition,
+          permissions: channel.permissions,
+          hasAccess,
+          parsedPermissions,
+          isRestricted,
+        };
+      })
+      // Filter out channels the user can't access (unless they're a moderator who can see everything)
+      .filter(channel => {
+        const canModerate = community.membershipStatus === 'owner' || community.membershipStatus === 'moderator';
+        return channel.hasAccess || canModerate;
+      });
 
     // Add default "general" channel if enabled and not already present
     if (ALWAYS_ADD_GENERAL_CHANNEL) {
@@ -2386,6 +2474,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       );
 
       if (!hasGeneralChannel) {
+        // Create a proper permissions object for general channel
+        const generalPermissions = {
+          content: JSON.stringify({
+            readPermissions: 'everyone',
+            writePermissions: 'members',
+          }),
+          kind: 30143,
+          pubkey: '',
+          created_at: 0,
+          id: '',
+          sig: '',
+          tags: [],
+        } as NostrEvent;
+
         channelsArray.unshift({
           id: 'general',
           name: 'general',
@@ -2395,8 +2497,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           creator: '',
           position: 0,
           event: {} as NostrEvent,
-          permissions: null, // General channel has no special permissions
+          permissions: generalPermissions,
           hasAccess: true, // General channel is always accessible
+          parsedPermissions: {
+            readPermissions: 'everyone',
+            writePermissions: 'members',
+          },
+          isRestricted: false, // General channel is not restricted
         });
       }
     }
@@ -2420,7 +2527,44 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // 4. Finally by name: Alphabetical order as the final tiebreaker
       return a.name.localeCompare(b.name);
     });
-  }, [communities]);
+  }, [communities, checkChannelAccess, parsePermissions]);
+
+  // Get folders for a community with channels grouped by folder
+  const getFolders = useCallback((communityId: string): ChannelFolder[] => {
+    const allChannels = getSortedChannels(communityId);
+    const folderMap = new Map<string, ChannelFolder>();
+
+    // Group channels by folder
+    allChannels.forEach(channel => {
+      if (channel.folderId) {
+        if (!folderMap.has(channel.folderId)) {
+          folderMap.set(channel.folderId, {
+            id: channel.folderId,
+            name: channel.folderId, // Use folderId as name for now
+            description: undefined,
+            position: 0,
+            communityId,
+            creator: '',
+            channels: [],
+          });
+        }
+        folderMap.get(channel.folderId)!.channels.push(channel);
+      }
+    });
+
+    return Array.from(folderMap.values()).sort((a, b) => a.position - b.position);
+  }, [getSortedChannels]);
+
+  // Get channels without folders, grouped by type
+  const getChannelsWithoutFolder = useCallback((communityId: string): { text: DisplayChannel[]; voice: DisplayChannel[] } => {
+    const allChannels = getSortedChannels(communityId);
+    const channelsWithoutFolder = allChannels.filter(channel => !channel.folderId);
+
+    return {
+      text: channelsWithoutFolder.filter(channel => channel.type === 'text'),
+      voice: channelsWithoutFolder.filter(channel => channel.type === 'voice'),
+    };
+  }, [getSortedChannels]);
 
   // Track whether communities initial load has completed
   const [hasCommunitiesInitialLoadCompleted, setHasCommunitiesInitialLoadCompleted] = useState(false);
@@ -2969,6 +3113,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadBreakdown: communitiesLoadBreakdown,
     getDebugInfo: getCommunitiesDebugInfo,
     getSortedChannels,
+    getFolders,
+    getChannelsWithoutFolder,
   };
 
   const contextValue: DataManagerContextType = {

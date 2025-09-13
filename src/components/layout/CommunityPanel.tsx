@@ -6,23 +6,7 @@ import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { FolderManagementDialog } from "@/components/community/FolderManagementDialog";
 import { CommunityChannelList } from "@/components/community/CommunityChannelList";
-import { useDataManager } from "@/components/DataManagerProvider";
-import type { NostrEvent } from '@nostrify/nostrify';
-
-// Import the DisplayChannel type from DataManagerProvider
-type DisplayChannel = {
-  id: string;
-  name: string;
-  description?: string;
-  type: 'text' | 'voice';
-  communityId: string;
-  creator: string;
-  folderId?: string;
-  position: number;
-  event: NostrEvent;
-  permissions?: NostrEvent | null;
-  hasAccess?: boolean;
-};
+import { useDataManager, type DisplayChannel } from "@/components/DataManagerProvider";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -289,13 +273,12 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
           {/* Community Channel List - Hide in management mode */}
           {!managementMode && (
             <CommunityChannelList
-              communityId={communityId}
+              communityId={simpleCommunityId}
               selectedChannel={selectedChannel}
               onSelectChannel={(channelId) => onSelectChannel?.(channelId)}
               onChannelSettings={setSelectedChannelForSettings}
               canModerate={canModerate}
               onChannelCreated={handleChannelCreated}
-              channels={communities.getSortedChannels(simpleCommunityId)}
             />
           )}
         </div>
