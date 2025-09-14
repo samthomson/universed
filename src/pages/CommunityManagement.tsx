@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useCanModerate } from '@/hooks/useCommunityRoles';
-import { useCommunities } from '@/hooks/useCommunities';
+import { useDataManager, useDataManagerUserRole, useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import type { Community } from '@/hooks/useCommunities';
 import { ModerationDashboard } from '@/components/moderation/ModerationDashboard';
 import { AdminPanel } from '@/components/moderation/AdminPanel';
 import { CommunitySettings } from '@/components/moderation/CommunitySettings';
@@ -18,14 +18,38 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityShareDialog } from '@/components/community/CommunityShareDialog';
 
+// Convert DataManager community format to old Community format for compatibility
+function convertToOldCommunityFormat(community: any): Community | null {
+  if (!community) return null;
+
+  return {
+    id: community.fullAddressableId, // Use full addressable format (34550:pubkey:identifier)
+    name: community.info.name,
+    description: community.info.description,
+    image: community.info.image,
+    banner: community.info.banner,
+    creator: community.definitionEvent.pubkey,
+    moderators: community.info.moderators,
+    relays: community.info.relays,
+    event: community.definitionEvent,
+  };
+}
+
 export function CommunityManagement() {
   const { communityId } = useParams<{ communityId: string }>();
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
   const { user } = useCurrentUser();
-  const { data: communities, isLoading: isLoadingCommunities } = useCommunities();
-  const { canModerate, role } = useCanModerate(communityId || '');
+  const { communities } = useDataManager();
+  const { role } = useDataManagerUserRole(communityId || '', user?.pubkey);
+  const { canModerate } = useDataManagerCanModerate(communityId || '');
+
+  // Get community from DataManager
+  const community = communityId ? communities.communities.get(communityId) : null;
+
+  // Convert to old format for compatibility with existing components
+  const oldFormatCommunity = convertToOldCommunityFormat(community);
 
   if (!communityId) {
     return <Navigate to="/communities" replace />;
@@ -49,7 +73,8 @@ export function CommunityManagement() {
     );
   }
 
-  if (isLoadingCommunities) {
+  // Show loading state while community data is being fetched
+  if (!community) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="space-y-6">
@@ -66,27 +91,6 @@ export function CommunityManagement() {
             </CardContent>
           </Card>
         </div>
-      </div>
-    );
-  }
-
-  const community = communities?.find(c => c.id === communityId);
-
-  if (!community) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card>
-          <CardContent className="py-12 text-center">
-            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Community Not Found</h3>
-            <p className="text-muted-foreground mb-4">
-              The community you're looking for doesn't exist or you don't have access to it.
-            </p>
-            <Button onClick={() => window.history.back()}>
-              Go Back
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -119,14 +123,14 @@ export function CommunityManagement() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarImage src={community.image} />
+                  <AvatarImage src={community.info.image} />
                   <AvatarFallback className="text-lg">
-                    {community.name.slice(0, 2).toUpperCase()}
+                    {community.info.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold">{community.name}</h1>
+                    <h1 className="text-2xl font-bold">{community.info.name}</h1>
                     <Badge variant={role === 'owner' ? 'default' : 'secondary'}>
                       {role === 'owner' && <Crown className="h-3 w-3 mr-1" />}
                       {role === 'moderator' && <Shield className="h-3 w-3 mr-1" />}
@@ -134,17 +138,19 @@ export function CommunityManagement() {
                     </Badge>
                   </div>
                   <p className="text-muted-foreground">
-                    {community.description || 'Community management dashboard'}
+                    {community.info.description || 'Community management dashboard'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <CommunityShareDialog community={community}>
-                  <Button variant="outline">
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share
-                  </Button>
-                </CommunityShareDialog>
+                {oldFormatCommunity && (
+                  <CommunityShareDialog community={oldFormatCommunity}>
+                    <Button variant="outline">
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
+                  </CommunityShareDialog>
+                )}
                 <Button variant="outline" onClick={() => navigate(`/space/${encodeURIComponent(communityId)}`)}>
                   Back to Community
                 </Button>
