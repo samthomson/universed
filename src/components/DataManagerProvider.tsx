@@ -227,7 +227,7 @@ interface ChannelInfo {
 
 // Complete channel data structure
 interface ChannelData {
-  id: string; // channel identifier (d tag)
+  id: string; // Channel identifier from d tag (should be simple like "general", "design-team")
   communityId: string; // parent community id
   info: ChannelInfo; // parsed metadata from channel definition
   definition: NostrEvent; // original kind 32807 channel definition
@@ -278,7 +278,7 @@ export interface ChannelFolder {
 
 // Helper interface for channel display (matching useChannels format but with cached permissions)
 export interface DisplayChannel {
-  id: string;
+  id: string; // Simple channel name for URLs (e.g., "general", "design-team")
   name: string;
   description?: string;
   type: 'text' | 'voice';
@@ -2220,7 +2220,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             });
 
             channelsMap.set(channelId, {
-              id: channelId,
+              id: channelId, // Channel ID from d tag
               communityId: community.id,
               info: {
                 name: contentData?.name || channelName,
@@ -2445,8 +2445,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           parsedPermissions.writePermissions === 'moderators' ||
           parsedPermissions.writePermissions === 'specific';
 
-        return {
-          id: channel.id,
+        const displayChannel = {
+          id: channel.id, // Simple channel name for URLs (e.g., "general", "design-team")
           name: channel.info.name,
           description: channel.info.description,
           type: channel.info.type,
@@ -2460,6 +2460,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           parsedPermissions,
           isRestricted,
         };
+        return displayChannel;
       })
       // Filter out channels the user can't access (unless they're a moderator who can see everything)
       .filter(channel => {
@@ -2706,8 +2707,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             repliesMap.set(replyData.messageId, replyData.replies);
           }
 
-          channelsMap.set(channelData.id, {
-            id: channelData.id,
+          // Handle corrupted cache data - extract simple channel ID if needed
+          const cleanChannelId = (() => {
+            if (channelData.id.includes(':')) {
+              const parts = channelData.id.split(':');
+              return parts[parts.length - 1]; // Extract simple name from corrupted cache
+            }
+            return channelData.id; // Already clean
+          })();
+
+          channelsMap.set(cleanChannelId, {
+            id: cleanChannelId, // Clean channel ID
             communityId: channelData.communityId,
             info: channelData.info,
             definition: channelData.definition,

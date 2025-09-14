@@ -30,40 +30,33 @@ export function CommunityPage() {
 
 	const { data: channels } = useChannels(decodedCommunityId);
 
-	// Auto-select default channel when community loads
+	// Sync selectedChannel state with URL parameter when URL changes
+	// Also handle auto-selection when no channel is specified in URL
 	useEffect(() => {
-		if (decodedCommunityId && channels && channels.length > 0) {
-			let newSelectedChannel = selectedChannel;
+		if (channelId) {
+			// URL has a specific channel - use it
+			setSelectedChannel(channelId);
+		} else if (channels && channels.length > 0) {
+			// No channel in URL - auto-select default channel
+			const generalChannel = channels.find((channel) =>
+				channel.name.toLowerCase() === "general" && channel.type === "text"
+			);
 
-			if (selectedChannel) {
-				const currentChannelExists = channels.some((channel) => channel.id === selectedChannel);
-				if (!currentChannelExists) {
-					newSelectedChannel = null;
-				}
-			}
-
-			if (!newSelectedChannel) {
-				const generalChannel = channels.find((channel) =>
-					channel.name.toLowerCase() === "general" && channel.type === "text"
+			if (generalChannel) {
+				setSelectedChannel(generalChannel.id);
+			} else {
+				const firstTextChannel = channels.find((channel) =>
+					channel.type === "text"
 				);
-
-				if (generalChannel) {
-					newSelectedChannel = generalChannel.id;
-				} else {
-					const firstTextChannel = channels.find((channel) =>
-						channel.type === "text"
-					);
-					if (firstTextChannel) {
-						newSelectedChannel = firstTextChannel.id;
-					}
+				if (firstTextChannel) {
+					setSelectedChannel(firstTextChannel.id);
 				}
 			}
-
-			if (newSelectedChannel !== selectedChannel) {
-				setSelectedChannel(newSelectedChannel);
-			}
+		} else {
+			// No channels available
+			setSelectedChannel(null);
 		}
-	}, [decodedCommunityId, channels, selectedChannel]);
+	}, [channelId, channels]);
 
 	const handleCommunitySectionSelect = (sectionName: string) => {
 		// Navigate to the appropriate community section page
@@ -125,7 +118,9 @@ export function CommunityPage() {
 					communityId={finalCommunityId}
 					selectedChannel={selectedChannel}
 					selectedSpace={null} // No spaces selected on channel page
-					onSelectChannel={setSelectedChannel}
+					onSelectChannel={(channelId) => {
+						navigate(`/space/${communityId}/${channelId}`);
+					}}
 					onSelectSpace={handleCommunitySectionSelect}
 				/>
 			}
