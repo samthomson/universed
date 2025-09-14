@@ -17,7 +17,7 @@ import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership } from "@/components/DataManagerProvider";
+import { useCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
@@ -268,41 +268,60 @@ function CommunityChat(
   // Memoize query key to prevent unnecessary re-renders
   const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
+  const { communities } = useDataManager();
+
   const handleSendMessage = useCallback(async (content: string, additionalTags: string[][] = []) => {
-    const [kind, pubkey, identifier] = communityId.split(":");
-
-    const tags = [
-      ["t", channelId],
-      ["a", `${kind}:${pubkey}:${identifier}`],
-      ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
-    ];
-
-    // Extract mentioned pubkeys from p tags
-    const mentionedPubkeys = tags
-      .filter(([name]) => name === 'p')
-      .map(([, pubkey]) => pubkey);
-
-    const messageEvent = await createEvent({
-      kind: 9411,
-      content,
-      tags,
-    });
-
-    // Send mention notifications if there are any mentioned users
-    if (mentionedPubkeys.length > 0 && messageEvent) {
-      try {
-        await sendMentionNotifications({
-          mentionedPubkeys,
-          messageEvent,
-          communityId,
-          channelId,
-        });
-      } catch (error) {
-        console.error('Failed to send mention notifications:', error);
-        // Don't fail the message send if notifications fail
-      }
+    // Get the full addressable ID from DataManager
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      console.error('Community not found for sending message:', communityId);
+      return;
     }
-  }, [communityId, channelId, createEvent, sendMentionNotifications]);
+
+    // Add optimistic message immediately for UI feedback
+    const optimisticMessage = communities.addOptimisticMessage(communityId, channelId, content, additionalTags);
+    if (!optimisticMessage) {
+      console.error('Failed to add optimistic message');
+      return;
+    }
+
+    try {
+      const tags = [
+        ["t", channelId],
+        ["a", communityId], // Use simple community ID, not full addressable format
+        ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
+      ];
+
+      // Extract mentioned pubkeys from p tags
+      const mentionedPubkeys = tags
+        .filter(([name]) => name === 'p')
+        .map(([, pubkey]) => pubkey);
+
+      const messageEvent = await createEvent({
+        kind: 9411,
+        content,
+        tags,
+      });
+
+      // Send mention notifications if there are any mentioned users
+      if (mentionedPubkeys.length > 0 && messageEvent) {
+        try {
+          await sendMentionNotifications({
+            mentionedPubkeys,
+            messageEvent,
+            communityId,
+            channelId,
+          });
+        } catch (error) {
+          console.error('Failed to send mention notifications:', error);
+          // Don't fail the message send if notifications fail
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // TODO: add error handling to remove optimistic message or mark it as failed
+    }
+  }, [communityId, channelId, createEvent, sendMentionNotifications, communities]);
 
   const handlePinMessage = useCallback((message: NostrEvent) => {
     const isPinned = pinnedMessageIds?.includes(message.id) || false;

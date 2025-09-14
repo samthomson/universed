@@ -314,6 +314,7 @@ interface CommunitiesDomain {
   getSortedChannels: (communityId: string) => DisplayChannel[];
   getFolders: (communityId: string) => ChannelFolder[];
   getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
+  addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
 }
 
 // Main DataManager interface - organized by domain
@@ -705,6 +706,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Subscription refs for real-time message processing
   const nip4SubscriptionRef = useRef<{ close: () => void } | null>(null);
   const nip17SubscriptionRef = useRef<{ close: () => void } | null>(null);
+
+  // Community messages subscription ref
+  const communityMessagesSubscriptionRef = useRef<{ close: () => void } | null>(null);
 
   // Communities state
   const [communities, setCommunities] = useState<CommunitiesState>(new Map());
@@ -1696,6 +1700,308 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
 
 
+
+  // Process incoming community messages and route them to the correct channel
+  const processIncomingCommunityMessage = useCallback(async (event: NostrEvent) => {
+    if (!user?.pubkey) return;
+
+    logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
+
+    // Validate message kinds (9411 for channel messages, 1111 for replies)
+    if (![9411, 1111].includes(event.kind)) {
+      logger.warn(`Communities: Invalid message kind: ${event.kind} for event ${event.id}`);
+      return;
+    }
+
+    // Get community reference from 'a' tag
+    const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+    if (!communityRef) {
+      logger.warn(`Communities: No community reference found in event ${event.id}`);
+      return;
+    }
+
+    // Community reference should now be simple community ID (not full addressable format)
+    const simpleCommunityId = communityRef;
+
+    // Find the community in our state
+    const community = communities.get(simpleCommunityId);
+    if (!community) {
+      logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+      return;
+    }
+
+    if (event.kind === 9411) {
+      // Channel message - get channel ID from 't' tag
+      const channelId = event.tags.find(([name]) => name === 't')?.[1];
+      if (!channelId) {
+        logger.warn(`Communities: No channel ID found in channel message ${event.id}`);
+        return;
+      }
+
+      // Find the channel in the community
+      const channel = community.channels.get(channelId);
+      if (!channel) {
+        logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, ignoring message ${event.id}`);
+        return;
+      }
+
+      // Add message to channel (avoid duplicates and handle optimistic replacement)
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(channelId)! };
+
+        // Check if message already exists
+        if (updatedChannel.messages.some(msg => msg.id === event.id)) {
+          logger.log(`Communities: Message ${event.id} already exists in channel ${channelId}, skipping`);
+          return prev;
+        }
+
+        // Check if this real message should replace an optimistic message
+        const optimisticIndex = updatedChannel.messages.findIndex(msg =>
+          msg.isSending &&
+          msg.pubkey === event.pubkey &&
+          msg.content === event.content &&
+          Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
+        );
+
+        let updatedMessages: NostrEvent[];
+        if (optimisticIndex !== -1) {
+          // Replace the optimistic message with the real one (preserve animation timestamp)
+          logger.log(`Communities: Replacing optimistic message at index ${optimisticIndex} with real message ${event.id}`);
+          const existingMessage = updatedChannel.messages[optimisticIndex];
+          updatedMessages = [...updatedChannel.messages];
+          updatedMessages[optimisticIndex] = {
+            ...event,
+            created_at: existingMessage.created_at, // Preserve optimistic timestamp to maintain position
+            clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+          };
+        } else {
+          // Add as new message and sort by timestamp (oldest first)
+          updatedMessages = [...updatedChannel.messages, event].sort((a, b) => a.created_at - b.created_at);
+        }
+
+        updatedChannel.messages = updatedMessages;
+        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+        updatedChannels.set(channelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+        newCommunities.set(simpleCommunityId, updatedCommunity);
+
+        logger.log(`Communities: Added message ${event.id} to channel ${channelId} in community ${simpleCommunityId}`);
+        return newCommunities;
+      });
+
+    } else if (event.kind === 1111) {
+      // Reply message - get the message ID it's replying to from 'e' tag
+      const replyToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+      if (!replyToMessageId) {
+        logger.warn(`Communities: No reply target found in reply ${event.id}`);
+        return;
+      }
+
+      // Find which channel contains the message being replied to
+      let targetChannelId: string | null = null;
+      for (const [channelId, channel] of community.channels) {
+        if (channel.messages.some(msg => msg.id === replyToMessageId)) {
+          targetChannelId = channelId;
+          break;
+        }
+      }
+
+      if (!targetChannelId) {
+        logger.log(`Communities: Target message ${replyToMessageId} not found in any channel, ignoring reply ${event.id}`);
+        return;
+      }
+
+      // Add reply to the channel
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+        // Check if reply already exists
+        const existingReplies = updatedChannel.replies.get(replyToMessageId) || [];
+        if (existingReplies.some(reply => reply.id === event.id)) {
+          logger.log(`Communities: Reply ${event.id} already exists for message ${replyToMessageId}, skipping`);
+          return prev;
+        }
+
+        // Add reply and sort by timestamp
+        const updatedReplies = [...existingReplies, event].sort((a, b) => a.created_at - b.created_at);
+        const newRepliesMap = new Map(updatedChannel.replies);
+        newRepliesMap.set(replyToMessageId, updatedReplies);
+
+        updatedChannel.replies = newRepliesMap;
+        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+        updatedChannels.set(targetChannelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+        newCommunities.set(simpleCommunityId, updatedCommunity);
+
+        logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
+        return newCommunities;
+      });
+    }
+  }, [user, communities]);
+
+  // Start community messages subscription for all loaded communities
+  const startCommunityMessagesSubscription = useCallback(async () => {
+    if (!user?.pubkey || !nostr || communities.size === 0) {
+      logger.log('Communities: Cannot start subscription - missing requirements');
+      return;
+    }
+
+    // Close existing subscription
+    if (communityMessagesSubscriptionRef.current) {
+      communityMessagesSubscriptionRef.current.close();
+      logger.log('Communities: Closed existing community messages subscription');
+    }
+
+    try {
+      // Build filters for all communities (one per community, not per channel)
+      const communityRefs: string[] = [];
+      communities.forEach((community) => {
+        // Use simple community ID for subscription (matches message format)
+        communityRefs.push(community.id);
+      });
+
+      if (communityRefs.length === 0) {
+        logger.log('Communities: No community references to subscribe to');
+        return;
+      }
+
+      // Get the most recent message timestamp across all channels for 'since'
+      // But exclude optimistic messages (those with isSending: true) from the calculation
+      let mostRecentTimestamp = Math.floor(Date.now() / 1000) - 300; // Default to 5 minutes ago
+      communities.forEach((community) => {
+        community.channels.forEach((channel) => {
+          if (channel.messages.length > 0) {
+            // Find the most recent non-optimistic message
+            const realMessages = channel.messages.filter(msg => !msg.isSending);
+            if (realMessages.length > 0) {
+              const channelLatest = realMessages[realMessages.length - 1].created_at;
+              mostRecentTimestamp = Math.max(mostRecentTimestamp, channelLatest);
+            }
+          }
+        });
+      });
+
+      const filters = [
+        {
+          kinds: [9411], // Channel messages
+          '#a': communityRefs,
+          since: mostRecentTimestamp - 60, // 60 seconds overlap to avoid missing messages
+        },
+        {
+          kinds: [1111], // Replies
+          '#a': communityRefs,
+          since: mostRecentTimestamp - 60, // 60 seconds overlap to avoid missing messages
+        }
+      ];
+
+      logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(mostRecentTimestamp * 1000).toISOString()}`);
+      logger.log(`Communities: Subscription filters:`, JSON.stringify(filters, null, 2));
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              logger.log(`Communities: Received event: ${msg[2].id} (kind: ${msg[2].kind})`);
+              await processIncomingCommunityMessage(msg[2]);
+            } else {
+              logger.log(`Communities: Received non-event message:`, msg);
+            }
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('Communities: Subscription error:', error);
+          }
+        }
+      })();
+
+      communityMessagesSubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log('Communities: Community messages subscription closed');
+        }
+      };
+
+      logger.log('Communities: Community messages subscription started successfully');
+
+    } catch (error) {
+      logger.error('Communities: Failed to start community messages subscription:', error);
+    }
+  }, [user, nostr, communities, processIncomingCommunityMessage]);
+
+
+  // Add optimistic community message for immediate UI feedback
+  const addOptimisticCommunityMessage = useCallback((communityId: string, channelId: string, content: string, additionalTags: string[][] = []) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic message, no user pubkey');
+      return null;
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot add optimistic message, community not found:', communityId);
+      return null;
+    }
+
+    const channel = community.channels.get(channelId);
+    if (!channel) {
+      logger.error('Communities: Cannot add optimistic message, channel not found:', channelId);
+      return null;
+    }
+
+    // Create optimistic message with proper structure
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: NostrEvent = {
+      id: optimisticId,
+      kind: 9411,
+      pubkey: user.pubkey,
+      created_at: Math.floor(Date.now() / 1000),
+      content,
+      tags: [
+        ["t", channelId],
+        ["a", communityId], // Use simple community ID, not full addressable format
+        ...additionalTags,
+      ],
+      sig: '',
+      isSending: true, // Mark as optimistic for UI
+      clientFirstSeen: Date.now(), // For animation
+    };
+
+    // Add optimistic message to the channel
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+      const updatedChannel = { ...updatedChannels.get(channelId)! };
+
+      // Add optimistic message and sort by timestamp (oldest first)
+      const updatedMessages = [...updatedChannel.messages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
+
+      updatedChannel.messages = updatedMessages;
+      updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, optimisticMessage.created_at);
+      updatedChannels.set(channelId, updatedChannel);
+      updatedCommunity.channels = updatedChannels;
+      updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, optimisticMessage.created_at);
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Added optimistic message ${optimisticId} to channel ${channelId} in community ${communityId}`);
+      return newCommunities;
+    });
+
+    return optimisticMessage;
+  }, [user, communities]);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
@@ -2692,6 +2998,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (!isBackgroundRefresh) {
         setHasCommunitiesInitialLoadCompleted(true);
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+
+        // Subscription will be started by the useEffect that watches communities state
       }
     } catch (error) {
       logger.error('Communities: Error in communities loading:', error);
@@ -2705,7 +3013,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         setCommunitiesLoading(false);
       }
     }
-  }, [user?.pubkey, communitiesLoading, loadUserCommunities, nostr]);
+  }, [user?.pubkey, communitiesLoading, loadUserCommunities, nostr, startCommunityMessagesSubscription]);
 
   // Communities debug info
   const getCommunitiesDebugInfo = useCallback(() => {
@@ -3143,6 +3451,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
           // Cache loaded successfully - no background refresh needed
           logger.log('Communities: Cache loaded successfully, no background refresh');
+
+          // Subscription will be started by the useEffect that watches communities state
         } else {
           logger.log('Communities: No valid cache found, loading from network');
           startCommunitiesLoading();
@@ -3156,6 +3466,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadCommunitiesWithCache();
   }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache]);
 
+  // Start community messages subscription when communities are loaded
+  useEffect(() => {
+    if (communities.size > 0 && hasCommunitiesInitialLoadCompleted && !communityMessagesSubscriptionRef.current) {
+      logger.log('Communities: Starting community messages subscription - communities loaded');
+      startCommunityMessagesSubscription();
+    }
+  }, [communities.size, hasCommunitiesInitialLoadCompleted, startCommunityMessagesSubscription]);
+
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
     return () => {
@@ -3167,6 +3485,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (nip17SubscriptionRef.current) {
         nip17SubscriptionRef.current.close();
         logger.log('DMS: DataManager: Cleaned up NIP-17 subscription');
+      }
+      if (communityMessagesSubscriptionRef.current) {
+        communityMessagesSubscriptionRef.current.close();
+        logger.log('Communities: DataManager: Cleaned up community messages subscription');
       }
 
       // Clear debounced write timeout
@@ -3470,6 +3792,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     getSortedChannels,
     getFolders,
     getChannelsWithoutFolder,
+    addOptimisticMessage: addOptimisticCommunityMessage,
   };
 
   const contextValue: DataManagerContextType = {
