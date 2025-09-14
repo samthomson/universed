@@ -15,11 +15,9 @@ import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
 import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useCanModerate } from "@/hooks/useCommunityRoles";
-import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useCommunityChannel, DisplayChannel } from "@/components/DataManagerProvider";
+import { useCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
@@ -31,7 +29,6 @@ import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDia
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { toast } from "sonner";
 import { MessageThread } from "@/components/chat/MessageThread";
-import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 
 import {
@@ -99,7 +96,7 @@ function CommunityChatHeader({
 }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const { data: joinRequests } = useJoinRequests(communityId);
@@ -251,16 +248,16 @@ function CommunityChat(
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
   const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
-  const { role } = useUserRole(communityId);
+  const { role } = useDataManagerUserRole(communityId);
   const { banUser } = useModerationActions();
   const { mutate: deleteMessage } = useDeleteMessage(communityId);
   const { mutate: sendMentionNotifications } = useMentionNotifications();
-  const { data: membershipStatus } = useUserCommunityMembership(communityId);
+  const { data: membershipStatus } = useDataManagerUserMembership(communityId);
   const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
-  const isAdmin = role === 'owner' || role === 'admin';
+  const isAdmin = role === 'owner' || role === 'moderator';
 
   // Create dynamic message item config based on user role
   const dynamicMessageItemConfig = useMemo(() => ({

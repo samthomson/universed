@@ -490,6 +490,181 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
   }, [communities.communities, communityId, channelId]);
 }
 
+// Hook to get community members from DataManager instead of making separate network requests
+export function useDataManagerCommunityMembers(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: [],
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: [],
+        isLoading: communities.isLoading,
+      };
+    }
+
+    const members: Array<{
+      pubkey: string;
+      role: 'owner' | 'moderator' | 'member';
+      isOnline: boolean;
+      joinedAt?: number;
+    }> = [];
+    const addedMembers = new Set<string>();
+
+    // Add community creator as owner
+    if (!addedMembers.has(community.pubkey)) {
+      members.push({
+        pubkey: community.pubkey,
+        role: 'owner',
+        isOnline: false, // We don't have online status in DataManager yet
+        joinedAt: community.definitionEvent.created_at,
+      });
+      addedMembers.add(community.pubkey);
+    }
+
+    // Add moderators
+    community.info.moderators.forEach(modPubkey => {
+      if (!addedMembers.has(modPubkey)) {
+        members.push({
+          pubkey: modPubkey,
+          role: 'moderator',
+          isOnline: false, // We don't have online status in DataManager yet
+        });
+        addedMembers.add(modPubkey);
+      }
+    });
+
+    // Add approved members
+    if (community.approvedMembers) {
+      community.approvedMembers.members.forEach(memberPubkey => {
+        if (!addedMembers.has(memberPubkey)) {
+          members.push({
+            pubkey: memberPubkey,
+            role: 'member',
+            isOnline: false, // We don't have online status in DataManager yet
+          });
+          addedMembers.add(memberPubkey);
+        }
+      });
+    }
+
+    // Sort by role priority, then by pubkey
+    const sortedMembers = members.sort((a, b) => {
+      const roleOrder = { owner: 0, moderator: 1, member: 2 };
+      const roleComparison = roleOrder[a.role] - roleOrder[b.role];
+      if (roleComparison !== 0) return roleComparison;
+
+      // Then by online status (when we have it)
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+
+      // Then alphabetically by pubkey
+      return a.pubkey.localeCompare(b.pubkey);
+    });
+
+    return {
+      data: sortedMembers,
+      isLoading: false,
+    };
+  }, [communityId, communities]);
+}
+
+// Hook to get the current user's membership status in a community from DataManager
+export function useDataManagerUserMembership(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: 'not-member' as const,
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: communities.isLoading ? undefined : 'not-member' as const,
+        isLoading: communities.isLoading,
+      };
+    }
+
+    // Map DataManager membership status to expected format
+    const membershipStatus = (() => {
+      switch (community.membershipStatus) {
+        case 'approved':
+        case 'pending':
+        case 'banned':
+        case 'owner':
+        case 'moderator':
+          return community.membershipStatus;
+        default:
+          return 'not-member' as const;
+      }
+    })();
+
+    return {
+      data: membershipStatus,
+      isLoading: false,
+    };
+  }, [communityId, communities]);
+}
+
+// Hook to get the current user's role in a community from DataManager
+export function useDataManagerUserRole(communityId: string, userPubkey?: string) {
+  const { communities } = useDataManager();
+  const { user } = useCurrentUser();
+
+  const targetPubkey = userPubkey || user?.pubkey;
+
+  return useMemo(() => {
+    if (!targetPubkey || !communityId) {
+      return { role: 'member' as const, hasModeratorAccess: false };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return { role: 'member' as const, hasModeratorAccess: false };
+    }
+
+    // Check if user is the community owner
+    if (community.pubkey === targetPubkey) {
+      return { role: 'owner' as const, hasModeratorAccess: true };
+    }
+
+    // Check if user is a moderator
+    if (community.info.moderators.includes(targetPubkey)) {
+      return { role: 'moderator' as const, hasModeratorAccess: true };
+    }
+
+    return { role: 'member' as const, hasModeratorAccess: false };
+  }, [communityId, targetPubkey, communities]);
+}
+
+// Hook to check if current user can perform moderation actions from DataManager
+export function useDataManagerCanModerate(communityId: string) {
+  const { user } = useCurrentUser();
+  const { role, hasModeratorAccess } = useDataManagerUserRole(communityId, user?.pubkey);
+
+  return {
+    canModerate: hasModeratorAccess,
+    canAssignModerators: role === 'owner',
+    canDeletePosts: hasModeratorAccess,
+    canBanUsers: hasModeratorAccess,
+    canMuteUsers: hasModeratorAccess,
+    canPinPosts: hasModeratorAccess,
+    canApproveContent: hasModeratorAccess,
+    role,
+  };
+}
+
 interface DataManagerProviderProps {
   children: ReactNode;
 }
