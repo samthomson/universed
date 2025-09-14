@@ -65,7 +65,9 @@ export function BasePageLayout({
 				{/* Left Panel */}
 				{leftPanel && (
 					<div className="w-72 bg-secondary/30 flex flex-col h-full">
-						{leftPanel}
+						<div className="flex-1 min-h-0">
+							{leftPanel}
+						</div>
 						{showUserPanel && <UserPanel />}
 					</div>
 				)}
