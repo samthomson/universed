@@ -64,8 +64,9 @@ export function CreateChannelDialog({
     community.membershipStatus === 'moderator'
   );
 
-  // Get folders from DataManager (simplified - no folders for now)
-  const folders: { id: string; name: string }[] = []; // TODO: Implement folder support in DataManager
+  // Get folders from DataManager
+  const { getFolders } = useDataManager().communities;
+  const folders = community ? getFolders(communityId) : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
