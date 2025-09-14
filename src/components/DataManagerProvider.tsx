@@ -184,6 +184,7 @@ interface MessagingDomain {
 
 // Configuration constants
 const ALWAYS_ADD_GENERAL_CHANNEL = true;
+const CACHE_MESSAGES_LIMIT_PER_CHANNEL = 50;
 
 // Community metadata parsed from kind 34550 events
 interface CommunityInfo {
@@ -2768,7 +2769,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           communityId: channel.communityId,
           info: channel.info,
           definition: channel.definition,
-          messages: channel.messages,
+          // Only cache the most recent messages (sorted by timestamp, newest first, then take first N)
+          messages: [...channel.messages]
+            .sort((a, b) => b.created_at - a.created_at) // Sort newest first
+            .slice(0, CACHE_MESSAGES_LIMIT_PER_CHANNEL), // Take most recent N messages
           // Convert replies Map to array for serialization
           replies: Array.from(channel.replies.entries()).map(([messageId, replies]) => ({
             messageId,
