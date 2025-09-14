@@ -2769,10 +2769,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           communityId: channel.communityId,
           info: channel.info,
           definition: channel.definition,
-          // Only cache the most recent messages (sorted by timestamp, newest first, then take first N)
-          messages: [...channel.messages]
-            .sort((a, b) => b.created_at - a.created_at) // Sort newest first
-            .slice(0, CACHE_MESSAGES_LIMIT_PER_CHANNEL), // Take most recent N messages
+          // Only cache the most recent messages (messages are already sorted oldest first, so take last N)
+          messages: channel.messages.slice(-CACHE_MESSAGES_LIMIT_PER_CHANNEL),
           // Convert replies Map to array for serialization
           replies: Array.from(channel.replies.entries()).map(([messageId, replies]) => ({
             messageId,
