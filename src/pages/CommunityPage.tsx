@@ -6,7 +6,7 @@ import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useChannels } from "@/hooks/useChannels";
 import { useNavigate, useParams } from "react-router-dom";
-import { decodeNaddrFromUrl } from "@/lib/utils";
+import { decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
 
 // Page component for Community pages
 export function CommunityPage() {
@@ -17,14 +17,14 @@ export function CommunityPage() {
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
 	const [showMemberList, setShowMemberList] = useState(true);
 
-	// Decode naddr format if needed (handle undefined case)
+	// Decode naddr format to full addressable format (kind:pubkey:identifier)
 	let decodedCommunityId = communityId || '';
 	if (communityId && communityId.startsWith('naddr1')) {
 		try {
-			decodedCommunityId = decodeNaddrFromUrl(communityId);
+			const naddr = decodeNaddrFromUrl(communityId);
+			decodedCommunityId = naddrToCommunityId(naddr);
 		} catch {
 			console.error('Failed to decode naddr');
-			decodedCommunityId = communityId;
 		}
 	}
 
