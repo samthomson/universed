@@ -1886,15 +1886,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Use in-memory lastSync timestamp (much simpler than IndexedDB read!)
-      let subscriptionSince = Math.floor(Date.now() / 1000) - 300; // Default to 5 minutes ago
+      // Use in-memory lastSync timestamp (consistent with DM pattern)
+      let subscriptionSince = Math.floor(Date.now() / 1000); // Default to NOW (like DMs)
 
       if (communitiesLastSync) {
         // Start subscription from 60 seconds before last cache write (accounts for debounced saves)
         subscriptionSince = Math.floor(communitiesLastSync / 1000) - 60;
         logger.log(`Communities: Using in-memory lastSync timestamp for subscription: ${new Date(communitiesLastSync).toISOString()}`);
       } else {
-        logger.log('Communities: No lastSync timestamp available, using default since time');
+        logger.log('Communities: No lastSync timestamp available, using current time (like DMs)');
       }
 
       const filters = [
