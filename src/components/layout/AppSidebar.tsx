@@ -20,6 +20,7 @@ import { logger } from "@/lib/logger";
 import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { communityIdToNaddr } from "@/lib/utils";
 import {
   DndContext,
   closestCenter,
@@ -379,6 +380,14 @@ export function AppSidebar({
 
       // Actually select the community
       onSelectCommunity(communityId);
+
+      // Navigate to the community with general channel
+      try {
+        const naddr = communityIdToNaddr(communityId);
+        navigate(`/space/${encodeURIComponent(naddr)}/general`);
+      } catch (error) {
+        logger.error('Failed to navigate to community:', error);
+      }
 
       // Phase 3: Clear landing animation after it completes (no landing sound)
       const timeoutId2 = setTimeout(() => {
