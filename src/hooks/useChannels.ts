@@ -76,6 +76,7 @@ function parseChannelEvent(event: NostrEvent, communityId: string): Channel {
 }
 
 export function useChannels(communityId: string | null) {
+  logger.warn('useChannels IS OBSOLETE - REPLACE', { communityId });
   const { nostr } = useNostr();
   const { getCachedEventsByKind, cacheEvents } = useEventCache();
   const queryClient = useQueryClient();
@@ -223,11 +224,6 @@ export function useChannels(communityId: string | null) {
           },
         ];
 
-        // Start immediate retry with longer timeout for better chance of success
-        setTimeout(() => {
-          refreshChannelsInBackground(communityId, nostr, cacheEvents);
-        }, 500); // Retry sooner
-
         return defaultChannels;
       }
     },
@@ -259,7 +255,6 @@ async function refreshChannelsInBackground(
     if (events.length > 0) {
       cacheEvents(events);
       logger.log(`Background refreshed ${events.length} channel events for ${communityId}`);
-      
       // Invalidate the query to trigger a refetch with fresh data
       if (queryClient) {
         queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
