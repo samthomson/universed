@@ -185,6 +185,7 @@ interface MessagingDomain {
 // Configuration constants
 const ALWAYS_ADD_GENERAL_CHANNEL = true;
 const CACHE_MESSAGES_LIMIT_PER_CHANNEL = 50;
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
 
 // Community metadata parsed from kind 34550 events
 interface CommunityInfo {
@@ -2840,10 +2841,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return null;
       }
 
-      // Check if cache is too old (older than 1 week)
+      // Check if cache is too old
       const cacheAge = Date.now() - cacheData.lastSync;
-      const maxCacheAge = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
-      if (cacheAge > maxCacheAge) {
+      if (cacheAge > CACHE_MAX_AGE_MS) {
         logger.log(`Communities: Cache is too old (${Math.round(cacheAge / 1000 / 60 / 60 / 24)} days), ignoring`);
         return null;
       }
