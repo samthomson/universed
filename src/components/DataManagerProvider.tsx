@@ -2125,10 +2125,77 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       ]);
 
       const batch1Time = Date.now() - batch1Start;
-      const allChannelDefinitions = channelsQueryResult.result;
+      let allChannelDefinitions = channelsQueryResult.result;
       const allMemberLists = membersQueryResult.result;
       const channelsQueryTime = channelsQueryResult.time;
       const membersQueryTime = membersQueryResult.time;
+
+      // Add missing "general" channels for each approved community (if enabled)
+      const additionalGeneralChannels: NostrEvent[] = [];
+      if (ALWAYS_ADD_GENERAL_CHANNEL) {
+        for (const community of approvedCommunities) {
+          const communityId = community.definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+          if (!communityId) continue;
+
+          // Check if this community already has a "general" channel
+          const existingChannels = allChannelDefinitions.filter(channelDef => {
+            const channelCommunityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+            return channelCommunityRef === communityId || channelCommunityRef?.includes(`:${communityId}`);
+          });
+
+          logger.log(`Communities: Community ${communityId} has ${existingChannels.length} existing channels:`,
+            existingChannels.map(ch => ({
+              id: ch.tags.find(([name]) => name === 'd')?.[1],
+              name: ch.tags.find(([name]) => name === 'name')?.[1]
+            }))
+          );
+
+          const hasGeneralChannel = existingChannels.some(channelDef => {
+            const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1];
+            const isGeneralChannel = channelId === 'general' || channelName?.toLowerCase() === 'general';
+
+            if (isGeneralChannel) {
+              logger.log(`Communities: Found existing general channel for ${communityId}: id=${channelId}, name=${channelName}`);
+            }
+
+            return isGeneralChannel;
+          });
+
+          if (!hasGeneralChannel) {
+            // Create a synthetic "general" channel definition
+            const properCommunityRef = `34550:${community.pubkey}:${communityId}`;
+            const generalChannelEvent: NostrEvent = {
+              id: `synthetic-general-${communityId}`,
+              kind: 32807,
+              pubkey: community.pubkey,
+              created_at: community.definitionEvent.created_at,
+              content: JSON.stringify({
+                name: 'general',
+                description: 'General discussion',
+                type: 'text',
+                position: 0,
+              }),
+              tags: [
+                ['d', 'general'],
+                ['a', properCommunityRef],
+                ['t', 'channel'],
+                ['name', 'general'],
+                ['description', 'General discussion'],
+                ['channel_type', 'text'],
+                ['position', '0'],
+              ],
+              sig: '',
+            };
+
+            additionalGeneralChannels.push(generalChannelEvent);
+            logger.log(`Communities: Added synthetic "general" channel for community ${communityId}`);
+          }
+        }
+      }
+
+      // Add the synthetic general channels to the channel definitions
+      allChannelDefinitions = [...allChannelDefinitions, ...additionalGeneralChannels];
 
       // Now prepare permission and message filters based on channel results
       const allPermissionFilters = allChannelDefinitions.map(channelDef => {
@@ -2593,46 +2660,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return channel.hasAccess || canModerate;
       });
 
-    // Add default "general" channel if enabled and not already present
-    if (ALWAYS_ADD_GENERAL_CHANNEL) {
-      const hasGeneralChannel = channelsArray.some(channel =>
-        channel.name.toLowerCase() === 'general'
-      );
-
-      if (!hasGeneralChannel) {
-        // Create a proper permissions object for general channel
-        const generalPermissions = {
-          content: JSON.stringify({
-            readPermissions: 'everyone',
-            writePermissions: 'members',
-          }),
-          kind: 30143,
-          pubkey: '',
-          created_at: 0,
-          id: '',
-          sig: '',
-          tags: [],
-        } as NostrEvent;
-
-        channelsArray.unshift({
-          id: 'general',
-          name: 'general',
-          description: 'General discussion',
-          type: 'text',
-          communityId,
-          creator: '',
-          position: 0,
-          event: {} as NostrEvent,
-          permissions: generalPermissions,
-          hasAccess: true, // General channel is always accessible
-          parsedPermissions: {
-            readPermissions: 'everyone',
-            writePermissions: 'members',
-          },
-          isRestricted: false, // General channel is not restricted
-        });
-      }
-    }
 
     // Apply the same sorting logic as useChannels
     return channelsArray.sort((a, b) => {
