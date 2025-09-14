@@ -48,6 +48,36 @@ import {
   groupMessageListConfig,
 } from "@/components/messaging/configs/groupConfig";
 
+// Component for when a channel is not found
+function ChannelNotFound({ channelId }: { channelId: string }) {
+  return (
+    <div className="flex flex-col h-full w-full max-w-full overflow-hidden bg-white dark:bg-gray-900">
+      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-full border border-red-200 dark:border-red-800">
+            <Hash className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </div>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">#{channelId}</span>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center text-gray-600 dark:text-gray-400">
+          <div className="p-4 bg-red-100 dark:bg-red-900/20 rounded-full border border-red-200 dark:border-red-800 inline-block mb-6">
+            <Hash className="w-16 h-16 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Channel not found</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            The channel <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">#{channelId}</span> doesn't exist or you don't have access to it.
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Try selecting a different channel from the sidebar.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -327,7 +357,7 @@ function CommunityChat(
   const inputPlaceholder = useMemo(() => `Message #${channelName}`, [channelName]);
 
   if (!channel) {
-    return <div>Channel not found</div>;
+    return <ChannelNotFound channelId={channelId} />;
   }
 
   const handleJoinRequest = () => {
