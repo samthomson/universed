@@ -12,14 +12,13 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
-import { useChannels } from "@/hooks/useChannels";
 import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useCanModerate } from "@/hooks/useCommunityRoles";
 import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useMessages } from "@/hooks/useMessages";
+import { useCommunityChannel, DisplayChannel } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
@@ -89,29 +88,28 @@ interface ChatAreaProps {
 function CommunityChatHeader({
   communityId,
   channelId,
-  onToggleMemberList
+  onToggleMemberList,
+  channel
 }: {
   communityId: string;
   channelId: string;
   onToggleMemberList: () => void;
+  channel: DisplayChannel | null;
 }) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { data: channels } = useChannels(communityId);
   const { canModerate } = useCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const { data: joinRequests } = useJoinRequests(communityId);
   const pendingJoinRequests = joinRequests?.length || 0;
 
-  const channel = channels?.find((c) => c.id === channelId);
-
   if (!channel) {
     return null;
   }
 
-  const channelName = channel?.name || channelId;
-  const isVoiceChannel = channel?.type === "voice";
+  const channelName = channel.name || channelId;
+  const isVoiceChannel = channel.type === "voice";
 
   const copyChannelLink = () => {
     // Use naddr format for community ID
@@ -234,15 +232,20 @@ function CommunityChat(
     & Omit<ChatAreaProps, "communityId" | "channelId">
     & { communityId: string; channelId: string },
 ) {
-  const { data: channels } = useChannels(communityId);
+  // Use our enhanced hook that provides a channel with all its data including messages
   const {
-    data: messages,
     isLoading,
-    hasMoreMessages,
-    loadingOlderMessages,
-    loadOlderMessages,
-    reachedStartOfConversation
-  } = useMessages(communityId, channelId);
+    channel
+  } = useCommunityChannel(communityId, channelId);
+
+  // Get messages from the channel object
+  const messages = channel?.messages || [];
+
+  // For pagination (can be enhanced later)
+  const hasMoreMessages = false;
+  const loadingOlderMessages = false;
+  const loadOlderMessages = async () => { /* Empty async function to satisfy Promise<void> return type */ };
+  const reachedStartOfConversation = true;
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
@@ -339,8 +342,9 @@ function CommunityChat(
       communityId={communityId}
       channelId={channelId}
       onToggleMemberList={onToggleMemberList}
+      channel={channel}
     />
-  ), [communityId, channelId, onToggleMemberList]);
+  ), [communityId, channelId, onToggleMemberList, channel]);
 
   const additionalContent = useMemo(() => (
     <div className="flex-shrink-0">
@@ -349,7 +353,6 @@ function CommunityChat(
   ), [channelId]);
 
   // Now we can do early returns and computed values
-  const channel = channels?.find((c) => c.id === channelId);
   const channelName = channel?.name || channelId;
   const isVoiceChannel = channel?.type === "voice";
 

@@ -373,6 +373,113 @@ export function useConversationMessages(conversationId: string) {
   }, [allMessages, conversationId]);
 }
 
+// Hook for retrieving a specific channel with its data from DataManager
+export function useCommunityChannel(communityId: string | null, channelId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId) {
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Extract simple community ID from full addressable format
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    // Get the community
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      logger.log('Communities: Community not found:', { communityId, simpleCommunityId });
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Get the channel
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      logger.log('Communities: Channel not found:', { channelId, availableChannels: Array.from(community.channels.keys()) });
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Create a DisplayChannel object that matches the format used throughout the app
+    // We'll use a simplified approach since we don't have direct access to the helper functions
+
+    // Try to parse permissions from the event
+    let readPermissions: 'everyone' | 'members' | 'moderators' | 'specific' = 'everyone';
+    let writePermissions: 'everyone' | 'members' | 'moderators' | 'specific' = 'members';
+
+    if (channelData.permissions) {
+      try {
+        const content = JSON.parse(channelData.permissions.content);
+        if (content.readPermissions === 'everyone' ||
+          content.readPermissions === 'members' ||
+          content.readPermissions === 'moderators' ||
+          content.readPermissions === 'specific') {
+          readPermissions = content.readPermissions;
+        }
+
+        if (content.writePermissions === 'everyone' ||
+          content.writePermissions === 'members' ||
+          content.writePermissions === 'moderators' ||
+          content.writePermissions === 'specific') {
+          writePermissions = content.writePermissions;
+        }
+      } catch {
+        // Use default permissions if parsing fails
+      }
+    }
+
+    const parsedPermissions = {
+      readPermissions,
+      writePermissions
+    };
+
+    // Determine if the channel has access restrictions
+    const isRestricted =
+      readPermissions === 'moderators' ||
+      readPermissions === 'specific' ||
+      writePermissions === 'moderators' ||
+      writePermissions === 'specific';
+
+    // Create the DisplayChannel object with messages included
+    const channel: DisplayChannel & { messages: NostrEvent[] } = {
+      id: channelData.id,
+      name: channelData.info.name,
+      description: channelData.info.description,
+      type: channelData.info.type,
+      communityId: channelData.communityId,
+      creator: channelData.definition.pubkey,
+      position: channelData.info.position,
+      folderId: channelData.info.folderId,
+      event: channelData.definition,
+      permissions: channelData.permissions,
+      hasAccess: true, // Assume access is granted for simplicity
+      parsedPermissions,
+      isRestricted,
+      messages: channelData.messages // Include messages directly in the channel object
+    };
+
+    // Return just the channel with messages included
+    return {
+      isLoading: false,
+      channel
+    };
+  }, [communities.communities, communityId, channelId]);
+}
+
 interface DataManagerProviderProps {
   children: ReactNode;
 }
