@@ -1,18 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CommunityPanel } from "@/components/layout/CommunityPanel";
 import { ChatArea } from "@/components/layout/ChatArea";
 import { MemberList } from "@/components/layout/MemberList";
 import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useChannels } from "@/hooks/useChannels";
 import { useNavigate, useParams } from "react-router-dom";
 import { decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
+import { useDataManager } from "@/components/DataManagerProvider";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Page component for Community pages
 export function CommunityPage() {
 	const { communityId, channelId } = useParams<{ communityId: string; channelId?: string }>();
 	const { user } = useCurrentUser();
 	const navigate = useNavigate();
+	const { communities } = useDataManager();
 
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
 	const [showMemberList, setShowMemberList] = useState(true);
@@ -28,7 +30,27 @@ export function CommunityPage() {
 		}
 	}
 
-	const { data: channels } = useChannels(decodedCommunityId);
+	// Extract simple community ID from full addressable format for DataManager lookup
+	const getSimpleCommunityId = (id: string): string => {
+		if (id.includes(':')) {
+			// Full addressable format: "34550:pubkey:identifier" -> "identifier"
+			const parts = id.split(':');
+			return parts.length === 3 ? parts[2] : id;
+		}
+		return id;
+	};
+
+	const simpleCommunityId = decodedCommunityId ? getSimpleCommunityId(decodedCommunityId) : '';
+
+	// Check if community exists and if we're still loading
+	const community = simpleCommunityId ? communities.communities.get(simpleCommunityId) : null;
+	const isCommunitiesLoading = communities.isLoading;
+	const isCommunityFound = !!community;
+
+	// Get channels from DataManager instead of old useChannels hook
+	const channels = useMemo(() => {
+		return simpleCommunityId ? communities.getSortedChannels(simpleCommunityId) : [];
+	}, [simpleCommunityId, communities]);
 
 	// Sync selectedChannel state with URL parameter when URL changes
 	// Also handle auto-selection when no channel is specified in URL
@@ -108,8 +130,55 @@ export function CommunityPage() {
 		);
 	}
 
-	// At this point, communityId is guaranteed to exist, so decodedCommunityId is a string
-	const finalCommunityId = decodedCommunityId || communityId;
+	// Show loading state while communities are loading
+	if (isCommunitiesLoading) {
+		return (
+			<BasePageLayout
+				leftPanel={
+					<div className="p-4 space-y-4">
+						<Skeleton className="h-8 w-3/4" />
+						<div className="space-y-2">
+							<Skeleton className="h-6 w-full" />
+							<Skeleton className="h-6 w-5/6" />
+							<Skeleton className="h-6 w-4/5" />
+						</div>
+					</div>
+				}
+				mainContent={
+					<div className="flex items-center justify-center bg-background h-full">
+						<div className="text-center max-w-md p-8">
+							<div className="space-y-4">
+								<Skeleton className="h-8 w-48 mx-auto" />
+								<Skeleton className="h-4 w-64 mx-auto" />
+								<Skeleton className="h-4 w-56 mx-auto" />
+							</div>
+						</div>
+					</div>
+				}
+			/>
+		);
+	}
+
+	// Show community not found only after loading is complete
+	if (!isCommunityFound) {
+		return (
+			<BasePageLayout
+				mainContent={
+					<div className="flex items-center justify-center bg-background h-full">
+						<div className="text-center max-w-md p-8">
+							<h2 className="text-2xl font-bold mb-4">Community Not Found</h2>
+							<p className="text-muted-foreground">
+								The requested community could not be found.
+							</p>
+						</div>
+					</div>
+				}
+			/>
+		);
+	}
+
+	// At this point, communityId is guaranteed to exist, so simpleCommunityId is a string
+	const finalCommunityId = simpleCommunityId || communityId;
 
 	return (
 		<BasePageLayout

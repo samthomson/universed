@@ -196,6 +196,30 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
     );
   }
 
+  // Show loading state while communities are loading
+  if (communities.isLoading) {
+    return (
+      <div className="flex flex-col h-full min-h-0">
+        <div className="px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0 h-14 flex items-center">
+          <div className="animate-pulse flex items-center space-x-2 w-full">
+            <Skeleton className="w-8 h-8 rounded-lg" />
+            <div className="flex-1">
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 p-4 space-y-4">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-4/5" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show community not found only after loading is complete
   if (!community) {
     return (
       <div className="flex flex-col h-full min-h-0 items-center justify-center p-8">

@@ -9,6 +9,7 @@ import {
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
@@ -359,6 +360,29 @@ function CommunityChat(
   // Memoize input placeholder to prevent re-renders (must be after channelName is defined)
   const inputPlaceholder = useMemo(() => `Message #${channelName}`, [channelName]);
 
+  // Show loading state while channel is loading
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full w-full max-w-full overflow-hidden bg-white dark:bg-gray-900">
+        <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="w-6 h-6 rounded" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <Skeleton className="w-8 h-8 rounded" />
+        </div>
+        <div className="flex-1 p-4 space-y-4">
+          <div className="space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-5/6" />
+            <Skeleton className="h-12 w-4/5" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show channel not found only after loading is complete
   if (!channel) {
     return <ChannelNotFound channelId={channelId} />;
   }
