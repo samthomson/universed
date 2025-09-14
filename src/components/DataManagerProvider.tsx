@@ -397,7 +397,7 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
     // Get the community
     const community = communities.communities.get(simpleCommunityId);
     if (!community) {
-      logger.log('Communities: Community not found:', { communityId, simpleCommunityId });
+      logger.log('Communities: Community not found:', { communityId, simpleCommunityId, decodedId: simpleCommunityId });
       return {
         isLoading: false,
         channel: null
@@ -407,7 +407,12 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
     // Get the channel
     const channelData = community.channels.get(channelId);
     if (!channelData) {
-      logger.log('Communities: Channel not found:', { channelId, availableChannels: Array.from(community.channels.keys()) });
+      logger.log('Communities: Channel not found:', {
+        channelId,
+        communityId: simpleCommunityId,
+        availableChannels: Array.from(community.channels.keys()),
+        channelsCount: community.channels.size
+      });
       return {
         isLoading: false,
         channel: null
@@ -455,6 +460,9 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
       writePermissions === 'specific';
 
     // Create the DisplayChannel object with messages included
+    // Ensure messages are sorted by timestamp (oldest first)
+    const sortedMessages = [...channelData.messages].sort((a, b) => a.created_at - b.created_at);
+
     const channel: DisplayChannel & { messages: NostrEvent[] } = {
       id: channelData.id,
       name: channelData.info.name,
@@ -469,7 +477,7 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
       hasAccess: true, // Assume access is granted for simplicity
       parsedPermissions,
       isRestricted,
-      messages: channelData.messages // Include messages directly in the channel object
+      messages: sortedMessages // Include sorted messages in the channel object
     };
 
     // Return just the channel with messages included
@@ -2326,6 +2334,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               }
             });
 
+            // Remove unused sortedMessages variable
+
+            // Debug log for messages
+            if (channelMessages.length > 0) {
+              logger.log(`Channel ${channelId} has ${channelMessages.length} messages`);
+            }
+
+            // Sort messages by timestamp (oldest first) to match what Virtuoso expects
+            const sortedMessages = [...channelMessages].sort((a, b) => a.created_at - b.created_at);
+
             channelsMap.set(channelId, {
               id: channelId, // Channel ID from d tag
               communityId: community.id,
@@ -2337,10 +2355,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 position: contentData?.position || position || 0,
               },
               definition: channelDef,
-              messages: channelMessages,
+              messages: sortedMessages, // Use sorted messages (oldest first)
               replies: channelReplies,
               permissions: channelPermissions || null,
-              lastActivity: channelMessages.length > 0 ? channelMessages[channelMessages.length - 1].created_at : channelDef.created_at,
+              lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
             });
           }
         }
