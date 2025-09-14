@@ -20,7 +20,7 @@ import { logger } from "@/lib/logger";
 import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { communityIdToNaddr } from "@/lib/utils";
+import { communityIdToNaddr, decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
 import {
   DndContext,
   closestCenter,
@@ -419,6 +419,18 @@ export function AppSidebar({
 
 
 
+  // Convert selectedCommunity from naddr format to full addressable format for comparison
+  const selectedCommunityForComparison = useMemo(() => {
+    if (!selectedCommunity) return null;
+
+    try {
+      const naddr = decodeNaddrFromUrl(selectedCommunity);
+      return naddrToCommunityId(naddr);
+    } catch {
+      return null;
+    }
+  }, [selectedCommunity]);
+
   // Add mouse down handler for community interactions
   const handleCommunityMouseDown = useCallback((communityId: string) => {
     preloadCommunity(communityId, selectedCommunity || undefined);
@@ -431,7 +443,7 @@ export function AppSidebar({
         <SortableCommunityItem
           key={community.id}
           community={community}
-          isSelected={selectedCommunity === community.id}
+          isSelected={selectedCommunityForComparison === community.id}
           isLaunching={launchingCommunity === community.id}
           isLanding={landingCommunity === community.id}
           isAnimating={isAnimating}
@@ -452,7 +464,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
+  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
 
   return (
     <TooltipProvider>
