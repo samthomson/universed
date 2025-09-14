@@ -716,6 +716,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [communitiesLoadingPhase, setCommunitiesLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
   const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
   const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<CommunityLoadBreakdown | null>(null);
+  const [communitiesLastSync, setCommunitiesLastSync] = useState<number | null>(null);
 
   // Track whether we should save communities immediately (for network loads)
   const [shouldSaveCommunitiesImmediately, setShouldSaveCommunitiesImmediately] = useState(false);
@@ -1701,6 +1702,63 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
 
 
+  // Helper function to add a message to a community channel (more succinct than nested state updates)
+  const addMessageToChannel = useCallback((communityId: string, channelId: string, message: NostrEvent, isOptimistic = false) => {
+    setCommunities(prev => {
+      const community = prev.get(communityId);
+      if (!community) return prev;
+
+      const channel = community.channels.get(channelId);
+      if (!channel) return prev;
+
+      // Check if message already exists (for real messages)
+      if (!isOptimistic && channel.messages.some(msg => msg.id === message.id)) {
+        logger.log(`Communities: Message ${message.id} already exists in channel ${channelId}, skipping`);
+        return prev;
+      }
+
+      // Check for optimistic replacement (for real messages)
+      let updatedMessages: NostrEvent[];
+      if (!isOptimistic) {
+        const optimisticIndex = channel.messages.findIndex(msg =>
+          msg.isSending &&
+          msg.pubkey === message.pubkey &&
+          msg.content === message.content &&
+          Math.abs(msg.created_at - message.created_at) <= 30 // 30 second window
+        );
+
+        if (optimisticIndex !== -1) {
+          // Replace optimistic with real message (preserve animation timestamp)
+          logger.log(`Communities: Replacing optimistic message at index ${optimisticIndex} with real message ${message.id}`);
+          const existingMessage = channel.messages[optimisticIndex];
+          updatedMessages = [...channel.messages];
+          updatedMessages[optimisticIndex] = {
+            ...message,
+            created_at: existingMessage.created_at, // Preserve optimistic timestamp
+            clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+          };
+        } else {
+          // Add new message and sort by timestamp (oldest first)
+          updatedMessages = [...channel.messages, message].sort((a, b) => a.created_at - b.created_at);
+        }
+      } else {
+        // Add optimistic message and sort by timestamp (oldest first)
+        updatedMessages = [...channel.messages, message].sort((a, b) => a.created_at - b.created_at);
+      }
+
+      // Create updated structures efficiently
+      const updatedChannel = { ...channel, messages: updatedMessages, lastActivity: Math.max(channel.lastActivity, message.created_at) };
+      const updatedChannels = new Map(community.channels);
+      updatedChannels.set(channelId, updatedChannel);
+      const updatedCommunity = { ...community, channels: updatedChannels, lastActivity: Math.max(community.lastActivity, message.created_at) };
+      const newCommunities = new Map(prev);
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Added ${isOptimistic ? 'optimistic ' : ''}message ${message.id} to channel ${channelId} in community ${communityId}`);
+      return newCommunities;
+    });
+  }, []);
+
   // Process incoming community messages and route them to the correct channel
   const processIncomingCommunityMessage = useCallback(async (event: NostrEvent) => {
     if (!user?.pubkey) return;
@@ -1745,53 +1803,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Add message to channel (avoid duplicates and handle optimistic replacement)
-      setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-        const updatedChannel = { ...updatedChannels.get(channelId)! };
-
-        // Check if message already exists
-        if (updatedChannel.messages.some(msg => msg.id === event.id)) {
-          logger.log(`Communities: Message ${event.id} already exists in channel ${channelId}, skipping`);
-          return prev;
-        }
-
-        // Check if this real message should replace an optimistic message
-        const optimisticIndex = updatedChannel.messages.findIndex(msg =>
-          msg.isSending &&
-          msg.pubkey === event.pubkey &&
-          msg.content === event.content &&
-          Math.abs(msg.created_at - event.created_at) <= 30 // 30 second window
-        );
-
-        let updatedMessages: NostrEvent[];
-        if (optimisticIndex !== -1) {
-          // Replace the optimistic message with the real one (preserve animation timestamp)
-          logger.log(`Communities: Replacing optimistic message at index ${optimisticIndex} with real message ${event.id}`);
-          const existingMessage = updatedChannel.messages[optimisticIndex];
-          updatedMessages = [...updatedChannel.messages];
-          updatedMessages[optimisticIndex] = {
-            ...event,
-            created_at: existingMessage.created_at, // Preserve optimistic timestamp to maintain position
-            clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
-          };
-        } else {
-          // Add as new message and sort by timestamp (oldest first)
-          updatedMessages = [...updatedChannel.messages, event].sort((a, b) => a.created_at - b.created_at);
-        }
-
-        updatedChannel.messages = updatedMessages;
-        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
-        updatedChannels.set(channelId, updatedChannel);
-        updatedCommunity.channels = updatedChannels;
-        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
-        newCommunities.set(simpleCommunityId, updatedCommunity);
-
-        logger.log(`Communities: Added message ${event.id} to channel ${channelId} in community ${simpleCommunityId}`);
-        return newCommunities;
-      });
+      // Use helper function to add message (much more concise!)
+      addMessageToChannel(simpleCommunityId, channelId, event);
 
     } else if (event.kind === 1111) {
       // Reply message - get the message ID it's replying to from 'e' tag
@@ -1845,7 +1858,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return newCommunities;
       });
     }
-  }, [user, communities]);
+  }, [user, communities, addMessageToChannel]);
 
   // Start community messages subscription for all loaded communities
   const startCommunityMessagesSubscription = useCallback(async () => {
@@ -1873,36 +1886,31 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Get the most recent message timestamp across all channels for 'since'
-      // But exclude optimistic messages (those with isSending: true) from the calculation
-      let mostRecentTimestamp = Math.floor(Date.now() / 1000) - 300; // Default to 5 minutes ago
-      communities.forEach((community) => {
-        community.channels.forEach((channel) => {
-          if (channel.messages.length > 0) {
-            // Find the most recent non-optimistic message
-            const realMessages = channel.messages.filter(msg => !msg.isSending);
-            if (realMessages.length > 0) {
-              const channelLatest = realMessages[realMessages.length - 1].created_at;
-              mostRecentTimestamp = Math.max(mostRecentTimestamp, channelLatest);
-            }
-          }
-        });
-      });
+      // Use in-memory lastSync timestamp (much simpler than IndexedDB read!)
+      let subscriptionSince = Math.floor(Date.now() / 1000) - 300; // Default to 5 minutes ago
+
+      if (communitiesLastSync) {
+        // Start subscription from 60 seconds before last cache write (accounts for debounced saves)
+        subscriptionSince = Math.floor(communitiesLastSync / 1000) - 60;
+        logger.log(`Communities: Using in-memory lastSync timestamp for subscription: ${new Date(communitiesLastSync).toISOString()}`);
+      } else {
+        logger.log('Communities: No lastSync timestamp available, using default since time');
+      }
 
       const filters = [
         {
           kinds: [9411], // Channel messages
           '#a': communityRefs,
-          since: mostRecentTimestamp - 60, // 60 seconds overlap to avoid missing messages
+          since: subscriptionSince,
         },
         {
           kinds: [1111], // Replies
           '#a': communityRefs,
-          since: mostRecentTimestamp - 60, // 60 seconds overlap to avoid missing messages
+          since: subscriptionSince,
         }
       ];
 
-      logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(mostRecentTimestamp * 1000).toISOString()}`);
+      logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
       logger.log(`Communities: Subscription filters:`, JSON.stringify(filters, null, 2));
 
       const subscription = nostr.req(filters);
@@ -1939,7 +1947,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error('Communities: Failed to start community messages subscription:', error);
     }
-  }, [user, nostr, communities, processIncomingCommunityMessage]);
+  }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityMessage]);
 
 
   // Add optimistic community message for immediate UI feedback
@@ -1979,29 +1987,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       clientFirstSeen: Date.now(), // For animation
     };
 
-    // Add optimistic message to the channel
-    setCommunities(prev => {
-      const newCommunities = new Map(prev);
-      const updatedCommunity = { ...newCommunities.get(communityId)! };
-      const updatedChannels = new Map(updatedCommunity.channels);
-      const updatedChannel = { ...updatedChannels.get(channelId)! };
-
-      // Add optimistic message and sort by timestamp (oldest first)
-      const updatedMessages = [...updatedChannel.messages, optimisticMessage].sort((a, b) => a.created_at - b.created_at);
-
-      updatedChannel.messages = updatedMessages;
-      updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, optimisticMessage.created_at);
-      updatedChannels.set(channelId, updatedChannel);
-      updatedCommunity.channels = updatedChannels;
-      updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, optimisticMessage.created_at);
-      newCommunities.set(communityId, updatedCommunity);
-
-      logger.log(`Communities: Added optimistic message ${optimisticId} to channel ${channelId} in community ${communityId}`);
-      return newCommunities;
-    });
+    // Use helper function to add optimistic message
+    addMessageToChannel(communityId, channelId, optimisticMessage, true);
 
     return optimisticMessage;
-  }, [user, communities]);
+  }, [user, communities, addMessageToChannel]);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
@@ -3286,6 +3276,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       await db.put(storeName, cacheData);
       await db.close();
 
+      // Update in-memory lastSync timestamp
+      setCommunitiesLastSync(cacheData.lastSync);
+
       logger.log('Communities: Successfully wrote communities cache to IndexedDB');
     } catch (error) {
       logger.error('Communities: Error writing communities to IndexedDB:', error);
@@ -3348,6 +3341,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Convert serialized data back to Map format
+      // Update in-memory lastSync timestamp from cache
+      setCommunitiesLastSync(cacheData.lastSync);
+
       const communitiesMap = new Map<string, CommunityData>();
 
       for (const communityData of cacheData.communities) {
