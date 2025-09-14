@@ -2748,11 +2748,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Import the IndexedDB utilities
       const { openDB } = await import('idb');
 
+      // Create user-specific store name (like messages do)
+      const storeName = `communities-${userPubkey}`;
+
       // Open or create the communities database
       const db = await openDB('nostr-communities', 1, {
         upgrade(db) {
-          if (!db.objectStoreNames.contains('communities')) {
-            db.createObjectStore('communities', { keyPath: 'userPubkey' });
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName, { keyPath: 'id' });
+            logger.log(`Communities: Created store ${storeName} in IndexedDB`);
           }
         },
       });
@@ -2786,16 +2790,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: community.lastActivity,
       }));
 
-      // Create the cache object
+      // Create the cache object with consistent structure
       const cacheData = {
+        id: 'communitiesStore', // Fixed ID for the cache object
         userPubkey,
         communities: communitiesArray,
         lastSync: Date.now(),
         version: 1,
       };
 
-      // Write to IndexedDB
-      await db.put('communities', cacheData);
+      // Write to user-specific store
+      await db.put(storeName, cacheData);
       await db.close();
 
       logger.log('Communities: Successfully wrote communities cache to IndexedDB');
@@ -2817,17 +2822,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Import the IndexedDB utilities
       const { openDB } = await import('idb');
 
+      // Create user-specific store name (like messages do)
+      const storeName = `communities-${userPubkey}`;
+
       // Open the communities database
       const db = await openDB('nostr-communities', 1, {
         upgrade(db) {
-          if (!db.objectStoreNames.contains('communities')) {
-            db.createObjectStore('communities', { keyPath: 'userPubkey' });
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName, { keyPath: 'id' });
+            logger.log(`Communities: Created store ${storeName} in IndexedDB during read`);
           }
         },
       });
 
+      // Check if the store exists before trying to read from it
+      if (!db.objectStoreNames.contains(storeName)) {
+        logger.log(`Communities: Store ${storeName} does not exist yet for user ${userPubkey.slice(0, 8)}...`);
+        await db.close();
+        return null;
+      }
+
       // Read cached data for this user
-      const cacheData = await db.get('communities', userPubkey);
+      const cacheData = await db.get(storeName, 'communitiesStore');
       await db.close();
 
       if (!cacheData) {
