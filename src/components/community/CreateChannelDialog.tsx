@@ -18,9 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import { useCommunities } from '@/hooks/useCommunities';
-import { useUserMembership } from '@/hooks/useUserMembership';
-import { useChannelFolders } from '@/hooks/useChannelFolders';
+import { useDataManager } from '@/components/DataManagerProvider';
 import { Switch } from '@/components/ui/switch';
 
 interface CreateChannelDialogProps {
@@ -50,23 +48,24 @@ export function CreateChannelDialog({
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
-  const { data: communities } = useCommunities();
-  const { data: memberships } = useUserMembership();
-  const { data: folders } = useChannelFolders(communityId);
+  const { communities } = useDataManager();
+
+  // Get community from DataManager
+  const community = communities.communities.get(communityId);
 
   // Check if user has permission to create channels
-  const community = communities?.find(c => c.id === communityId);
-  const membership = memberships?.find(m => m.communityId === communityId);
-
   const canCreateChannel = user && community && (
     // User is the community creator
-    community.creator === user.pubkey ||
+    community.definitionEvent.pubkey === user.pubkey ||
     // User is a moderator
-    community.moderators.includes(user.pubkey) ||
+    community.info.moderators.includes(user.pubkey) ||
     // User has owner/moderator membership status
-    membership?.status === 'owner' ||
-    membership?.status === 'moderator'
+    community.membershipStatus === 'owner' ||
+    community.membershipStatus === 'moderator'
   );
+
+  // Get folders from DataManager (simplified - no folders for now)
+  const folders: { id: string; name: string }[] = []; // TODO: Implement folder support in DataManager
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +114,8 @@ export function CreateChannelDialog({
 
     try {
       const tags = [
-        ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
-        ['a', communityId], // Reference to community
+        ['d', channelName], // Unique identifier: just the channel name
+        ['a', communityId], // Reference to community (simple community ID)
         ['name', channelName],
         ['description', description.trim()],
         ['channel_type', type],
@@ -144,7 +143,7 @@ export function CreateChannelDialog({
       // Create default permissions if channel is private
       if (isPrivate) {
         const permissionTags = [
-          ['d', `${communityId}:${channelName}`],
+          ['d', channelName],
           ['a', communityId],
           ['channel', channelName],
           ['t', 'channel-permissions'],

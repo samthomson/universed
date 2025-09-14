@@ -1765,8 +1765,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
 
-    // Validate message kinds (9411 for channel messages, 1111 for replies)
-    if (![9411, 1111].includes(event.kind)) {
+    // Validate message kinds (9411 for channel messages, 1111 for replies, 32807 for new channels)
+    if (![9411, 1111, 32807].includes(event.kind)) {
       logger.warn(`Communities: Invalid message kind: ${event.kind} for event ${event.id}`);
       return;
     }
@@ -1857,6 +1857,76 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
         return newCommunities;
       });
+    } else if (event.kind === 32807) {
+      // New channel creation event
+      const channelId = event.tags.find(([name]) => name === 'd')?.[1];
+      if (!channelId) {
+        logger.warn(`Communities: No channel ID found in channel creation event ${event.id}`);
+        return;
+      }
+
+      // Check if channel already exists
+      if (community.channels.has(channelId)) {
+        logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
+        return;
+      }
+
+      // Parse channel info from the event
+      const channelName = event.tags.find(([name]) => name === 'name')?.[1] || channelId;
+      const channelDescription = event.tags.find(([name]) => name === 'description')?.[1] ||
+        event.tags.find(([name]) => name === 'about')?.[1];
+      const channelType = event.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
+      const folderId = event.tags.find(([name]) => name === 'folder')?.[1];
+      const position = parseInt(event.tags.find(([name]) => name === 'position')?.[1] || '0');
+
+      // Try to parse content for additional metadata
+      interface ChannelContent {
+        name?: string;
+        description?: string;
+        type?: 'text' | 'voice';
+        folderId?: string;
+        position?: number;
+      }
+
+      let contentData: ChannelContent = {};
+      try {
+        contentData = JSON.parse(event.content) as ChannelContent;
+      } catch {
+        // Ignore parsing errors
+      }
+
+      // Create new channel data
+      const newChannelData: ChannelData = {
+        id: channelId,
+        communityId: simpleCommunityId,
+        info: {
+          name: contentData?.name || channelName,
+          description: contentData?.description || channelDescription,
+          type: contentData?.type || channelType,
+          folderId: contentData?.folderId || folderId,
+          position: contentData?.position || position || 0,
+        },
+        definition: event,
+        messages: [], // Start with empty messages
+        replies: new Map(), // Start with empty replies
+        permissions: null, // Will be loaded separately if needed
+        lastActivity: event.created_at,
+      };
+
+      // Add the new channel to the community
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+
+        updatedChannels.set(channelId, newChannelData);
+        updatedCommunity.channels = updatedChannels;
+        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+        newCommunities.set(simpleCommunityId, updatedCommunity);
+
+        logger.log(`Communities: Added new channel "${channelName}" (${channelId}) to community ${simpleCommunityId}`);
+        return newCommunities;
+      });
     }
   }, [user, communities, addMessageToChannel]);
 
@@ -1905,6 +1975,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         },
         {
           kinds: [1111], // Replies
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [32807], // New channel creation events
           '#a': communityRefs,
           since: subscriptionSince,
         }
