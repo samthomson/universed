@@ -183,12 +183,12 @@ function CommunityChatHeader({
                   <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
                     <DropdownMenuItem
                       onClick={() => setShowChannelSettings(true)}
-                      className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg"
+                      className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg cursor-pointer"
                     >
                       <Settings className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                       Edit Channel
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg cursor-pointer">
                       <Copy className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                       Copy Channel Link
                     </DropdownMenuItem>
