@@ -1938,23 +1938,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: event.created_at,
       };
 
+      // If this was a placeholder channel, preserve any messages it had
+      if (existingChannel && !existingChannel.definition.id) {
+        logger.log(`Communities: Replacing placeholder channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
+        newChannelData.messages = existingChannel.messages;
+        newChannelData.replies = existingChannel.replies;
+        newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
+      }
+
       // Add the new channel to the community (or replace placeholder)
       setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-
-        // If this was a placeholder channel, preserve any messages it had
-        if (existingChannel && !existingChannel.definition.id) {
-          logger.log(`Communities: Replacing placeholder channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
-          newChannelData.messages = existingChannel.messages;
-          newChannelData.replies = existingChannel.replies;
-          newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
-        }
-
+        const community = prev.get(simpleCommunityId)!;
+        const updatedChannels = new Map(community.channels);
         updatedChannels.set(channelId, newChannelData);
-        updatedCommunity.channels = updatedChannels;
-        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+
+        const updatedCommunity = {
+          ...community,
+          channels: updatedChannels,
+          lastActivity: Math.max(community.lastActivity, event.created_at),
+        };
+
+        const newCommunities = new Map(prev);
         newCommunities.set(simpleCommunityId, updatedCommunity);
 
         const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
