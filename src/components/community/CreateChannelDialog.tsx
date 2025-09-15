@@ -319,13 +319,14 @@ export function CreateChannelDialog({
             <Input
               id="position"
               type="number"
-              value={position}
+              value={'?'}
               onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
               min={0}
-              placeholder="0"
+              placeholder="?"
+              disabled={true}
             />
             <p className="text-xs text-muted-foreground">
-              Lower numbers appear first in the channel list.
+              Position editing temporarily disabled.
             </p>
           </div>
 
