@@ -285,13 +285,11 @@ export function ChannelSettingsDialog({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={100}
-                  disabled={channel.name === 'general'}
+                  disabled={true}
                 />
-                {channel.name === 'general' && (
-                  <p className="text-xs text-muted-foreground">
-                    The general channel name cannot be changed.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Channel renaming temporarily disabled.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -353,11 +351,10 @@ export function ChannelSettingsDialog({
                   id="position"
                   type="number"
                   value={position}
-                  onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
-                  min={0}
+                  disabled={true}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Lower numbers appear first in the channel list.
+                  Position editing temporarily disabled.
                 </p>
               </div>
 
