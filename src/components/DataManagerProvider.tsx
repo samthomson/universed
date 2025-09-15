@@ -710,6 +710,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Community messages subscription ref
   const communityMessagesSubscriptionRef = useRef<{ close: () => void } | null>(null);
 
+  // Community management subscription ref (for membership changes, etc.)
+  const communityManagementSubscriptionRef = useRef<{ close: () => void } | null>(null);
+
   // Communities state
   const [communities, setCommunities] = useState<CommunitiesState>(new Map());
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
@@ -1765,8 +1768,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
 
-    // Validate message kinds (9411 for channel messages, 1111 for replies, 32807 for new channels)
-    if (![9411, 1111, 32807].includes(event.kind)) {
+    // Validate message kinds
+    if (![9411, 1111, 32807, 5].includes(event.kind)) {
       logger.warn(`Communities: Invalid message kind: ${event.kind} for event ${event.id}`);
       return;
     }
@@ -1965,6 +1968,41 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId}`);
         return newCommunities;
       });
+    } else if (event.kind === 5) {
+      // Deletion event - remove the referenced event
+      const deletedEventId = event.tags.find(([name]) => name === 'e')?.[1];
+      if (!deletedEventId) {
+        logger.warn(`Communities: No event ID found in deletion event ${event.id}`);
+        return;
+      }
+
+      // Find and remove the deleted message from any channel
+      setCommunities(prev => {
+        let messageFound = false;
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+
+        // Search all channels for the message to delete
+        for (const [channelId, channel] of updatedChannels) {
+          const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
+          if (messageIndex !== -1) {
+            const updatedMessages = [...channel.messages];
+            updatedMessages.splice(messageIndex, 1);
+            updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
+            messageFound = true;
+            logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
+            break;
+          }
+        }
+
+        if (messageFound) {
+          updatedCommunity.channels = updatedChannels;
+          newCommunities.set(simpleCommunityId, updatedCommunity);
+          return newCommunities;
+        }
+        return prev;
+      });
     }
   }, [user, communities, addMessageToChannel]);
 
@@ -2020,7 +2058,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [32807], // New channel creation events
           '#a': communityRefs,
           since: subscriptionSince,
-        }
+        },
+        {
+          kinds: [5], // Deletion events
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
       ];
 
       logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
@@ -2061,6 +2104,85 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.error('Communities: Failed to start community messages subscription:', error);
     }
   }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityMessage]);
+
+  // Start community management subscription (membership changes, community updates, permissions)
+  const startCommunityManagementSubscription = useCallback(async () => {
+    if (!user?.pubkey || !nostr || communities.size === 0) return;
+
+    // Close existing subscription
+    if (communityManagementSubscriptionRef.current) {
+      communityManagementSubscriptionRef.current.close();
+      logger.log('Communities: Closed existing management subscription');
+    }
+
+    try {
+      const communityIds: string[] = [];
+      const communityRefs: string[] = [];
+      const ownerPubkeys: string[] = [];
+
+      communities.forEach((community) => {
+        communityIds.push(community.id);
+        communityRefs.push(community.fullAddressableId);
+        ownerPubkeys.push(community.pubkey);
+      });
+
+      const subscriptionSince = communitiesLastSync
+        ? Math.floor(communitiesLastSync / 1000) - 60
+        : Math.floor(Date.now() / 1000);
+
+      const filters = [
+        {
+          kinds: [34550], // Community definition updates
+          '#d': communityIds,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [34551, 34552, 34553], // Member list updates
+          '#d': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [30143], // Channel permission updates
+          authors: ownerPubkeys,
+          since: subscriptionSince,
+        }
+      ];
+
+      logger.log(`Communities: Starting management subscription for ${communities.size} communities`);
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process management events
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              logger.log(`Communities: Received management event: ${msg[2].id} (kind: ${msg[2].kind})`);
+              // TODO: Process community definition updates, membership changes, permission updates
+            }
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('Communities: Management subscription error:', error);
+          }
+        }
+      })();
+
+      communityManagementSubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          logger.log('Communities: Management subscription closed');
+        }
+      };
+
+      logger.log('Communities: Management subscription started successfully');
+
+    } catch (error) {
+      logger.error('Communities: Failed to start management subscription:', error);
+    }
+  }, [user, nostr, communities, communitiesLastSync]);
 
 
   // Add optimistic community message for immediate UI feedback
@@ -2166,7 +2288,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
+  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17, isLoading]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
@@ -3094,7 +3216,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         setHasCommunitiesInitialLoadCompleted(true);
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
 
-        // Subscription will be started by the useEffect that watches communities state
+        // Start community subscriptions after successful loading
+        logger.log('Communities: Starting subscriptions after successful loading');
+        startCommunityMessagesSubscription();
+        startCommunityManagementSubscription();
       }
     } catch (error) {
       logger.error('Communities: Error in communities loading:', error);
@@ -3550,10 +3675,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           setHasCommunitiesInitialLoadCompleted(true);
           setCommunitiesLoadingPhase(LOADING_PHASES.READY);
 
-          // Cache loaded successfully - no background refresh needed
-          logger.log('Communities: Cache loaded successfully, no background refresh');
-
-          // Subscription will be started by the useEffect that watches communities state
+          // Cache loaded successfully - start subscriptions
+          logger.log('Communities: Cache loaded successfully, starting subscriptions');
+          startCommunityMessagesSubscription();
+          startCommunityManagementSubscription();
         } else {
           logger.log('Communities: No valid cache found, loading from network');
           startCommunitiesLoading();
@@ -3565,15 +3690,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
 
     loadCommunitiesWithCache();
-  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache]);
+  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
 
-  // Start community messages subscription when communities are loaded
-  useEffect(() => {
-    if (communities.size > 0 && hasCommunitiesInitialLoadCompleted && !communityMessagesSubscriptionRef.current) {
-      logger.log('Communities: Starting community messages subscription - communities loaded');
-      startCommunityMessagesSubscription();
-    }
-  }, [communities.size, hasCommunitiesInitialLoadCompleted, startCommunityMessagesSubscription]);
+  // Note: Community subscriptions are now started in startCommunitiesLoading() for better code organization
 
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
@@ -3590,6 +3709,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (communityMessagesSubscriptionRef.current) {
         communityMessagesSubscriptionRef.current.close();
         logger.log('Communities: DataManager: Cleaned up community messages subscription');
+      }
+      if (communityManagementSubscriptionRef.current) {
+        communityManagementSubscriptionRef.current.close();
+        logger.log('Communities: DataManager: Cleaned up community management subscription');
       }
 
       // Clear debounced write timeout
