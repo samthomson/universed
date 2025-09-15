@@ -3345,6 +3345,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: channelsMap,
           approvedMembers: approvedMembers || null,
           pendingMembers: pendingMembers || null,
+          bannedMembers: null, // Will be loaded in background
           membershipStatus: finalMembershipStatus,
           lastActivity: isApproved && channelsMap.size > 0
             ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
@@ -3792,6 +3793,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: channelsMap,
           approvedMembers: communityData.approvedMembers,
           pendingMembers: communityData.pendingMembers,
+          bannedMembers: communityData.bannedMembers || null,
           membershipStatus: communityData.membershipStatus,
           lastActivity: communityData.lastActivity,
           isLoadingChannels: false, // Always false when loading from cache
