@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Navigate, useNavigate } from 'react-router-dom';
-import { Shield, Crown, Settings, BarChart3, Users, AlertTriangle, Share2 } from 'lucide-react';
+import { Shield, Crown, Settings, BarChart3, Users, Share2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useDataManager, useDataManagerUserRole, useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { communityIdToNaddr, encodeNaddrForUrl, decodeNaddrFromUrl, naddrToCommunityId, extractCommunityId } from '@/lib/utils';
-import type { Community } from '@/hooks/useCommunities';
 import { ModerationDashboard } from '@/components/moderation/ModerationDashboard';
 import { AdminPanel } from '@/components/moderation/AdminPanel';
 import { CommunitySettings } from '@/components/moderation/CommunitySettings';
