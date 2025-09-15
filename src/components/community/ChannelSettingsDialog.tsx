@@ -19,7 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
-import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useUpdateChannel, useDeleteChannel } from '@/hooks/useChannels';
 import { useChannelFolders } from '@/hooks/useChannelFolders';
 import { useChannelPermissions, useUpdateChannelPermissions } from '@/hooks/useChannelPermissions';
@@ -60,7 +60,7 @@ export function ChannelSettingsDialog({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { toast } = useToast();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const { mutateAsync: updateChannel } = useUpdateChannel(communityId);
   const { mutateAsync: deleteChannel } = useDeleteChannel(communityId);
   const { data: folders } = useChannelFolders(communityId);
