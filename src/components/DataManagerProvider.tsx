@@ -1799,8 +1799,39 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Find the channel in the community
       const channel = community.channels.get(channelId);
       if (!channel) {
-        logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, ignoring message ${event.id}`);
-        return;
+        logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, creating placeholder channel for message ${event.id}`);
+
+        // Create a placeholder channel for this message
+        // This handles the race condition where a message arrives before the channel creation event
+        const placeholderChannel: ChannelData = {
+          id: channelId,
+          communityId: simpleCommunityId,
+          info: {
+            name: channelId, // Use channel ID as name initially
+            description: undefined,
+            type: 'text', // Default to text
+            folderId: undefined,
+            position: 999, // Put at end until we get the real channel definition
+          },
+          definition: {} as NostrEvent, // Placeholder - will be replaced when real channel definition arrives
+          messages: [],
+          replies: new Map(),
+          permissions: null,
+          lastActivity: event.created_at,
+        };
+
+        // Add placeholder channel to community
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+          const updatedChannels = new Map(updatedCommunity.channels);
+          updatedChannels.set(channelId, placeholderChannel);
+          updatedCommunity.channels = updatedChannels;
+          newCommunities.set(simpleCommunityId, updatedCommunity);
+
+          logger.log(`Communities: Created placeholder channel ${channelId} in community ${simpleCommunityId}`);
+          return newCommunities;
+        });
       }
 
       // Use helper function to add message (much more concise!)
@@ -1866,7 +1897,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Check if channel already exists
-      if (community.channels.has(channelId)) {
+      const existingChannel = community.channels.get(channelId);
+      if (existingChannel && existingChannel.definition.id) {
+        // Real channel definition already exists, ignore duplicate
         logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
         return;
       }
@@ -1905,18 +1938,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: event.created_at,
       };
 
-      // Add the new channel to the community
+      // Add the new channel to the community (or replace placeholder)
       setCommunities(prev => {
         const newCommunities = new Map(prev);
         const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
         const updatedChannels = new Map(updatedCommunity.channels);
+
+        // If this was a placeholder channel, preserve any messages it had
+        if (existingChannel && !existingChannel.definition.id) {
+          logger.log(`Communities: Replacing placeholder channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
+          newChannelData.messages = existingChannel.messages;
+          newChannelData.replies = existingChannel.replies;
+          newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
+        }
 
         updatedChannels.set(channelId, newChannelData);
         updatedCommunity.channels = updatedChannels;
         updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
         newCommunities.set(simpleCommunityId, updatedCommunity);
 
-        logger.log(`Communities: Added new channel "${channelName}" (${channelId}) to community ${simpleCommunityId}`);
+        const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
+        logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId}`);
         return newCommunities;
       });
     }
