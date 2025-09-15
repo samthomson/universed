@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/re
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useCanModerate } from './useCommunityRoles';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
@@ -268,7 +268,7 @@ async function refreshChannelsInBackground(
 export function useUpdateChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -327,7 +327,7 @@ export function useUpdateChannel(communityId: string) {
 export function useDeleteChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({

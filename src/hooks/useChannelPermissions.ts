@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useCanModerate } from './useCommunityRoles';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useCommunityMembers } from './useCommunityMembers';
 import { useUserCommunityMembership } from './useUserCommunityMembership';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -38,7 +38,7 @@ function validateChannelPermissionsEvent(event: NostrEvent): boolean {
     const content = JSON.parse(event.content) as ChannelPermissionsContent;
     const validPermissions = ['everyone', 'members', 'moderators', 'specific'];
     if (!validPermissions.includes(content.readPermissions) ||
-        !validPermissions.includes(content.writePermissions)) {
+      !validPermissions.includes(content.writePermissions)) {
       return false;
     }
   } catch {
@@ -143,7 +143,7 @@ export function useChannelPermissions(communityId: string | null, channelId: str
 export function useUpdateChannelPermissions(communityId: string, channelId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -214,7 +214,7 @@ export function useUpdateChannelPermissions(communityId: string, channelId: stri
 export function useCanAccessChannel(communityId: string, channelId: string, accessType: 'read' | 'write') {
   const { user } = useCurrentUser();
   const { data: permissions, isLoading: permissionsLoading } = useChannelPermissions(communityId, channelId);
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const { data: members, isLoading: membersLoading } = useCommunityMembers(communityId);
   const { data: membershipStatus, isLoading: membershipLoading } = useUserCommunityMembership(communityId);
 

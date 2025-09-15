@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useCanModerate } from './useCommunityRoles';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export interface ChannelFolder {
@@ -118,7 +118,7 @@ export function useChannelFolders(communityId: string | null) {
 export function useCreateChannelFolder(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -156,7 +156,7 @@ export function useCreateChannelFolder(communityId: string) {
 export function useUpdateChannelFolder(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -202,7 +202,7 @@ export function useUpdateChannelFolder(communityId: string) {
 export function useDeleteChannelFolder(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
