@@ -347,6 +347,7 @@ export function useDeleteChannel(communityId: string) {
         tags: [
           ['e', channelEventId],
           ['k', '32807'],
+          ['a', communityId], // Add community reference so subscription can receive it
           ['alt', `Delete channel: ${channelName}`],
         ],
       });
