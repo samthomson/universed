@@ -308,6 +308,7 @@ export interface DisplayChannel {
   position: number;
   event: NostrEvent;
   permissions?: NostrEvent | null; // Include cached permissions to avoid additional queries
+  isLoading?: boolean; // True when channel is being created (optimistic)
   hasAccess: boolean; // Pre-computed access check - REQUIRED, no fallback
   parsedPermissions: {
     readPermissions: 'everyone' | 'members' | 'moderators' | 'specific';
@@ -333,6 +334,7 @@ interface CommunitiesDomain {
   getFolders: (communityId: string) => ChannelFolder[];
   getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
   addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
+  addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
 }
 
 // Main DataManager interface - organized by domain
@@ -1783,7 +1785,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, []);
 
   // Process incoming community messages and route them to the correct channel
-  const processIncomingCommunityMessage = useCallback(async (event: NostrEvent) => {
+  const processIncomingCommunityMessage = useCallback(async (event: NostrEvent, communitiesToUse?: Map<string, CommunityData>) => {
     if (!user?.pubkey) return;
 
     logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
@@ -1805,7 +1807,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const simpleCommunityId = communityRef;
 
     // Find the community in our state
-    const community = communities.get(simpleCommunityId);
+    const communitiesForProcessing = communitiesToUse || communities;
+    const community = communitiesForProcessing.get(simpleCommunityId);
     if (!community) {
       logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
       return;
@@ -1914,6 +1917,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } else if (event.kind === 32807) {
       // New channel creation event
       const channelId = event.tags.find(([name]) => name === 'd')?.[1];
+      const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+      logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" in community "${aTag}"`);
+
       if (!channelId) {
         logger.warn(`Communities: No channel ID found in channel creation event ${event.id}`);
         return;
@@ -1921,7 +1927,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Check if channel already exists
       const existingChannel = community.channels.get(channelId);
-      if (existingChannel && existingChannel.definition.id) {
+      if (existingChannel && existingChannel.definition.id && !existingChannel.definition.isSending) {
         // Real channel definition already exists, ignore duplicate
         logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
         return;
@@ -1961,9 +1967,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: event.created_at,
       };
 
-      // If this was a placeholder channel, preserve any messages it had
-      if (existingChannel && !existingChannel.definition.id) {
-        logger.log(`Communities: Replacing placeholder channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
+      // If this was a placeholder or optimistic channel, preserve any messages it had
+      if (existingChannel && (!existingChannel.definition.id || existingChannel.definition.isSending)) {
+        const channelType = existingChannel.definition.isSending ? 'optimistic' : 'placeholder';
+        logger.log(`Communities: Replacing ${channelType} channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
         newChannelData.messages = existingChannel.messages;
         newChannelData.replies = existingChannel.replies;
         newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
@@ -1972,8 +1979,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Add the new channel to the community (or replace placeholder)
       setCommunities(prev => {
         const community = prev.get(simpleCommunityId)!;
+        const beforeCount = community.channels.size;
         const updatedChannels = new Map(community.channels);
         updatedChannels.set(channelId, newChannelData);
+        const afterCount = updatedChannels.size;
 
         const updatedCommunity = {
           ...community,
@@ -1985,7 +1994,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         newCommunities.set(simpleCommunityId, updatedCommunity);
 
         const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
-        logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId}`);
+        logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId} (channels: ${beforeCount} -> ${afterCount})`);
+
         return newCommunities;
       });
     } else if (event.kind === 5) {
@@ -2027,9 +2037,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, communities, addMessageToChannel]);
 
   // Start community messages subscription for all loaded communities
-  const startCommunityMessagesSubscription = useCallback(async () => {
-    if (!user?.pubkey || !nostr || communities.size === 0) {
-      logger.log('Communities: Cannot start subscription - missing requirements');
+  const startCommunityMessagesSubscription = useCallback(async (communitiesToUse?: Map<string, CommunityData>) => {
+    const communitiesForSubscription = communitiesToUse || communities;
+    logger.log(`[CHANNEL-DEBUG] startCommunityMessagesSubscription called with ${communitiesForSubscription.size} communities`);
+    if (!user?.pubkey || !nostr || communitiesForSubscription.size === 0) {
+      logger.log('[CHANNEL-DEBUG] Cannot start subscription - missing requirements:', {
+        hasUser: !!user,
+        hasPubkey: !!user?.pubkey,
+        hasNostr: !!nostr,
+        communitiesSize: communitiesForSubscription.size
+      });
       return;
     }
 
@@ -2042,8 +2059,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Build filters for all communities (one per community, not per channel)
       const communityRefs: string[] = [];
-      communities.forEach((community) => {
-        // Use simple community ID for subscription (matches message format)
+      communitiesForSubscription.forEach((community) => {
+        // Use simple community ID for subscription (matches channel creation format)
         communityRefs.push(community.id);
       });
 
@@ -2053,14 +2070,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Use in-memory lastSync timestamp (consistent with DM pattern)
-      let subscriptionSince = Math.floor(Date.now() / 1000); // Default to NOW (like DMs)
+      let subscriptionSince = Math.floor(Date.now() / 1000) - 30; // Default to 30 seconds ago to catch recent events
 
       if (communitiesLastSync) {
         // Start subscription from 60 seconds before last cache write (accounts for debounced saves)
         subscriptionSince = Math.floor(communitiesLastSync / 1000) - 60;
         logger.log(`Communities: Using in-memory lastSync timestamp for subscription: ${new Date(communitiesLastSync).toISOString()}`);
       } else {
-        logger.log('Communities: No lastSync timestamp available, using current time (like DMs)');
+        logger.log('Communities: No lastSync timestamp available, using 30 seconds ago to catch recent events');
       }
 
       const filters = [
@@ -2087,7 +2104,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       ];
 
       logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
-      logger.log(`Communities: Subscription filters:`, JSON.stringify(filters, null, 2));
 
       const subscription = nostr.req(filters);
       let isActive = true;
@@ -2099,7 +2115,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             if (!isActive) break;
             if (msg[0] === 'EVENT') {
               logger.log(`Communities: Received event: ${msg[2].id} (kind: ${msg[2].kind})`);
-              await processIncomingCommunityMessage(msg[2]);
+              await processIncomingCommunityMessage(msg[2], communitiesForSubscription);
             } else {
               logger.log(`Communities: Received non-event message:`, msg);
             }
@@ -2402,6 +2418,84 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     return optimisticMessage;
   }, [user, communities, addMessageToChannel]);
+
+  // Add optimistic channel for immediate UI feedback
+  const addOptimisticChannel = useCallback((communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic channel, no user pubkey');
+      return;
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot add optimistic channel, community not found:', communityId);
+      return;
+    }
+
+    // Check if channel already exists (use simple channel name like 'general')
+    if (community.channels.has(channelName)) {
+      logger.warn('Communities: Channel already exists, skipping optimistic add:', channelName);
+      return;
+    }
+
+    // Create optimistic channel event with loading state
+    const optimisticChannelEvent: NostrEvent = {
+      id: `optimistic-channel-${Date.now()}-${Math.random()}`,
+      kind: 32807,
+      pubkey: user.pubkey,
+      created_at: Math.floor(Date.now() / 1000),
+      content: JSON.stringify({
+        name: channelName,
+        type: channelType,
+        folderId,
+        position: position ?? 0,
+      }),
+      tags: [
+        ['d', channelName], // Use simple channel name format (like 'general')
+        ['a', communityId], // Use simple community ID
+        ['name', channelName],
+        ['channel_type', channelType],
+        ['position', (position ?? 0).toString()],
+        ['t', 'channel'],
+        ['alt', `Channel: ${channelName}`],
+        ...(folderId ? [['folder', folderId]] : []),
+      ],
+      sig: '',
+      isSending: true, // Mark as optimistic/loading
+    };
+
+    // Create optimistic channel data with loading state
+    const optimisticChannelData: ChannelData = {
+      id: channelName,
+      communityId,
+      info: {
+        name: channelName,
+        type: channelType,
+        folderId,
+        position: position ?? 0,
+      },
+      definition: optimisticChannelEvent,
+      messages: [],
+      replies: new Map(),
+      permissions: null,
+      lastActivity: optimisticChannelEvent.created_at,
+    };
+
+    // Add to community channels
+    setCommunities(prev => {
+      const updatedCommunity = { ...prev.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+      updatedChannels.set(channelName, optimisticChannelData);
+      updatedCommunity.channels = updatedChannels;
+      updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, optimisticChannelEvent.created_at);
+
+      const newCommunities = new Map(prev);
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Added optimistic channel "${channelName}" to community ${communityId}`);
+      return newCommunities;
+    });
+  }, [user, communities]);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
@@ -3395,7 +3489,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
         // Start community subscriptions after successful loading
         logger.log('Communities: Starting subscriptions after successful loading');
-        startCommunityMessagesSubscription();
+        logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${updatedCommunitiesState.size} communities loaded`);
+        startCommunityMessagesSubscription(updatedCommunitiesState);
         startCommunityManagementSubscription();
       }
     } catch (error) {
@@ -3530,6 +3625,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           position: channel.info.position ?? 0, // Default to 0 if undefined
           event: channel.definition,
           permissions: channel.permissions,
+          isLoading: channel.definition.isSending, // Show loading for optimistic channels
           hasAccess,
           parsedPermissions,
           isRestricted,
@@ -3855,7 +3951,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
           // Cache loaded successfully - start subscriptions
           logger.log('Communities: Cache loaded successfully, starting subscriptions');
-          startCommunityMessagesSubscription();
+          logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${cachedCommunities.size} communities loaded`);
+          startCommunityMessagesSubscription(cachedCommunities);
           startCommunityManagementSubscription();
         } else {
           logger.log('Communities: No valid cache found, loading from network');
@@ -3870,7 +3967,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadCommunitiesWithCache();
   }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
 
-  // Note: Community subscriptions are now started in startCommunitiesLoading() for better code organization
 
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
@@ -4195,6 +4291,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     getFolders,
     getChannelsWithoutFolder,
     addOptimisticMessage: addOptimisticCommunityMessage,
+    addOptimisticChannel,
   };
 
   const contextValue: DataManagerContextType = {

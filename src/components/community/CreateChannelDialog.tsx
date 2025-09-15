@@ -64,9 +64,24 @@ export function CreateChannelDialog({
     community.membershipStatus === 'moderator'
   );
 
-  // Get folders from DataManager
-  const { getFolders } = useDataManager().communities;
+  // Get folders and channels from DataManager
+  const { getFolders, getSortedChannels } = useDataManager().communities;
   const folders = community ? getFolders(communityId) : [];
+  const existingChannels = community ? getSortedChannels(communityId) : [];
+
+  // Calculate next position based on existing channels in the same folder/root
+  const calculateNextPosition = () => {
+    const targetFolderId = selectedFolderId !== 'none' ? selectedFolderId : undefined;
+    const channelsInSameLocation = existingChannels.filter(channel =>
+      channel.folderId === targetFolderId && channel.type === type
+    );
+
+    if (channelsInSameLocation.length === 0) return 0;
+
+    // Find the highest position and add 1
+    const maxPosition = Math.max(...channelsInSameLocation.map(ch => ch.position));
+    return maxPosition + 1;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,13 +129,25 @@ export function CreateChannelDialog({
     setIsSubmitting(true);
 
     try {
+      // Calculate the correct position for the new channel
+      const calculatedPosition = calculateNextPosition();
+
+      // Add optimistic channel immediately for instant UI feedback
+      communities.addOptimisticChannel(
+        communityId,
+        channelName,
+        type,
+        selectedFolderId !== 'none' ? selectedFolderId : undefined,
+        calculatedPosition
+      );
+
       const tags = [
-        ['d', channelName], // Unique identifier: just the channel name
+        ['d', channelName], // Unique identifier: just the channel name (like 'general')
         ['a', communityId], // Reference to community (simple community ID)
         ['name', channelName],
         ['description', description.trim()],
         ['channel_type', type],
-        ['position', position.toString()],
+        ['position', calculatedPosition.toString()],
         ['t', 'channel'], // Tag for filtering
         ['alt', `Channel: ${channelName}`],
       ];
@@ -129,17 +156,20 @@ export function CreateChannelDialog({
         tags.push(['folder', selectedFolderId]);
       }
 
-      await createEvent({
+      const channelEvent = {
         kind: 32807, // Custom kind for channel definition
         content: JSON.stringify({
           name: channelName,
           description: description.trim() || undefined,
           type,
           folderId: selectedFolderId !== 'none' ? selectedFolderId : undefined,
-          position,
+          position: calculatedPosition,
         }),
         tags,
-      });
+      };
+
+
+      await createEvent(channelEvent);
 
       // Create default permissions if channel is private
       if (isPrivate) {
