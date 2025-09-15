@@ -16,9 +16,14 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/useToast';
 import { generateSpaceUrl } from '@/lib/utils';
 import type { CommunityData } from '@/components/DataManagerProvider';
+import type { Community } from '@/hooks/useCommunities';
+import type { UserCommunity } from '@/hooks/useUserCommunities';
+
+// Union type to accept both DataManager and legacy community types
+type ShareableCommunity = CommunityData | Community | UserCommunity;
 
 interface CommunityShareDialogProps {
-  community: CommunityData;
+  community: ShareableCommunity;
   children?: React.ReactNode;
 }
 
@@ -26,19 +31,42 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Parse community fullAddressableId to get the components for naddr
-  const [kind, pubkey, identifier] = community.fullAddressableId.split(':');
+  // Helper functions to extract data from different community types
+  const getCommunityData = (community: ShareableCommunity) => {
+    if ('fullAddressableId' in community) {
+      // DataManager CommunityData type
+      const [kind, pubkey, identifier] = community.fullAddressableId.split(':');
+      return {
+        kind: parseInt(kind),
+        pubkey,
+        identifier,
+        relays: community.info.relays,
+        name: community.info.name,
+      };
+    } else {
+      // Legacy Community/UserCommunity type
+      return {
+        kind: 34550,
+        pubkey: community.creator,
+        identifier: community.id,
+        relays: community.relays,
+        name: community.name,
+      };
+    }
+  };
+
+  const communityData = getCommunityData(community);
 
   // Generate naddr for the community
   const naddr = nip19.naddrEncode({
-    kind: parseInt(kind),
-    pubkey,
-    identifier,
-    relays: community.info.relays.length > 0 ? community.info.relays : undefined,
+    kind: communityData.kind,
+    pubkey: communityData.pubkey,
+    identifier: communityData.identifier,
+    relays: communityData.relays.length > 0 ? communityData.relays : undefined,
   });
 
   // Generate shareable URLs
-  const communityUrl = generateSpaceUrl(`${kind}:${pubkey}:${identifier}`);
+  const communityUrl = generateSpaceUrl(`${communityData.kind}:${communityData.pubkey}:${communityData.identifier}`);
   const joinUrl = `${window.location.origin}/join/${encodeURIComponent(naddr)}`;
 
   const copyToClipboard = async (text: string, field: string) => {
@@ -63,8 +91,8 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join ${community.info.name}`,
-          text: `Join the ${community.info.name} community on Nostr!`,
+          title: `Join ${communityData.name}`,
+          text: `Join the ${communityData.name} community on Nostr!`,
           url: joinUrl,
         });
       } catch {
@@ -105,7 +133,7 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
-            Share {community.info.name}
+            Share {communityData.name}
           </DialogTitle>
         </DialogHeader>
 
