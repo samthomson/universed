@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useDataManager, useDataManagerUserRole, useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { communityIdToNaddr, encodeNaddrForUrl, decodeNaddrFromUrl, naddrToCommunityId, extractCommunityId } from '@/lib/utils';
 import type { Community } from '@/hooks/useCommunities';
 import { ModerationDashboard } from '@/components/moderation/ModerationDashboard';
 import { AdminPanel } from '@/components/moderation/AdminPanel';
@@ -18,38 +19,28 @@ import { LoginArea } from '@/components/auth/LoginArea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CommunityShareDialog } from '@/components/community/CommunityShareDialog';
 
-// Convert DataManager community format to old Community format for compatibility
-function convertToOldCommunityFormat(community: any): Community | null {
-  if (!community) return null;
-
-  return {
-    id: community.fullAddressableId, // Use full addressable format (34550:pubkey:identifier)
-    name: community.info.name,
-    description: community.info.description,
-    image: community.info.image,
-    banner: community.info.banner,
-    creator: community.definitionEvent.pubkey,
-    moderators: community.info.moderators,
-    relays: community.info.relays,
-    event: community.definitionEvent,
-  };
-}
-
 export function CommunityManagement() {
   const { communityId } = useParams<{ communityId: string }>();
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
+  // Decode naddr format to full addressable format (kind:pubkey:identifier)
+  let decodedCommunityId = communityId || '';
+  if (communityId && communityId.startsWith('naddr1')) {
+    const naddr = decodeNaddrFromUrl(communityId);
+    decodedCommunityId = naddrToCommunityId(naddr);
+  }
+
+  // Extract simple community ID for DataManager lookup
+  const extractedCommunityId = decodedCommunityId ? extractCommunityId(decodedCommunityId) : '';
+
   const { user } = useCurrentUser();
   const { communities } = useDataManager();
-  const { role } = useDataManagerUserRole(communityId || '', user?.pubkey);
-  const { canModerate } = useDataManagerCanModerate(communityId || '');
+  const { role } = useDataManagerUserRole(extractedCommunityId, user?.pubkey);
+  const { canModerate } = useDataManagerCanModerate(extractedCommunityId);
 
   // Get community from DataManager
-  const community = communityId ? communities.communities.get(communityId) : null;
-
-  // Convert to old format for compatibility with existing components
-  const oldFormatCommunity = convertToOldCommunityFormat(community);
+  const community = extractedCommunityId ? communities.communities.get(extractedCommunityId) : null;
 
   if (!communityId) {
     return <Navigate to="/communities" replace />;
@@ -143,15 +134,18 @@ export function CommunityManagement() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {oldFormatCommunity && (
-                  <CommunityShareDialog community={oldFormatCommunity}>
-                    <Button variant="outline">
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share
-                    </Button>
-                  </CommunityShareDialog>
-                )}
-                <Button variant="outline" onClick={() => navigate(`/space/${encodeURIComponent(communityId)}`)}>
+                <CommunityShareDialog community={community}>
+                  <Button variant="outline">
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Share
+                  </Button>
+                </CommunityShareDialog>
+                <Button variant="outline" onClick={() => {
+                  // Convert simple community ID to naddr format for consistent routing
+                  const naddr = communityIdToNaddr(community.fullAddressableId);
+                  const encodedNaddr = encodeNaddrForUrl(naddr);
+                  navigate(`/space/${encodedNaddr}`);
+                }}>
                   Back to Community
                 </Button>
               </div>
@@ -187,24 +181,24 @@ export function CommunityManagement() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <ModerationDashboard communityId={communityId} />
+            <ModerationDashboard communityId={extractedCommunityId} />
           </TabsContent>
 
           <TabsContent value="users">
-            <UserManagement communityId={communityId} />
+            <UserManagement communityId={extractedCommunityId} />
           </TabsContent>
 
           <TabsContent value="analytics">
-            <ModerationAnalytics communityId={communityId} />
+            <ModerationAnalytics communityId={extractedCommunityId} />
           </TabsContent>
 
           <TabsContent value="settings">
-            <CommunitySettings communityId={communityId} />
+            <CommunitySettings communityId={extractedCommunityId} />
           </TabsContent>
 
           {role === 'owner' && (
             <TabsContent value="admin">
-              <AdminPanel communityId={communityId} />
+              <AdminPanel communityId={extractedCommunityId} />
             </TabsContent>
           )}
         </Tabs>

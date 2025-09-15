@@ -8,6 +8,24 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Extract simple community ID from various formats
+ * Handles both simple IDs ("test-4") and full addressable format ("34550:pubkey:test-4")
+ */
+export function extractCommunityId(communityId: string): string {
+  if (communityId.includes(':')) {
+    // Full addressable format: "34550:pubkey:identifier" -> "identifier"
+    const parts = communityId.split(':');
+    if (parts.length === 3) {
+      return parts[2];
+    }
+    // Fallback: return the last part
+    return parts[parts.length - 1];
+  }
+  // Already simple format
+  return communityId;
+}
+
+/**
  * Generate an naddr string from a community event
  */
 export function generateCommunityNaddr(event: NostrEvent): string {

@@ -204,7 +204,7 @@ interface MembersList {
 }
 
 // Complete community data structure
-interface CommunityData {
+export interface CommunityData {
   id: string; // community identifier (d tag)
   fullAddressableId: string; // full addressable format (34550:pubkey:identifier)
   pubkey: string; // community creator/owner
@@ -219,12 +219,12 @@ interface CommunityData {
 }
 
 // Channel metadata parsed from kind 32807 events
-interface ChannelInfo {
+export interface ChannelInfo {
   name: string;
   description?: string;
   type: 'text' | 'voice';
   folderId?: string;
-  position: number;
+  position?: number; // Optional since it might be missing from JSON content
 }
 
 // Complete channel data structure
@@ -473,7 +473,7 @@ export function useCommunityChannel(communityId: string | null, channelId: strin
       type: channelData.info.type,
       communityId: channelData.communityId,
       creator: channelData.definition.pubkey,
-      position: channelData.info.position,
+      position: channelData.info.position ?? 0,
       folderId: channelData.info.folderId,
       event: channelData.definition,
       permissions: channelData.permissions,
@@ -1880,17 +1880,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const position = parseInt(event.tags.find(([name]) => name === 'position')?.[1] || '0');
 
       // Try to parse content for additional metadata
-      interface ChannelContent {
-        name?: string;
-        description?: string;
-        type?: 'text' | 'voice';
-        folderId?: string;
-        position?: number;
-      }
-
-      let contentData: ChannelContent = {};
+      let contentData: ChannelInfo = { name: '', type: 'text' };
       try {
-        contentData = JSON.parse(event.content) as ChannelContent;
+        contentData = JSON.parse(event.content) as ChannelInfo;
       } catch {
         // Ignore parsing errors
       }
@@ -1904,7 +1896,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           description: contentData?.description || channelDescription,
           type: contentData?.type || channelType,
           folderId: contentData?.folderId || folderId,
-          position: contentData?.position || position || 0,
+          position: contentData?.position ?? position ?? 0,
         },
         definition: event,
         messages: [], // Start with empty messages
@@ -2925,17 +2917,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const position = parseInt(channelDef.tags.find(([name]) => name === 'position')?.[1] || '0');
 
             // Try to parse content for additional metadata
-            interface ChannelContent {
-              name?: string;
-              description?: string;
-              type?: 'text' | 'voice';
-              folderId?: string;
-              position?: number;
-            }
-
-            let contentData: ChannelContent = {};
+            let contentData: ChannelInfo = { name: '', type: 'text' };
             try {
-              contentData = JSON.parse(channelDef.content) as ChannelContent;
+              contentData = JSON.parse(channelDef.content) as ChannelInfo;
             } catch {
               // Ignore parsing errors
             }
@@ -2967,7 +2951,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 description: contentData?.description || channelDescription,
                 type: contentData?.type || channelType,
                 folderId: contentData?.folderId || folderId,
-                position: contentData?.position || position || 0,
+                position: contentData?.position ?? position ?? 0,
               },
               definition: channelDef,
               messages: sortedMessages, // Use sorted messages (oldest first)
@@ -3195,7 +3179,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           communityId: channel.communityId,
           creator: channel.definition.pubkey,
           folderId: channel.info.folderId,
-          position: channel.info.position,
+          position: channel.info.position ?? 0, // Default to 0 if undefined
           event: channel.definition,
           permissions: channel.permissions,
           hasAccess,

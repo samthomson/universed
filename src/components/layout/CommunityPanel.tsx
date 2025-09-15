@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { CommunitySectionNav } from "@/components/spaces/CommunitySectionNav";
 import { useNavigate } from "react-router-dom";
+import { communityIdToNaddr, encodeNaddrForUrl, extractCommunityId } from '@/lib/utils';
 
 interface CommunityPanelProps {
   communityId: string | null;
@@ -44,18 +45,8 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
   };
 
   // Use DataManager as the primary source for community data
-  // Extract simple community ID from full addressable format if needed
-  const getSimpleCommunityId = (id: string): string => {
-    if (id.includes(':')) {
-      // Full addressable format: "34550:pubkey:identifier" -> "identifier"
-      const parts = id.split(':');
-      return parts.length === 3 ? parts[2] : id;
-    }
-    return id;
-  };
-
-  const simpleCommunityId = communityId ? getSimpleCommunityId(communityId) : '';
-  const community = communities.communities.get(simpleCommunityId);
+  const extractedCommunityId = communityId ? extractCommunityId(communityId) : '';
+  const community = communities.communities.get(extractedCommunityId);
 
   // Check if user can moderate using DataManager data
   const canModerate = community ?
@@ -272,7 +263,12 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(`/space/${encodeURIComponent(communityId)}/manage`)}
+                onClick={() => {
+                  // Convert simple community ID to naddr format for consistent routing
+                  const naddr = communityIdToNaddr(community.fullAddressableId);
+                  const encodedNaddr = encodeNaddrForUrl(naddr);
+                  navigate(`/space/${encodedNaddr}/manage`);
+                }}
                 className="w-8 h-8 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 flex-shrink-0"
                 title="Manage Community"
               >
@@ -297,7 +293,7 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
           {/* Community Channel List - Hide in management mode */}
           {!managementMode && (
             <CommunityChannelList
-              communityId={simpleCommunityId}
+              communityId={extractedCommunityId}
               selectedChannel={selectedChannel}
               onSelectChannel={(channelId) => onSelectChannel?.(channelId)}
               onChannelSettings={setSelectedChannelForSettings}

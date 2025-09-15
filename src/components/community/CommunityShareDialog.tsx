@@ -15,10 +15,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/useToast';
 import { generateSpaceUrl } from '@/lib/utils';
-import type { Community } from '@/hooks/useCommunities';
+import type { CommunityData } from '@/components/DataManagerProvider';
 
 interface CommunityShareDialogProps {
-  community: Community;
+  community: CommunityData;
   children?: React.ReactNode;
 }
 
@@ -26,15 +26,15 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Parse community ID to get the components for naddr
-  const [kind, pubkey, identifier] = community.id.split(':');
+  // Parse community fullAddressableId to get the components for naddr
+  const [kind, pubkey, identifier] = community.fullAddressableId.split(':');
 
   // Generate naddr for the community
   const naddr = nip19.naddrEncode({
     kind: parseInt(kind),
     pubkey,
     identifier,
-    relays: community.relays.length > 0 ? community.relays : undefined,
+    relays: community.info.relays.length > 0 ? community.info.relays : undefined,
   });
 
   // Generate shareable URLs
@@ -63,8 +63,8 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Join ${community.name}`,
-          text: `Join the ${community.name} community on Nostr!`,
+          title: `Join ${community.info.name}`,
+          text: `Join the ${community.info.name} community on Nostr!`,
           url: joinUrl,
         });
       } catch {
@@ -105,7 +105,7 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 className="h-5 w-5" />
-            Share {community.name}
+            Share {community.info.name}
           </DialogTitle>
         </DialogHeader>
 
