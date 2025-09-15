@@ -159,6 +159,23 @@ const createErrorLogger = (name: string) => {
 // Create error loggers outside component to prevent recreation
 const nip17ErrorLogger = createErrorLogger('NIP-17');
 
+// Utility function to get tag value by name
+const getTagValue = (event: NostrEvent, tagName: string): string | undefined => {
+  return event.tags.find(([name]) => name === tagName)?.[1];
+};
+
+// Utility function to get all tag values by name
+const getTagValues = (event: NostrEvent, tagName: string): string[] => {
+  return event.tags.filter(([name]) => name === tagName).map(([, value]) => value);
+};
+
+// Utility function to get tag value with role filter
+const getTagValueWithRole = (event: NostrEvent, tagName: string, role: string): string[] => {
+  return event.tags
+    .filter(([name, , , tagRole]) => name === tagName && tagRole === role)
+    .map(([, value]) => value);
+};
+
 // Messaging domain interface
 interface MessagingDomain {
   messages: MessagesState;
@@ -2105,6 +2122,156 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityMessage]);
 
+  // Process incoming community management events
+  const processIncomingCommunityManagementEvent = useCallback(async (event: NostrEvent) => {
+    if (!user?.pubkey) return;
+
+    logger.log(`Communities: Processing management event: ${event.id} (kind: ${event.kind})`);
+
+    switch (event.kind) {
+      case 34550: {
+        // Community definition update
+        const communityId = getTagValue(event, 'd');
+        if (!communityId) {
+          logger.warn(`Communities: No community ID found in definition update ${event.id}`);
+          return;
+        }
+
+        const community = communities.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for definition update`);
+          return;
+        }
+
+        // Parse updated community info using helper functions
+        const name = getTagValue(event, 'name') || communityId;
+        const description = getTagValue(event, 'description');
+        const image = getTagValue(event, 'image');
+        const banner = getTagValue(event, 'banner');
+        const moderators = getTagValueWithRole(event, 'p', 'moderator');
+        const relays = getTagValues(event, 'relay');
+
+        // Update community info
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = {
+            ...community,
+            info: { name, description, image, banner, moderators, relays },
+            definitionEvent: event,
+            lastActivity: Math.max(community.lastActivity, event.created_at),
+          };
+          newCommunities.set(communityId, updatedCommunity);
+
+          logger.log(`Communities: Updated definition for community ${communityId}: ${name}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 34551:
+      case 34552:
+      case 34553: {
+        // Member list updates
+        const communityRef = getTagValue(event, 'd');
+        if (!communityRef) {
+          logger.warn(`Communities: No community reference found in member list update ${event.id}`);
+          return;
+        }
+
+        // Extract community ID from full addressable format
+        const [, , communityId] = communityRef.split(':');
+        if (!communityId) {
+          logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
+          return;
+        }
+
+        const community = communities.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for member list update`);
+          return;
+        }
+
+        // Parse member list using helper function
+        const members = getTagValues(event, 'p');
+        const membersList: MembersList = { members, event };
+
+        // Update appropriate member list
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+
+          switch (event.kind) {
+            case 34551:
+              updatedCommunity.approvedMembers = membersList;
+              logger.log(`Communities: Updated approved members for ${communityId}: ${members.length} members`);
+              break;
+            case 34552:
+              updatedCommunity.pendingMembers = membersList;
+              logger.log(`Communities: Updated pending members for ${communityId}: ${members.length} members`);
+              break;
+            case 34553:
+              // For banned members, we don't store them in the main structure but log the update
+              logger.log(`Communities: Updated banned members for ${communityId}: ${members.length} members`);
+              break;
+          }
+
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 30143: {
+        // Channel permission update
+        const permissionRef = getTagValue(event, 'd');
+        if (!permissionRef) {
+          logger.warn(`Communities: No permission reference found in permission update ${event.id}`);
+          return;
+        }
+
+        // Parse permission reference (format: "communityId/channelId")
+        const [communityId, channelId] = permissionRef.split('/');
+        if (!communityId || !channelId) {
+          logger.warn(`Communities: Invalid permission reference format: ${permissionRef}`);
+          return;
+        }
+
+        const community = communities.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for permission update`);
+          return;
+        }
+
+        const channel = community.channels.get(channelId);
+        if (!channel) {
+          logger.log(`Communities: Channel ${channelId} not found for permission update`);
+          return;
+        }
+
+        // Update channel permissions
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+          const updatedChannels = new Map(updatedCommunity.channels);
+          const updatedChannel = { ...channel, permissions: event };
+
+          updatedChannels.set(channelId, updatedChannel);
+          updatedCommunity.channels = updatedChannels;
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+
+          logger.log(`Communities: Updated permissions for channel ${channelId} in community ${communityId}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      default:
+        logger.warn(`Communities: Unknown management event kind: ${event.kind}`);
+    }
+  }, [user, communities]);
+
   // Start community management subscription (membership changes, community updates, permissions)
   const startCommunityManagementSubscription = useCallback(async () => {
     if (!user?.pubkey || !nostr || communities.size === 0) return;
@@ -2159,8 +2326,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           for await (const msg of subscription) {
             if (!isActive) break;
             if (msg[0] === 'EVENT') {
-              logger.log(`Communities: Received management event: ${msg[2].id} (kind: ${msg[2].kind})`);
-              // TODO: Process community definition updates, membership changes, permission updates
+              await processIncomingCommunityManagementEvent(msg[2]);
             }
           }
         } catch (error) {
@@ -2182,8 +2348,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error('Communities: Failed to start management subscription:', error);
     }
-  }, [user, nostr, communities, communitiesLastSync]);
-
+  }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityManagementEvent]);
 
   // Add optimistic community message for immediate UI feedback
   const addOptimisticCommunityMessage = useCallback((communityId: string, channelId: string, content: string, additionalTags: string[][] = []) => {
