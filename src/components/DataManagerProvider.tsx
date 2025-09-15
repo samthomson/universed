@@ -2006,31 +2006,45 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Find and remove the deleted message from any channel
+      const deletedKind = event.tags.find(([name]) => name === 'k')?.[1];
+
       setCommunities(prev => {
-        let messageFound = false;
         const newCommunities = new Map(prev);
         const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
         const updatedChannels = new Map(updatedCommunity.channels);
 
-        // Search all channels for the message to delete
-        for (const [channelId, channel] of updatedChannels) {
-          const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
-          if (messageIndex !== -1) {
-            const updatedMessages = [...channel.messages];
-            updatedMessages.splice(messageIndex, 1);
-            updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
-            messageFound = true;
-            logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
+        switch (deletedKind) {
+          case '32807': {
+            // Channel definition deletion - remove entire channel
+            for (const [channelId, channel] of updatedChannels) {
+              if (channel.definition.id === deletedEventId) {
+                updatedChannels.delete(channelId);
+                logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name})`);
+                updatedCommunity.channels = updatedChannels;
+                newCommunities.set(simpleCommunityId, updatedCommunity);
+                return newCommunities;
+              }
+            }
+            break;
+          }
+          default: {
+            // Message deletion - find and remove message from any channel
+            for (const [channelId, channel] of updatedChannels) {
+              const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
+              if (messageIndex !== -1) {
+                const updatedMessages = [...channel.messages];
+                updatedMessages.splice(messageIndex, 1);
+                updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
+                logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
+                updatedCommunity.channels = updatedChannels;
+                newCommunities.set(simpleCommunityId, updatedCommunity);
+                return newCommunities;
+              }
+            }
             break;
           }
         }
 
-        if (messageFound) {
-          updatedCommunity.channels = updatedChannels;
-          newCommunities.set(simpleCommunityId, updatedCommunity);
-          return newCommunities;
-        }
         return prev;
       });
     }
