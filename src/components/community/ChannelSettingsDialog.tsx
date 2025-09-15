@@ -48,7 +48,7 @@ export function ChannelSettingsDialog({
   const [description, setDescription] = useState(channel.description || '');
   const [type, setType] = useState<'text' | 'voice'>(channel.type);
   const [folderId, setFolderId] = useState(channel.folderId || 'none');
-  const [position, setPosition] = useState(channel.position);
+  const [position, _] = useState(channel.position);
   const [readPermissions, setReadPermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('everyone');
   const [writePermissions, setWritePermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('members');
   const [allowedReaders, setAllowedReaders] = useState<string[]>([]);
