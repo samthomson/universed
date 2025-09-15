@@ -230,6 +230,7 @@ export interface CommunityData {
   channels: Map<string, ChannelData>; // channelId -> channel data
   approvedMembers: MembersList | null; // parsed approved members list
   pendingMembers: MembersList | null; // parsed pending members list
+  bannedMembers: MembersList | null; // parsed banned members list (for moderator access)
   membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator'; // user's membership status
   lastActivity: number;
   isLoadingChannels?: boolean; // indicates if channels are still loading
@@ -559,10 +560,12 @@ export function useDataManagerCommunityMembers(communityId: string | null) {
       }
     });
 
-    // Add approved members
+    // Add approved members (excluding banned ones)
+    const bannedMemberPubkeys = new Set(community.bannedMembers?.members || []);
+
     if (community.approvedMembers) {
       community.approvedMembers.members.forEach(memberPubkey => {
-        if (!addedMembers.has(memberPubkey)) {
+        if (!addedMembers.has(memberPubkey) && !bannedMemberPubkeys.has(memberPubkey)) {
           members.push({
             pubkey: memberPubkey,
             role: 'member',
@@ -2210,7 +2213,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`Communities: Updated pending members for ${communityId}: ${members.length} members`);
               break;
             case 34553:
-              // For banned members, we don't store them in the main structure but log the update
+              updatedCommunity.bannedMembers = membersList;
+
+              // Check if current user is in the banned list
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                updatedCommunity.membershipStatus = 'banned';
+                logger.warn(`Communities: Current user has been banned from community ${communityId}`);
+              }
+
               logger.log(`Communities: Updated banned members for ${communityId}: ${members.length} members`);
               break;
           }
@@ -2887,6 +2897,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: new Map<string, ChannelData>(), // Empty initially
           approvedMembers: null, // Will be loaded in background
           pendingMembers: null, // Will be loaded in background
+          bannedMembers: null, // Will be loaded in background
           membershipStatus: finalMembershipStatus,
           lastActivity: community.definitionEvent.created_at,
           isLoadingChannels: true, // Indicate channels are still loading
