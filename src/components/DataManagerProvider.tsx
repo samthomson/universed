@@ -14,6 +14,9 @@ import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
 // DataManager Types and Constants (co-located for better maintainability)
 // ============================================================================
 
+// Number of messages to load per pagination request
+const MESSAGES_PER_PAGE = 5; // Default number of messages to load per page (lowered for testing)
+
 // ============================================================================
 // Messaging Domain Types
 // ============================================================================
@@ -201,7 +204,7 @@ interface MessagingDomain {
 
 // Configuration constants
 const ALWAYS_ADD_GENERAL_CHANNEL = true;
-const CACHE_MESSAGES_LIMIT_PER_CHANNEL = 50;
+const CACHE_MESSAGES_LIMIT_PER_CHANNEL = MESSAGES_PER_PAGE;
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
 
 // Community metadata parsed from kind 34550 events
@@ -256,6 +259,11 @@ interface ChannelData {
   permissions: NostrEvent | null; // kind 30143 permissions settings
   lastActivity: number;
   isLoadingData?: boolean; // indicates if channel data is still loading
+  // Pagination state
+  oldestMessageTimestamp?: number; // timestamp of oldest loaded message
+  hasMoreMessages: boolean; // whether there are more messages to load
+  isLoadingOlderMessages: boolean; // whether we're currently loading older messages
+  reachedStartOfConversation: boolean; // whether we've reached the very beginning
 }
 
 // Communities state structure
@@ -335,6 +343,7 @@ interface CommunitiesDomain {
   getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
   addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
   addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
+  loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -397,7 +406,7 @@ export function useConversationMessages(conversationId: string) {
 }
 
 // Hook for retrieving a specific channel with its data from DataManager
-export function useCommunityChannel(communityId: string | null, channelId: string | null) {
+export function useDataManagerCommunityChannel(communityId: string | null, channelId: string | null) {
   const { communities } = useDataManager();
 
   return useMemo(() => {
@@ -1844,6 +1853,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           replies: new Map(),
           permissions: null,
           lastActivity: event.created_at,
+          // Initialize pagination state
+          hasMoreMessages: true,
+          isLoadingOlderMessages: false,
+          reachedStartOfConversation: false,
         };
 
         // Add placeholder channel to community
@@ -1965,6 +1978,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         replies: new Map(), // Start with empty replies
         permissions: null, // Will be loaded separately if needed
         lastActivity: event.created_at,
+        // Initialize pagination state
+        hasMoreMessages: true,
+        isLoadingOlderMessages: false,
+        reachedStartOfConversation: false,
       };
 
       // If this was a placeholder or optimistic channel, preserve any messages it had
@@ -2493,6 +2510,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       replies: new Map(),
       permissions: null,
       lastActivity: optimisticChannelEvent.created_at,
+      // Initialize pagination state
+      hasMoreMessages: true,
+      isLoadingOlderMessages: false,
+      reachedStartOfConversation: false,
     };
 
     // Add to community channels
@@ -3229,7 +3250,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [9411], // Only 9411 for all channels
           '#a': [properCommunityRef],
           '#t': [channelId], // All channels have channel tags
-          limit: 20,
+          limit: MESSAGES_PER_PAGE,
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
@@ -3410,6 +3431,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               replies: channelReplies,
               permissions: channelPermissions || null,
               lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
+              // Initialize pagination state
+              oldestMessageTimestamp: sortedMessages.length > 0 ? sortedMessages[0].created_at : undefined,
+              hasMoreMessages: sortedMessages.length >= MESSAGES_PER_PAGE, // Assume more if we got a full page
+              isLoadingOlderMessages: false,
+              reachedStartOfConversation: sortedMessages.length < MESSAGES_PER_PAGE, // Reached start if we got less than a full page
             });
           }
         }
@@ -3891,6 +3917,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             replies: repliesMap,
             permissions: channelData.permissions,
             lastActivity: channelData.lastActivity,
+            // Initialize pagination state for cached data
+            hasMoreMessages: true,
+            isLoadingOlderMessages: false,
+            reachedStartOfConversation: false,
           });
         }
 
@@ -4293,6 +4323,79 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     subscriptions,
   };
 
+  // Load older messages for a channel - simplified approach matching useMessages.ts
+  const loadOlderMessages = useCallback(async (communityId: string, channelId: string) => {
+    const community = communities.get(communityId);
+    if (!community) return;
+
+    const channel = community.channels.get(channelId);
+    if (!channel || !channel.hasMoreMessages || channel.isLoadingOlderMessages || !channel.oldestMessageTimestamp) {
+      return;
+    }
+
+    // Set loading state
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+      const updatedChannel = { ...updatedChannels.get(channelId)! };
+      updatedChannel.isLoadingOlderMessages = true;
+      updatedChannels.set(channelId, updatedChannel);
+      updatedCommunity.channels = updatedChannels;
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    try {
+      // Build community reference and query for older messages
+      const communityRef = `34550:${community.pubkey}:${community.id}`;
+      const olderMessages = await nostr.query([{
+        kinds: [9411],
+        '#a': [communityRef],
+        '#t': [channelId],
+        until: channel.oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
+        limit: MESSAGES_PER_PAGE,
+      }], { signal: AbortSignal.timeout(10000) });
+
+      // Update channel with new messages
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(communityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(channelId)! };
+
+        // Sort new messages and merge with existing
+        const sortedNewMessages = olderMessages.sort((a, b) => a.created_at - b.created_at);
+        const allMessages = [...sortedNewMessages, ...updatedChannel.messages];
+
+        updatedChannel.messages = allMessages;
+        updatedChannel.oldestMessageTimestamp = allMessages.length > 0 ? allMessages[0].created_at : undefined;
+        updatedChannel.hasMoreMessages = olderMessages.length >= MESSAGES_PER_PAGE; // More if we got a full page
+        updatedChannel.reachedStartOfConversation = olderMessages.length < MESSAGES_PER_PAGE; // Reached start if less than full page
+        updatedChannel.isLoadingOlderMessages = false;
+
+        updatedChannels.set(channelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        newCommunities.set(communityId, updatedCommunity);
+        return newCommunities;
+      });
+    } catch (error) {
+      console.error('Failed to load older messages:', error);
+      // Reset loading state on error
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(communityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(channelId)! };
+        updatedChannel.isLoadingOlderMessages = false;
+        updatedChannels.set(channelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        newCommunities.set(communityId, updatedCommunity);
+        return newCommunities;
+      });
+    }
+  }, [communities, nostr]);
+
   // Organize communities functionality into its own domain
   const communitiesDomain: CommunitiesDomain = {
     communities,
@@ -4306,6 +4409,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     getChannelsWithoutFolder,
     addOptimisticMessage: addOptimisticCommunityMessage,
     addOptimisticChannel,
+    loadOlderMessages,
   };
 
   const contextValue: DataManagerContextType = {

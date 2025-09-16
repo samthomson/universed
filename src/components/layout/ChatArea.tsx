@@ -17,7 +17,7 @@ import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager } from "@/components/DataManagerProvider";
+import { useDataManagerCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
@@ -234,16 +234,23 @@ function CommunityChat(
   const {
     isLoading,
     channel
-  } = useCommunityChannel(communityId, channelId);
+  } = useDataManagerCommunityChannel(communityId, channelId);
 
   // Get messages from the channel object
   const messages = channel?.messages || [];
 
-  // For pagination (can be enhanced later)
-  const hasMoreMessages = false;
-  const loadingOlderMessages = false;
-  const loadOlderMessages = async () => { /* Empty async function to satisfy Promise<void> return type */ };
-  const reachedStartOfConversation = true;
+  // Get pagination state from DataManager
+  const { communities } = useDataManager();
+  const community = communities.communities.get(communityId);
+  const channelData = community?.channels.get(channelId);
+
+  const hasMoreMessages = channelData?.hasMoreMessages ?? false;
+  const loadingOlderMessages = channelData?.isLoadingOlderMessages ?? false;
+  const reachedStartOfConversation = channelData?.reachedStartOfConversation ?? true;
+
+  const loadOlderMessages = useCallback(async () => {
+    await communities.loadOlderMessages(communityId, channelId);
+  }, [communities, communityId, channelId]);
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
@@ -267,8 +274,6 @@ function CommunityChat(
 
   // Memoize query key to prevent unnecessary re-renders
   const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
-
-  const { communities } = useDataManager();
 
   const handleSendMessage = useCallback(async (content: string, additionalTags: string[][] = []) => {
     // Get the full addressable ID from DataManager
