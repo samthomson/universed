@@ -142,7 +142,7 @@ export function CreateChannelDialog({
       );
 
       const tags = [
-        ['d', channelName], // Unique identifier: just the channel name (like 'general')
+        ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
         ['a', communityId], // Reference to community (simple community ID)
         ['name', channelName],
         ['description', description.trim()],
@@ -174,8 +174,8 @@ export function CreateChannelDialog({
       // Create default permissions if channel is private
       if (isPrivate) {
         const permissionTags = [
-          ['d', channelName],
-          ['a', communityId],
+          ['d', `${communityId}:${channelName}`],
+          ['a', communityId], // Reference to community (simple community ID)
           ['channel', channelName],
           ['t', 'channel-permissions'],
           ['alt', `Channel permissions for ${channelName}`],

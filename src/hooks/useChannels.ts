@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/re
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
+import { useDataManagerCanModerate, useDataManager } from '@/components/DataManagerProvider';
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
@@ -269,6 +269,7 @@ export function useUpdateChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { canModerate } = useDataManagerCanModerate(communityId);
+  const { communities } = useDataManager();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -293,7 +294,7 @@ export function useUpdateChannel(communityId: string) {
 
       const tags = [
         ['d', `${communityId}:${channelId}`],
-        ['a', communityId],
+        ['a', communityId], // Reference to community (simple community ID)
         ['name', name],
         ['description', description || ''],
         ['channel_type', type],
