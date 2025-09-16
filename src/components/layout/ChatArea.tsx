@@ -291,9 +291,12 @@ function CommunityChat(
     }
 
     try {
+      // Build proper addressable community reference to match query format
+      const communityRef = `34550:${community.pubkey}:${community.id}`;
+
       const tags = [
         ["t", channelId],
-        ["a", communityId], // Use simple community ID, not full addressable format
+        ["a", communityRef], // Use proper addressable format to match query
         ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
       ];
 

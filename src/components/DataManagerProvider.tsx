@@ -1812,8 +1812,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
-    // Community reference should now be simple community ID (not full addressable format)
-    const simpleCommunityId = communityRef;
+    // Extract simple community ID from addressable format (34550:pubkey:identifier)
+    if (!communityRef.includes(':')) {
+      logger.error(`Communities: Invalid community reference format in event ${event.id}: "${communityRef}". Expected format: "34550:pubkey:identifier"`);
+      return;
+    }
+
+    const parts = communityRef.split(':');
+    if (parts.length !== 3) {
+      logger.error(`Communities: Invalid community reference format in event ${event.id}: "${communityRef}". Expected format: "34550:pubkey:identifier"`);
+      return;
+    }
+
+    const simpleCommunityId = parts[2]; // Extract the identifier (last part)
 
     // Find the community in our state
     const communitiesForProcessing = communitiesToUse || communities;
@@ -2091,8 +2102,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Build filters for all communities (one per community, not per channel)
       const communityRefs: string[] = [];
       communitiesForSubscription.forEach((community) => {
-        // Use simple community ID for subscription (matches channel creation format)
-        communityRefs.push(community.id);
+        // Use full addressable format for subscription (matches message publishing format)
+        communityRefs.push(community.fullAddressableId);
       });
 
       if (communityRefs.length === 0) {
