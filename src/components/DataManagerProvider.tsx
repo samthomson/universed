@@ -353,6 +353,7 @@ interface CommunitiesDomain {
   getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
   addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
   addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
+  deleteChannelImmediately: (communityId: string, channelId: string) => void;
   loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
   resetCommunitiesDataAndCache: () => Promise<void>;
   useDataManagerPinnedMessages: (communityId: string | null, channelId: string | null) => NostrEvent[];
@@ -2687,6 +2688,42 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     return optimisticMessage;
   }, [user, communities, addMessageToChannel]);
 
+  // Delete channel immediately from local state and save to cache
+  const deleteChannelImmediately = useCallback((communityId: string, channelId: string) => {
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot delete channel, community not found:', communityId);
+      return;
+    }
+
+    const channel = community.channels.get(channelId);
+    if (!channel) {
+      logger.error('Communities: Cannot delete channel, channel not found:', channelId);
+      return;
+    }
+
+    logger.log(`Communities: Immediately deleting channel "${channel.info.name}" (${channelId}) from community ${communityId}`);
+
+    // Update state to remove the channel
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+
+      // Remove the channel
+      updatedChannels.delete(channelId);
+
+      updatedCommunity.channels = updatedChannels;
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name}) from local state`);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities]);
+
   // Add optimistic channel for immediate UI feedback
   const addOptimisticChannel = useCallback((communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => {
     if (!user?.pubkey) {
@@ -4895,6 +4932,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     getChannelsWithoutFolder,
     addOptimisticMessage: addOptimisticCommunityMessage,
     addOptimisticChannel,
+    deleteChannelImmediately,
     loadOlderMessages,
     resetCommunitiesDataAndCache,
     useDataManagerPinnedMessages,

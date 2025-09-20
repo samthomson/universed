@@ -269,7 +269,6 @@ export function useUpdateChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { canModerate } = useDataManagerCanModerate(communityId);
-  const { communities } = useDataManager();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -329,6 +328,7 @@ export function useDeleteChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { canModerate } = useDataManagerCanModerate(communityId);
+  const { communities } = useDataManager();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -342,6 +342,7 @@ export function useDeleteChannel(communityId: string) {
         throw new Error('Cannot delete the general channel');
       }
 
+      // Publish the delete event
       await createEvent({
         kind: 5, // Deletion event
         content: `Channel "${channelName}" deleted`,
@@ -352,6 +353,9 @@ export function useDeleteChannel(communityId: string) {
           ['alt', `Delete channel: ${channelName}`],
         ],
       });
+
+      // Immediately delete from local state and save to cache
+      communities.deleteChannelImmediately(communityId, channelName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
