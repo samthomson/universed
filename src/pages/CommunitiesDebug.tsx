@@ -2,12 +2,24 @@ import React from 'react';
 import { useDataManager } from '@/components/DataManagerProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { formatDistanceToNowShort } from '@/lib/formatTime';
 
 export function CommunitiesDebug() {
 	const { communities } = useDataManager();
-	const { communities: communitiesData, isLoading, loadingPhase, loadTime, loadBreakdown, getDebugInfo } = communities;
+	const { communities: communitiesData, isLoading, loadingPhase, loadTime, loadBreakdown, getDebugInfo, resetCommunitiesDataAndCache } = communities;
+
+	const handleWipeDatabase = async () => {
+		try {
+			await resetCommunitiesDataAndCache();
+			console.log('Communities database wiped successfully');
+			// Reload the page to trigger fresh data loading
+			window.location.reload();
+		} catch (error) {
+			console.error('Error wiping communities database:', error);
+		}
+	};
 
 	const debugInfo = getDebugInfo();
 
@@ -37,43 +49,52 @@ export function CommunitiesDebug() {
 	return (
 		<div className="container mx-auto p-6 space-y-6">
 			<div className="space-y-2">
-				<div className="flex items-center gap-3">
-					<h1 className="text-3xl font-bold">Communities Debug</h1>
-					{isLoading && (
-						<Badge variant="secondary" className="animate-pulse">
-							Loading...
-						</Badge>
-					)}
-					{!isLoading && (
-						<div className="flex flex-col gap-1">
-							<Badge variant="outline" className="text-green-600">
-								✓ Loading Complete {loadTime && `(${loadTime}ms)`}
+				<div className="flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<h1 className="text-3xl font-bold">Communities Debug</h1>
+						{isLoading && (
+							<Badge variant="secondary" className="animate-pulse">
+								Loading...
 							</Badge>
-							{loadBreakdown && (
-								<div className="text-xs text-muted-foreground space-y-1">
-									<div>1. Communities: {loadBreakdown.step1_communities.total}ms</div>
-									<div className="ml-4 space-y-0.5">
-										<div>├─ Membership Query: {loadBreakdown.step1_communities.membershipQuery}ms</div>
-										<div>└─ Definitions Query: {loadBreakdown.step1_communities.definitionsQuery}ms</div>
+						)}
+						{!isLoading && (
+							<div className="flex flex-col gap-1">
+								<Badge variant="outline" className="text-green-600">
+									✓ Loading Complete {loadTime && `(${loadTime}ms)`}
+								</Badge>
+								{loadBreakdown && (
+									<div className="text-xs text-muted-foreground space-y-1">
+										<div>1. Communities: {loadBreakdown.step1_communities.total}ms</div>
+										<div className="ml-4 space-y-0.5">
+											<div>├─ Membership Query: {loadBreakdown.step1_communities.membershipQuery}ms</div>
+											<div>└─ Definitions Query: {loadBreakdown.step1_communities.definitionsQuery}ms</div>
+										</div>
+										<div>2. Parallel Batch 1: {loadBreakdown.step2_parallel_batch1.total}ms</div>
+										<div className="ml-4 space-y-0.5">
+											<div>├─ Channels Query: {loadBreakdown.step2_parallel_batch1.channelsQuery}ms</div>
+											<div>└─ Members Query: {loadBreakdown.step2_parallel_batch1.membersQuery}ms</div>
+										</div>
+										<div>3. Parallel Batch 2: {loadBreakdown.step3_parallel_batch2.total}ms</div>
+										<div className="ml-4 space-y-0.5">
+											<div>├─ Permissions Query: {loadBreakdown.step3_parallel_batch2.permissionsQuery}ms</div>
+											<div>└─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
+										</div>
+										<div>4. Replies Batch: {loadBreakdown.step4_replies_batch.total}ms</div>
+										<div className="ml-4 space-y-0.5">
+											<div>└─ Replies Query: {loadBreakdown.step4_replies_batch.repliesQuery}ms</div>
+										</div>
 									</div>
-									<div>2. Parallel Batch 1: {loadBreakdown.step2_parallel_batch1.total}ms</div>
-									<div className="ml-4 space-y-0.5">
-										<div>├─ Channels Query: {loadBreakdown.step2_parallel_batch1.channelsQuery}ms</div>
-										<div>└─ Members Query: {loadBreakdown.step2_parallel_batch1.membersQuery}ms</div>
-									</div>
-									<div>3. Parallel Batch 2: {loadBreakdown.step3_parallel_batch2.total}ms</div>
-									<div className="ml-4 space-y-0.5">
-										<div>├─ Permissions Query: {loadBreakdown.step3_parallel_batch2.permissionsQuery}ms</div>
-										<div>└─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
-									</div>
-									<div>4. Replies Batch: {loadBreakdown.step4_replies_batch.total}ms</div>
-									<div className="ml-4 space-y-0.5">
-										<div>└─ Replies Query: {loadBreakdown.step4_replies_batch.repliesQuery}ms</div>
-									</div>
-								</div>
-							)}
-						</div>
-					)}
+								)}
+							</div>
+						)}
+					</div>
+					<Button
+						variant="destructive"
+						onClick={handleWipeDatabase}
+						disabled={isLoading}
+					>
+						🗑️ Wipe Database & Reload
+					</Button>
 				</div>
 				<p className="text-muted-foreground">
 					Real-time view of loaded community data from DataManager

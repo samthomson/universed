@@ -344,6 +344,7 @@ interface CommunitiesDomain {
   addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
   addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
   loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
+  resetCommunitiesDataAndCache: () => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -4407,6 +4408,41 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [communities, nostr]);
 
+  // Reset communities data and cache
+  const resetCommunitiesDataAndCache = useCallback(async () => {
+    try {
+      logger.log('Communities: Resetting communities data and cache...');
+
+      // Clear in-memory state
+      setCommunities(new Map());
+      setCommunitiesLoading(false);
+      setCommunitiesLoadingPhase(LOADING_PHASES.IDLE);
+      setCommunitiesLoadTime(null);
+      setCommunitiesLoadBreakdown(null);
+      setHasCommunitiesInitialLoadCompleted(false);
+      setCommunitiesLastSync(null);
+
+      // Clear IndexedDB cache
+      const dbName = 'nostr-communities';
+      const deleteRequest = indexedDB.deleteDatabase(dbName);
+
+      return new Promise<void>((resolve, reject) => {
+        deleteRequest.onsuccess = () => {
+          logger.log('Communities: Database cache cleared successfully');
+          resolve();
+        };
+
+        deleteRequest.onerror = () => {
+          logger.error('Communities: Failed to clear database cache');
+          reject(new Error('Failed to clear database cache'));
+        };
+      });
+    } catch (error) {
+      logger.error('Communities: Error resetting data and cache:', error);
+      throw error;
+    }
+  }, []);
+
   // Organize communities functionality into its own domain
   const communitiesDomain: CommunitiesDomain = {
     communities,
@@ -4421,6 +4457,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     addOptimisticMessage: addOptimisticCommunityMessage,
     addOptimisticChannel,
     loadOlderMessages,
+    resetCommunitiesDataAndCache,
   };
 
   const contextValue: DataManagerContextType = {
