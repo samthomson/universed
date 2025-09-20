@@ -3107,8 +3107,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return {
           kinds: [32807], // Channel definitions
           '#a': [
-            communityId, // Legacy simple format (existing channels)
-            `34550:${definitionEvent.pubkey}:${communityId}` // Proper addressable event format (new channels)
+            communityId
           ],
           '#t': ['channel'], // Filter for channel events specifically
           limit: 50, // Max channels per community
@@ -3119,7 +3118,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
         return {
-          kinds: [34551], // Approved members events
+          kinds: [34551], // Approved members eventsz
           authors: [definitionEvent.pubkey],
           '#d': [communityRef],
           limit: 1,
