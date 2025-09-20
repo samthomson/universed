@@ -30,7 +30,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAddReaction } from "@/hooks/useAddReaction";
 import { LegacyProtocolWarning } from "@/components/dm/LegacyProtocolWarning";
-import { useReactionsAndZaps } from "@/hooks/useReactionsAndZaps";
+import { useDataManagerMessageReactions } from '@/components/DataManagerProvider';
 import { useMessageHasReplies, useMessageReplyCount } from "@/hooks/useMessageHasReplies";
 import { isNewMessage } from "@/hooks/useNewMessageAnimation";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
@@ -95,7 +95,7 @@ function BaseMessageItemComponent({
   // Check if this message is from the current user for right alignment
   const shouldAlignRight = user?.pubkey === message.pubkey;
   const { data: pinnedMessageIds } = usePinnedMessages(communityId || '', channelId || '');
-  const { data: reactionsAndZaps } = useReactionsAndZaps(message.id);
+  const reactionsData = useDataManagerMessageReactions(communityId || null, channelId || null, message.id);
   const { data: hasReplies } = useMessageHasReplies(message.id);
   const { data: replyCount } = useMessageReplyCount(message.id);
   const { currentCommunityId } = useCommunityContext();
@@ -322,10 +322,10 @@ function BaseMessageItemComponent({
             </div>
 
             {/* Message Reactions */}
-            {config.showReactions && reactionsAndZaps && (
+            {config.showReactions && reactionsData && (
               <div className="flex flex-wrap items-start gap-1 mt-1">
                 {/* Zap Display - Like an emoji reaction */}
-                {reactionsAndZaps?.totalSats > 0 && (
+                {reactionsData?.totalSats > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -334,16 +334,16 @@ function BaseMessageItemComponent({
                     title="Click to see zap details"
                   >
                     <Zap className="w-3 h-3 mr-1" />
-                    <span>{reactionsAndZaps.totalSats.toLocaleString()}</span>
+                    <span>{reactionsData.totalSats.toLocaleString()}</span>
                   </Button>
                 )}
                 {/* Emoji Reactions - Only render wrapper if there are reactions */}
-                {reactionsAndZaps.reactionGroups && Object.keys(reactionsAndZaps.reactionGroups).length > 0 && (
+                {reactionsData.reactionGroups && Object.keys(reactionsData.reactionGroups).length > 0 && (
                   <div className="flex-1">
                     <MessageReactions
                       message={message}
                       onReactionClick={() => setIsHovered(false)}
-                      reactionGroups={reactionsAndZaps.reactionGroups}
+                      reactionGroups={reactionsData.reactionGroups}
                     />
                   </div>
                 )}
@@ -480,13 +480,13 @@ function BaseMessageItemComponent({
       />
 
       {/* Zap Details Dialog */}
-      {reactionsAndZaps && (
+      {reactionsData && (
         <ZapDetailsDialog
           open={showZapDetails}
           onOpenChange={setShowZapDetails}
-          zaps={reactionsAndZaps.zaps}
-          zapCount={reactionsAndZaps.zapCount}
-          totalSats={reactionsAndZaps.totalSats}
+          zaps={reactionsData.zaps}
+          zapCount={reactionsData.zapCount}
+          totalSats={reactionsData.totalSats}
         />
       )}
     </div>

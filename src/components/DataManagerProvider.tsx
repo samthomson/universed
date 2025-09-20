@@ -9,6 +9,7 @@ import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent } from '@/types/nostr';
 import type { MessageProtocol } from '@/lib/dmConstants';
 import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
+import { nip57 } from 'nostr-tools';
 
 // ============================================================================
 // DataManager Types and Constants (co-located for better maintainability)
@@ -256,6 +257,7 @@ interface ChannelData {
   definition: NostrEvent; // original kind 32807 channel definition
   messages: NostrEvent[]; // kind 9411 messages
   replies: Map<string, NostrEvent[]>; // messageId -> replies (kind 1111)
+  reactions: Map<string, NostrEvent[]>; // messageId -> reactions/zaps (kinds 7, 9735)
   permissions: NostrEvent | null; // kind 30143 permissions settings
   lastActivity: number;
   isLoadingData?: boolean; // indicates if channel data is still loading
@@ -289,6 +291,7 @@ interface CommunityLoadBreakdown {
   step4_replies_batch: {
     total: number;
     repliesQuery: number;
+    reactionsQuery: number;
   };
   total: number;
 }
@@ -337,6 +340,7 @@ interface CommunitiesDomain {
     channelCount: number;
     messageCount: number;
     replyCount: number;
+    reactionCount: number;
   };
   getSortedChannels: (communityId: string) => DisplayChannel[];
   getFolders: (communityId: string) => ChannelFolder[];
@@ -519,6 +523,127 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       channel
     };
   }, [communities.communities, communityId, channelId]);
+}
+
+// Hook to get reactions for a specific message from DataManager
+export function useDataManagerMessageReactions(communityId: string | null, channelId: string | null, messageId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId || !messageId) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    // Extract simple community ID from full addressable format
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    // Get the community and channel
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    // Get reactions for this message
+    const messageReactions = channelData.reactions.get(messageId) || [];
+
+    // Separate reactions and zaps
+    const reactions = messageReactions.filter(r => r.kind === 7);
+    const zaps = messageReactions.filter(r => r.kind === 9735);
+
+    // Group reactions by emoji
+    const reactionGroups = reactions.reduce((acc, reaction) => {
+      const emoji = reaction.content || "👍";
+      if (!acc[emoji]) {
+        acc[emoji] = [];
+      }
+      acc[emoji].push(reaction);
+      return acc;
+    }, {} as Record<string, NostrEvent[]>);
+
+    // Calculate zap totals
+    let zapCount = 0;
+    let totalSats = 0;
+
+    zaps.forEach(zap => {
+      zapCount++;
+
+      // Try multiple methods to extract the amount:
+      // Method 1: amount tag (from zap request, sometimes copied to receipt)
+      const amountTag = zap.tags.find(([name]) => name === 'amount')?.[1];
+      if (amountTag) {
+        const millisats = parseInt(amountTag);
+        totalSats += Math.floor(millisats / 1000);
+        return;
+      }
+
+      // Method 2: Extract from bolt11 invoice
+      const bolt11Tag = zap.tags.find(([name]) => name === 'bolt11')?.[1];
+      if (bolt11Tag) {
+        try {
+          const invoiceSats = nip57.getSatoshisAmountFromBolt11(bolt11Tag);
+          totalSats += invoiceSats;
+          return;
+        } catch (error) {
+          console.warn('Failed to parse bolt11 amount:', error);
+        }
+      }
+
+      // Method 3: Parse from description (zap request JSON)
+      const descriptionTag = zap.tags.find(([name]) => name === 'description')?.[1];
+      if (descriptionTag) {
+        try {
+          const zapRequest = JSON.parse(descriptionTag);
+          const requestAmountTag = zapRequest.tags?.find(([name]: string[]) => name === 'amount')?.[1];
+          if (requestAmountTag) {
+            const millisats = parseInt(requestAmountTag);
+            totalSats += Math.floor(millisats / 1000);
+            return;
+          }
+        } catch (error) {
+          console.warn('Failed to parse description JSON:', error);
+        }
+      }
+
+      console.warn('Could not extract amount from zap receipt:', zap.id);
+    });
+
+    return {
+      reactions,
+      zaps,
+      reactionGroups,
+      totalSats,
+      zapCount
+    };
+  }, [communities.communities, communityId, channelId, messageId]);
 }
 
 // Hook to get community members from DataManager instead of making separate network requests
@@ -1863,6 +1988,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           definition: {} as NostrEvent, // Placeholder - will be replaced when real channel definition arrives
           messages: [],
           replies: new Map(),
+          reactions: new Map(),
           permissions: null,
           lastActivity: event.created_at,
           // Initialize pagination state
@@ -1939,6 +2065,59 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
         return newCommunities;
       });
+
+    } else if (event.kind === 7 || event.kind === 9735) {
+      // Reaction or Zap - get the message ID it's reacting to from 'e' tag
+      const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+      if (!reactToMessageId) {
+        logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
+        return;
+      }
+
+      // Find which channel contains the message being reacted to
+      let targetChannelId: string | null = null;
+      for (const [channelId, channel] of community.channels) {
+        if (channel.messages.some(msg => msg.id === reactToMessageId)) {
+          targetChannelId = channelId;
+          break;
+        }
+      }
+
+      if (!targetChannelId) {
+        logger.log(`Communities: Target message ${reactToMessageId} not found in any channel, ignoring ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
+        return;
+      }
+
+      // Add reaction to the channel
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+        // Check if reaction already exists
+        const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
+        if (existingReactions.some(reaction => reaction.id === event.id)) {
+          logger.log(`Communities: ${event.kind === 7 ? 'Reaction' : 'Zap'} ${event.id} already exists for message ${reactToMessageId}, skipping`);
+          return prev;
+        }
+
+        // Add reaction and sort by timestamp
+        const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
+        const newReactionsMap = new Map(updatedChannel.reactions);
+        newReactionsMap.set(reactToMessageId, updatedReactions);
+
+        updatedChannel.reactions = newReactionsMap;
+        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+        updatedChannels.set(targetChannelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+        newCommunities.set(simpleCommunityId, updatedCommunity);
+
+        logger.log(`Communities: Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} to message ${reactToMessageId} in channel ${targetChannelId}`);
+        return newCommunities;
+      });
+
     } else if (event.kind === 32807) {
       // New channel creation event
       const channelId = event.tags.find(([name]) => name === 'd')?.[1];
@@ -1988,6 +2167,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         definition: event,
         messages: [], // Start with empty messages
         replies: new Map(), // Start with empty replies
+        reactions: new Map(), // Start with empty reactions
         permissions: null, // Will be loaded separately if needed
         lastActivity: event.created_at,
         // Initialize pagination state
@@ -2131,6 +2311,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         },
         {
           kinds: [1111], // Replies
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [7, 9735], // Reactions and Zaps
           '#a': communityRefs,
           since: subscriptionSince,
         },
@@ -2520,6 +2705,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       definition: optimisticChannelEvent,
       messages: [],
       replies: new Map(),
+      reactions: new Map(),
       permissions: null,
       lastActivity: optimisticChannelEvent.created_at,
       // Initialize pagination state
@@ -3007,6 +3193,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           step4_replies_batch: {
             total: 0,
             repliesQuery: 0,
+            reactionsQuery: 0,
           },
           total: totalTime,
         });
@@ -3087,6 +3274,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           step4_replies_batch: {
             total: 0,
             repliesQuery: 0,
+            reactionsQuery: 0,
           },
           total: totalTime,
         });
@@ -3298,14 +3486,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
 
-      // BATCH 3: Get replies (kind 1111) for all the messages we just loaded
+      // BATCH 3: Get replies (kind 1111) and reactions/zaps (kinds 7, 9735) for all the messages we just loaded
       const batch3Start = Date.now();
       const messageIds = allChannelMessages.map(msg => msg.id);
 
       let allReplies: NostrEvent[] = [];
+      let allReactionsAndZaps: NostrEvent[] = [];
       let repliesQueryTime = 0;
+      let reactionsQueryTime = 0;
 
       if (messageIds.length > 0) {
+        // Query for replies and reactions/zaps in parallel
         const repliesQueryPromise = (async () => {
           const start = Date.now();
           const result = await nostr.query([{
@@ -3317,15 +3508,32 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return { result, time };
         })();
 
-        const repliesResult = await repliesQueryPromise;
+        const reactionsQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            kinds: [7, 9735], // Reaction events and Zap receipts
+            '#e': messageIds, // Reactions/zaps to our messages
+            // No limit - get all reactions/zaps to our messages
+          }], { signal: AbortSignal.timeout(10000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const [repliesResult, reactionsResult] = await Promise.all([
+          repliesQueryPromise,
+          reactionsQueryPromise
+        ]);
+
         allReplies = repliesResult.result;
+        allReactionsAndZaps = reactionsResult.result;
         repliesQueryTime = repliesResult.time;
+        reactionsQueryTime = reactionsResult.time;
       }
 
       const batch3Time = Date.now() - batch3Start;
       const totalParallelTime = batch1Time + batch2Time + batch3Time;
 
-      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}`);
+      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}, Reactions/Zaps: ${allReactionsAndZaps.length}`);
 
       // Organize replies by message ID for efficient lookup
       const repliesByMessageId = new Map<string, NostrEvent[]>();
@@ -3344,7 +3552,24 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         replies.sort((a, b) => a.created_at - b.created_at);
       });
 
-      logger.log(`Communities: Organized ${allReplies.length} replies for ${repliesByMessageId.size} messages`);
+      // Organize reactions/zaps by message ID for efficient lookup
+      const reactionsByMessageId = new Map<string, NostrEvent[]>();
+      allReactionsAndZaps.forEach(reaction => {
+        const eTags = reaction.tags.filter(([name]) => name === 'e');
+        eTags.forEach(([, messageId]) => {
+          if (!reactionsByMessageId.has(messageId)) {
+            reactionsByMessageId.set(messageId, []);
+          }
+          reactionsByMessageId.get(messageId)!.push(reaction);
+        });
+      });
+
+      // Sort reactions by timestamp for each message
+      reactionsByMessageId.forEach(reactions => {
+        reactions.sort((a, b) => a.created_at - b.created_at);
+      });
+
+      logger.log(`Communities: Organized ${allReplies.length} replies for ${repliesByMessageId.size} messages and ${allReactionsAndZaps.length} reactions/zaps for ${reactionsByMessageId.size} messages`);
 
       // Build final communities state with loaded channel data
       const updatedCommunitiesState = new Map<string, CommunityData>();
@@ -3417,6 +3642,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               }
             });
 
+            // Build reactions map for this channel's messages
+            const channelReactions = new Map<string, NostrEvent[]>();
+            channelMessages.forEach(message => {
+              const messageReactions = reactionsByMessageId.get(message.id) || [];
+              if (messageReactions.length > 0) {
+                channelReactions.set(message.id, messageReactions);
+              }
+            });
+
             // Remove unused sortedMessages variable
 
             // Debug log for messages
@@ -3440,6 +3674,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               definition: channelDef,
               messages: sortedMessages, // Use sorted messages (oldest first)
               replies: channelReplies,
+              reactions: channelReactions,
               permissions: channelPermissions || null,
               lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
               // Initialize pagination state
@@ -3529,6 +3764,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         step4_replies_batch: {
           total: batch3Time,
           repliesQuery: repliesQueryTime,
+          reactionsQuery: reactionsQueryTime,
         },
         total: totalTime,
       });
@@ -3563,6 +3799,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     let totalChannels = 0;
     let totalMessages = 0;
     let totalReplies = 0;
+    let totalReactions = 0;
 
     communities.forEach((community) => {
       totalChannels += community.channels.size;
@@ -3570,6 +3807,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         totalMessages += channel.messages.length;
         channel.replies.forEach((replies) => {
           totalReplies += replies.length;
+        });
+        channel.reactions.forEach((reactions) => {
+          totalReactions += reactions.length;
         });
       });
     });
@@ -3579,6 +3819,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       channelCount: totalChannels,
       messageCount: totalMessages,
       replyCount: totalReplies,
+      reactionCount: totalReactions,
     };
   }, [communities]);
 
@@ -3808,6 +4049,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             messageId,
             replies,
           })),
+          // Convert reactions Map to array for serialization
+          reactions: Array.from(channel.reactions.entries()).map(([messageId, reactions]) => ({
+            messageId,
+            reactions,
+          })),
           permissions: channel.permissions,
           lastActivity: channel.lastActivity,
         })),
@@ -3910,6 +4156,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             repliesMap.set(replyData.messageId, replyData.replies);
           }
 
+          // Convert reactions array back to Map
+          const reactionsMap = new Map<string, NostrEvent[]>();
+          for (const reactionData of channelData.reactions) {
+            reactionsMap.set(reactionData.messageId, reactionData.reactions);
+          }
+
           // Handle corrupted cache data - extract simple channel ID if needed
           const cleanChannelId = (() => {
             if (channelData.id.includes(':')) {
@@ -3926,6 +4178,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             definition: channelData.definition,
             messages: channelData.messages,
             replies: repliesMap,
+            reactions: reactionsMap,
             permissions: channelData.permissions,
             lastActivity: channelData.lastActivity,
             // Initialize pagination state for cached data
@@ -4368,6 +4621,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         limit: MESSAGES_PER_PAGE,
       }], { signal: AbortSignal.timeout(10000) });
 
+      // Load reactions for the older messages
+      let olderReactions: NostrEvent[] = [];
+      if (olderMessages.length > 0) {
+        const olderMessageIds = olderMessages.map(msg => msg.id);
+        olderReactions = await nostr.query([{
+          kinds: [7, 9735], // Reaction events and Zap receipts
+          '#e': olderMessageIds, // Reactions/zaps to older messages
+          // No limit - get all reactions/zaps to older messages
+        }], { signal: AbortSignal.timeout(10000) });
+      }
+
       // Update channel with new messages
       setCommunities(prev => {
         const newCommunities = new Map(prev);
@@ -4379,7 +4643,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const sortedNewMessages = olderMessages.sort((a, b) => a.created_at - b.created_at);
         const allMessages = [...sortedNewMessages, ...updatedChannel.messages];
 
+        // Add reactions for older messages
+        const updatedReactions = new Map(updatedChannel.reactions);
+        olderReactions.forEach(reaction => {
+          const eTags = reaction.tags.filter(([name]) => name === 'e');
+          eTags.forEach(([, messageId]) => {
+            if (!updatedReactions.has(messageId)) {
+              updatedReactions.set(messageId, []);
+            }
+            updatedReactions.get(messageId)!.push(reaction);
+          });
+        });
+
+        // Sort reactions by timestamp for each message
+        updatedReactions.forEach(reactions => {
+          reactions.sort((a, b) => a.created_at - b.created_at);
+        });
+
         updatedChannel.messages = allMessages;
+        updatedChannel.reactions = updatedReactions;
         updatedChannel.oldestMessageTimestamp = allMessages.length > 0 ? allMessages[0].created_at : undefined;
         updatedChannel.hasMoreMessages = olderMessages.length >= MESSAGES_PER_PAGE; // More if we got a full page
         updatedChannel.reachedStartOfConversation = olderMessages.length < MESSAGES_PER_PAGE; // Reached start if less than full page
