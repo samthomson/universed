@@ -84,6 +84,10 @@ export function CommunitiesDebug() {
 											<div>├─ Replies Query: {loadBreakdown.step4_replies_batch.repliesQuery}ms</div>
 											<div>└─ Reactions Query: {loadBreakdown.step4_replies_batch.reactionsQuery}ms</div>
 										</div>
+										<div>5. Pinned Messages Batch: {loadBreakdown.step5_pinned_batch.total}ms</div>
+										<div className="ml-4 space-y-0.5">
+											<div>└─ Pinned Query: {loadBreakdown.step5_pinned_batch.pinnedQuery}ms</div>
+										</div>
 									</div>
 								)}
 							</div>
@@ -111,7 +115,7 @@ export function CommunitiesDebug() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="grid grid-cols-5 gap-4 text-center">
+					<div className="grid grid-cols-6 gap-4 text-center">
 						<div>
 							<div className="text-2xl font-bold text-blue-600">{debugInfo.communityCount}</div>
 							<div className="text-sm text-muted-foreground">Communities</div>
@@ -131,6 +135,10 @@ export function CommunitiesDebug() {
 						<div>
 							<div className="text-2xl font-bold text-pink-600">{debugInfo.reactionCount}</div>
 							<div className="text-sm text-muted-foreground">Reactions/Zaps</div>
+						</div>
+						<div>
+							<div className="text-2xl font-bold text-yellow-600">{debugInfo.pinnedCount}</div>
+							<div className="text-sm text-muted-foreground">Pinned</div>
 						</div>
 					</div>
 				</CardContent>
@@ -286,6 +294,7 @@ export function CommunitiesDebug() {
 																<div>{channel.replies.size} messages with replies</div>
 																<div>{Array.from(channel.replies.values()).reduce((sum, replies) => sum + replies.length, 0)} total replies</div>
 																<div>{Array.from(channel.reactions.values()).reduce((sum, reactions) => sum + reactions.length, 0)} reactions/zaps</div>
+																<div>{channel.pinnedMessages.length} pinned messages</div>
 																<div>Last Activity: {formatDistanceToNowShort(new Date(channel.lastActivity * 1000))}</div>
 															</div>
 														</div>

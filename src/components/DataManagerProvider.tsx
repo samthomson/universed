@@ -258,6 +258,7 @@ interface ChannelData {
   messages: NostrEvent[]; // kind 9411 messages
   replies: Map<string, NostrEvent[]>; // messageId -> replies (kind 1111)
   reactions: Map<string, NostrEvent[]>; // messageId -> reactions/zaps (kinds 7, 9735)
+  pinnedMessages: NostrEvent[]; // pinned messages (kind 34554 events)
   permissions: NostrEvent | null; // kind 30143 permissions settings
   lastActivity: number;
   isLoadingData?: boolean; // indicates if channel data is still loading
@@ -292,6 +293,10 @@ interface CommunityLoadBreakdown {
     total: number;
     repliesQuery: number;
     reactionsQuery: number;
+  };
+  step5_pinned_batch: {
+    total: number;
+    pinnedQuery: number;
   };
   total: number;
 }
@@ -341,6 +346,7 @@ interface CommunitiesDomain {
     messageCount: number;
     replyCount: number;
     reactionCount: number;
+    pinnedCount: number;
   };
   getSortedChannels: (communityId: string) => DisplayChannel[];
   getFolders: (communityId: string) => ChannelFolder[];
@@ -349,6 +355,7 @@ interface CommunitiesDomain {
   addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
   loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
   resetCommunitiesDataAndCache: () => Promise<void>;
+  useDataManagerPinnedMessages: (communityId: string | null, channelId: string | null) => NostrEvent[];
 }
 
 // Main DataManager interface - organized by domain
@@ -644,6 +651,37 @@ export function useDataManagerMessageReactions(communityId: string | null, chann
       zapCount
     };
   }, [communities.communities, communityId, channelId, messageId]);
+}
+
+// Hook to get pinned messages for a specific channel from DataManager
+export function useDataManagerPinnedMessages(communityId: string | null, channelId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId) {
+      return [];
+    }
+
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      return [];
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return [];
+    }
+
+    return channelData.pinnedMessages;
+  }, [communities.communities, communityId, channelId]);
 }
 
 // Hook to get community members from DataManager instead of making separate network requests
@@ -1989,6 +2027,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           messages: [],
           replies: new Map(),
           reactions: new Map(),
+          pinnedMessages: [],
           permissions: null,
           lastActivity: event.created_at,
           // Initialize pagination state
@@ -2168,6 +2207,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         messages: [], // Start with empty messages
         replies: new Map(), // Start with empty replies
         reactions: new Map(), // Start with empty reactions
+        pinnedMessages: [], // Start with empty pinned messages
         permissions: null, // Will be loaded separately if needed
         lastActivity: event.created_at,
         // Initialize pagination state
@@ -2706,6 +2746,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       messages: [],
       replies: new Map(),
       reactions: new Map(),
+      pinnedMessages: [],
       permissions: null,
       lastActivity: optimisticChannelEvent.created_at,
       // Initialize pagination state
@@ -3195,6 +3236,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             repliesQuery: 0,
             reactionsQuery: 0,
           },
+          step5_pinned_batch: {
+            total: 0,
+            pinnedQuery: 0,
+          },
           total: totalTime,
         });
         setHasCommunitiesInitialLoadCompleted(true);
@@ -3275,6 +3320,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             total: 0,
             repliesQuery: 0,
             reactionsQuery: 0,
+          },
+          step5_pinned_batch: {
+            total: 0,
+            pinnedQuery: 0,
           },
           total: totalTime,
         });
@@ -3453,8 +3502,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
 
-      // BATCH 2: Execute permissions and messages queries in parallel
+      // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
       const batch2Start = Date.now();
+
+      // Collect all channel identifiers for pinned posts query
+      const channelIdentifiers: string[] = [];
+      for (const [communityId, community] of initialCommunitiesState) {
+        for (const [channelId, _channel] of community.channels) {
+          channelIdentifiers.push(`${communityId}:${channelId}`);
+        }
+      }
 
       // Wrap each query with individual timing
       const permissionsQueryPromise = (async () => {
@@ -3475,28 +3532,54 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return { result, time };
       })();
 
-      const [permissionsQueryResult, messagesQueryResult] = await Promise.all([
+      const pinnedPostsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = channelIdentifiers.length > 0
+          ? await nostr.query([{
+            kinds: [34554], // Pinned posts
+            '#d': channelIdentifiers,
+            // No limit - get all pinned posts
+          }], { signal: AbortSignal.timeout(10000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [permissionsQueryResult, messagesQueryResult, pinnedPostsQueryResult] = await Promise.all([
         permissionsQueryPromise,
-        messagesQueryPromise
+        messagesQueryPromise,
+        pinnedPostsQueryPromise
       ]);
 
       const batch2Time = Date.now() - batch2Start;
       const allPermissionSettings = permissionsQueryResult.result;
       const allChannelMessages = messagesQueryResult.result;
+      const allPinnedPostsEvents = pinnedPostsQueryResult.result;
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
+      const pinnedPostsQueryTime = pinnedPostsQueryResult.time;
 
-      // BATCH 3: Get replies (kind 1111) and reactions/zaps (kinds 7, 9735) for all the messages we just loaded
+      // BATCH 3: Get replies (kind 1111), reactions/zaps (kinds 7, 9735), and pinned messages in parallel
       const batch3Start = Date.now();
       const messageIds = allChannelMessages.map(msg => msg.id);
 
+      // Extract all pinned message IDs from pinned posts events we already fetched
+      const allPinnedMessageIds = allPinnedPostsEvents.flatMap(event =>
+        event.tags.filter(([name]) => name === 'e').map(([, eventId]) => eventId)
+      );
+
+      // Remove duplicates
+      const uniquePinnedMessageIds = [...new Set(allPinnedMessageIds)];
+
       let allReplies: NostrEvent[] = [];
       let allReactionsAndZaps: NostrEvent[] = [];
+      let pinnedMessages: NostrEvent[] = [];
       let repliesQueryTime = 0;
       let reactionsQueryTime = 0;
+      let pinnedMessagesQueryTime = 0;
 
       if (messageIds.length > 0) {
-        // Query for replies and reactions/zaps in parallel
+        // Query for replies and reactions/zaps in parallel (keep existing structure)
         const repliesQueryPromise = (async () => {
           const start = Date.now();
           const result = await nostr.query([{
@@ -3530,10 +3613,48 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         reactionsQueryTime = reactionsResult.time;
       }
 
+      // Query for pinned message events (simple addition)
+      if (uniquePinnedMessageIds.length > 0) {
+        const pinnedMessagesQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            ids: uniquePinnedMessageIds
+          }], { signal: AbortSignal.timeout(10000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const pinnedMessagesResult = await pinnedMessagesQueryPromise;
+        pinnedMessages = pinnedMessagesResult.result;
+        pinnedMessagesQueryTime = pinnedMessagesResult.time;
+      }
+
       const batch3Time = Date.now() - batch3Start;
+
+      // Organize pinned messages by channel for efficient lookup
+      const pinnedMessagesByChannel = new Map<string, NostrEvent[]>();
+
+      // Group pinned posts events by channel and map to actual messages
+      allPinnedPostsEvents.forEach(pinnedPostEvent => {
+        const dTag = pinnedPostEvent.tags.find(([name]) => name === 'd')?.[1];
+        if (!dTag) return;
+
+        const channelKey = dTag; // dTag is already in format "communityId:channelId"
+        const pinnedMessageIds = pinnedPostEvent.tags
+          .filter(([name]) => name === 'e')
+          .map(([, eventId]) => eventId);
+
+        // Find the actual pinned messages for this channel
+        const channelPinnedMessages = pinnedMessages.filter(msg =>
+          pinnedMessageIds.includes(msg.id)
+        );
+
+        pinnedMessagesByChannel.set(channelKey, channelPinnedMessages);
+      });
+
       const totalParallelTime = batch1Time + batch2Time + batch3Time;
 
-      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}, Reactions/Zaps: ${allReactionsAndZaps.length}`);
+      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}, Reactions/Zaps: ${allReactionsAndZaps.length}, Pinned: ${pinnedMessages.length}`);
 
       // Organize replies by message ID for efficient lookup
       const repliesByMessageId = new Map<string, NostrEvent[]>();
@@ -3675,6 +3796,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               messages: sortedMessages, // Use sorted messages (oldest first)
               replies: channelReplies,
               reactions: channelReactions,
+              pinnedMessages: pinnedMessagesByChannel.get(`${community.id}:${channelId}`) || [],
               permissions: channelPermissions || null,
               lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
               // Initialize pagination state
@@ -3766,6 +3888,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           repliesQuery: repliesQueryTime,
           reactionsQuery: reactionsQueryTime,
         },
+        step5_pinned_batch: {
+          total: 0, // Pinned queries are now integrated into other batches
+          pinnedQuery: pinnedPostsQueryTime + pinnedMessagesQueryTime,
+        },
         total: totalTime,
       });
       logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, batch1: ${batch1Time}ms, batch2: ${batch2Time}ms)`);
@@ -3800,6 +3926,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     let totalMessages = 0;
     let totalReplies = 0;
     let totalReactions = 0;
+    let totalPinned = 0;
 
     communities.forEach((community) => {
       totalChannels += community.channels.size;
@@ -3811,6 +3938,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         channel.reactions.forEach((reactions) => {
           totalReactions += reactions.length;
         });
+        totalPinned += channel.pinnedMessages.length;
       });
     });
 
@@ -3820,6 +3948,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       messageCount: totalMessages,
       replyCount: totalReplies,
       reactionCount: totalReactions,
+      pinnedCount: totalPinned,
     };
   }, [communities]);
 
@@ -4054,6 +4183,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             messageId,
             reactions,
           })),
+          pinnedMessages: channel.pinnedMessages,
           permissions: channel.permissions,
           lastActivity: channel.lastActivity,
         })),
@@ -4179,6 +4309,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             messages: channelData.messages,
             replies: repliesMap,
             reactions: reactionsMap,
+            pinnedMessages: channelData.pinnedMessages || [],
             permissions: channelData.permissions,
             lastActivity: channelData.lastActivity,
             // Initialize pagination state for cached data
@@ -4724,6 +4855,33 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, []);
 
+  // Hook to get pinned messages for a specific channel
+  const useDataManagerPinnedMessages = useCallback((communityId: string | null, channelId: string | null): NostrEvent[] => {
+    if (!communityId || !channelId) {
+      return [];
+    }
+
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    const community = communities.get(simpleCommunityId);
+    if (!community) {
+      return [];
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return [];
+    }
+
+    return channelData.pinnedMessages;
+  }, [communities]);
+
   // Organize communities functionality into its own domain
   const communitiesDomain: CommunitiesDomain = {
     communities,
@@ -4739,6 +4897,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     addOptimisticChannel,
     loadOlderMessages,
     resetCommunitiesDataAndCache,
+    useDataManagerPinnedMessages,
   };
 
   const contextValue: DataManagerContextType = {
