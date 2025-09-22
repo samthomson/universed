@@ -16,17 +16,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useCommunities, type Community } from "@/hooks/useCommunities";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useCommunityMembers } from "@/hooks/useCommunityMembers";
-import { useJoinRequests } from "@/hooks/useJoinRequests";
+import { useDataManager, useDataManagerCommunityMembers, useDataManagerJoinRequests, type CommunityData } from "@/components/DataManagerProvider";
 import { useModerationLogs } from "@/hooks/useModerationLogs";
 import { useReports } from "@/hooks/useReporting";
 import { useAuthor } from "@/hooks/useAuthor";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
-import { useManageMembers } from "@/hooks/useManageMembers";
 import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from 'nostr-tools';
@@ -40,7 +37,7 @@ interface CommunitySettingsProps {
 }
 
 export function CommunitySettings({ communityId, open, onOpenChange }: CommunitySettingsProps) {
-  const { data: communities } = useCommunities();
+  const { communities } = useDataManager();
   const { user } = useCurrentUser();
   const [activeTab, setActiveTab] = useState("overview");
   const [formData, setFormData] = useState({
@@ -52,34 +49,35 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const [imagePreview, setImagePreview] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
-  const { addMember, declineMember } = useManageMembers();
   const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
   const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
-  // Real data hooks
-  const { data: members } = useCommunityMembers(communityId);
-  const { data: joinRequests } = useJoinRequests(communityId);
+  // DataManager hooks
+  const { data: members } = useDataManagerCommunityMembers(communityId);
+  const { data: joinRequests } = useDataManagerJoinRequests(communityId);
   const { data: moderationLogs } = useModerationLogs(communityId || '');
   const { data: reports } = useReports(communityId);
 
-  const community = communities?.find(c => c.id === communityId);
+
+
+  const community = communityId ? communities.communities.get(communityId) : null;
 
   // Calculate analytics from real data
   const totalMembers = members?.length || 0;
   const pendingRequests = joinRequests?.length || 0;
   const totalReports = reports?.length || 0;
 
+
   // Initialize form data when community changes
   useEffect(() => {
     if (community) {
       setFormData({
-        name: community.name,
-        description: community.description || "",
-        image: community.image || "",
+        name: community.info.name,
+        description: community.info.description || "",
+        image: community.info.image || "",
       });
     }
   }, [community]);
@@ -133,12 +131,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const handleApproveRequest = async (requesterPubkey: string) => {
     if (!community) return;
 
+    setApprovingMembers(prev => new Set([...prev, requesterPubkey]));
+
     try {
-      addMember({
-        communityId: community.id,
-        memberPubkey: requesterPubkey
-      });
-      setApprovingMembers(prev => new Set([...prev, requesterPubkey]));
+      await communities.approveMember(community.id, requesterPubkey);
       toast({
         title: "Success",
         description: "Join request approved successfully!",
@@ -147,8 +143,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       console.error("Failed to approve join request:", error);
       toast({
         title: "Error",
-        description: "Failed to approve join request",
+        description: error instanceof Error ? error.message : "Failed to approve join request",
         variant: "destructive",
+      });
+    } finally {
+      setApprovingMembers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(requesterPubkey);
+        return newSet;
       });
     }
   };
@@ -157,12 +159,10 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   const handleDeclineRequest = async (requesterPubkey: string) => {
     if (!community) return;
 
+    setDecliningMembers(prev => new Set([...prev, requesterPubkey]));
+
     try {
-      declineMember({
-        communityId: community.id,
-        memberPubkey: requesterPubkey
-      });
-      setDecliningMembers(prev => new Set([...prev, requesterPubkey]));
+      await communities.declineMember(community.id, requesterPubkey);
       toast({
         title: "Success",
         description: "Join request declined successfully!",
@@ -171,8 +171,14 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       console.error("Failed to decline join request:", error);
       toast({
         title: "Error",
-        description: "Failed to decline join request",
+        description: error instanceof Error ? error.message : "Failed to decline join request",
         variant: "destructive",
+      });
+    } finally {
+      setDecliningMembers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(requesterPubkey);
+        return newSet;
       });
     }
   };
@@ -200,7 +206,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       }
 
       // Get the d tag from the original event
-      const dTag = community.event.tags.find(([name]) => name === 'd')?.[1] || '';
+      const dTag = community.definitionEvent.tags.find(([name]) => name === 'd')?.[1] || '';
 
       const tags = [
         ["d", dTag],
@@ -216,13 +222,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
       }
 
       // Preserve existing moderators
-      community.moderators.forEach(moderatorPubkey => {
+      community.info.moderators.forEach(moderatorPubkey => {
         tags.push(["p", moderatorPubkey, "", "moderator"]);
       });
 
       // Add creator as moderator if not already included
-      if (!community.moderators.includes(community.creator)) {
-        tags.push(["p", community.creator, "", "moderator"]);
+      if (!community.info.moderators.includes(community.pubkey)) {
+        tags.push(["p", community.pubkey, "", "moderator"]);
       }
 
       await createEvent({
@@ -262,7 +268,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
         kind: 5,
         content: "Community deleted by owner",
         tags: [
-          ["e", community.event.id], // Reference the community event to be deleted
+          ["e", community.definitionEvent.id], // Reference the community event to be deleted
           ["k", "34550"], // Specify the kind of the event being deleted
         ],
       });
@@ -286,8 +292,8 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
   };
 
   // Check if user is admin/mod
-  const isAdmin = user?.pubkey === community.creator;
-  const isModerator = community.moderators.includes(user?.pubkey || '');
+  const isAdmin = user?.pubkey === community.pubkey;
+  const isModerator = community.info.moderators.includes(user?.pubkey || '');
 
   if (!isAdmin && !isModerator) {
     return (
@@ -312,36 +318,36 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
             <div className="p-3 bg-primary/10 rounded-full border">
               <Settings className="w-5 h-5 text-gray-700 dark:text-primary" />
             </div>
-            {community.name} Settings
+            {community.info.name} Settings
           </DialogTitle>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="px-6">
             <TabsList className="h-16 grid w-full grid-cols-3 bg-muted/50 p-2 rounded-full">
-            <TabsTrigger value="overview" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Settings className="w-4 h-4 text-gray-700 dark:text-primary" />
-              </div>
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="members" className="h-12 text-xs sm:text-sm flex items-center gap-3 relative rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="w-4 h-4 text-gray-700 dark:text-primary" />
-              </div>
-              Members
-              {pendingRequests > 0 && (
-                <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                  {pendingRequests}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="audit" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileText className="w-4 h-4 text-gray-700 dark:text-primary" />
-              </div>
-              Audit
-            </TabsTrigger>
+              <TabsTrigger value="overview" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-gray-700 dark:text-primary" />
+                </div>
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="members" className="h-12 text-xs sm:text-sm flex items-center gap-3 relative rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-gray-700 dark:text-primary" />
+                </div>
+                Members
+                {pendingRequests > 0 && (
+                  <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                    {pendingRequests}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="h-12 text-xs sm:text-sm flex items-center gap-3 rounded-full px-6 data-[state=active]:bg-background data-[state=active]:shadow-md">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-gray-700 dark:text-primary" />
+                </div>
+                Audit
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -391,9 +397,9 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     <div className="flex items-center gap-4">
                       <div className="relative">
                         <Avatar className="w-16 h-16">
-                          <AvatarImage src={imagePreview || formData.image || community.image} />
+                          <AvatarImage src={imagePreview || formData.image || community.info.image} />
                           <AvatarFallback className="text-lg">
-                            {community.name.charAt(0).toUpperCase()}
+                            {community.info.name.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                       </div>
@@ -409,7 +415,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                           <Upload className="w-4 h-4" />
                           {isUploading ? "Uploading..." : "Upload Icon"}
                         </Button>
-                        {(imagePreview || formData.image || community.image) && isAdmin && (
+                        {(imagePreview || formData.image || community.info.image) && isAdmin && (
                           <Button
                             type="button"
                             variant="outline"
@@ -524,24 +530,24 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                             Delete Community
                           </Button>
                         </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the community
-                            and remove all associated data.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive hover:bg-destructive/90"
-                            onClick={handleDeleteCommunity}
-                          >
-                            Delete Community
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete the community
+                              and remove all associated data.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={handleDeleteCommunity}
+                            >
+                              Delete Community
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
                       </AlertDialog>
                     </div>
                   </CardContent>
@@ -563,7 +569,7 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                     <div className="space-y-3">
                       {joinRequests?.map((request) => (
                         <JoinRequestItem
-                          key={request.event.id}
+                          key={request.requesterPubkey}
                           request={request}
                           onApprove={() => handleApproveRequest(request.requesterPubkey)}
                           onDecline={() => handleDeclineRequest(request.requesterPubkey)}
@@ -839,7 +845,7 @@ function ModerationLogItem({ log }: { log: { action: string; moderatorPubkey: st
 }
 
 // Component for sharing content (extracted from CommunityShareDialog)
-function CommunityShareContent({ community }: { community: Community }) {
+function CommunityShareContent({ community }: { community: CommunityData }) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isGeneratingQR, setIsGeneratingQR] = useState(true);
@@ -858,7 +864,7 @@ function CommunityShareContent({ community }: { community: Community }) {
       kind: parseInt(kind),
       pubkey: paddedPubkey,
       identifier,
-      relays: community.relays.length > 0 ? community.relays : undefined,
+      relays: community.info.relays.length > 0 ? community.info.relays : undefined,
     });
   } catch (error) {
     console.error('Failed to generate naddr:', error);
@@ -920,7 +926,7 @@ function CommunityShareContent({ community }: { community: Community }) {
     if (!qrCodeDataUrl) return;
 
     const link = document.createElement('a');
-    link.download = `${community.name}-join-qr.png`;
+    link.download = `${community.info.name}-join-qr.png`;
     link.href = qrCodeDataUrl;
     document.body.appendChild(link);
     link.click();
@@ -1003,7 +1009,7 @@ function CommunityShareContent({ community }: { community: Community }) {
             ) : qrCodeDataUrl ? (
               <img
                 src={qrCodeDataUrl}
-                alt={`QR code for ${community.name}`}
+                alt={`QR code for ${community.info.name}`}
                 className="w-64 h-64"
               />
             ) : (
