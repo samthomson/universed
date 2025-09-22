@@ -9,8 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useCommunityMemberLists } from "@/hooks/useCommunityMemberLists";
-import { useManageMembers } from "@/hooks/useManageMembers";
+import { useDataManager, useDataManagerCommunityMembers } from "@/components/DataManagerProvider";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
@@ -145,43 +144,41 @@ function MemberItem({ pubkey, status, onStatusChange, isProcessing }: MemberItem
 }
 
 export function MemberManagementPanel({ communityId }: MemberManagementPanelProps) {
-  const { data: members, isLoading } = useCommunityMemberLists(communityId);
-  const { addMember, declineMember, banMember, isAddingMember, isRemovingMember, isDecliningMember, isBanningMember } = useManageMembers();
+  const { data: members, isLoading } = useDataManagerCommunityMembers(communityId);
+  const { communities } = useDataManager();
   const { toast } = useToast();
   const [processingUser, setProcessingUser] = useState<string | null>(null);
 
-  const handleStatusChange = (pubkey: string, newStatus: 'approved' | 'declined' | 'banned') => {
+  const handleStatusChange = async (pubkey: string, newStatus: 'approved' | 'declined' | 'banned') => {
     if (!communityId) return;
 
     setProcessingUser(pubkey);
 
-    const onSuccess = () => {
+    try {
+      switch (newStatus) {
+        case 'approved':
+          await communities.approveMember(communityId, pubkey);
+          break;
+        case 'declined':
+          await communities.declineMember(communityId, pubkey);
+          break;
+        case 'banned':
+          await communities.banMember(communityId, pubkey);
+          break;
+      }
+
       toast({
         title: "Member Status Updated",
         description: `Member has been ${newStatus}.`,
       });
-      setProcessingUser(null);
-    };
-
-    const onError = (error: unknown) => {
+    } catch (error) {
       toast({
         title: "Failed to Update Status",
         description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
+    } finally {
       setProcessingUser(null);
-    };
-
-    switch (newStatus) {
-      case 'approved':
-        addMember({ communityId, memberPubkey: pubkey }, { onSuccess, onError });
-        break;
-      case 'declined':
-        declineMember({ communityId, memberPubkey: pubkey }, { onSuccess, onError });
-        break;
-      case 'banned':
-        banMember({ communityId, memberPubkey: pubkey }, { onSuccess, onError });
-        break;
     }
   };
 
@@ -196,11 +193,12 @@ export function MemberManagementPanel({ communityId }: MemberManagementPanelProp
     );
   }
 
-  const approvedMembers = members?.approved || [];
-  const declinedMembers = members?.declined || [];
-  const bannedMembers = members?.banned || [];
+  // DataManager returns members with role information, we need to separate them by status
+  const approvedMembers = members?.filter(member => member.role === 'member' || member.role === 'moderator' || member.role === 'owner').map(member => member.pubkey) || [];
+  const declinedMembers: string[] = []; // DataManager doesn't track declined members separately
+  const bannedMembers: string[] = []; // DataManager doesn't track banned members in the members list
 
-  const isProcessing = isAddingMember || isRemovingMember || isDecliningMember || isBanningMember;
+  const isProcessing = processingUser !== null;
 
   return (
     <div className="flex flex-col h-full">

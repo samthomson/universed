@@ -6,20 +6,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useJoinRequests } from "@/hooks/useJoinRequests";
-import { useManageMembers } from "@/hooks/useManageMembers";
+import { useDataManagerJoinRequests, useDataManager } from "@/components/DataManagerProvider";
 import { useAuthor } from "@/hooks/useAuthor";
 import { genUserName } from "@/lib/genUserName";
 import { useToast } from "@/hooks/useToast";
 import { logger } from '@/lib/logger';
-import type { JoinRequest } from "@/hooks/useJoinRequests";
 
 interface JoinRequestsProps {
   communityId: string | null;
 }
 
 interface JoinRequestItemProps {
-  request: JoinRequest;
+  request: { requesterPubkey: string; message: string; createdAt: number };
   onApprove: (pubkey: string) => void;
   onDecline: (pubkey: string) => void;
   isProcessing: boolean;
@@ -105,21 +103,21 @@ function JoinRequestItem({ request, onApprove, onDecline, isProcessing }: JoinRe
 }
 
 export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
-  const { data: joinRequests, isLoading } = useJoinRequests(communityId);
-  const { addMember, declineMember, isAddingMember, isDecliningMember } = useManageMembers();
+  const { data: joinRequests, isLoading } = useDataManagerJoinRequests(communityId);
+  const { communities } = useDataManager();
   const { toast } = useToast();
-  const [processingUser, setProcessingUser] = useState<string | null>(null);
+  const [approvingMembers, setApprovingMembers] = useState<Set<string>>(new Set());
+  const [decliningMembers, setDecliningMembers] = useState<Set<string>>(new Set());
 
   logger.log('JoinRequestsPanel render:', {
     communityId,
     joinRequestsCount: joinRequests?.length,
     isLoading,
-    addMember: typeof addMember,
-    isAddingMember,
-    isDecliningMember
+    approvingMembersSize: approvingMembers.size,
+    decliningMembersSize: decliningMembers.size
   });
 
-  const handleApprove = (pubkey: string) => {
+  const handleApprove = async (pubkey: string) => {
     logger.log('handleApprove called with:', { pubkey, communityId });
 
     if (!communityId) {
@@ -127,57 +125,58 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
       return;
     }
 
-    logger.log('Setting processing user and calling addMember');
-    setProcessingUser(pubkey);
+    logger.log('Setting processing user and calling approveMember');
+    setApprovingMembers(prev => new Set(prev).add(pubkey));
 
-    addMember(
-      { communityId, memberPubkey: pubkey },
-      {
-        onSuccess: () => {
-          logger.log('addMember success');
-          toast({
-            title: "Member Approved",
-            description: "The user has been added to the community.",
-          });
-          setProcessingUser(null);
-        },
-        onError: (error) => {
-          logger.error('addMember error:', error);
-          toast({
-            title: "Failed to Approve",
-            description: error instanceof Error ? error.message : "An error occurred",
-            variant: "destructive",
-          });
-          setProcessingUser(null);
-        },
-      }
-    );
+    try {
+      await communities.approveMember(communityId, pubkey);
+      logger.log('approveMember success');
+      toast({
+        title: "Member Approved",
+        description: "The user has been added to the community.",
+      });
+    } catch (error) {
+      logger.error('approveMember error:', error);
+      toast({
+        title: "Failed to Approve",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setApprovingMembers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(pubkey);
+        return newSet;
+      });
+    }
   };
 
-  const handleDecline = (pubkey: string) => {
+  const handleDecline = async (pubkey: string) => {
     if (!communityId) return;
 
-    setProcessingUser(pubkey);
-    declineMember(
-      { communityId, memberPubkey: pubkey },
-      {
-        onSuccess: () => {
-          toast({
-            title: "Request Declined",
-            description: "The join request has been declined.",
-          });
-          setProcessingUser(null);
-        },
-        onError: (error) => {
-          toast({
-            title: "Failed to Decline",
-            description: error instanceof Error ? error.message : "An error occurred",
-            variant: "destructive",
-          });
-          setProcessingUser(null);
-        },
-      }
-    );
+    logger.log('handleDecline called with:', { pubkey, communityId });
+    setDecliningMembers(prev => new Set(prev).add(pubkey));
+
+    try {
+      await communities.declineMember(communityId, pubkey);
+      toast({
+        title: "Request Declined",
+        description: "The join request has been declined.",
+      });
+    } catch (error) {
+      logger.error('declineMember error:', error);
+      toast({
+        title: "Failed to Decline",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setDecliningMembers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(pubkey);
+        return newSet;
+      });
+    }
   };
 
   if (!communityId) {
@@ -238,11 +237,11 @@ export function JoinRequestsPanel({ communityId }: JoinRequestsProps) {
             <div>
               {joinRequests.map((request) => (
                 <JoinRequestItem
-                  key={request.event.id}
+                  key={request.requesterPubkey}
                   request={request}
                   onApprove={handleApprove}
                   onDecline={handleDecline}
-                  isProcessing={processingUser === request.requesterPubkey || isAddingMember || isDecliningMember}
+                  isProcessing={approvingMembers.has(request.requesterPubkey) || decliningMembers.has(request.requesterPubkey)}
                 />
               ))}
             </div>

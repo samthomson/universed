@@ -5,8 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { MemberManagementPanel } from '@/components/community/MemberManagementPanel';
 import { JoinRequestsPanel } from '@/components/community/JoinRequestsPanel';
-import { useJoinRequests } from '@/hooks/useJoinRequests';
-import { useCommunityMemberLists } from '@/hooks/useCommunityMemberLists';
+import { useDataManagerJoinRequests, useDataManagerCommunityMembers } from '@/components/DataManagerProvider';
 
 interface UserManagementProps {
   communityId: string;
@@ -15,13 +14,14 @@ interface UserManagementProps {
 export function UserManagement({ communityId }: UserManagementProps) {
   const [activeTab, setActiveTab] = useState('requests');
 
-  const { data: joinRequests } = useJoinRequests(communityId);
-  const { data: members } = useCommunityMemberLists(communityId);
+  const { data: joinRequests } = useDataManagerJoinRequests(communityId);
+  const { data: members } = useDataManagerCommunityMembers(communityId);
 
   const pendingRequestsCount = joinRequests?.length || 0;
-  const approvedMembersCount = members?.approved?.length || 0;
-  const declinedMembersCount = members?.declined?.length || 0;
-  const bannedMembersCount = members?.banned?.length || 0;
+  // DataManager returns all members, we count them as approved (since declined/banned aren't tracked separately yet)
+  const approvedMembersCount = members?.length || 0;
+  const declinedMembersCount = 0; // todo: DataManager doesn't track declined separately yet
+  const bannedMembersCount = 0; // todo: DataManager doesn't track banned separately yet
 
   return (
     <div className="space-y-4">
