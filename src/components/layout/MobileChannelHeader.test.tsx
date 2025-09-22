@@ -54,13 +54,6 @@ vi.mock('@/hooks/useCommunities', () => ({
   }),
 }));
 
-// Mock the toast function
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-  },
-}));
-
 describe('MobileChannelHeader', () => {
   it('renders channel name and member count', () => {
     render(

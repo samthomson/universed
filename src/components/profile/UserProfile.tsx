@@ -24,7 +24,7 @@ import { nip19 } from "nostr-tools";
 import { BaseMessageItem } from "@/components/messaging/BaseMessageItem";
 import { groupMessageItemConfig } from "@/components/messaging/configs/groupConfig";
 import { NewDMDialog } from "@/components/dm/NewDMDialog";
-import { toast } from "sonner";
+import { useToast } from '@/hooks/useToast';
 import { logger } from "@/lib/logger";
 
 interface UserProfileProps {
@@ -32,6 +32,7 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ pubkey }: UserProfileProps) {
+  const { toast } = useToast();
   const [showNewDM, setShowNewDM] = useState(false);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
@@ -61,10 +62,16 @@ export function UserProfile({ pubkey }: UserProfileProps) {
     try {
       await navigator.clipboard.writeText(npub);
       setCopied(true);
-      toast.success("Copied npub to clipboard");
+      toast({
+        title: "Copied to clipboard",
+      })
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy npub");
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 

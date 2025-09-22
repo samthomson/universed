@@ -15,7 +15,7 @@ import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { cn } from '@/lib/utils';
 import { TimezoneDisplay } from '@/components/TimezoneDisplay';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/useToast';
 
 interface CalendarEventCardProps {
   event: NostrEvent;
@@ -26,6 +26,7 @@ interface CalendarEventCardProps {
 
 
 export function CalendarEventCard({ event, className, compact = false, onEditEvent }: CalendarEventCardProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [isRSVPing, setIsRSVPing] = useState(false);
@@ -115,17 +116,28 @@ export function CalendarEventCard({ event, className, compact = false, onEditEve
         ],
       }, {
         onSuccess: () => {
-          toast.success('Event deleted successfully');
+          toast({
+            title: 'Event Deleted',
+            description: 'The event has been deleted for all participants.',
+          })
           setShowDeleteDialog(false);
         },
         onError: (error) => {
           console.error('Failed to delete event:', error);
-          toast.error('Failed to delete event');
+          toast({
+            title: 'Error',
+            description: 'Failed to delete event. Please try again.',
+            variant: 'destructive',
+          })
         }
       });
     } catch (error) {
       console.error('Error deleting event:', error);
-      toast.error('Failed to delete event');
+      toast({
+        title: 'Error',
+        description: 'Failed to delete event. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsDeleting(false);
     }

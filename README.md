@@ -113,7 +113,6 @@ npm test
 - **shadcn/ui** - Beautiful, accessible components built on Radix UI
 - **Radix UI** - Low-level UI primitives for accessibility
 - **Lucide React** - Beautiful icon library
-- **Sonner** - Toast notifications
 
 ### Nostr Integration
 - **Nostrify** - Modern Nostr framework for web applications
