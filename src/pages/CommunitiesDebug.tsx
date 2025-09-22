@@ -37,6 +37,10 @@ export function CommunitiesDebug() {
 		console.log(`Community ${communityId}:`, {
 			hasApprovedMembers: !!community.approvedMembers,
 			approvedMembersData: community.approvedMembers,
+			hasPendingMembers: !!community.pendingMembers,
+			pendingMembersData: community.pendingMembers,
+			joinRequestsCount: community.pendingMembers?.joinRequests?.length || 0,
+			joinRequestsData: community.pendingMembers?.joinRequests,
 			channels: Array.from(community.channels.entries()).map(([channelId, channel]) => ({
 				channelId,
 				hasPermissions: !!channel.permissions,
@@ -72,7 +76,8 @@ export function CommunitiesDebug() {
 										<div>2. Parallel Batch 1: {loadBreakdown.step2_parallel_batch1.total}ms</div>
 										<div className="ml-4 space-y-0.5">
 											<div>├─ Channels Query: {loadBreakdown.step2_parallel_batch1.channelsQuery}ms</div>
-											<div>└─ Members Query: {loadBreakdown.step2_parallel_batch1.membersQuery}ms</div>
+											<div>├─ Members Query: {loadBreakdown.step2_parallel_batch1.membersQuery}ms</div>
+											<div>└─ Join Requests Query: {loadBreakdown.step2_parallel_batch1.joinRequestsQuery}ms</div>
 										</div>
 										<div>3. Parallel Batch 2: {loadBreakdown.step3_parallel_batch2.total}ms</div>
 										<div className="ml-4 space-y-0.5">
@@ -115,7 +120,7 @@ export function CommunitiesDebug() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="grid grid-cols-6 gap-4 text-center">
+					<div className="grid grid-cols-7 gap-4 text-center">
 						<div>
 							<div className="text-2xl font-bold text-blue-600">{debugInfo.communityCount}</div>
 							<div className="text-sm text-muted-foreground">Communities</div>
@@ -139,6 +144,14 @@ export function CommunitiesDebug() {
 						<div>
 							<div className="text-2xl font-bold text-yellow-600">{debugInfo.pinnedCount}</div>
 							<div className="text-sm text-muted-foreground">Pinned</div>
+						</div>
+						<div>
+							<div className="text-2xl font-bold text-red-600">{
+								Array.from(communitiesData.values()).reduce((total, community) =>
+									total + (community.pendingMembers?.members.length || 0), 0
+								)
+							}</div>
+							<div className="text-sm text-muted-foreground">Join Requests</div>
 						</div>
 					</div>
 				</CardContent>
@@ -242,13 +255,66 @@ export function CommunitiesDebug() {
 										<div>
 											<h4 className="font-medium mb-2">Approved Members ({community.approvedMembers.members.length})</h4>
 											<div className="text-xs text-muted-foreground space-y-1">
-												<div>Event ID: {community.approvedMembers.event.id.slice(0, 16)}...</div>
-												<div>Created: {formatDistanceToNowShort(new Date(community.approvedMembers.event.created_at * 1000))}</div>
+												{community.approvedMembers.event && (
+													<>
+														<div>Event ID: {community.approvedMembers.event.id.slice(0, 16)}...</div>
+														<div>Created: {formatDistanceToNowShort(new Date(community.approvedMembers.event.created_at * 1000))}</div>
+													</>
+												)}
 												{community.approvedMembers.members.length > 0 && (
 													<div>
 														<div className="font-medium mt-2 mb-1">Member List:</div>
 														<ol className="text-xs space-y-1 list-decimal list-inside">
 															{community.approvedMembers.members.map((pubkey, i) => (
+																<li key={i} className="bg-muted/30 rounded px-2 py-1 break-all">
+																	{pubkey}
+																</li>
+															))}
+														</ol>
+													</div>
+												)}
+											</div>
+										</div>
+									)}
+
+									{/* Pending Members / Join Requests */}
+									{community.pendingMembers && (
+										<div>
+											<h4 className="font-medium mb-2">Pending Members / Join Requests ({community.pendingMembers.members.length})</h4>
+											<div className="text-xs text-muted-foreground space-y-1">
+												{community.pendingMembers.event && (
+													<>
+														<div>Event ID: {community.pendingMembers.event.id.slice(0, 16)}...</div>
+														<div>Created: {formatDistanceToNowShort(new Date(community.pendingMembers.event.created_at * 1000))}</div>
+													</>
+												)}
+												{community.pendingMembers.joinRequests && community.pendingMembers.joinRequests.length > 0 && (
+													<div>
+														<div className="font-medium mt-2 mb-1">Join Requests ({community.pendingMembers.joinRequests.length}):</div>
+														<div className="space-y-2">
+															{community.pendingMembers.joinRequests.map((joinRequest, i) => (
+																<div key={i} className="bg-muted/30 rounded px-2 py-1 space-y-1">
+																	<div className="break-all">
+																		<span className="font-mono text-xs">Pubkey:</span> {joinRequest.pubkey}
+																	</div>
+																	<div>
+																		<span className="font-mono text-xs">Created:</span> {formatDistanceToNowShort(new Date(joinRequest.created_at * 1000))}
+																	</div>
+																	{joinRequest.content && (
+																		<div>
+																			<span className="font-mono text-xs">Message:</span> "{joinRequest.content}"
+																		</div>
+																	)}
+																</div>
+															))}
+														</div>
+													</div>
+												)}
+												{community.pendingMembers.members.length > 0 && (
+													<div>
+														<div className="font-medium mt-2 mb-1">All Pending Pubkeys:</div>
+														<ol className="text-xs space-y-1 list-decimal list-inside">
+															{community.pendingMembers.members.map((pubkey, i) => (
 																<li key={i} className="bg-muted/30 rounded px-2 py-1 break-all">
 																	{pubkey}
 																</li>
