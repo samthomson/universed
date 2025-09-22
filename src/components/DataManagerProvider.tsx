@@ -3,6 +3,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useSendDM } from '@/hooks/useSendDM';
 import { useNostr } from '@nostrify/react';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
@@ -221,7 +222,8 @@ interface CommunityInfo {
 // Parsed member list from kind 34551/34552/34553 events
 interface MembersList {
   members: string[]; // list of member pubkeys
-  event: NostrEvent; // original event
+  event: NostrEvent | null; // original event (can be null for combined lists)
+  joinRequests?: NostrEvent[]; // actual join request events (kind 4552) for pending members
 }
 
 // Complete community data structure
@@ -283,6 +285,7 @@ interface CommunityLoadBreakdown {
     total: number;
     channelsQuery: number;
     membersQuery: number;
+    joinRequestsQuery: number;
   };
   step3_parallel_batch2: {
     total: number;
@@ -357,6 +360,9 @@ interface CommunitiesDomain {
   loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
   resetCommunitiesDataAndCache: () => Promise<void>;
   useDataManagerPinnedMessages: (communityId: string | null, channelId: string | null) => NostrEvent[];
+  approveMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  declineMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  banMember: (communityId: string, memberPubkey: string) => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -685,6 +691,54 @@ export function useDataManagerPinnedMessages(communityId: string | null, channel
   }, [communities.communities, communityId, channelId]);
 }
 
+// Hook to get join requests (pending members) from DataManager
+export function useDataManagerJoinRequests(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: [],
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: [],
+        isLoading: communities.isLoading,
+      };
+    }
+
+    // Get pending members from the community data
+    const pendingMembers = community.pendingMembers?.members || [];
+    const joinRequestEvents = community.pendingMembers?.joinRequests || [];
+
+    // Create a map of pubkey to join request event for efficient lookup
+    const joinRequestMap = new Map<string, NostrEvent>();
+    joinRequestEvents.forEach(event => {
+      joinRequestMap.set(event.pubkey, event);
+    });
+
+    // Transform into the format expected by the UI (similar to useJoinRequests)
+    const joinRequests = pendingMembers.map(pubkey => {
+      const joinRequestEvent = joinRequestMap.get(pubkey);
+      return {
+        requesterPubkey: pubkey,
+        message: joinRequestEvent?.content || '', // Use actual join request message
+        createdAt: joinRequestEvent?.created_at || community.pendingMembers?.event?.created_at || Math.floor(Date.now() / 1000),
+      };
+    });
+
+
+    return {
+      data: joinRequests,
+      isLoading: false,
+    };
+  }, [communities.communities, communities.isLoading, communityId]);
+}
+
 // Hook to get community members from DataManager instead of making separate network requests
 export function useDataManagerCommunityMembers(communityId: string | null) {
   const { communities } = useDataManager();
@@ -739,6 +793,7 @@ export function useDataManagerCommunityMembers(communityId: string | null) {
     // Add approved members (excluding banned ones)
     const bannedMemberPubkeys = new Set(community.bannedMembers?.members || []);
 
+
     if (community.approvedMembers) {
       community.approvedMembers.members.forEach(memberPubkey => {
         if (!addedMembers.has(memberPubkey) && !bannedMemberPubkeys.has(memberPubkey)) {
@@ -765,6 +820,7 @@ export function useDataManagerCommunityMembers(communityId: string | null) {
       // Then alphabetically by pubkey
       return a.pubkey.localeCompare(b.pubkey);
     });
+
 
     return {
       data: sortedMembers,
@@ -871,6 +927,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { settings } = useUserSettings();
   const { nostr } = useNostr();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
+  const { mutateAsync: createEvent } = useNostrPublish();
 
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
@@ -2724,6 +2781,191 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     setShouldSaveCommunitiesImmediately(true);
   }, [communities]);
 
+  // Member management functions
+  const approveMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions - only owners and moderators can approve members
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can approve members');
+    }
+
+    logger.log(`Communities: Approving member ${memberPubkey} for community ${communityId}`);
+
+    // Get current approved members
+    const currentMembers = new Set(community.approvedMembers?.members || []);
+    currentMembers.add(memberPubkey);
+
+    // Create new approved members list event
+    const fullCommunityId = `34550:${community.pubkey}:${communityId}`;
+    const tags = [
+      ['d', fullCommunityId],
+      ...Array.from(currentMembers).map(pubkey => ['p', pubkey])
+    ];
+
+    await createEvent({
+      kind: 34551, // Approved members list
+      content: '',
+      tags,
+    });
+
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Update approved members
+      updatedCommunity.approvedMembers = {
+        members: Array.from(currentMembers),
+        event: { ...updatedCommunity.approvedMembers?.event, tags } as NostrEvent
+      };
+
+      // Remove from pending members if present
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey, createEvent]);
+
+  const declineMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can decline members');
+    }
+
+    logger.log(`Communities: Declining member ${memberPubkey} for community ${communityId}`);
+
+    // Simply remove from pending members (don't add to declined list)
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Remove from pending members
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey]);
+
+  const banMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can ban members');
+    }
+
+    logger.log(`Communities: Banning member ${memberPubkey} for community ${communityId}`);
+
+    // Get current banned members
+    const currentBanned = new Set(community.bannedMembers?.members || []);
+    currentBanned.add(memberPubkey);
+
+    // Create new banned members list event
+    const fullCommunityId = `34550:${community.pubkey}:${communityId}`;
+    const tags = [
+      ['d', fullCommunityId],
+      ...Array.from(currentBanned).map(pubkey => ['p', pubkey])
+    ];
+
+    await createEvent({
+      kind: 34553, // Banned members list
+      content: '',
+      tags,
+    });
+
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Update banned members
+      updatedCommunity.bannedMembers = {
+        members: Array.from(currentBanned),
+        event: { ...updatedCommunity.bannedMembers?.event, tags } as NostrEvent
+      };
+
+      // Remove from approved members if present
+      if (updatedCommunity.approvedMembers) {
+        updatedCommunity.approvedMembers = {
+          ...updatedCommunity.approvedMembers,
+          members: updatedCommunity.approvedMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      // Remove from pending members if present
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey, createEvent]);
+
   // Add optimistic channel for immediate UI feedback
   const addOptimisticChannel = useCallback((communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => {
     if (!user?.pubkey) {
@@ -3262,6 +3504,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             total: 0,
             channelsQuery: 0,
             membersQuery: 0,
+            joinRequestsQuery: 0,
           },
           step3_parallel_batch2: {
             total: 0,
@@ -3347,6 +3590,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             total: 0,
             channelsQuery: 0,
             membersQuery: 0,
+            joinRequestsQuery: 0,
           },
           step3_parallel_batch2: {
             total: 0,
@@ -3392,14 +3636,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
         return {
-          kinds: [34551], // Approved members eventsz
+          kinds: [34551], // Approved members events
           authors: [definitionEvent.pubkey],
           '#d': [communityRef],
           limit: 1,
         };
       });
 
-      // BATCH 1: Execute channels and members queries in parallel
+      // Add join requests filters (kind 4552)
+      const allJoinRequestFilters = communitiesWithStatus.map(({ definitionEvent }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
+        return {
+          kinds: [4552], // Join request events
+          '#a': [communityRef],
+          limit: 100, // Allow more join requests
+          since: Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60), // Last 30 days
+        };
+      });
+
+      // BATCH 1: Execute channels, members, and join requests queries in parallel
       const batch1Start = Date.now();
 
       // Wrap each query with individual timing
@@ -3417,16 +3673,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return { result, time };
       })();
 
-      const [channelsQueryResult, membersQueryResult] = await Promise.all([
+      const joinRequestsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allJoinRequestFilters.length > 0
+          ? await nostr.query(allJoinRequestFilters, { signal: AbortSignal.timeout(15000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [channelsQueryResult, membersQueryResult, joinRequestsQueryResult] = await Promise.all([
         channelsQueryPromise,
-        membersQueryPromise
+        membersQueryPromise,
+        joinRequestsQueryPromise
       ]);
 
       const batch1Time = Date.now() - batch1Start;
       let allChannelDefinitions = channelsQueryResult.result;
       const allMemberLists = membersQueryResult.result;
+      const allJoinRequests = joinRequestsQueryResult.result;
       const channelsQueryTime = channelsQueryResult.time;
       const membersQueryTime = membersQueryResult.time;
+      const joinRequestsQueryTime = joinRequestsQueryResult.time;
 
       // Add missing "general" channels for each approved community (if enabled)
       const additionalGeneralChannels: NostrEvent[] = [];
@@ -3867,6 +4135,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           event: pendingMembersEvent
         } : null;
 
+        // Find join requests for this community (kind 4552)
+        const communityJoinRequests = allJoinRequests.filter(joinRequest => {
+          const aTag = joinRequest.tags.find(([name]) => name === 'a')?.[1];
+          return aTag === communityRef;
+        });
+
+        // Create a combined pending members list that includes both:
+        // 1. Members from pending member lists (kind 34552) - managed by moderators
+        // 2. Individual join requests (kind 4552) - created by users
+        const joinRequestPubkeys = communityJoinRequests.map(req => req.pubkey);
+        const existingPendingPubkeys = pendingMembers?.members || [];
+        const allPendingPubkeys = [...new Set([...existingPendingPubkeys, ...joinRequestPubkeys])];
+
+        const combinedPendingMembers = allPendingPubkeys.length > 0 ? {
+          members: allPendingPubkeys,
+          event: pendingMembers?.event || (communityJoinRequests[0] || null), // Use the first join request as fallback
+          joinRequests: communityJoinRequests // Store the actual join request events for message/timestamp info
+        } : null;
+
         // Determine the user's role in this community
         let finalMembershipStatus = community.membershipStatus;
         if (community.pubkey === userPubkey) {
@@ -3883,7 +4170,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           definitionEvent: community.definitionEvent,
           channels: channelsMap,
           approvedMembers: approvedMembers || null,
-          pendingMembers: pendingMembers || null,
+          pendingMembers: combinedPendingMembers || null, // Use combined pending members (includes join requests)
           bannedMembers: null, // Will be loaded in background
           membershipStatus: finalMembershipStatus,
           lastActivity: isApproved && channelsMap.size > 0
@@ -3914,6 +4201,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           total: batch1Time,
           channelsQuery: channelsQueryTime,
           membersQuery: membersQueryTime,
+          joinRequestsQuery: joinRequestsQueryTime,
         },
         step3_parallel_batch2: {
           total: batch2Time,
@@ -4936,6 +5224,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadOlderMessages,
     resetCommunitiesDataAndCache,
     useDataManagerPinnedMessages,
+    approveMember,
+    declineMember,
+    banMember,
   };
 
   const contextValue: DataManagerContextType = {
