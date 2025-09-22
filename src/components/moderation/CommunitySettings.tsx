@@ -9,8 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { useCommunities } from '@/hooks/useCommunities';
-import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { useDataManager, useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
@@ -22,21 +21,21 @@ interface CommunitySettingsProps {
 }
 
 export function CommunitySettings({ communityId }: CommunitySettingsProps) {
-  const { data: communities } = useCommunities();
-  const { canModerate, role } = useCanModerate(communityId);
+  const { communities } = useDataManager();
+  const { canModerate, role } = useDataManagerCanModerate(communityId);
   const { mutate: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { toast } = useToast();
 
-  const community = communities?.find(c => c.id === communityId);
+  const community = communityId ? communities.communities.get(communityId) : null;
   const { data: communitySettings } = useCommunitySettings(communityId);
   const { mutateAsync: updateSettings } = useUpdateCommunitySettings(communityId);
 
   const [settings, setSettings] = useState({
-    name: community?.name || '',
-    about: community?.description || '',
-    picture: community?.image || '',
-    banner: community?.banner || '',
+    name: community?.info.name || '',
+    about: community?.info.description || '',
+    picture: community?.info.image || '',
+    banner: community?.info.banner || '',
     rules: [] as string[],
     moderationPolicy: communitySettings?.moderationPolicy || 'moderate',
     requireApproval: communitySettings?.requireApproval ?? true,
@@ -100,7 +99,7 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
 
       // Update community definition with basic info
       const tags = [
-        ['d', community.id.split(':')[2]], // Extract d-tag
+        ['d', community.id], // Use simple community ID
         ['name', settings.name],
         ['about', settings.about],
         ['picture', settings.picture],
@@ -110,8 +109,8 @@ export function CommunitySettings({ communityId }: CommunitySettingsProps) {
       ];
 
       // Add existing moderators
-      if (community.moderators) {
-        community.moderators.forEach(pubkey => {
+      if (community.info.moderators) {
+        community.info.moderators.forEach(pubkey => {
           tags.push(['p', pubkey, '', 'moderator']);
         });
       }

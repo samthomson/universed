@@ -4,10 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { useDataManagerCanModerate, useDataManagerCommunityMembers } from '@/components/DataManagerProvider';
 import { useModerationStats } from '@/hooks/useModerationLogs';
 import { useReports } from '@/hooks/useReporting';
-import { useCommunityMembers } from '@/hooks/useCommunityMembers';
 import { ModerationQueue } from './ModerationQueue';
 import { UserManagement } from './UserManagement';
 import { ReportsPanel } from './ReportsPanel';
@@ -28,7 +27,7 @@ interface QuickStatsProps {
 function QuickStats({ communityId }: QuickStatsProps) {
   const moderationStats = useModerationStats(communityId);
   const { data: reports, isLoading: isLoadingReports } = useReports(communityId);
-  const { data: members, isLoading: isLoadingMembers } = useCommunityMembers(communityId);
+  const { data: members, isLoading: isLoadingMembers } = useDataManagerCommunityMembers(communityId);
 
   const isLoading = isLoadingReports || isLoadingMembers;
 
@@ -109,7 +108,7 @@ function QuickStats({ communityId }: QuickStatsProps) {
 
 export function ModerationDashboard({ communityId }: ModerationDashboardProps) {
   const [activeTab, setActiveTab] = useState('overview');
-  const { canModerate, role } = useCanModerate(communityId);
+  const { canModerate, role } = useDataManagerCanModerate(communityId);
   const { data: reports } = useReports(communityId);
 
   if (!canModerate) {

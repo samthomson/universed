@@ -145,7 +145,7 @@ function MemberItem({ pubkey, status, onStatusChange, isProcessing }: MemberItem
 
 export function MemberManagementPanel({ communityId }: MemberManagementPanelProps) {
   const { data: members, isLoading } = useDataManagerCommunityMembers(communityId);
-  const { communities } = useDataManager();
+  const { communities: dataManager } = useDataManager();
   const { toast } = useToast();
   const [processingUser, setProcessingUser] = useState<string | null>(null);
 
@@ -157,13 +157,13 @@ export function MemberManagementPanel({ communityId }: MemberManagementPanelProp
     try {
       switch (newStatus) {
         case 'approved':
-          await communities.approveMember(communityId, pubkey);
+          await dataManager.approveMember(communityId, pubkey);
           break;
         case 'declined':
-          await communities.declineMember(communityId, pubkey);
+          await dataManager.declineMember(communityId, pubkey);
           break;
         case 'banned':
-          await communities.banMember(communityId, pubkey);
+          await dataManager.banMember(communityId, pubkey);
           break;
       }
 
@@ -193,10 +193,13 @@ export function MemberManagementPanel({ communityId }: MemberManagementPanelProp
     );
   }
 
-  // DataManager returns members with role information, we need to separate them by status
+  // DataManager returns members with role information for approved members
   const approvedMembers = members?.filter(member => member.role === 'member' || member.role === 'moderator' || member.role === 'owner').map(member => member.pubkey) || [];
-  const declinedMembers: string[] = []; // DataManager doesn't track declined members separately
-  const bannedMembers: string[] = []; // DataManager doesn't track banned members in the members list
+
+  // Get declined and banned members from DataManager
+  const community = communityId ? dataManager.communities.get(communityId) : null;
+  const declinedMembers = community?.declinedMembers?.members || [];
+  const bannedMembers = community?.bannedMembers?.members || [];
 
   const isProcessing = processingUser !== null;
 

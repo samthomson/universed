@@ -9,8 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useCanModerate, useCommunityRoles, useCommunityModerators } from '@/hooks/useCommunityRoles';
-import { useCommunityMembers } from '@/hooks/useCommunityMembers';
+import { useDataManagerCanModerate, useDataManagerUserRole, useDataManagerCommunityMembers } from '@/components/DataManagerProvider';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -35,9 +34,15 @@ function ModeratorManagement({ communityId }: ModeratorManagementProps) {
   const [newModeratorPubkey, setNewModeratorPubkey] = useState('');
   const [isAddingModerator, setIsAddingModerator] = useState(false);
 
-  const { data: _members } = useCommunityMembers(communityId);
-  const { assignModerator, removeModerator, isAssigningModerator, isRemovingModerator } = useCommunityRoles(communityId);
-  const { moderators, owner } = useCommunityModerators(communityId);
+  const { data: _members } = useDataManagerCommunityMembers(communityId);
+  // TODO: Implement assignModerator, removeModerator in DataManager
+  const assignModerator = () => Promise.resolve();
+  const removeModerator = () => Promise.resolve();
+  const isAssigningModerator = false;
+  const isRemovingModerator = false;
+  // TODO: Get moderators and owner from DataManager
+  const moderators: string[] = [];
+  const owner = '';
   const { toast } = useToast();
 
   const handleAddModerator = async () => {
@@ -133,7 +138,7 @@ function ModeratorManagement({ communityId }: ModeratorManagementProps) {
               <ModeratorCard
                 pubkey={owner}
                 role="owner"
-                onRemove={() => {}}
+                onRemove={() => { }}
                 canRemove={false}
               />
             )}
@@ -381,7 +386,7 @@ function CommunityData({ communityId }: CommunityDataProps) {
 }
 
 export function AdminPanel({ communityId }: AdminPanelProps) {
-  const { canModerate, role } = useCanModerate(communityId);
+  const { canModerate, role } = useDataManagerCanModerate(communityId);
 
   if (!canModerate || role !== 'owner') {
     return (

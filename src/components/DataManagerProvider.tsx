@@ -234,9 +234,10 @@ export interface CommunityData {
   info: CommunityInfo; // metadata from community definition
   definitionEvent: NostrEvent; // original kind 34550 community definition
   channels: Map<string, ChannelData>; // channelId -> channel data
-  approvedMembers: MembersList | null; // parsed approved members list
-  pendingMembers: MembersList | null; // parsed pending members list
-  bannedMembers: MembersList | null; // parsed banned members list (for moderator access)
+  approvedMembers: MembersList | null; // parsed approved members list (kind 34551)
+  pendingMembers: MembersList | null; // calculated: join requests (kind 4552) minus declined (kind 34552)
+  declinedMembers: MembersList | null; // parsed declined members list (kind 34552)
+  bannedMembers: MembersList | null; // parsed banned members list (kind 34553)
   membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator'; // user's membership status
   lastActivity: number;
   isLoadingChannels?: boolean; // indicates if channels are still loading
@@ -2546,14 +2547,49 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           const updatedCommunity = { ...community };
 
           switch (event.kind) {
-            case 34551:
+            case 34551: {
               updatedCommunity.approvedMembers = membersList;
-              logger.log(`Communities: Updated approved members for ${communityId}: ${members.length} members`);
+
+              // Recalculate pending members (join requests minus declined AND approved)
+              const approvedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+              const approvedJoinRequestPubkeys = approvedJoinRequests.map(req => req.pubkey);
+              const newApprovedPubkeys = members;
+              const existingDeclinedPubkeys = updatedCommunity.declinedMembers?.members || [];
+              const recalculatedPendingPubkeys = approvedJoinRequestPubkeys.filter(pubkey =>
+                !existingDeclinedPubkeys.includes(pubkey) && !newApprovedPubkeys.includes(pubkey)
+              );
+
+              updatedCommunity.pendingMembers = recalculatedPendingPubkeys.length > 0 ? {
+                members: recalculatedPendingPubkeys,
+                event: approvedJoinRequests[0] || null,
+                joinRequests: approvedJoinRequests.filter(req => recalculatedPendingPubkeys.includes(req.pubkey))
+              } : null;
+
+              logger.log(`Communities: Updated approved members for ${communityId}: ${members.length} approved, ${recalculatedPendingPubkeys.length} still pending`);
               break;
-            case 34552:
-              updatedCommunity.pendingMembers = membersList;
-              logger.log(`Communities: Updated pending members for ${communityId}: ${members.length} members`);
+            }
+            case 34552: {
+              // Kind 34552 is declined members, not pending
+              // Store declined members and recalculate pending members (join requests minus declined AND approved)
+              updatedCommunity.declinedMembers = membersList;
+
+              const declinedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+              const declinedJoinRequestPubkeys = declinedJoinRequests.map(req => req.pubkey);
+              const newDeclinedPubkeys = members;
+              const existingApprovedPubkeys = updatedCommunity.approvedMembers?.members || [];
+              const recalculatedPendingFromDeclined = declinedJoinRequestPubkeys.filter(pubkey =>
+                !newDeclinedPubkeys.includes(pubkey) && !existingApprovedPubkeys.includes(pubkey)
+              );
+
+              updatedCommunity.pendingMembers = recalculatedPendingFromDeclined.length > 0 ? {
+                members: recalculatedPendingFromDeclined,
+                event: declinedJoinRequests[0] || null,
+                joinRequests: declinedJoinRequests.filter(req => recalculatedPendingFromDeclined.includes(req.pubkey))
+              } : null;
+
+              logger.log(`Communities: Updated declined members for ${communityId}: ${members.length} declined, ${recalculatedPendingFromDeclined.length} still pending`);
               break;
+            }
             case 34553:
               updatedCommunity.bannedMembers = membersList;
 
@@ -3550,6 +3586,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: new Map<string, ChannelData>(), // Empty initially
           approvedMembers: null, // Will be loaded in background
           pendingMembers: null, // Will be loaded in background
+          declinedMembers: null, // Will be loaded in background
           bannedMembers: null, // Will be loaded in background
           membershipStatus: finalMembershipStatus,
           lastActivity: community.definitionEvent.created_at,
@@ -4119,9 +4156,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
           return memberRef === communityRef && memberList.kind === 34551;
         });
-        const pendingMembersEvent = allMemberLists.find(memberList => {
+        const declinedMembersEvent = allMemberLists.find(memberList => {
           const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
           return memberRef === communityRef && memberList.kind === 34552;
+        });
+        const bannedMembersEvent = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34553;
         });
 
         // Parse member lists from events
@@ -4130,9 +4171,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           event: approvedMembersEvent
         } : null;
 
-        const pendingMembers = pendingMembersEvent ? {
-          members: pendingMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
-          event: pendingMembersEvent
+        const declinedMembers = declinedMembersEvent ? {
+          members: declinedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: declinedMembersEvent
+        } : null;
+
+        const bannedMembers = bannedMembersEvent ? {
+          members: bannedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: bannedMembersEvent
         } : null;
 
         // Find join requests for this community (kind 4552)
@@ -4141,17 +4187,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return aTag === communityRef;
         });
 
-        // Create a combined pending members list that includes both:
-        // 1. Members from pending member lists (kind 34552) - managed by moderators
-        // 2. Individual join requests (kind 4552) - created by users
+        // Create pending members list: join requests minus declined AND approved members
+        // 1. Get all individual join requests (kind 4552) - created by users
+        // 2. Subtract declined members (kind 34552) - managed by moderators
+        // 3. Subtract approved members (kind 34551) - already approved
         const joinRequestPubkeys = communityJoinRequests.map(req => req.pubkey);
-        const existingPendingPubkeys = pendingMembers?.members || [];
-        const allPendingPubkeys = [...new Set([...existingPendingPubkeys, ...joinRequestPubkeys])];
+        const declinedPubkeys = declinedMembers?.members || [];
+        const approvedPubkeys = approvedMembers?.members || [];
+        const actualPendingPubkeys = joinRequestPubkeys.filter(pubkey =>
+          !declinedPubkeys.includes(pubkey) && !approvedPubkeys.includes(pubkey)
+        );
 
-        const combinedPendingMembers = allPendingPubkeys.length > 0 ? {
-          members: allPendingPubkeys,
-          event: pendingMembers?.event || (communityJoinRequests[0] || null), // Use the first join request as fallback
-          joinRequests: communityJoinRequests // Store the actual join request events for message/timestamp info
+        const combinedPendingMembers = actualPendingPubkeys.length > 0 ? {
+          members: actualPendingPubkeys,
+          event: communityJoinRequests[0] || null, // Use the first join request as the event
+          joinRequests: communityJoinRequests.filter(req => actualPendingPubkeys.includes(req.pubkey)) // Only include non-declined requests
         } : null;
 
         // Determine the user's role in this community
@@ -4170,8 +4220,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           definitionEvent: community.definitionEvent,
           channels: channelsMap,
           approvedMembers: approvedMembers || null,
-          pendingMembers: combinedPendingMembers || null, // Use combined pending members (includes join requests)
-          bannedMembers: null, // Will be loaded in background
+          pendingMembers: combinedPendingMembers || null, // Actual pending (join requests minus declined)
+          declinedMembers: declinedMembers || null, // Declined members from kind 34552
+          bannedMembers: bannedMembers || null, // Banned members from kind 34553
           membershipStatus: finalMembershipStatus,
           lastActivity: isApproved && channelsMap.size > 0
             ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
@@ -4653,6 +4704,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           channels: channelsMap,
           approvedMembers: communityData.approvedMembers,
           pendingMembers: communityData.pendingMembers,
+          declinedMembers: communityData.declinedMembers || null,
           bannedMembers: communityData.bannedMembers || null,
           membershipStatus: communityData.membershipStatus,
           lastActivity: communityData.lastActivity,
