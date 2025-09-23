@@ -16,7 +16,7 @@ import { formatDistanceToNowShort } from '@/lib/formatTime';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/useToast';
 
 interface PollOption {
   id: string;
@@ -98,6 +98,7 @@ function usePollResponses(pollEvent: NostrEvent) {
 }
 
 export function PollCard({ event, className, compact = false, showHeader = true }: PollCardProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const author = useAuthor(event.pubkey);
@@ -225,17 +226,28 @@ export function PollCard({ event, className, compact = false, showHeader = true 
         ],
       }, {
         onSuccess: () => {
-          toast.success('Poll deleted successfully');
+          toast({
+            title: 'Poll Deleted',
+            description: 'Your poll has been deleted successfully.',
+          });
           setShowDeleteDialog(false);
         },
         onError: (error) => {
           console.error('Failed to delete poll:', error);
-          toast.error('Failed to delete poll');
+          toast({
+            title: 'Delete Failed',
+            description: 'Failed to delete poll. Please try again.',
+            variant: 'destructive',
+          });
         }
       });
     } catch (error) {
       console.error('Error deleting poll:', error);
-      toast.error('Failed to delete poll');
+      toast({
+        title: 'Delete Failed',
+        description: 'Failed to delete poll. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsDeleting(false);
     }

@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { CalendarIcon, Clock, MapPin, Image as ImageIcon, Globe, Upload, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/useToast';
 import { isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -76,6 +76,7 @@ function TimePicker({ value, onChange }: TimePickerProps) {
 }
 
 export function EditEventDialog({ open, onOpenChange, event, communityId }: EditEventDialogProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const { mutateAsync: uploadFile } = useUploadFile();
@@ -194,13 +195,21 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please upload a valid image file (PNG, JPG, GIF, etc.)',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image size must be less than 10MB');
+      toast({
+        title: 'File Too Large',
+        description: 'Please upload an image smaller than 10MB.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -224,13 +233,20 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
           ...prev,
           imageUrl
         }));
-        toast.success('Image uploaded successfully!');
+        toast({
+          title: 'Image Uploaded',
+          description: 'Your image has been uploaded successfully.',
+        });
       } else {
         throw new Error('No URL returned from upload');
       }
     } catch (error) {
       console.error('Failed to upload image:', error);
-      toast.error('Failed to upload image');
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to upload image. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploadingImage(false);
       setUploadProgress(0);
@@ -272,17 +288,29 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
 
     // Validate required fields
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast({
+        title: 'Validation Error',
+        description: 'Event title is required.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!formData.startDate) {
-      toast.error('Start date is required');
+      toast({
+        title: 'Validation Error',
+        description: 'Start date is required.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!formData.endDate) {
-      toast.error('End date is required');
+      toast({
+        title: 'Validation Error',
+        description: 'End date is required.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -290,7 +318,11 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
     if (isBefore(end, start)) {
-      toast.error('End date must be after start date');
+      toast({
+        title: 'Validation Error',
+        description: 'End date must be after start date.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -338,7 +370,11 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
       // Get the original d tag value
       const dTag = event.tags.find(tag => tag[0] === 'd')?.[1];
       if (!dTag) {
-        toast.error('Cannot edit event: missing identifier');
+        toast({
+          title: 'Error',
+          description: 'Original event is missing required tags.',
+          variant: 'destructive',
+        });
         return;
       }
 
@@ -385,16 +421,27 @@ export function EditEventDialog({ open, onOpenChange, event, communityId }: Edit
         tags,
       }, {
         onSuccess: () => {
-          toast.success('Event updated successfully!');
+          toast({
+            title: 'Event Updated',
+            description: 'Your event has been updated successfully.',
+          });
           onOpenChange(false);
         },
         onError: (error) => {
-          toast.error('Failed to update event');
+          toast({
+            title: 'Update Failed',
+            description: 'Failed to update event. Please try again.',
+            variant: 'destructive',
+          });
           console.error('Error updating event:', error);
         }
       });
     } catch (error) {
-      toast.error('Failed to update event');
+      toast({
+        title: 'Update Failed',
+        description: 'Failed to update event. Please try again.',
+        variant: 'destructive',
+      });
       console.error('Error updating event:', error);
     } finally {
       setIsSubmitting(false);

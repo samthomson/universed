@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { CalendarIcon, Clock, MapPin, Image as ImageIcon, Globe, Upload, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useToast } from '@/hooks/useToast';
 import { isBefore, startOfDay } from 'date-fns';
 import { nip19 } from 'nostr-tools';
 import { cn } from '@/lib/utils';
@@ -79,6 +79,7 @@ function TimePicker({ value, onChange }: TimePickerProps) {
 }
 
 export function CreateEventDialog({ open, onOpenChange, onEventCreated, communityId }: CreateEventDialogProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const { mutateAsync: uploadFile } = useUploadFile();
@@ -118,13 +119,21 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please upload a valid image file (PNG, JPG, GIF, etc.)',
+        variant: 'destructive',
+      });
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image size must be less than 10MB');
+      toast({
+        title: 'File Too Large',
+        description: 'Please upload an image smaller than 10MB.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -148,13 +157,20 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
           ...prev,
           imageUrl
         }));
-        toast.success('Image uploaded successfully!');
+        toast({
+          title: 'Image Uploaded',
+          description: 'Your image has been uploaded successfully.',
+        });
       } else {
         throw new Error('No URL returned from upload');
       }
     } catch (error) {
       console.error('Failed to upload image:', error);
-      toast.error('Failed to upload image');
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to upload image. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsUploadingImage(false);
       setUploadProgress(0);
@@ -212,17 +228,29 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
 
     // Validate required fields
     if (!formData.title.trim()) {
-      toast.error('Title is required');
+      toast({
+        title: 'Title Required',
+        description: 'Please enter an event title.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!formData.startDate) {
-      toast.error('Start date is required');
+      toast({
+        title: 'Start Date Required',
+        description: 'Please select a start date for the event.',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (!formData.endDate) {
-      toast.error('End date is required');
+      toast({
+        title: 'End Date Required',
+        description: 'Please select an end date for the event.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -230,7 +258,11 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
     if (isBefore(end, start)) {
-      toast.error('End date must be after start date');
+      toast({
+        title: 'Invalid Date Range',
+        description: 'End date cannot be before start date.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -321,7 +353,10 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
         tags,
       }, {
         onSuccess: (calendarEvent) => {
-          toast.success('Event created successfully!');
+          toast({
+            title: 'Event Created',
+            description: 'Your event has been created successfully.',
+          });
           console.log('Calendar event created with ID:', calendarEvent.id);
 
           // Create a nevent reference for the calendar event
@@ -358,12 +393,20 @@ export function CreateEventDialog({ open, onOpenChange, onEventCreated, communit
           setIsOnlineEvent(false);
         },
         onError: (error) => {
-          toast.error('Failed to create event');
+          toast({
+            title: 'Event Creation Failed',
+            description: 'Failed to create event. Please try again.',
+            variant: 'destructive',
+          });
           console.error('Error creating event:', error);
         }
       });
     } catch (error) {
-      toast.error('Failed to create event');
+      toast({
+        title: 'Event Creation Failed',
+        description: 'Failed to create event. Please try again.',
+        variant: 'destructive',
+      });
       console.error('Error creating event:', error);
     } finally {
       setIsSubmitting(false);
