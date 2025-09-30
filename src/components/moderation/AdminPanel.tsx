@@ -36,8 +36,8 @@ function ModeratorManagement({ communityId }: ModeratorManagementProps) {
 
   const { data: _members } = useDataManagerCommunityMembers(communityId);
   // TODO: Implement assignModerator, removeModerator in DataManager
-  const assignModerator = () => Promise.resolve();
-  const removeModerator = () => Promise.resolve();
+  const assignModerator = (_params: { userPubkey: string }) => Promise.resolve();
+  const removeModerator = (_params: { userPubkey: string }) => Promise.resolve();
   const isAssigningModerator = false;
   const isRemovingModerator = false;
   // TODO: Get moderators and owner from DataManager
