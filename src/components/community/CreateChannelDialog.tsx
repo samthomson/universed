@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Hash, Volume2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +50,7 @@ export function CreateChannelDialog({
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
   const { communities } = useDataManager();
+  const navigate = useNavigate();
 
   // Get community from DataManager
   const community = communities.communities.get(communityId);
@@ -204,6 +206,9 @@ export function CreateChannelDialog({
       setPosition(0);
       setIsPrivate(false);
       setOpen(false);
+
+      // Navigate to the newly created channel
+      navigate(`/space/${communityId}/${channelName}`);
 
       // Notify parent component
       onChannelCreated?.();
