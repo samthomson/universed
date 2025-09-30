@@ -3815,49 +3815,76 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Add the synthetic general channels to the channel definitions
       allChannelDefinitions = [...allChannelDefinitions, ...additionalGeneralChannels];
 
-      // Now prepare permission and message filters based on channel results
-      const allPermissionFilters = allChannelDefinitions.map(channelDef => {
-        const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
-        const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
-        if (!communityRef || !channelId) return null;
+      // Group channels by community to create ONE filter per community instead of one per channel
+      const channelsByCommunity = new Map<string, Array<{
+        dTag: string;
+        channelId: string;
+        communityRef: string;
+        communityPubkey: string;
+        communityId: string;
+      }>>();
 
-        const [, communityPubkey, communityId] = communityRef.split(':');
-        return {
-          kinds: [30143], // Channel permissions events
-          authors: [communityPubkey],
-          '#d': [`${communityId}/${channelId}`],
-          limit: 1,
-        };
-      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
-
-      const allMessageFilters = allChannelDefinitions.map(channelDef => {
+      allChannelDefinitions.forEach(channelDef => {
         const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
-        const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
-        if (!communityRef || !channelId) return null;
+        const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef || !dTag) return;
+
+        // Extract channel ID from d tag
+        const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
 
         // Parse community reference to get proper format
         let properCommunityRef: string;
+        let communityPubkey: string;
+        let communityId: string;
+
         if (communityRef.includes(':')) {
           // Already in proper format (34550:pubkey:id)
           properCommunityRef = communityRef;
+          const parts = communityRef.split(':');
+          communityPubkey = parts[1];
+          communityId = parts[2];
         } else {
           // Legacy simple format - need to construct proper reference
           const community = communitiesWithStatus.find(c => c.id === communityRef);
           if (community) {
             properCommunityRef = `34550:${community.pubkey}:${communityRef}`;
+            communityPubkey = community.pubkey;
+            communityId = communityRef;
           } else {
-            properCommunityRef = communityRef; // Fallback to original
+            return; // Skip if we can't find community
           }
         }
 
-        // All channels use kind 9411 only (correct approach)
-        return {
-          kinds: [9411], // Only 9411 for all channels
-          '#a': [properCommunityRef],
-          '#t': [channelId], // All channels have channel tags
-          limit: MESSAGES_PER_PAGE,
-        };
-      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
+        if (!channelsByCommunity.has(communityId)) {
+          channelsByCommunity.set(communityId, []);
+        }
+
+        channelsByCommunity.get(communityId)!.push({
+          dTag,
+          channelId,
+          communityRef: properCommunityRef,
+          communityPubkey,
+          communityId,
+        });
+      });
+
+      // Create ONE permission filter per community with all channel d-tags
+      const allPermissionFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => ({
+        kinds: [30143], // Channel permissions events
+        authors: [channels[0].communityPubkey],
+        '#d': channels.map(ch => `${ch.communityId}/${ch.channelId}`), // All channels in one filter
+        limit: channels.length * 2, // Generous limit for all channels
+      }));
+
+      // Create ONE message filter per community with all channel t-tags
+      const allMessageFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => ({
+        kinds: [9411], // Only 9411 for all channels
+        '#a': [channels[0].communityRef], // Same community ref for all
+        '#t': channels.map(ch => ch.channelId), // All channel IDs in one filter
+        limit: MESSAGES_PER_PAGE * channels.length, // Enough for all channels
+      }));
+
+      logger.log(`Communities: Optimized filters - ${channelsByCommunity.size} permission filters and ${channelsByCommunity.size} message filters (was ${allChannelDefinitions.length} each)`);
 
       // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
       const batch2Start = Date.now();
