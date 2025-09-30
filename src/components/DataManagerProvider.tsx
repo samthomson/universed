@@ -2035,19 +2035,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
-    // Extract simple community ID from addressable format (34550:pubkey:identifier)
-    if (!communityRef.includes(':')) {
-      logger.error(`Communities: Invalid community reference format in event ${event.id}: "${communityRef}". Expected format: "34550:pubkey:identifier"`);
-      return;
-    }
-
-    const parts = communityRef.split(':');
-    if (parts.length !== 3) {
-      logger.error(`Communities: Invalid community reference format in event ${event.id}: "${communityRef}". Expected format: "34550:pubkey:identifier"`);
-      return;
-    }
-
-    const simpleCommunityId = parts[2]; // Extract the identifier (last part)
+    // Extract simple community ID from 'a' tag
+    // Expected formats by event kind:
+    // - 9411, 1111, 7, 9735, 5: FULL addressable "34550:pubkey:identifier" 
+    // - 32807: SIMPLE "identifier" (inconsistent - TODO: fix at creation point)
+    // Handle both for defensive compatibility with other clients
+    const simpleCommunityId = (() => {
+      if (communityRef.includes(':')) {
+        const parts = communityRef.split(':');
+        if (parts.length === 3) {
+          return parts[2]; // Full addressable format (expected for messages)
+        }
+        return parts[parts.length - 1]; // Fallback for weird formats
+      }
+      return communityRef; // Simple format (expected for channels)
+    })();
 
     // Find the community in our state
     const communitiesForProcessing = communitiesToUse || communities;
@@ -2218,14 +2220,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     } else if (event.kind === 32807) {
       // New channel creation event
-      const channelId = event.tags.find(([name]) => name === 'd')?.[1];
+      const dTag = event.tags.find(([name]) => name === 'd')?.[1];
       const aTag = event.tags.find(([name]) => name === 'a')?.[1];
-      logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" in community "${aTag}"`);
 
-      if (!channelId) {
-        logger.warn(`Communities: No channel ID found in channel creation event ${event.id}`);
+      if (!dTag) {
+        logger.warn(`Communities: No d tag found in channel creation event ${event.id}`);
         return;
       }
+
+      // Extract channel name from d tag
+      // CreateChannelDialog creates: "universes:channelName" (composite format)
+      // But we store channels using just the channel name for simplicity
+      // TODO: Decide if we should use composite IDs or simple names consistently
+      const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+      logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" (d tag: "${dTag}") in community "${aTag}"`);
 
       // Check if channel already exists
       const existingChannel = community.channels.get(channelId);
@@ -2380,10 +2389,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     try {
       // Build filters for all communities (one per community, not per channel)
-      const communityRefs: string[] = [];
+      const communityRefs: string[] = []; // Full format for messages
+      const simpleCommunityIds: string[] = []; // Simple format for channels (TEMPORARY - should be unified)
+
       communitiesForSubscription.forEach((community) => {
-        // Use full addressable format for subscription (matches message publishing format)
-        communityRefs.push(community.fullAddressableId);
+        communityRefs.push(community.fullAddressableId); // e.g., "34550:pubkey:universes"
+        simpleCommunityIds.push(community.id); // e.g., "universes"
       });
 
       if (communityRefs.length === 0) {
@@ -2402,29 +2413,33 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log('Communities: No lastSync timestamp available, using 30 seconds ago to catch recent events');
       }
 
+      // NOTE: INCONSISTENCY IN THE CODEBASE
+      // Messages (9411) use FULL addressable format: "34550:pubkey:universes" (see ChatArea.tsx)
+      // Channels (32807) use SIMPLE community ID: "universes" (see CreateChannelDialog.tsx)
+      // TODO: Unify to use FULL format everywhere for consistency
       const filters = [
         {
-          kinds: [9411], // Channel messages
+          kinds: [9411], // Channel messages - use full format
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [1111], // Replies
+          kinds: [1111], // Replies - use full format
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [7, 9735], // Reactions and Zaps
+          kinds: [7, 9735], // Reactions and Zaps - use full format
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [32807], // New channel creation events
-          '#a': communityRefs,
+          kinds: [32807], // Channel creation - currently uses SIMPLE format (inconsistent!)
+          '#a': simpleCommunityIds,
           since: subscriptionSince,
         },
         {
-          kinds: [5], // Deletion events
+          kinds: [5], // Deletion events - use full format
           '#a': communityRefs,
           since: subscriptionSince,
         },
@@ -4053,8 +4068,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           });
 
           for (const channelDef of communityChannels) {
-            const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
-            if (!channelId) continue;
+            const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            if (!dTag) continue;
+
+            // Extract the channel name from the d tag
+            // Format can be either "channelName" or "communityId:channelName"
+            const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
 
             // Find messages for this channel
             const channelMessages = allChannelMessages.filter(msg => {
