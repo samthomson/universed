@@ -17,7 +17,6 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
-import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { communityIdToNaddr, decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
@@ -53,7 +52,6 @@ interface SortableCommunityItemProps {
   isLanding: boolean;
   isAnimating: boolean;
   onSelect: (communityId: string) => void;
-  onMouseDown?: (communityId: string) => void; // Generic mouse down handler
 }
 
 function SortableCommunityItem({
@@ -63,7 +61,6 @@ function SortableCommunityItem({
   isLanding,
   isAnimating,
   onSelect,
-  onMouseDown,
 }: SortableCommunityItemProps) {
   const {
     attributes,
@@ -84,11 +81,6 @@ function SortableCommunityItem({
 
   // Memoized mouse down handler to prevent recreation
   const handleMouseDown = useCallback(() => {
-    // Start preloading immediately on mouse down
-    if (onMouseDown) {
-      onMouseDown(community.id);
-    }
-
     // Clear existing timeout if any
     if (mouseDownTimeoutRef.current) {
       clearTimeout(mouseDownTimeoutRef.current);
@@ -98,7 +90,7 @@ function SortableCommunityItem({
     mouseDownTimeoutRef.current = setTimeout(() => {
       setIsDraggingAfterDelay(true);
     }, 250);
-  }, [community.id, onMouseDown]);
+  }, []);
 
   // Memoized mouse up/leave handler
   const handleMouseUp = useCallback(() => {
@@ -306,7 +298,6 @@ export function AppSidebar({
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  const { preloadCommunity } = usePreloadCommunity();
   const navigate = useNavigate();
 
   // State for sophisticated animation
@@ -350,13 +341,22 @@ export function AppSidebar({
     logger.log('Drag cancelled');
   }, []);
 
-  // Handle community selection with sophisticated rocket animation
+  // Handle community selection with non-blocking rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
     logger.log('handleCommunitySelect called:', { communityId, selectedCommunity, isAnimating });
 
-    if (!communityId || communityId === selectedCommunity || isAnimating) {
+    if (!communityId || communityId === selectedCommunity) {
       onSelectCommunity(communityId);
       return;
+    }
+
+    // Navigate IMMEDIATELY (no delay) - this is what the user cares about
+    onSelectCommunity(communityId);
+    try {
+      const naddr = communityIdToNaddr(communityId);
+      navigate(`/space/${encodeURIComponent(naddr)}/general`);
+    } catch (error) {
+      logger.error('Failed to navigate to community:', error);
     }
 
     // Clear any existing animation timeouts to prevent race conditions
@@ -365,44 +365,33 @@ export function AppSidebar({
 
     setIsAnimating(true);
 
-    // Phase 1: Launch animation
+    // Phase 1: Launch animation (visual only, runs in parallel with navigation)
     setLaunchingCommunity(communityId);
     logger.log('🚀 Launch animation started for:', communityId);
 
     // Play launch sound immediately at very low volume
     playSound('/sounds/rocket-launching.mp3', 0.01);
 
-    // Phase 2: After launch animation starts, fade out and move to top
+    // Phase 2: Transition to landing animation
     const timeoutId1 = setTimeout(() => {
       setLaunchingCommunity(null);
       setLandingCommunity(communityId);
       logger.log('🛬 Landing animation started for:', communityId);
 
-      // Actually select the community
-      onSelectCommunity(communityId);
-
-      // Navigate to the community with general channel
-      try {
-        const naddr = communityIdToNaddr(communityId);
-        navigate(`/space/${encodeURIComponent(naddr)}/general`);
-      } catch (error) {
-        logger.error('Failed to navigate to community:', error);
-      }
-
-      // Phase 3: Clear landing animation after it completes (no landing sound)
+      // Phase 3: Clear landing animation after it completes
       const timeoutId2 = setTimeout(() => {
         // Double-check we're still working with the same community
         setLandingCommunity(prev => prev === communityId ? null : prev);
         setIsAnimating(false);
         animationTimeouts.current.delete(timeoutId2);
-      }, 600); // Landing animation duration
+      }, 300); // Landing animation duration
 
       animationTimeouts.current.add(timeoutId2);
       animationTimeouts.current.delete(timeoutId1);
-    }, 400); // Launch animation duration before fade out
+    }, 200); // Launch animation duration
 
     animationTimeouts.current.add(timeoutId1);
-  }, [selectedCommunity, isAnimating, playSound, onSelectCommunity]);
+  }, [selectedCommunity, isAnimating, playSound, onSelectCommunity, navigate]);
 
   // Reset animation states when component unmounts
   useEffect(() => {
@@ -431,11 +420,6 @@ export function AppSidebar({
     }
   }, [selectedCommunity]);
 
-  // Add mouse down handler for community interactions
-  const handleCommunityMouseDown = useCallback((communityId: string) => {
-    preloadCommunity(communityId, selectedCommunity || undefined);
-  }, [preloadCommunity, selectedCommunity]);
-
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
     if (!dataManagerCommunities.isLoading && orderedCommunities) {
@@ -448,7 +432,6 @@ export function AppSidebar({
           isLanding={landingCommunity === community.id}
           isAnimating={isAnimating}
           onSelect={handleCommunitySelect}
-          onMouseDown={handleCommunityMouseDown}
         />
       ));
     } else if (dataManagerCommunities.isLoading) {
@@ -464,7 +447,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
+  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
