@@ -7,7 +7,6 @@ import { InferSeoMetaPlugin } from '@unhead/addons';
 import { Suspense } from 'react';
 import NostrProvider from '@/components/NostrProvider';
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
@@ -78,17 +77,16 @@ function AppContent() {
 
   return (
     <SettingsProvider>
-      <MessageSystemProvider>
-        <TooltipProvider>
-          <QueryOptimizer />
-          <Toaster />
-          <Sonner />
-          <Suspense>
-            <AppRouter />
-          </Suspense>
-          <SettingsDialog />
-        </TooltipProvider>
-      </MessageSystemProvider>
+        <MessageSystemProvider>
+          <TooltipProvider>
+            <QueryOptimizer />
+            <Toaster />
+            <Suspense>
+              <AppRouter />
+            </Suspense>
+            <SettingsDialog />
+          </TooltipProvider>
+        </MessageSystemProvider>
     </SettingsProvider>
   );
 }

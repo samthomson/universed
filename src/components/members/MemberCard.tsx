@@ -23,7 +23,7 @@ import { useDataManager } from "@/components/DataManagerProvider";
 import { genUserName } from "@/lib/genUserName";
 import { nip19 } from "nostr-tools";
 import { useState, KeyboardEvent } from "react";
-import { toast } from "sonner";
+import { useToast } from '@/hooks/useToast';
 
 interface MemberCardProps {
   pubkey: string;
@@ -46,6 +46,7 @@ export function MemberCard({
   open,
   onOpenChange
 }: MemberCardProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey);
   const { data: userStatus } = useUserStatus(pubkey);
@@ -128,10 +129,16 @@ export function MemberCard({
     try {
       await navigator.clipboard.writeText(npub);
       setCopied(true);
-      toast.success("Copied npub to clipboard");
+      toast({
+        title: "Copied to clipboard",
+      });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy npub");
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy npub. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -177,7 +184,9 @@ export function MemberCard({
 
       // Clear input and show success
       setDmMessage("");
-      toast.success("Message sent!");
+      toast({
+        title: "Message sent",
+      });
 
       // Open the DM thread
       onStartDM?.(pubkey);

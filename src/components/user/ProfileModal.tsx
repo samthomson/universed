@@ -45,7 +45,7 @@ import {
   Zap
 } from "lucide-react";
 import { nip19 } from "nostr-tools";
-import { toast } from "sonner";
+import { useToast } from '@/hooks/useToast';
 
 // Helper function to create njump URL for events
 const createNjumpUrl = (event: NostrEvent): string => {
@@ -78,6 +78,7 @@ export function ProfileModal({
   onNavigateToDMs,
   onProfileChange
 }: ProfileModalProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const isOwnProfile = !targetPubkey || targetPubkey === user?.pubkey;
   const profilePubkey = targetPubkey || user?.pubkey || '';
@@ -303,10 +304,16 @@ export function ProfileModal({
     try {
       await navigator.clipboard.writeText(npub);
       setCopied(true);
-      toast.success("Copied npub to clipboard");
+      toast({
+        title: "Copied to clipboard",
+      });
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy npub");
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy npub. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 

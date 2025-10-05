@@ -19,7 +19,7 @@ import { genUserName } from "@/lib/genUserName";
 
 import { nip19 } from "nostr-tools";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/useToast";
 
 interface UserProfileDialogProps {
   pubkey: string | null;
@@ -29,6 +29,7 @@ interface UserProfileDialogProps {
 }
 
 export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: UserProfileDialogProps) {
+  const { toast } = useToast();
   const { user } = useCurrentUser();
   const author = useAuthor(pubkey || "");
   const { data: userStatus } = useUserStatus(pubkey ?? undefined);
@@ -66,10 +67,16 @@ export function UserProfileDialog({ pubkey, open, onOpenChange, onStartDM }: Use
     try {
       await navigator.clipboard.writeText(npub);
       setCopied(true);
-      toast.success("Copied npub to clipboard");
+      toast({
+        title: "Copied to clipboard",
+      })
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Failed to copy npub");
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 

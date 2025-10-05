@@ -13,7 +13,7 @@
 
 ## Scope & Constraints
 - **Relay:** `universes.to` (single relay for DF)
-- **URL:** DF app served at **`universes.social`**
+- **URL:** DF app (to be) served at **`universes.social`**
 - **Experimentation:** Live experimentation continues on `universes.to` (separate from DF app)
 - **Out of scope:** Marketplace, Resources (excluded for DF MVP)
 
@@ -22,7 +22,7 @@
 ## Features
 
 ### 1) Performance & Reliability
-- 🚧 Fast initial load and snappy navigation (TTI target on baseline devices)
+- ✅ Fast initial load and snappy navigation (TTI target on baseline devices)
 - 🚧 Retry/backoff on relay hiccups; offline toasts with “Retry”
 - 🚧 Error boundaries per page; preserve state on failure (no hard resets)
 - 🚧 Client logs include error codes and relay responses (PII‑redactable)
@@ -37,10 +37,10 @@
 **Channel types:** Text channels, Voice channels
 
 **Moderator capabilities**
-- 🚧 Invite new users to join a Universe with (1) single-use invite links and (2) multi-use invite links with a custom expiration
+- ✅ Invite new users to join a Universe with (1) single-use invite links and (2) multi-use invite links with a custom expiration
 - ✅ Create / edit / delete channels (text & voice)
 - ✅ Pin posts (automatically refreshes/updates)
-- 🚧 Unpin posts (adding automatic refresh/update)
+- ✅ Unpin posts (adding automatic refresh/update)
 
 **User capabilities**
 - ✅ Create posts; threaded replies; emoji reactions
@@ -56,8 +56,8 @@
   - 🚧 Docs/PDF → file card (name, size, type) + “View / Download”
   - 🚧 Audio → compact inline player (duration)
 - **Link previews**
-  - 🚧 Basic unfurl (title/description/favicon/thumbnail) using server‑side fetch with caching
-  - 🚧 Respect robots/no‑cache; user can collapse previews
+  - ✅ Basic unfurl (title/description/favicon/thumbnail) using server‑side fetch with caching
+  - ✅ Respect robots/no‑cache; user can collapse previews
 - **Hashtags**
   - **Not included** in DF MVP; revisit after behavior is defined (search/subscriptions semantics)
 
@@ -91,8 +91,8 @@
 - 🚧 Notifications (per‑event toggles)
 - 🚧 Privacy (DM tooltips on/off)
 - 🚧 Content (autoplay voice previews off by default)
-- 🚧 Display (light/dark/system)
-- 🚧 Data (clear cache)
+- ✅ Display (light/dark/system)
+- ✅ Data (clear cache)
 
 ### 8) Telemetry for DF
 - 🚧 Anonymous counters: channel ops, posts, replies, reactions, zaps, file/link preview renders, DMs, mod actions, errors

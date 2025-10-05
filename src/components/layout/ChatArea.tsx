@@ -27,7 +27,7 @@ import type { NostrEvent } from "@nostrify/nostrify";
 import { useState, useMemo, useCallback } from "react";
 import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDialog";
 import { CommunitySettings } from "@/components/community/CommunitySettings";
-import { toast } from "sonner";
+import { useToast } from '@/hooks/useToast';
 import { MessageThread } from "@/components/chat/MessageThread";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 
@@ -94,6 +94,7 @@ function CommunityChatHeader({
   onToggleMemberList: () => void;
   channel: DisplayChannel | null;
 }) {
+  const { toast } = useToast();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { canModerate } = useDataManagerCanModerate(communityId);
@@ -114,9 +115,16 @@ function CommunityChatHeader({
     try {
       const channelLink = generateSpaceUrl(communityId, channelId);
       navigator.clipboard.writeText(channelLink);
-      toast.success("Channel link copied to clipboard!");
+      toast({
+        title: 'Link Copied',
+        description: 'Channel link copied to clipboard.',
+      });
     } catch {
-      toast.error("Failed to generate channel link. Please try again.");
+      toast({
+        title: 'Copy Failed',
+        description: 'Failed to generate channel link. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
