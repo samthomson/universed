@@ -34,16 +34,25 @@ vi.mock('@/components/ui/skeleton', () => ({
 
 // Mock the useAuthor hook to return mock profile data
 vi.mock('@/hooks/useAuthor', () => ({
-  useAuthor: vi.fn((pubkey: string) => ({
-    data: {
-      metadata: {
-        name: `User ${pubkey.slice(-4)}`,
-        picture: `https://example.com/avatar-${pubkey}.jpg`
-      }
-    },
-    isLoading: false,
-    isError: false
-  }))
+  useAuthor: vi.fn((pubkey?: string) => {
+    if (!pubkey) {
+      return {
+        data: undefined,
+        isLoading: false,
+        isError: false
+      };
+    }
+    return {
+      data: {
+        metadata: {
+          name: `User ${pubkey.slice(-4)}`,
+          picture: `https://example.com/avatar-${pubkey}.jpg`
+        }
+      },
+      isLoading: false,
+      isError: false
+    };
+  })
 }));
 
 describe('CommunityMemberDisplay', () => {
