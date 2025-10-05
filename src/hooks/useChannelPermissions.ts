@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useDataManagerCanModerate, useDataManager } from '@/components/DataManagerProvider';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useCommunityMembers } from './useCommunityMembers';
 import { useUserCommunityMembership } from './useUserCommunityMembership';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -144,7 +144,6 @@ export function useUpdateChannelPermissions(communityId: string, channelId: stri
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const { canModerate } = useDataManagerCanModerate(communityId);
-  const { communities } = useDataManager();
   const queryClient = useQueryClient();
 
   return useMutation({

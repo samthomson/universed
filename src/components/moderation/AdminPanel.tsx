@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useDataManagerCanModerate, useDataManagerUserRole, useDataManagerCommunityMembers } from '@/components/DataManagerProvider';
+import { useDataManagerCanModerate, useDataManagerCommunityMembers } from '@/components/DataManagerProvider';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';

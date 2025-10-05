@@ -42,7 +42,7 @@ export function CreateChannelDialog({
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'text' | 'voice'>(defaultType);
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || 'none');
-  const [position, setPosition] = useState(0);
+  const [_, setPosition] = useState(0);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
