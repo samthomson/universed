@@ -7,6 +7,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { AppConfig } from '@/contexts/AppContext';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { VoiceProvider } from '@/contexts/VoiceContext.tsx';
+import { DataManagerProvider } from '@/components/DataManagerProvider';
 
 interface TestAppProps {
   children: React.ReactNode;
@@ -33,13 +34,15 @@ export function TestApp({ children }: TestAppProps) {
         <QueryClientProvider client={queryClient}>
           <NostrLoginProvider storageKey='test-login'>
             <NostrProvider>
-              <VoiceProvider>
-                <NWCProvider>
-                  <BrowserRouter>
-                    {children}
-                  </BrowserRouter>
-                </NWCProvider>
-              </VoiceProvider>
+              <DataManagerProvider>
+                <VoiceProvider>
+                  <NWCProvider>
+                    <BrowserRouter>
+                      {children}
+                    </BrowserRouter>
+                  </NWCProvider>
+                </VoiceProvider>
+              </DataManagerProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
