@@ -4,30 +4,30 @@ import { TestApp } from '@/test/TestApp';
 import { CommunitySettings } from './CommunitySettings';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useCommunities } from '@/hooks/useCommunities';
-import { useCommunityMembers } from '@/hooks/useCommunityMembers';
-import { useJoinRequests } from '@/hooks/useJoinRequests';
-import { useModerationLogs, useModerationStats } from '@/hooks/useModerationLogs';
+import { useModerationLogs } from '@/hooks/useModerationLogs';
 import { useReports } from '@/hooks/useReporting';
-import { useCommunitySettings, useUpdateCommunitySettings } from '@/hooks/useCommunitySettings';
-import { useManageMembers } from '@/hooks/useManageMembers';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useToast } from '@/hooks/useToast';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { useDataManager, useDataManagerCommunityMembers, useDataManagerJoinRequests, type CommunityData } from '@/components/DataManagerProvider';
 
 // Mock the hooks
 vi.mock('@/hooks/useNostrPublish');
 vi.mock('@/hooks/useCurrentUser');
-vi.mock('@/hooks/useCommunities');
-vi.mock('@/hooks/useCommunityMembers');
-vi.mock('@/hooks/useJoinRequests');
 vi.mock('@/hooks/useModerationLogs');
 vi.mock('@/hooks/useReporting');
-vi.mock('@/hooks/useCommunitySettings');
-vi.mock('@/hooks/useManageMembers');
 vi.mock('@/hooks/useUploadFile');
 vi.mock('@/hooks/useToast');
-vi.mock('@/hooks/useIsMobile');
+
+// Mock DataManager hooks
+vi.mock('@/components/DataManagerProvider', async () => {
+  const actual = await vi.importActual('@/components/DataManagerProvider');
+  return {
+    ...actual,
+    useDataManager: vi.fn(),
+    useDataManagerCommunityMembers: vi.fn(),
+    useDataManagerJoinRequests: vi.fn(),
+  };
+});
 
 const mockCreateEvent = vi.fn();
 const mockUser = {
@@ -45,14 +45,18 @@ const mockUser = {
   },
 };
 
-const mockCommunity = {
-  id: '34550:test-pubkey:test-community',
-  name: 'Test Community',
-  description: 'A test community',
-  image: 'https://example.com/image.jpg',
-  creator: 'test-pubkey',
-  moderators: ['test-pubkey'],
-  event: {
+const mockCommunity: CommunityData = {
+  id: 'test-community',
+  fullAddressableId: '34550:test-pubkey:test-community',
+  pubkey: 'test-pubkey',
+  info: {
+    name: 'Test Community',
+    description: 'A test community',
+    image: 'https://example.com/image.jpg',
+    moderators: ['test-pubkey'],
+    relays: [],
+  },
+  definitionEvent: {
     id: 'test-event-id',
     pubkey: 'test-pubkey',
     created_at: 1234567890,
@@ -61,7 +65,13 @@ const mockCommunity = {
     content: '',
     sig: 'test-sig',
   },
-  relays: [],
+  channels: new Map(),
+  approvedMembers: { members: [], event: null },
+  pendingMembers: { members: [], event: null },
+  declinedMembers: { members: [], event: null },
+  bannedMembers: { members: [], event: null },
+  membershipStatus: 'owner',
+  lastActivity: Date.now(),
 };
 
 describe('CommunitySettings', () => {
@@ -78,24 +88,67 @@ describe('CommunitySettings', () => {
       users: [],
     } as unknown as ReturnType<typeof useCurrentUser>);
 
-    vi.mocked(useCommunities).mockReturnValue({
-      data: [mockCommunity],
-      isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useCommunities>);
+    // Mock DataManager - provide the community data
+    const communityMap = new Map<string, CommunityData>();
+    communityMap.set('34550:test-pubkey:test-community', mockCommunity);
 
-    vi.mocked(useCommunityMembers).mockReturnValue({
+    vi.mocked(useDataManager).mockReturnValue({
+      messaging: {
+        messages: new Map(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        isDoingInitialLoad: false,
+        lastSync: { nip4: null, nip17: null },
+        subscriptions: { nip4: false, nip17: false },
+        conversations: [],
+        getDebugInfo: vi.fn(() => ({
+          messageCount: 0,
+          nip4Count: 0,
+          nip17Count: 0,
+          nip4Sync: null,
+          nip17Sync: null,
+          nip17Enabled: false,
+        })),
+        writeAllMessagesToStore: vi.fn(),
+        resetMessageDataAndCache: vi.fn(),
+        handleNIP17SettingChange: vi.fn(),
+        sendMessage: vi.fn(),
+        isNIP17Enabled: false,
+        isDebugging: false,
+        scanProgress: { nip4: null, nip17: null },
+      },
+      communities: {
+        communities: communityMap,
+        isLoading: false,
+        loadingPhase: 'ready',
+        loadTime: null,
+        loadBreakdown: null,
+        getFolders: vi.fn(() => []),
+        getChannelsWithoutFolder: vi.fn(() => ({ text: [], voice: [] })),
+        getSortedChannels: vi.fn(() => []),
+        getDebugInfo: vi.fn(() => ({ communityCount: 1, channelCount: 0, messageCount: 0, replyCount: 0, reactionCount: 0, pinnedCount: 0 })),
+        addOptimisticMessage: vi.fn(() => null),
+        addOptimisticChannel: vi.fn(),
+        deleteChannelImmediately: vi.fn(),
+        loadOlderMessages: vi.fn(),
+        resetCommunitiesDataAndCache: vi.fn(),
+        useDataManagerPinnedMessages: vi.fn(() => []),
+        approveMember: vi.fn(),
+        declineMember: vi.fn(),
+        banMember: vi.fn(),
+      },
+    });
+
+    // Mock DataManager member hooks
+    vi.mocked(useDataManagerCommunityMembers).mockReturnValue({
       data: [],
       isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useCommunityMembers>);
+    });
 
-    vi.mocked(useJoinRequests).mockReturnValue({
+    vi.mocked(useDataManagerJoinRequests).mockReturnValue({
       data: [],
-      isRefetching: false,
       isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useJoinRequests>);
+    });
 
     vi.mocked(useModerationLogs).mockReturnValue({
       data: [],
@@ -103,34 +156,11 @@ describe('CommunitySettings', () => {
       isError: false,
     } as unknown as ReturnType<typeof useModerationLogs>);
 
-    vi.mocked(useModerationStats).mockReturnValue({
-      totalActions: 0,
-      actionsByType: {},
-    } as unknown as ReturnType<typeof useModerationStats>);
-
     vi.mocked(useReports).mockReturnValue({
       data: [],
       isLoading: false,
       isError: false,
     } as unknown as ReturnType<typeof useReports>);
-
-    vi.mocked(useCommunitySettings).mockReturnValue({
-      data: { requireApproval: true },
-      isLoading: false,
-      isError: false,
-    } as unknown as ReturnType<typeof useCommunitySettings>);
-
-    vi.mocked(useUpdateCommunitySettings).mockReturnValue({
-      mutateAsync: vi.fn(),
-    } as unknown as ReturnType<typeof useUpdateCommunitySettings>);
-
-    vi.mocked(useManageMembers).mockReturnValue({
-      addMember: vi.fn(),
-      declineMember: vi.fn(),
-      isAddingMember: false,
-      isRemovingMember: false,
-      isBanningMember: false,
-    } as unknown as ReturnType<typeof useManageMembers>);
 
     vi.mocked(useUploadFile).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -142,8 +172,6 @@ describe('CommunitySettings', () => {
       dismiss: vi.fn(),
       toasts: [],
     } as unknown as ReturnType<typeof useToast>);
-
-    vi.mocked(useIsMobile).mockReturnValue(false as unknown as ReturnType<typeof useIsMobile>);
   });
 
   it('renders community settings dialog', () => {
