@@ -116,8 +116,8 @@ describe('MemberManagementPanel', () => {
     // Mock useDataManagerCommunityMembers to return members with role information
     vi.mocked(useDataManagerCommunityMembers).mockReturnValue({
       data: [
-        { pubkey: 'pubkey1', role: 'member' as const },
-        { pubkey: 'pubkey2', role: 'member' as const },
+        { pubkey: 'pubkey1', role: 'member' as const, isOnline: false },
+        { pubkey: 'pubkey2', role: 'member' as const, isOnline: false },
       ],
       isLoading: false,
     });
