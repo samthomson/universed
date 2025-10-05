@@ -4,57 +4,68 @@ import { TestApp } from '@/test/TestApp';
 import { CommunityChannelList } from './CommunityChannelList';
 
 // Import the mocked hooks
-import { useChannels as _useChannels } from '@/hooks/useChannels';
-import { useChannelFolders as _useChannelFolders } from '@/hooks/useChannelFolders';
 import { useVoiceChannel as _useVoiceChannel } from '@/hooks/useVoiceChannel';
+import { useDataManager as _useDataManager, type DisplayChannel, type CommunityData } from '@/components/DataManagerProvider';
 
-// Mock the hooks to control loading states
-vi.mock('@/hooks/useChannels', () => ({
-  useChannels: vi.fn(() => ({
-    data: undefined, // No data to trigger loading state
-    isLoading: true,
-  })),
-}));
-
-vi.mock('@/hooks/useChannelFolders', () => ({
-  useChannelFolders: vi.fn(() => ({
-    data: [], // Empty array to avoid loading state
-    isLoading: false,
-  })),
-  useCreateChannelFolder: vi.fn(() => ({
-    mutateAsync: vi.fn(),
-  })),
-  useUpdateChannelFolder: vi.fn(() => ({
-    mutateAsync: vi.fn(),
-  })),
-  useDeleteChannelFolder: vi.fn(() => ({
-    mutateAsync: vi.fn(),
-  })),
-}));
-
-vi.mock('@/hooks/useCommunityRoles', () => ({
-  useCanModerate: vi.fn(() => ({
-    canModerate: false,
-  })),
-}));
+// Mock DataManagerProvider
+vi.mock('@/components/DataManagerProvider', async () => {
+  const actual = await vi.importActual('@/components/DataManagerProvider');
+  return {
+    ...actual,
+    useDataManager: vi.fn(() => ({
+      messaging: {
+        messages: new Map(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        isDoingInitialLoad: false,
+        lastSync: { nip4: null, nip17: null },
+        subscriptions: { nip4: false, nip17: false },
+        conversations: [],
+        getDebugInfo: vi.fn(() => ({
+          messageCount: 0,
+          nip4Count: 0,
+          nip17Count: 0,
+          nip4Sync: null,
+          nip17Sync: null,
+          nip17Enabled: false,
+        })),
+        writeAllMessagesToStore: vi.fn(),
+        resetMessageDataAndCache: vi.fn(),
+        handleNIP17SettingChange: vi.fn(),
+        sendMessage: vi.fn(),
+        isNIP17Enabled: false,
+        isDebugging: false,
+        scanProgress: { nip4: null, nip17: null },
+      },
+      communities: {
+        communities: new Map(),
+        isLoading: true,
+        loadingPhase: 'initial',
+        loadTime: null,
+        loadBreakdown: null,
+        getFolders: vi.fn(() => []),
+        getChannelsWithoutFolder: vi.fn(() => ({ text: [], voice: [] })),
+        getSortedChannels: vi.fn(() => []),
+        getDebugInfo: vi.fn(() => ({ communityCount: 0, channelCount: 0, messageCount: 0, replyCount: 0, reactionCount: 0, pinnedCount: 0 })),
+        addOptimisticMessage: vi.fn(() => null),
+        addOptimisticChannel: vi.fn(),
+        deleteChannelImmediately: vi.fn(),
+        loadOlderMessages: vi.fn(),
+        resetCommunitiesDataAndCache: vi.fn(),
+        useDataManagerPinnedMessages: vi.fn(() => []),
+        approveMember: vi.fn(),
+        declineMember: vi.fn(),
+        banMember: vi.fn(),
+      },
+    })),
+  };
+});
 
 vi.mock('@/hooks/useVoiceChannel', () => ({
   useVoiceChannel: vi.fn(() => ({
     voiceState: { members: [] },
     isConnected: false,
     connectionStatus: 'disconnected',
-  })),
-}));
-
-vi.mock('@/hooks/useChannelPermissions', () => ({
-  useCanAccessChannel: vi.fn(() => ({
-    canAccess: true,
-  })),
-  useChannelPermissions: vi.fn(() => ({
-    data: {
-      readPermissions: 'everyone',
-      writePermissions: 'everyone',
-    },
   })),
 }));
 
@@ -105,36 +116,80 @@ describe('CommunityChannelList', () => {
       isLeaving: false,
     });
 
-    // Mock channels to include a voice channel
-    vi.mocked(_useChannels).mockReturnValue({
-      data: [
-        {
-          id: 'voice-channel-1',
-          name: 'Voice Channel',
-          type: 'voice',
-          communityId: 'test-community',
-          creator: 'test-user',
-          position: 0,
-          event: {
-            id: 'test-event',
-            pubkey: 'test-user',
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 1,
-            tags: [],
-            content: '',
-            sig: 'test-sig',
-          },
-        },
-      ],
-      isLoading: false,
-      isSuccess: true,
-      isError: false,
-      isPending: false,
-      isFetching: false,
-      error: null,
-      refetch: vi.fn(),
-      invalidateQueries: vi.fn(),
-    } as unknown as ReturnType<typeof _useChannels>);
+    // Mock DataManager to include a voice channel
+    const voiceChannel: DisplayChannel = {
+      id: 'voice-channel-1',
+      name: 'Voice Channel',
+      type: 'voice',
+      communityId: 'test-community',
+      creator: 'test-user',
+      position: 0,
+      isRestricted: false,
+      hasAccess: true,
+      parsedPermissions: {
+        readPermissions: 'everyone',
+        writePermissions: 'everyone',
+      },
+      event: {
+        id: 'test-event',
+        pubkey: 'test-user',
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [],
+        content: '',
+        sig: 'test-sig',
+      },
+    };
+
+    vi.mocked(_useDataManager).mockReturnValue({
+      messaging: {
+        messages: new Map(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        isDoingInitialLoad: false,
+        lastSync: { nip4: null, nip17: null },
+        subscriptions: { nip4: false, nip17: false },
+        conversations: [],
+        getDebugInfo: vi.fn(() => ({
+          messageCount: 0,
+          nip4Count: 0,
+          nip17Count: 0,
+          nip4Sync: null,
+          nip17Sync: null,
+          nip17Enabled: false,
+        })),
+        writeAllMessagesToStore: vi.fn(),
+        resetMessageDataAndCache: vi.fn(),
+        handleNIP17SettingChange: vi.fn(),
+        sendMessage: vi.fn(),
+        isNIP17Enabled: false,
+        isDebugging: false,
+        scanProgress: { nip4: null, nip17: null },
+      },
+      communities: {
+        communities: new Map<string, CommunityData>(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        loadTime: null,
+        loadBreakdown: null,
+        getFolders: vi.fn(() => []),
+        getChannelsWithoutFolder: vi.fn(() => ({
+          text: [],
+          voice: [voiceChannel],
+        })),
+        getSortedChannels: vi.fn(() => []),
+        getDebugInfo: vi.fn(() => ({ communityCount: 0, channelCount: 0, messageCount: 0, replyCount: 0, reactionCount: 0, pinnedCount: 0 })),
+        addOptimisticMessage: vi.fn(() => null),
+        addOptimisticChannel: vi.fn(),
+        deleteChannelImmediately: vi.fn(),
+        loadOlderMessages: vi.fn(),
+        resetCommunitiesDataAndCache: vi.fn(),
+        useDataManagerPinnedMessages: vi.fn(() => []),
+        approveMember: vi.fn(),
+        declineMember: vi.fn(),
+        banMember: vi.fn(),
+      },
+    });
 
     render(
       <TestApp>
@@ -178,36 +233,80 @@ describe('CommunityChannelList', () => {
       isLeaving: false,
     });
 
-    // Mock channels to include a voice channel
-    vi.mocked(_useChannels).mockReturnValue({
-      data: [
-        {
-          id: 'voice-channel-1',
-          name: 'Voice Channel',
-          type: 'voice',
-          communityId: 'test-community',
-          creator: 'test-user',
-          position: 0,
-          event: {
-            id: 'test-event',
-            pubkey: 'test-user',
-            created_at: Math.floor(Date.now() / 1000),
-            kind: 1,
-            tags: [],
-            content: '',
-            sig: 'test-sig',
-          },
-        },
-      ],
-      isLoading: false,
-      isSuccess: true,
-      isError: false,
-      isPending: false,
-      isFetching: false,
-      error: null,
-      refetch: vi.fn(),
-      invalidateQueries: vi.fn(),
-    } as unknown as ReturnType<typeof _useChannels>);
+    // Mock DataManager to include a voice channel with no users
+    const voiceChannelEmpty: DisplayChannel = {
+      id: 'voice-channel-1',
+      name: 'Voice Channel',
+      type: 'voice',
+      communityId: 'test-community',
+      creator: 'test-user',
+      position: 0,
+      isRestricted: false,
+      hasAccess: true,
+      parsedPermissions: {
+        readPermissions: 'everyone',
+        writePermissions: 'everyone',
+      },
+      event: {
+        id: 'test-event',
+        pubkey: 'test-user',
+        created_at: Math.floor(Date.now() / 1000),
+        kind: 1,
+        tags: [],
+        content: '',
+        sig: 'test-sig',
+      },
+    };
+
+    vi.mocked(_useDataManager).mockReturnValue({
+      messaging: {
+        messages: new Map(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        isDoingInitialLoad: false,
+        lastSync: { nip4: null, nip17: null },
+        subscriptions: { nip4: false, nip17: false },
+        conversations: [],
+        getDebugInfo: vi.fn(() => ({
+          messageCount: 0,
+          nip4Count: 0,
+          nip17Count: 0,
+          nip4Sync: null,
+          nip17Sync: null,
+          nip17Enabled: false,
+        })),
+        writeAllMessagesToStore: vi.fn(),
+        resetMessageDataAndCache: vi.fn(),
+        handleNIP17SettingChange: vi.fn(),
+        sendMessage: vi.fn(),
+        isNIP17Enabled: false,
+        isDebugging: false,
+        scanProgress: { nip4: null, nip17: null },
+      },
+      communities: {
+        communities: new Map<string, CommunityData>(),
+        isLoading: false,
+        loadingPhase: 'ready',
+        loadTime: null,
+        loadBreakdown: null,
+        getFolders: vi.fn(() => []),
+        getChannelsWithoutFolder: vi.fn(() => ({
+          text: [],
+          voice: [voiceChannelEmpty],
+        })),
+        getSortedChannels: vi.fn(() => []),
+        getDebugInfo: vi.fn(() => ({ communityCount: 0, channelCount: 0, messageCount: 0, replyCount: 0, reactionCount: 0, pinnedCount: 0 })),
+        addOptimisticMessage: vi.fn(() => null),
+        addOptimisticChannel: vi.fn(),
+        deleteChannelImmediately: vi.fn(),
+        loadOlderMessages: vi.fn(),
+        resetCommunitiesDataAndCache: vi.fn(),
+        useDataManagerPinnedMessages: vi.fn(() => []),
+        approveMember: vi.fn(),
+        declineMember: vi.fn(),
+        banMember: vi.fn(),
+      },
+    });
 
     render(
       <TestApp>
