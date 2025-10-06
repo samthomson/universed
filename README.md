@@ -58,15 +58,17 @@ The app may use custom event kinds for specific features. See `NIP.md` (if prese
 | **Direct Messages** | Legacy DMs | `4` | NIP-04 | | Simple encrypted messages | `#p` (recipient), `authors` (sender) |
 | | Modern DMs | `1059` | NIP-17 | | Gift-wrapped encrypted messages | `#p` (recipient) |
 
-#### Proposed Event Structures
+#### Event Format Notes
 
-Future improvements to event structures for better data modeling:
+**Current Implementation:**
+- Channel community references use: `a` tag = `"34550:pubkey:communitySlug"`
+- Where `communitySlug` is the human-readable name from the community's `d` tag (e.g., "universes", "bitcoin-builders")
 
-| **System** | **Component** | **Event Kind(s)** | **NIP** | **Replaceable** | **Purpose** | **Key Tags** |
-|------------|---------------|-------------------|---------|-------------|-------------|--------------|
-| **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata with community ID reference | `d` (ID), `name`, `a` (`"34550:pubkey:communityId"`) |
-
-*Note: This proposal would use the community's unique identifier (d tag) instead of the community slug/name in addressable references.*
+**Proposed Future Change:**
+- Use immutable unique IDs instead of slugs: `a` tag = `"34550:pubkey:uniqueId"`
+- **Problem with current approach:** If a community changes its name/slug, all channel references break
+- **Proposed solution:** Generate a unique, immutable ID (UUID/hash) for each community that never changes
+- This would make communities renameable without breaking existing channel references
 
 ## 🧪 Testing
 
