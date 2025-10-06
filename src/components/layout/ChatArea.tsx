@@ -299,12 +299,13 @@ function CommunityChat(
     }
 
     try {
-      // Build proper addressable community reference to match query format
-      const communityRef = `34550:${community.pubkey}:${community.id}`;
+      // Build proper addressable references to match query format
+      const communityRef = `34550:${community.pubkey}:${community.id}`; // "34550:pubkey:communitySlug"
+      const channelRef = `${communityRef}:${channelId}`; // "34550:pubkey:communitySlug:channelSlug"
 
       const tags = [
-        ["t", channelId],
-        ["a", communityRef], // Use proper addressable format to match query
+        ["t", channelRef], // Full addressable channel reference
+        ["a", communityRef], // Full addressable community reference
         ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
       ];
 
