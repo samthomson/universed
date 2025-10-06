@@ -20,6 +20,35 @@ import { nip57 } from 'nostr-tools';
 const MESSAGES_PER_PAGE = 5; // Default number of messages to load per page (lowered for testing)
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Extract simple community slug from addressable format
+ * @param communityRef - Full addressable format "34550:pubkey:slug" or simple "slug"
+ * @returns The community slug
+ */
+function extractCommunitySlug(communityRef: string): string {
+  if (communityRef.includes(':')) {
+    const parts = communityRef.split(':');
+    if (parts.length === 3) {
+      return parts[2]; // Full addressable format: "34550:pubkey:slug"
+    }
+    return parts[parts.length - 1]; // Fallback
+  }
+  return communityRef; // Simple format
+}
+
+/**
+ * Extract channel slug from addressable format
+ * @param channelRef - Full addressable format or simple slug
+ * @returns The channel slug (last part after splitting by colons)
+ */
+function extractChannelSlug(channelRef: string): string {
+  return channelRef.includes(':') ? channelRef.split(':').pop()! : channelRef;
+}
+
+// ============================================================================
 // Messaging Domain Types
 // ============================================================================
 
@@ -2028,136 +2057,283 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
-    // Special handling for reactions (kind 7, 9735) - they don't have 'a' tags
-    if ([7, 9735].includes(event.kind)) {
-      const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
-      if (!reactToMessageId) {
-        logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
-        return;
-      }
-
-      logger.log(`Communities: Processing ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) for message ${reactToMessageId}`);
-
-      // Find which community/channel contains the target message
-      const communitiesForProcessing = communitiesToUse || communities;
-      let targetCommunityId: string | null = null;
-      let targetChannelId: string | null = null;
-
-      for (const [communityId, community] of communitiesForProcessing) {
-        for (const [channelId, channel] of community.channels) {
-          if (channel.messages.some(msg => msg.id === reactToMessageId)) {
-            targetCommunityId = communityId;
-            targetChannelId = channelId;
-            break;
-          }
-        }
-        if (targetChannelId) break;
-      }
-
-      if (!targetCommunityId || !targetChannelId) {
-        logger.log(`Communities: Target message ${reactToMessageId} not found in any loaded channel, ignoring ${event.kind === 7 ? 'reaction' : 'zap'}`);
-        return;
-      }
-
-      // Add reaction to the channel
-      setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(targetCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
-
-        // Check if reaction already exists
-        const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
-        if (existingReactions.some(reaction => reaction.id === event.id)) {
-          logger.log(`Communities: Reaction ${event.id} already exists, skipping`);
-          return prev;
-        }
-
-        // Add reaction and sort by timestamp
-        const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
-        const newReactionsMap = new Map(updatedChannel.reactions);
-        newReactionsMap.set(reactToMessageId, updatedReactions);
-
-        updatedChannel.reactions = newReactionsMap;
-        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
-        updatedChannels.set(targetChannelId, updatedChannel);
-        updatedCommunity.channels = updatedChannels;
-        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
-        newCommunities.set(targetCommunityId, updatedCommunity);
-
-        logger.log(`Communities: ✅ Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) to message ${reactToMessageId}`);
-        return newCommunities;
-      });
-
-      return; // Exit early for reactions
-    }
-
-    // Get community reference from 'a' tag (required for non-reaction events)
+    // Get community reference from 'a' tag (reactions don't have this, handle them separately)
     const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
-    if (!communityRef) {
+    if (!communityRef && ![7, 9735].includes(event.kind)) {
       logger.warn(`Communities: No community reference found in event ${event.id}`);
       return;
     }
 
-    // Extract simple community ID from 'a' tag
-    // Expected formats by event kind:
-    // - 9411, 1111, 7, 9735, 5: FULL addressable "34550:pubkey:identifier" 
-    // - 32807: SIMPLE "identifier" (inconsistent - TODO: fix at creation point)
-    // Handle both for defensive compatibility with other clients
-    const simpleCommunityId = (() => {
-      if (communityRef.includes(':')) {
-        const parts = communityRef.split(':');
-        if (parts.length === 3) {
-          return parts[2]; // Full addressable format (expected for messages)
-        }
-        return parts[parts.length - 1]; // Fallback for weird formats
-      }
-      return communityRef; // Simple format (expected for channels)
-    })();
-
-    // Find the community in our state
     const communitiesForProcessing = communitiesToUse || communities;
-    const community = communitiesForProcessing.get(simpleCommunityId);
-    if (!community) {
-      logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
-      return;
-    }
 
-    if (event.kind === 9411) {
-      // Channel message - get channel slug from 't' tag
-      // Format: "34550:pubkey:communitySlug:channelSlug" - we need the last part
-      const tTag = event.tags.find(([name]) => name === 't')?.[1];
-      if (!tTag) {
-        logger.warn(`Communities: No 't' tag found in channel message ${event.id}`);
-        return;
+    // Extract community slug once (for all non-reaction events)
+    const simpleCommunityId = communityRef ? extractCommunitySlug(communityRef) : null;
+    const community = simpleCommunityId ? communitiesForProcessing.get(simpleCommunityId) : null;
+
+    // Process event by kind
+    switch (event.kind) {
+      // Messages and replies - require 'a' tag for community lookup
+      case 9411:
+      case 1111: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
+        }
+
+        // Handle each event type
+        switch (event.kind) {
+          case 9411: {
+            // Channel message - get channel slug from 't' tag
+            const tTag = event.tags.find(([name]) => name === 't')?.[1];
+            if (!tTag) {
+              logger.warn(`Communities: No 't' tag found in channel message ${event.id}`);
+              return;
+            }
+
+            // Extract just the channel slug
+            const channelId = extractChannelSlug(tTag);
+
+            // Find the channel in the community
+            const channel = community.channels.get(channelId);
+            if (!channel) {
+              logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, creating placeholder channel for message ${event.id}`);
+
+              // Create a placeholder channel for this message
+              // This handles the race condition where a message arrives before the channel creation event
+              const placeholderChannel: ChannelData = {
+                id: channelId,
+                communityId: simpleCommunityId!,
+                info: {
+                  name: channelId, // Use channel ID as name initially
+                  description: undefined,
+                  type: 'text', // Default to text
+                  folderId: undefined,
+                  position: 999, // Put at end until we get the real channel definition
+                },
+                definition: {} as NostrEvent, // Placeholder - will be replaced when real channel definition arrives
+                messages: [],
+                replies: new Map(),
+                reactions: new Map(),
+                pinnedMessages: [],
+                permissions: null,
+                lastActivity: event.created_at,
+                // Initialize pagination state
+                hasMoreMessages: true,
+                isLoadingOlderMessages: false,
+                reachedStartOfConversation: false,
+              };
+
+              // Add placeholder channel to community
+              setCommunities(prev => {
+                const newCommunities = new Map(prev);
+                const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+                const updatedChannels = new Map(updatedCommunity.channels);
+                updatedChannels.set(channelId, placeholderChannel);
+                updatedCommunity.channels = updatedChannels;
+                newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+                logger.log(`Communities: Created placeholder channel ${channelId} in community ${simpleCommunityId}`);
+                return newCommunities;
+              });
+            }
+
+            // Use helper function to add message
+            addMessageToChannel(simpleCommunityId!, channelId, event);
+            break;
+          }
+
+          case 1111: {
+            // Reply message - get the message ID it's replying to from 'e' tag
+            const replyToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+            if (!replyToMessageId) {
+              logger.warn(`Communities: No reply target found in reply ${event.id}`);
+              return;
+            }
+
+            // Find which channel contains the message being replied to
+            let targetChannelId: string | null = null;
+            for (const [channelId, channel] of community.channels) {
+              if (channel.messages.some(msg => msg.id === replyToMessageId)) {
+                targetChannelId = channelId;
+                break;
+              }
+            }
+
+            if (!targetChannelId) {
+              logger.log(`Communities: Target message ${replyToMessageId} not found in any channel, ignoring reply ${event.id}`);
+              return;
+            }
+
+            // Add reply to the channel
+            setCommunities(prev => {
+              const newCommunities = new Map(prev);
+              const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+              const updatedChannels = new Map(updatedCommunity.channels);
+              const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+              // Check if reply already exists
+              const existingReplies = updatedChannel.replies.get(replyToMessageId) || [];
+              if (existingReplies.some(reply => reply.id === event.id)) {
+                logger.log(`Communities: Reply ${event.id} already exists for message ${replyToMessageId}, skipping`);
+                return prev;
+              }
+
+              // Add reply and sort by timestamp
+              const updatedReplies = [...existingReplies, event].sort((a, b) => a.created_at - b.created_at);
+              const newRepliesMap = new Map(updatedChannel.replies);
+              newRepliesMap.set(replyToMessageId, updatedReplies);
+
+              updatedChannel.replies = newRepliesMap;
+              updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+              updatedChannels.set(targetChannelId, updatedChannel);
+              updatedCommunity.channels = updatedChannels;
+              updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+              newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+              logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
+              return newCommunities;
+            });
+            break;
+          }
+        }
+        break;
       }
-      
-      // Extract just the channel slug (last part after splitting by colons)
-      const channelId = tTag.includes(':') ? tTag.split(':').pop()! : tTag;
 
-      // Find the channel in the community
-      const channel = community.channels.get(channelId);
-      if (!channel) {
-        logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, creating placeholder channel for message ${event.id}`);
+      case 7:
+      case 9735: {
+        // Reactions - don't have 'a' tag, need to search for target message
+        const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+        if (!reactToMessageId) {
+          logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
+          return;
+        }
 
-        // Create a placeholder channel for this message
-        // This handles the race condition where a message arrives before the channel creation event
-        const placeholderChannel: ChannelData = {
+        logger.log(`Communities: Processing ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) for message ${reactToMessageId}`);
+
+        let targetCommunityId: string | null = null;
+        let targetChannelId: string | null = null;
+
+        // Search through all loaded messages and replies to find the target
+        searchLoop: for (const [communityId, community] of communitiesForProcessing) {
+          for (const [channelId, channel] of community.channels) {
+            // Check messages
+            if (channel.messages.some(msg => msg.id === reactToMessageId)) {
+              targetCommunityId = communityId;
+              targetChannelId = channelId;
+              break searchLoop;
+            }
+            // Check replies
+            for (const replies of channel.replies.values()) {
+              if (replies.some(reply => reply.id === reactToMessageId)) {
+                targetCommunityId = communityId;
+                targetChannelId = channelId;
+                break searchLoop;
+              }
+            }
+          }
+        }
+
+        if (!targetCommunityId || !targetChannelId) {
+          logger.log(`Communities: Target message ${reactToMessageId} not found in loaded messages, ignoring reaction`);
+          return;
+        }
+
+        // Add reaction to the channel
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...newCommunities.get(targetCommunityId)! };
+          const updatedChannels = new Map(updatedCommunity.channels);
+          const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+          // Check if reaction already exists
+          const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
+          if (existingReactions.some(reaction => reaction.id === event.id)) {
+            logger.log(`Communities: Reaction ${event.id} already exists, skipping`);
+            return prev;
+          }
+
+          // Add reaction and sort by timestamp
+          const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
+          const newReactionsMap = new Map(updatedChannel.reactions);
+          newReactionsMap.set(reactToMessageId, updatedReactions);
+
+          updatedChannel.reactions = newReactionsMap;
+          updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+          updatedChannels.set(targetChannelId, updatedChannel);
+          updatedCommunity.channels = updatedChannels;
+          updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+          newCommunities.set(targetCommunityId, updatedCommunity);
+
+          logger.log(`Communities: ✅ Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) to message ${reactToMessageId}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 32807: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
+        }
+
+        // New channel creation event
+        const dTag = event.tags.find(([name]) => name === 'd')?.[1];
+        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+
+        if (!dTag) {
+          logger.warn(`Communities: No d tag found in channel creation event ${event.id}`);
+          return;
+        }
+
+        // Extract channel slug from d tag
+        // CreateChannelDialog creates: "universes:channelName" (composite format)
+        // But we store channels using just the channel name for simplicity
+        // TODO: Decide if we should use composite IDs or simple names consistently
+        const channelId = extractChannelSlug(dTag);
+
+        logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" (d tag: "${dTag}") in community "${aTag}"`);
+
+        // Check if channel already exists
+        const existingChannel = community.channels.get(channelId);
+        if (existingChannel && existingChannel.definition.id && !existingChannel.definition.isSending) {
+          // Real channel definition already exists, ignore duplicate
+          logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
+          return;
+        }
+
+        // Parse channel info from the event
+        const channelName = event.tags.find(([name]) => name === 'name')?.[1] || channelId;
+        const channelDescription = event.tags.find(([name]) => name === 'description')?.[1] ||
+          event.tags.find(([name]) => name === 'about')?.[1];
+        const channelType = event.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
+        const folderId = event.tags.find(([name]) => name === 'folder')?.[1];
+        const position = parseInt(event.tags.find(([name]) => name === 'position')?.[1] || '0');
+
+        // Try to parse content for additional metadata
+        let contentData: ChannelInfo = { name: '', type: 'text' };
+        try {
+          contentData = JSON.parse(event.content) as ChannelInfo;
+        } catch {
+          // Ignore parsing errors
+        }
+
+        // Create new channel data
+        const newChannelData: ChannelData = {
           id: channelId,
-          communityId: simpleCommunityId,
+          communityId: simpleCommunityId!,
           info: {
-            name: channelId, // Use channel ID as name initially
-            description: undefined,
-            type: 'text', // Default to text
-            folderId: undefined,
-            position: 999, // Put at end until we get the real channel definition
+            name: contentData?.name || channelName,
+            description: contentData?.description || channelDescription,
+            type: contentData?.type || channelType,
+            folderId: contentData?.folderId || folderId,
+            position: contentData?.position ?? position ?? 0,
           },
-          definition: {} as NostrEvent, // Placeholder - will be replaced when real channel definition arrives
-          messages: [],
-          replies: new Map(),
-          reactions: new Map(),
-          pinnedMessages: [],
-          permissions: null,
+          definition: event,
+          messages: [], // Start with empty messages
+          replies: new Map(), // Start with empty replies
+          reactions: new Map(), // Start with empty reactions
+          pinnedMessages: [], // Start with empty pinned messages
+          permissions: null, // Will be loaded separately if needed
           lastActivity: event.created_at,
           // Initialize pagination state
           hasMoreMessages: true,
@@ -2165,273 +2341,99 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           reachedStartOfConversation: false,
         };
 
-        // Add placeholder channel to community
-        setCommunities(prev => {
-          const newCommunities = new Map(prev);
-          const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-          const updatedChannels = new Map(updatedCommunity.channels);
-          updatedChannels.set(channelId, placeholderChannel);
-          updatedCommunity.channels = updatedChannels;
-          newCommunities.set(simpleCommunityId, updatedCommunity);
+        // If this was a placeholder or optimistic channel, preserve any messages it had
+        if (existingChannel && (!existingChannel.definition.id || existingChannel.definition.isSending)) {
+          const channelType = existingChannel.definition.isSending ? 'optimistic' : 'placeholder';
+          logger.log(`Communities: Replacing ${channelType} channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
+          newChannelData.messages = existingChannel.messages;
+          newChannelData.replies = existingChannel.replies;
+          newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
+        }
 
-          logger.log(`Communities: Created placeholder channel ${channelId} in community ${simpleCommunityId}`);
+        // Add the new channel to the community (or replace placeholder)
+        setCommunities(prev => {
+          const community = prev.get(simpleCommunityId!)!;
+          const beforeCount = community.channels.size;
+          const updatedChannels = new Map(community.channels);
+          updatedChannels.set(channelId, newChannelData);
+          const afterCount = updatedChannels.size;
+
+          const updatedCommunity = {
+            ...community,
+            channels: updatedChannels,
+            lastActivity: Math.max(community.lastActivity, event.created_at),
+          };
+
+          const newCommunities = new Map(prev);
+          newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+          const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
+          logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId} (channels: ${beforeCount} -> ${afterCount})`);
+
           return newCommunities;
         });
+        break;
       }
 
-      // Use helper function to add message (much more concise!)
-      addMessageToChannel(simpleCommunityId, channelId, event);
-
-    } else if (event.kind === 1111) {
-      // Reply message - get the message ID it's replying to from 'e' tag
-      const replyToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
-      if (!replyToMessageId) {
-        logger.warn(`Communities: No reply target found in reply ${event.id}`);
-        return;
-      }
-
-      // Find which channel contains the message being replied to
-      let targetChannelId: string | null = null;
-      for (const [channelId, channel] of community.channels) {
-        if (channel.messages.some(msg => msg.id === replyToMessageId)) {
-          targetChannelId = channelId;
-          break;
-        }
-      }
-
-      if (!targetChannelId) {
-        logger.log(`Communities: Target message ${replyToMessageId} not found in any channel, ignoring reply ${event.id}`);
-        return;
-      }
-
-      // Add reply to the channel
-      setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
-
-        // Check if reply already exists
-        const existingReplies = updatedChannel.replies.get(replyToMessageId) || [];
-        if (existingReplies.some(reply => reply.id === event.id)) {
-          logger.log(`Communities: Reply ${event.id} already exists for message ${replyToMessageId}, skipping`);
-          return prev;
+      case 5: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
         }
 
-        // Add reply and sort by timestamp
-        const updatedReplies = [...existingReplies, event].sort((a, b) => a.created_at - b.created_at);
-        const newRepliesMap = new Map(updatedChannel.replies);
-        newRepliesMap.set(replyToMessageId, updatedReplies);
-
-        updatedChannel.replies = newRepliesMap;
-        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
-        updatedChannels.set(targetChannelId, updatedChannel);
-        updatedCommunity.channels = updatedChannels;
-        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
-        newCommunities.set(simpleCommunityId, updatedCommunity);
-
-        logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
-        return newCommunities;
-      });
-
-    } else if (event.kind === 7 || event.kind === 9735) {
-      // Reaction or Zap - get the message ID it's reacting to from 'e' tag
-      const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
-      if (!reactToMessageId) {
-        logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
-        return;
-      }
-
-      // Find which channel contains the message being reacted to
-      let targetChannelId: string | null = null;
-      for (const [channelId, channel] of community.channels) {
-        if (channel.messages.some(msg => msg.id === reactToMessageId)) {
-          targetChannelId = channelId;
-          break;
-        }
-      }
-
-      if (!targetChannelId) {
-        logger.log(`Communities: Target message ${reactToMessageId} not found in any channel, ignoring ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
-        return;
-      }
-
-      // Add reaction to the channel
-      setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
-
-        // Check if reaction already exists
-        const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
-        if (existingReactions.some(reaction => reaction.id === event.id)) {
-          logger.log(`Communities: ${event.kind === 7 ? 'Reaction' : 'Zap'} ${event.id} already exists for message ${reactToMessageId}, skipping`);
-          return prev;
+        // Deletion event - remove the referenced event
+        const deletedEventId = event.tags.find(([name]) => name === 'e')?.[1];
+        if (!deletedEventId) {
+          logger.warn(`Communities: No event ID found in deletion event ${event.id}`);
+          return;
         }
 
-        // Add reaction and sort by timestamp
-        const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
-        const newReactionsMap = new Map(updatedChannel.reactions);
-        newReactionsMap.set(reactToMessageId, updatedReactions);
+        const deletedKind = event.tags.find(([name]) => name === 'k')?.[1];
 
-        updatedChannel.reactions = newReactionsMap;
-        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
-        updatedChannels.set(targetChannelId, updatedChannel);
-        updatedCommunity.channels = updatedChannels;
-        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
-        newCommunities.set(simpleCommunityId, updatedCommunity);
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+          const updatedChannels = new Map(updatedCommunity.channels);
 
-        logger.log(`Communities: Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} to message ${reactToMessageId} in channel ${targetChannelId}`);
-        return newCommunities;
-      });
-
-    } else if (event.kind === 32807) {
-      // New channel creation event
-      const dTag = event.tags.find(([name]) => name === 'd')?.[1];
-      const aTag = event.tags.find(([name]) => name === 'a')?.[1];
-
-      if (!dTag) {
-        logger.warn(`Communities: No d tag found in channel creation event ${event.id}`);
-        return;
-      }
-
-      // Extract channel name from d tag
-      // CreateChannelDialog creates: "universes:channelName" (composite format)
-      // But we store channels using just the channel name for simplicity
-      // TODO: Decide if we should use composite IDs or simple names consistently
-      const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
-
-      logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" (d tag: "${dTag}") in community "${aTag}"`);
-
-      // Check if channel already exists
-      const existingChannel = community.channels.get(channelId);
-      if (existingChannel && existingChannel.definition.id && !existingChannel.definition.isSending) {
-        // Real channel definition already exists, ignore duplicate
-        logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
-        return;
-      }
-
-      // Parse channel info from the event
-      const channelName = event.tags.find(([name]) => name === 'name')?.[1] || channelId;
-      const channelDescription = event.tags.find(([name]) => name === 'description')?.[1] ||
-        event.tags.find(([name]) => name === 'about')?.[1];
-      const channelType = event.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
-      const folderId = event.tags.find(([name]) => name === 'folder')?.[1];
-      const position = parseInt(event.tags.find(([name]) => name === 'position')?.[1] || '0');
-
-      // Try to parse content for additional metadata
-      let contentData: ChannelInfo = { name: '', type: 'text' };
-      try {
-        contentData = JSON.parse(event.content) as ChannelInfo;
-      } catch {
-        // Ignore parsing errors
-      }
-
-      // Create new channel data
-      const newChannelData: ChannelData = {
-        id: channelId,
-        communityId: simpleCommunityId,
-        info: {
-          name: contentData?.name || channelName,
-          description: contentData?.description || channelDescription,
-          type: contentData?.type || channelType,
-          folderId: contentData?.folderId || folderId,
-          position: contentData?.position ?? position ?? 0,
-        },
-        definition: event,
-        messages: [], // Start with empty messages
-        replies: new Map(), // Start with empty replies
-        reactions: new Map(), // Start with empty reactions
-        pinnedMessages: [], // Start with empty pinned messages
-        permissions: null, // Will be loaded separately if needed
-        lastActivity: event.created_at,
-        // Initialize pagination state
-        hasMoreMessages: true,
-        isLoadingOlderMessages: false,
-        reachedStartOfConversation: false,
-      };
-
-      // If this was a placeholder or optimistic channel, preserve any messages it had
-      if (existingChannel && (!existingChannel.definition.id || existingChannel.definition.isSending)) {
-        const channelType = existingChannel.definition.isSending ? 'optimistic' : 'placeholder';
-        logger.log(`Communities: Replacing ${channelType} channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
-        newChannelData.messages = existingChannel.messages;
-        newChannelData.replies = existingChannel.replies;
-        newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
-      }
-
-      // Add the new channel to the community (or replace placeholder)
-      setCommunities(prev => {
-        const community = prev.get(simpleCommunityId)!;
-        const beforeCount = community.channels.size;
-        const updatedChannels = new Map(community.channels);
-        updatedChannels.set(channelId, newChannelData);
-        const afterCount = updatedChannels.size;
-
-        const updatedCommunity = {
-          ...community,
-          channels: updatedChannels,
-          lastActivity: Math.max(community.lastActivity, event.created_at),
-        };
-
-        const newCommunities = new Map(prev);
-        newCommunities.set(simpleCommunityId, updatedCommunity);
-
-        const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
-        logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId} (channels: ${beforeCount} -> ${afterCount})`);
-
-        return newCommunities;
-      });
-    } else if (event.kind === 5) {
-      // Deletion event - remove the referenced event
-      const deletedEventId = event.tags.find(([name]) => name === 'e')?.[1];
-      if (!deletedEventId) {
-        logger.warn(`Communities: No event ID found in deletion event ${event.id}`);
-        return;
-      }
-
-      const deletedKind = event.tags.find(([name]) => name === 'k')?.[1];
-
-      setCommunities(prev => {
-        const newCommunities = new Map(prev);
-        const updatedCommunity = { ...newCommunities.get(simpleCommunityId)! };
-        const updatedChannels = new Map(updatedCommunity.channels);
-
-        switch (deletedKind) {
-          case '32807': {
-            // Channel definition deletion - remove entire channel
-            for (const [channelId, channel] of updatedChannels) {
-              if (channel.definition.id === deletedEventId) {
-                updatedChannels.delete(channelId);
-                logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name})`);
-                updatedCommunity.channels = updatedChannels;
-                newCommunities.set(simpleCommunityId, updatedCommunity);
-                return newCommunities;
+          switch (deletedKind) {
+            case '32807': {
+              // Channel definition deletion - remove entire channel
+              for (const [channelId, channel] of updatedChannels) {
+                if (channel.definition.id === deletedEventId) {
+                  updatedChannels.delete(channelId);
+                  logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name})`);
+                  updatedCommunity.channels = updatedChannels;
+                  newCommunities.set(simpleCommunityId!, updatedCommunity);
+                  return newCommunities;
+                }
               }
+              break;
             }
-            break;
-          }
-          default: {
-            // Message deletion - find and remove message from any channel
-            for (const [channelId, channel] of updatedChannels) {
-              const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
-              if (messageIndex !== -1) {
-                const updatedMessages = [...channel.messages];
-                updatedMessages.splice(messageIndex, 1);
-                updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
-                logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
-                updatedCommunity.channels = updatedChannels;
-                newCommunities.set(simpleCommunityId, updatedCommunity);
-                return newCommunities;
+            default: {
+              // Message deletion - find and remove message from any channel
+              for (const [channelId, channel] of updatedChannels) {
+                const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
+                if (messageIndex !== -1) {
+                  const updatedMessages = [...channel.messages];
+                  updatedMessages.splice(messageIndex, 1);
+                  updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
+                  logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
+                  updatedCommunity.channels = updatedChannels;
+                  newCommunities.set(simpleCommunityId!, updatedCommunity);
+                  return newCommunities;
+                }
               }
+              break;
             }
-            break;
           }
-        }
 
-        return prev;
-      });
+          return prev;
+        });
+        break;
+      }
+
+      default:
+        logger.warn(`Communities: Unhandled event kind: ${event.kind} for event ${event.id}`);
     }
   }, [user, communities, addMessageToChannel]);
 
@@ -2492,8 +2494,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           since: subscriptionSince,
         },
         {
-          kinds: [7, 9735], // Reactions and Zaps - filter by 'k' tag to get reactions to channel messages
-          '#k': ['9411'], // Only reactions to channel messages (kind 9411)
+          kinds: [7, 9735], // Reactions and Zaps - filter by 'k' tag to get reactions to channel messages and replies
+          '#k': ['9411', '1111'], // Reactions to channel messages (9411) and thread replies (1111)
           since: subscriptionSince,
         },
         {
@@ -3946,11 +3948,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Create ONE filter PER CHANNEL (matching production event format)
       // Each channel gets its own query with full addressable format for both 'a' and 't' tags
-      const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) => 
+      const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) =>
         channels.map(ch => {
           // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
           const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
-          
+
           return {
             kinds: [9411],
             '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
@@ -3961,7 +3963,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       );
 
       logger.log(`Communities: Created ${allPermissionFilters.length} permission filters and ${allMessageFilters.length} message filters (1 per channel)`);
-      
+
       // DEBUG: Log sample message filters to verify format
       if (allMessageFilters.length > 0) {
         logger.log('Communities: Sample message filters:', allMessageFilters.slice(0, 3));
