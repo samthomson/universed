@@ -2060,12 +2060,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     if (event.kind === 9411) {
-      // Channel message - get channel ID from 't' tag
-      const channelId = event.tags.find(([name]) => name === 't')?.[1];
-      if (!channelId) {
-        logger.warn(`Communities: No channel ID found in channel message ${event.id}`);
+      // Channel message - get channel slug from 't' tag
+      // Format: "34550:pubkey:communitySlug:channelSlug" - we need the last part
+      const tTag = event.tags.find(([name]) => name === 't')?.[1];
+      if (!tTag) {
+        logger.warn(`Communities: No 't' tag found in channel message ${event.id}`);
         return;
       }
+      
+      // Extract just the channel slug (last part after splitting by colons)
+      const channelId = tTag.includes(':') ? tTag.split(':').pop()! : tTag;
 
       // Find the channel in the community
       const channel = community.channels.get(channelId);
@@ -2767,6 +2771,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return null;
     }
 
+    // Build full addressable references matching production format
+    const fullCommunityRef = community.fullAddressableId; // "34550:pubkey:communitySlug"
+    const fullChannelRef = `${fullCommunityRef}:${channelId}`; // "34550:pubkey:communitySlug:channelSlug"
+
     // Create optimistic message with proper structure
     const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
     const optimisticMessage: NostrEvent = {
@@ -2776,8 +2784,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       created_at: Math.floor(Date.now() / 1000),
       content,
       tags: [
-        ["t", channelId],
-        ["a", communityId], // Use simple community ID, not full addressable format
+        ["t", fullChannelRef], // Full addressable channel reference
+        ["a", fullCommunityRef], // Full addressable community reference
         ...additionalTags,
       ],
       sig: '',
@@ -3872,15 +3880,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         limit: channels.length * 2, // Generous limit for all channels
       }));
 
-      // Create ONE message filter per community with all channel t-tags
-      const allMessageFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => ({
-        kinds: [9411], // Only 9411 for all channels
-        '#a': [channels[0].communityRef], // Same community ref for all
-        '#t': channels.map(ch => ch.channelId), // All channel IDs in one filter
-        limit: MESSAGES_PER_PAGE * channels.length, // Enough for all channels
-      }));
+      // Create ONE filter PER CHANNEL (matching production event format)
+      // Each channel gets its own query with full addressable format for both 'a' and 't' tags
+      const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) => 
+        channels.map(ch => {
+          // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
+          const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
+          
+          return {
+            kinds: [9411],
+            '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
+            '#t': [fullChannelRef], // "34550:pubkey:communitySlug:channelSlug"
+            limit: MESSAGES_PER_PAGE,
+          };
+        })
+      );
 
-      logger.log(`Communities: Optimized filters - ${channelsByCommunity.size} permission filters and ${channelsByCommunity.size} message filters (was ${allChannelDefinitions.length} each)`);
+      logger.log(`Communities: Created ${allPermissionFilters.length} permission filters and ${allMessageFilters.length} message filters (1 per channel)`);
+      
+      // DEBUG: Log sample message filters to verify format
+      if (allMessageFilters.length > 0) {
+        logger.log('Communities: Sample message filters:', allMessageFilters.slice(0, 3));
+      }
 
       // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
       const batch2Start = Date.now();
@@ -3938,6 +3959,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
       const pinnedPostsQueryTime = pinnedPostsQueryResult.time;
+
+      // DEBUG: Log message query results
+      logger.log(`Communities: Messages query returned ${allChannelMessages.length} messages`);
+      if (allChannelMessages.length > 0) {
+        logger.log('Communities: First message sample:', {
+          id: allChannelMessages[0].id.slice(0, 8),
+          kind: allChannelMessages[0].kind,
+          aTags: allChannelMessages[0].tags.filter(([name]) => name === 'a'),
+          tTags: allChannelMessages[0].tags.filter(([name]) => name === 't'),
+        });
+      }
 
       // BATCH 3: Get replies (kind 1111), reactions/zaps (kinds 7, 9735), and pinned messages in parallel
       const batch3Start = Date.now();
@@ -4101,8 +4133,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             // Find messages for this channel
             const channelMessages = allChannelMessages.filter(msg => {
               const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
-              const msgChannelId = msg.tags.find(([name]) => name === 't')?.[1];
-              if (!msgCommunityRef) return false;
+              const msgChannelTag = msg.tags.find(([name]) => name === 't')?.[1];
+              if (!msgCommunityRef || !msgChannelTag) return false;
 
               // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
               const matchesCommunity = msgCommunityRef === community.id || msgCommunityRef.includes(`:${community.id}`);
@@ -4112,7 +4144,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               // Only kind 9411 messages
               if (msg.kind !== 9411) return false;
 
-              // Must have matching channel tag
+              // Extract channel slug from 't' tag (format: "34550:pubkey:communitySlug:channelSlug")
+              const msgChannelId = msgChannelTag.includes(':') ? msgChannelTag.split(':').pop()! : msgChannelTag;
+
+              // Must have matching channel slug
               return msgChannelId === channelId;
             });
 
