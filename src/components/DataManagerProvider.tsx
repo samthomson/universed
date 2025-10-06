@@ -2023,12 +2023,76 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
 
     // Validate message kinds
-    if (![9411, 1111, 32807, 5].includes(event.kind)) {
+    if (![9411, 1111, 7, 9735, 32807, 5].includes(event.kind)) {
       logger.warn(`Communities: Invalid message kind: ${event.kind} for event ${event.id}`);
       return;
     }
 
-    // Get community reference from 'a' tag
+    // Special handling for reactions (kind 7, 9735) - they don't have 'a' tags
+    if ([7, 9735].includes(event.kind)) {
+      const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+      if (!reactToMessageId) {
+        logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
+        return;
+      }
+
+      logger.log(`Communities: Processing ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) for message ${reactToMessageId}`);
+
+      // Find which community/channel contains the target message
+      const communitiesForProcessing = communitiesToUse || communities;
+      let targetCommunityId: string | null = null;
+      let targetChannelId: string | null = null;
+
+      for (const [communityId, community] of communitiesForProcessing) {
+        for (const [channelId, channel] of community.channels) {
+          if (channel.messages.some(msg => msg.id === reactToMessageId)) {
+            targetCommunityId = communityId;
+            targetChannelId = channelId;
+            break;
+          }
+        }
+        if (targetChannelId) break;
+      }
+
+      if (!targetCommunityId || !targetChannelId) {
+        logger.log(`Communities: Target message ${reactToMessageId} not found in any loaded channel, ignoring ${event.kind === 7 ? 'reaction' : 'zap'}`);
+        return;
+      }
+
+      // Add reaction to the channel
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(targetCommunityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+        // Check if reaction already exists
+        const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
+        if (existingReactions.some(reaction => reaction.id === event.id)) {
+          logger.log(`Communities: Reaction ${event.id} already exists, skipping`);
+          return prev;
+        }
+
+        // Add reaction and sort by timestamp
+        const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
+        const newReactionsMap = new Map(updatedChannel.reactions);
+        newReactionsMap.set(reactToMessageId, updatedReactions);
+
+        updatedChannel.reactions = newReactionsMap;
+        updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+        updatedChannels.set(targetChannelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+        newCommunities.set(targetCommunityId, updatedCommunity);
+
+        logger.log(`Communities: ✅ Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) to message ${reactToMessageId}`);
+        return newCommunities;
+      });
+
+      return; // Exit early for reactions
+    }
+
+    // Get community reference from 'a' tag (required for non-reaction events)
     const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
     if (!communityRef) {
       logger.warn(`Communities: No community reference found in event ${event.id}`);
@@ -2428,8 +2492,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           since: subscriptionSince,
         },
         {
-          kinds: [7, 9735], // Reactions and Zaps
-          '#a': communityRefs,
+          kinds: [7, 9735], // Reactions and Zaps - filter by 'k' tag to get reactions to channel messages
+          '#k': ['9411'], // Only reactions to channel messages (kind 9411)
           since: subscriptionSince,
         },
         {
