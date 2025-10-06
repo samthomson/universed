@@ -143,9 +143,12 @@ export function CreateChannelDialog({
         calculatedPosition
       );
 
+      // Get full addressable community reference (kind:pubkey:identifier)
+      const fullCommunityRef = `34550:${community.pubkey}:${communityId}`;
+
       const tags = [
         ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
-        ['a', communityId], // Reference to community (simple community ID)
+        ['a', fullCommunityRef], // Reference to community (full addressable format)
         ['name', channelName],
         ['description', description.trim()],
         ['channel_type', type],

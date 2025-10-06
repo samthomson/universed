@@ -50,14 +50,23 @@ The app may use custom event kinds for specific features. See `NIP.md` (if prese
 | | Member Management | `34551/34552/34553` | NIP-72 Ext | ✓ | Approved/declined/banned member lists | `d` (community ref), `p` (member pubkeys) |
 | | | | | | *Note: Membership can be explicit (via 34551-34553 events) or implicit (community creator/moderators)* | |
 | | Content Reporting | `1984` | NIP-56 | | Report content/users for moderation | `e` (target event), `p` (target user), report type |
-| **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata within communities | `d` (ID), `name`, `a` (community ref) |
-| | *Channel Definition (Proposed)* | *`32807`* | | *✓* | *Proper addressable event references* | *`a` (`"34550:pubkey:universes"`)* |
+| **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata within communities | `d` (ID), `name`, `a` (`"34550:pubkey:universes"`) |
 | | Channel Permissions | `30143` | | ✓ | Access control for channels | `d` (community:channel), JSON content, `p` (user permissions) |
 | | Channel Messages | `9411` | NIP-28 | | Real-time chat in channels | `a` (community), `t` (channel), `e` (thread) |
 | | Message Replies | `1111` | NIP-22 | | Replies to any message (9411, 1, etc.) | `e` (root message), `p` (root author) |
 | | Community Posts | `1111` | NIP-22 | | Threaded discussions | `A` (root community), `e` (parent), `k` (parent kind) |
 | **Direct Messages** | Legacy DMs | `4` | NIP-04 | | Simple encrypted messages | `#p` (recipient), `authors` (sender) |
 | | Modern DMs | `1059` | NIP-17 | | Gift-wrapped encrypted messages | `#p` (recipient) |
+
+#### Proposed Event Structures
+
+Future improvements to event structures for better data modeling:
+
+| **System** | **Component** | **Event Kind(s)** | **NIP** | **Replaceable** | **Purpose** | **Key Tags** |
+|------------|---------------|-------------------|---------|-------------|-------------|--------------|
+| **Channels** | Channel Definition | `32807` | | ✓ | Channel metadata with community ID reference | `d` (ID), `name`, `a` (`"34550:pubkey:communityId"`) |
+
+*Note: This proposal would use the community's unique identifier (d tag) instead of the community slug/name in addressable references.*
 
 ## 🧪 Testing
 

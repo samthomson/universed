@@ -365,6 +365,16 @@ export function CommunitiesDebug() {
 															</div>
 														</div>
 
+														{/* Channel Definition Event JSON */}
+														<div className="mb-3">
+															<div className="text-xs font-medium mb-1">Channel Definition Event:</div>
+															<div className="bg-muted/30 rounded p-2 overflow-x-auto">
+																<pre className="text-xs whitespace-pre font-mono">
+																	{JSON.stringify(channel.definition, null, 2)}
+																</pre>
+															</div>
+														</div>
+
 														{/* Channel Description */}
 														{channel.info.description && (
 															<p className="text-xs text-muted-foreground mb-2">

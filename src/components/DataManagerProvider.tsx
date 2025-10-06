@@ -2389,12 +2389,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     try {
       // Build filters for all communities (one per community, not per channel)
-      const communityRefs: string[] = []; // Full format for messages
-      const simpleCommunityIds: string[] = []; // Simple format for channels (TEMPORARY - should be unified)
+      const communityRefs: string[] = []; // Full addressable format for all events
 
       communitiesForSubscription.forEach((community) => {
         communityRefs.push(community.fullAddressableId); // e.g., "34550:pubkey:universes"
-        simpleCommunityIds.push(community.id); // e.g., "universes"
       });
 
       if (communityRefs.length === 0) {
@@ -2413,33 +2411,30 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log('Communities: No lastSync timestamp available, using 30 seconds ago to catch recent events');
       }
 
-      // NOTE: INCONSISTENCY IN THE CODEBASE
-      // Messages (9411) use FULL addressable format: "34550:pubkey:universes" (see ChatArea.tsx)
-      // Channels (32807) use SIMPLE community ID: "universes" (see CreateChannelDialog.tsx)
-      // TODO: Unify to use FULL format everywhere for consistency
+      // All community-related events now use full addressable format
       const filters = [
         {
-          kinds: [9411], // Channel messages - use full format
+          kinds: [9411], // Channel messages
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [1111], // Replies - use full format
+          kinds: [1111], // Replies
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [7, 9735], // Reactions and Zaps - use full format
+          kinds: [7, 9735], // Reactions and Zaps
           '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [32807], // Channel creation - currently uses SIMPLE format (inconsistent!)
-          '#a': simpleCommunityIds,
+          kinds: [32807], // Channel creation
+          '#a': communityRefs,
           since: subscriptionSince,
         },
         {
-          kinds: [5], // Deletion events - use full format
+          kinds: [5], // Deletion events
           '#a': communityRefs,
           since: subscriptionSince,
         },
@@ -3670,15 +3665,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.log('Communities: Loading channels, permissions, and messages in parallel...');
 
       // Prepare all filters for parallel execution
-      const allChannelFilters = approvedCommunities.map(({ definitionEvent }) => {
+      // NOTE: Channels use full addressable format for 'a' tag: ['a', '34550:pubkey:universes']
+      const allChannelFilters = approvedCommunities.map(({ definitionEvent, pubkey }) => {
         const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
         if (!communityId) return null;
 
+        const fullAddressableId = `34550:${pubkey}:${communityId}`;
+
         return {
           kinds: [32807], // Channel definitions
-          '#a': [
-            communityId
-          ],
+          '#a': [fullAddressableId],
           '#t': ['channel'], // Filter for channel events specifically
           limit: 50, // Max channels per community
         };
