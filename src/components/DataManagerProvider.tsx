@@ -5330,12 +5330,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Build community reference and query for older messages
       const communityRef = `34550:${community.pubkey}:${community.id}`;
-      // Use full addressable channel reference to match message event format
-      const fullChannelRef = `${communityRef}:${channelId}`;
+
+      // Special handling for general channel - use simple "general" tag
+      const channelTag = channelId === 'general' ? 'general' : `${communityRef}:${channelId}`;
+
       const olderMessages = await nostr.query([{
         kinds: [9411],
         '#a': [communityRef],
-        '#t': [fullChannelRef],
+        '#t': [channelTag],
         until: channel.oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
         limit: MESSAGES_PER_PAGE,
       }], { signal: AbortSignal.timeout(10000) });
