@@ -3967,9 +3967,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             return {
               kinds: [9411], // General channel only accepts kind 9411
               '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
-              // Use higher limit for general since we need to filter client-side
-              // (we get all community messages and filter for general)
-              limit: 50,
+              '#t': [ch.channelId],
+              limit: MESSAGES_PER_PAGE,
             };
           }
 
