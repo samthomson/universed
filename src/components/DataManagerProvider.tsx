@@ -3588,6 +3588,70 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
+    // Helper: Add channels to communities state (used for progressive loading)
+    const addChannelsToState = (
+      baseState: CommunitiesState,
+      channelDefinitions: NostrEvent[],
+      communitiesData: Array<{ id: string; pubkey: string; definitionEvent: NostrEvent; membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator' }>
+    ): CommunitiesState => {
+      const newState = new Map(baseState);
+
+      for (const community of communitiesData) {
+        const existingCommunity = newState.get(community.id);
+        if (!existingCommunity || community.membershipStatus !== 'approved') continue;
+
+        const channelsMap = new Map<string, ChannelData>();
+        const communityChannels = channelDefinitions.filter(channelDef => {
+          const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+          return communityRef === community.id || communityRef?.includes(`:${community.id}`);
+        });
+
+        for (const channelDef of communityChannels) {
+          const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+          if (!dTag) continue;
+          const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+          // Parse channel info
+          let contentData: { name?: string; description?: string; type?: 'text' | 'voice'; folderId?: string; position?: number } = {};
+          try { contentData = JSON.parse(channelDef.content || '{}'); } catch { /* ignore */ }
+
+          const channelName = contentData?.name || channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
+          const channelDescription = contentData?.description || channelDef.tags.find(([name]) => name === 'description')?.[1];
+          const channelType = (contentData?.type || channelDef.tags.find(([name]) => name === 'channel_type')?.[1] || 'text') as 'text' | 'voice';
+
+          channelsMap.set(channelId, {
+            id: channelId,
+            communityId: community.id,
+            info: {
+              name: channelName,
+              description: channelDescription,
+              type: channelType,
+              folderId: contentData?.folderId,
+              position: contentData?.position,
+            },
+            definition: channelDef,
+            messages: [],
+            replies: new Map(),
+            reactions: new Map(),
+            pinnedMessages: [],
+            permissions: null,
+            lastActivity: channelDef.created_at,
+            hasMoreMessages: false,
+            isLoadingOlderMessages: false,
+            reachedStartOfConversation: true,
+          });
+        }
+
+        newState.set(community.id, {
+          ...existingCommunity,
+          channels: channelsMap,
+          isLoadingChannels: false,
+        });
+      }
+
+      return newState;
+    };
+
     if (communitiesLoading && !isBackgroundRefresh) {
       logger.log('Communities: Loading already in progress, skipping duplicate request');
       return;
@@ -3888,6 +3952,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Add the synthetic general channels to the channel definitions
       allChannelDefinitions = [...allChannelDefinitions, ...additionalGeneralChannels];
+
+      // PROGRESSIVE UPDATE 1: Show channels immediately in sidebar (before messages load)
+      const stateWithChannels = addChannelsToState(initialCommunitiesState, allChannelDefinitions, communitiesWithStatus);
+      setCommunities(stateWithChannels);
+      logger.log(`Communities: Progressive update - showing ${allChannelDefinitions.length} channels in sidebar (messages loading...)`);
 
       // Group channels by community to create ONE filter per community instead of one per channel
       const channelsByCommunity = new Map<string, Array<{
