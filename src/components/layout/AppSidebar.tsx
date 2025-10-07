@@ -422,7 +422,7 @@ export function AppSidebar({
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
-    if (!dataManagerCommunities.isLoading && orderedCommunities) {
+    if (!dataManagerCommunities.isLoadingCommunities && orderedCommunities) {
       return orderedCommunities.map((community) => (
         <SortableCommunityItem
           key={community.id}
@@ -447,7 +447,7 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
+  }, [dataManagerCommunities.isLoadingCommunities, dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
