@@ -2118,9 +2118,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 permissions: null,
                 lastActivity: event.created_at,
                 // Initialize pagination state
-                hasMoreMessages: true,
+                hasMoreMessages: false,
                 isLoadingOlderMessages: false,
-                reachedStartOfConversation: false,
+                reachedStartOfConversation: true,
               };
 
               // Add placeholder channel to community
@@ -2336,9 +2336,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           permissions: null, // Will be loaded separately if needed
           lastActivity: event.created_at,
           // Initialize pagination state
-          hasMoreMessages: true,
+          hasMoreMessages: false,
           isLoadingOlderMessages: false,
-          reachedStartOfConversation: false,
+          reachedStartOfConversation: true,
         };
 
         // If this was a placeholder or optimistic channel, preserve any messages it had
@@ -4831,10 +4831,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             pinnedMessages: channelData.pinnedMessages || [],
             permissions: channelData.permissions,
             lastActivity: channelData.lastActivity,
-            // Initialize pagination state for cached data
-            hasMoreMessages: true,
+            // Initialize pagination state for cached data (be conservative: no earlier messages until proven)
+            hasMoreMessages: channelData.messages.length >= MESSAGES_PER_PAGE,
             isLoadingOlderMessages: false,
-            reachedStartOfConversation: false,
+            reachedStartOfConversation: channelData.messages.length < MESSAGES_PER_PAGE,
+            oldestMessageTimestamp: channelData.messages.length > 0 ? channelData.messages[0].created_at : undefined,
           });
         }
 
@@ -5264,10 +5265,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       // Build community reference and query for older messages
       const communityRef = `34550:${community.pubkey}:${community.id}`;
+      // Use full addressable channel reference to match message event format
+      const fullChannelRef = `${communityRef}:${channelId}`;
       const olderMessages = await nostr.query([{
         kinds: [9411],
         '#a': [communityRef],
-        '#t': [channelId],
+        '#t': [fullChannelRef],
         until: channel.oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
         limit: MESSAGES_PER_PAGE,
       }], { signal: AbortSignal.timeout(10000) });
