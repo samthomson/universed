@@ -3962,25 +3962,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Each channel gets its own query with full addressable format for both 'a' and 't' tags
       const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) =>
         channels.map(ch => {
-          // Special handling for general channel - query without #t tag to get all community messages
+          // Special handling for general channel - query with simple channel name
           if (ch.channelId === 'general') {
             return {
-              kinds: [9411], // General channel only accepts kind 9411
+              kinds: [9411],
               '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
-              '#t': [ch.channelId],
+              '#t': ['general'], // General messages are tagged with simple "general", not full addressable format
+              limit: MESSAGES_PER_PAGE,
+            };
+          } else {
+            // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
+            const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
+
+            return {
+              kinds: [9411],
+              '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
+              '#t': [fullChannelRef], // "34550:pubkey:communitySlug:channelSlug"
               limit: MESSAGES_PER_PAGE,
             };
           }
-
-          // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
-          const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
-
-          return {
-            kinds: [9411],
-            '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
-            '#t': [fullChannelRef], // "34550:pubkey:communitySlug:channelSlug"
-            limit: MESSAGES_PER_PAGE,
-          };
         })
       );
 
