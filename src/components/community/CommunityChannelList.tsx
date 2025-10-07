@@ -59,7 +59,9 @@ export function CommunityChannelList({
   // Get all data from DataManager - no network calls needed
   const folders = communities.getFolders(communityId);
   const channelsWithoutFolder = communities.getChannelsWithoutFolder(communityId);
-  const isLoading = communities.isLoading;
+
+  // Use the specific channels loading state for better UX
+  const isLoading = communities.isLoadingChannels;
 
   const [textChannelsOpen, setTextChannelsOpen] = useState(true);
   const [voiceChannelsOpen, setVoiceChannelsOpen] = useState(true);
