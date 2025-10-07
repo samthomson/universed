@@ -17,9 +17,9 @@ import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useDataManagerCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager } from "@/components/DataManagerProvider";
+import { useDataManagerCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager, useDataManagerPinnedMessages } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
-import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
+import { usePinMessage, useUnpinMessage } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
 import { useMentionNotifications } from "@/hooks/useMentionNotifications";
 import { useDeleteMessage } from "@/hooks/useMessageActions";
@@ -262,7 +262,10 @@ function CommunityChat(
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
-  const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
+  // Get pinned messages from DataManager (full events, not just IDs)
+  const pinnedMessages = useDataManagerPinnedMessages(communityId, channelId);
+  // Derive message IDs from the full events for pin status checking
+  const pinnedMessageIds = useMemo(() => pinnedMessages.map(msg => msg.id), [pinnedMessages]);
   const { role } = useDataManagerUserRole(communityId);
   const { banUser } = useModerationActions();
   const { mutate: deleteMessage } = useDeleteMessage(communityId);
@@ -439,6 +442,7 @@ function CommunityChat(
     <>
       <BaseChatArea
         messages={messages || []}
+        pinnedMessages={pinnedMessages}
         isLoading={isLoading}
         onSendMessage={handleSendMessage}
         queryKey={queryKey}

@@ -321,11 +321,13 @@ interface CommunityLoadBreakdown {
     total: number;
     permissionsQuery: number;
     messagesQuery: number;
+    pinnedPostsQuery?: number; // Query for kind 34554 pinned posts events (runs in parallel)
   };
   step4_replies_batch: {
     total: number;
     repliesQuery: number;
     reactionsQuery: number;
+    pinnedMessagesQuery?: number; // Query for actual pinned message events (runs in parallel)
   };
   step5_pinned_batch: {
     total: number;
@@ -4000,12 +4002,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const batch2Start = Date.now();
 
       // Collect all channel identifiers for pinned posts query
+      // Build from allChannelDefinitions (which has the loaded channels) not initialCommunitiesState (which has empty channels)
       const channelIdentifiers: string[] = [];
-      for (const [communityId, community] of initialCommunitiesState) {
-        for (const [channelId, _channel] of community.channels) {
-          channelIdentifiers.push(`${communityId}:${channelId}`);
+
+      allChannelDefinitions.forEach(channelDef => {
+        const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (dTag) {
+          channelIdentifiers.push(dTag);
         }
-      }
+      });
 
       // Wrap each query with individual timing
       const permissionsQueryPromise = (async () => {
@@ -4118,7 +4123,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         reactionsQueryTime = reactionsResult.time;
       }
 
-      // Query for pinned message events (simple addition)
+      // Query for pinned message events
       if (uniquePinnedMessageIds.length > 0) {
         const pinnedMessagesQueryPromise = (async () => {
           const start = Date.now();
@@ -4346,7 +4351,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               messages: sortedMessages, // Use sorted messages (oldest first)
               replies: channelReplies,
               reactions: channelReactions,
-              pinnedMessages: pinnedMessagesByChannel.get(`${community.id}:${channelId}`) || [],
+              // Use fullAddressableId to match the key format used when building the Map
+              pinnedMessages: pinnedMessagesByChannel.get(`34550:${community.pubkey}:${community.id}:${channelId}`) || [],
               permissions: channelPermissions || null,
               lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
               // Initialize pagination state
@@ -4466,15 +4472,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           total: batch2Time,
           permissionsQuery: permissionsQueryTime,
           messagesQuery: messagesQueryTime,
+          pinnedPostsQuery: pinnedPostsQueryTime, // Pinned posts query runs in batch 2
         },
         step4_replies_batch: {
           total: batch3Time,
           repliesQuery: repliesQueryTime,
           reactionsQuery: reactionsQueryTime,
+          pinnedMessagesQuery: pinnedMessagesQueryTime, // Pinned messages query runs in batch 3
         },
         step5_pinned_batch: {
-          total: 0, // Pinned queries are now integrated into other batches
-          pinnedQuery: pinnedPostsQueryTime + pinnedMessagesQueryTime,
+          total: 0, // Deprecated - pinned queries integrated into batch 2 & 3
+          pinnedQuery: 0, // Deprecated - see batch 2 & 3 for actual timings
         },
         total: totalTime,
       });

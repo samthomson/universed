@@ -82,16 +82,14 @@ export function CommunitiesDebug() {
 										<div>3. Parallel Batch 2: {loadBreakdown.step3_parallel_batch2.total}ms</div>
 										<div className="ml-4 space-y-0.5">
 											<div>├─ Permissions Query: {loadBreakdown.step3_parallel_batch2.permissionsQuery}ms</div>
-											<div>└─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
+											<div>├─ Messages Query: {loadBreakdown.step3_parallel_batch2.messagesQuery}ms</div>
+											<div>└─ Pinned Posts Query: {loadBreakdown.step3_parallel_batch2.pinnedPostsQuery || 0}ms</div>
 										</div>
 										<div>4. Replies & Reactions Batch: {loadBreakdown.step4_replies_batch.total}ms</div>
 										<div className="ml-4 space-y-0.5">
 											<div>├─ Replies Query: {loadBreakdown.step4_replies_batch.repliesQuery}ms</div>
-											<div>└─ Reactions Query: {loadBreakdown.step4_replies_batch.reactionsQuery}ms</div>
-										</div>
-										<div>5. Pinned Messages Batch: {loadBreakdown.step5_pinned_batch.total}ms</div>
-										<div className="ml-4 space-y-0.5">
-											<div>└─ Pinned Query: {loadBreakdown.step5_pinned_batch.pinnedQuery}ms</div>
+											<div>├─ Reactions Query: {loadBreakdown.step4_replies_batch.reactionsQuery}ms</div>
+											<div>└─ Pinned Messages Query: {loadBreakdown.step4_replies_batch.pinnedMessagesQuery || 0}ms</div>
 										</div>
 									</div>
 								)}
