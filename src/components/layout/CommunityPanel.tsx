@@ -187,8 +187,9 @@ export function CommunityPanel({ communityId, selectedChannel, selectedSpace, on
     );
   }
 
-  // Show loading state while communities are loading
-  if (communities.isLoading) {
+  // Show loading state only if we're specifically loading communities data
+  // This allows us to show the community header as soon as it's available
+  if (communities.isLoadingCommunities) {
     return (
       <div className="flex flex-col h-full min-h-0">
         <div className="px-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0 h-14 flex items-center">
