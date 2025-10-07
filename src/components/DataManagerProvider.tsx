@@ -375,6 +375,11 @@ interface CommunitiesDomain {
   loadingPhase: LoadingPhase;
   loadTime: number | null;
   loadBreakdown: CommunityLoadBreakdown | null;
+  // Granular loading states for progressive UI rendering
+  isLoadingCommunities: boolean;
+  isLoadingChannels: boolean;
+  isLoadingMessages: boolean;
+  hasBasicCommunitiesData: boolean;
   getDebugInfo: () => {
     communityCount: number;
     channelCount: number;
@@ -3588,6 +3593,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       return;
     }
 
+    // Set granular loading states at the start
+    if (!isBackgroundRefresh) {
+      setIsLoadingCommunities(true);
+      setIsLoadingChannels(true);
+      setIsLoadingMessages(true);
+    }
+
     // Helper: Add channels to communities state (used for progressive loading)
     const addChannelsToState = (
       baseState: CommunitiesState,
@@ -3717,6 +3729,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // PROGRESSIVE LOADING: Return communities immediately with isLoadingChannels=true
       logger.log('Communities: Creating initial community state with basic info');
       const initialCommunitiesState = new Map<string, CommunityData>();
+
+      // Mark that we've finished loading basic community data
+      setIsLoadingCommunities(false);
 
       for (const community of communitiesWithStatus) {
         // Determine the user's role in this community
@@ -4066,6 +4081,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           logger.log('Communities: General channel filter:', generalFilter);
         }
       }
+
+      // Channels have been loaded, update loading state
+      setIsLoadingChannels(false);
 
       // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
       const batch2Start = Date.now();
@@ -4518,6 +4536,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Update communities state with loaded channel data and remove loading flags
       setCommunities(updatedCommunitiesState);
+
+      // Mark channels and messages as loaded
+      setIsLoadingChannels(false);
+      setIsLoadingMessages(false);
 
       // Flag for immediate cache write after successful network load (like messages do)
       logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities from network, will save to cache after state update`);
@@ -5550,12 +5572,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [communities]);
 
   // Organize communities functionality into its own domain
+  // Track granular loading states for progressive UI rendering
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [hasBasicCommunitiesData, setHasBasicCommunitiesData] = useState(false);
+
+  // Derived state to check if we have basic community data
+  useEffect(() => {
+    setHasBasicCommunitiesData(communities.size > 0);
+  }, [communities.size]);
+
   const communitiesDomain: CommunitiesDomain = {
     communities,
     isLoading: communitiesLoading,
     loadingPhase: communitiesLoadingPhase,
     loadTime: communitiesLoadTime,
     loadBreakdown: communitiesLoadBreakdown,
+    // Expose granular loading states
+    isLoadingCommunities,
+    isLoadingChannels,
+    isLoadingMessages,
+    hasBasicCommunitiesData,
     getDebugInfo: getCommunitiesDebugInfo,
     getSortedChannels,
     getFolders,
