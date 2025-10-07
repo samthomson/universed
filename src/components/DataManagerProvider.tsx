@@ -3839,8 +3839,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           );
 
           const hasGeneralChannel = existingChannels.some(channelDef => {
-            const channelId = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
             const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1];
+            // Extract simple channel ID from d tag (format can be "general" or "communityId:general")
+            const channelId = dTag?.includes(':') ? dTag.split(':').pop()! : dTag;
             const isGeneralChannel = channelId === 'general' || channelName?.toLowerCase() === 'general';
 
             if (isGeneralChannel) {
@@ -3865,7 +3867,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 position: 0,
               }),
               tags: [
-                ['d', 'general'],
+                ['d', `${properCommunityRef}:general`], // Match format used in CreateChannelDialog: full addressable format
                 ['a', properCommunityRef],
                 ['t', 'channel'],
                 ['name', 'general'],
@@ -3901,6 +3903,16 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
         // Extract channel ID from d tag
         const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+        // Debug log for general channel
+        if (channelId === 'general') {
+          logger.log(`Communities: Processing general channel definition:`, {
+            dTag,
+            communityRef,
+            channelId,
+            isGeneral: true
+          });
+        }
 
         // Parse community reference to get proper format
         let properCommunityRef: string;
@@ -3950,6 +3962,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Each channel gets its own query with full addressable format for both 'a' and 't' tags
       const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) =>
         channels.map(ch => {
+          // Special handling for general channel - query without #t tag to get all community messages
+          if (ch.channelId === 'general') {
+            return {
+              kinds: [9411], // General channel only accepts kind 9411
+              '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
+              // Use higher limit for general since we need to filter client-side
+              // (we get all community messages and filter for general)
+              limit: 50,
+            };
+          }
+
           // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
           const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
 
@@ -3967,6 +3990,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // DEBUG: Log sample message filters to verify format
       if (allMessageFilters.length > 0) {
         logger.log('Communities: Sample message filters:', allMessageFilters.slice(0, 3));
+        // Log general channel filter specifically
+        const generalFilter = allMessageFilters.find(f => !f['#t']);
+        if (generalFilter) {
+          logger.log('Communities: General channel filter:', generalFilter);
+        }
       }
 
       // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
@@ -4197,13 +4225,40 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
 
             // Find messages for this channel
+            // Build the full community reference once for this channel
+            const fullCommunityRef = `34550:${community.pubkey}:${community.id}`;
+
             const channelMessages = allChannelMessages.filter(msg => {
               const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
               const msgChannelTag = msg.tags.find(([name]) => name === 't')?.[1];
+
+              // Special handling for general channel - accepts messages without #t tag
+              if (channelId === 'general') {
+                // General channel gets all messages for this community that don't have a #t tag
+                // OR have a #t tag that matches "general"
+                if (!msgCommunityRef) return false;
+
+                // Match against the full community reference
+                const matchesCommunity = msgCommunityRef === fullCommunityRef;
+
+                if (!matchesCommunity) return false;
+
+                // Only kind 9411 messages for general channel
+                if (msg.kind !== 9411) return false;
+
+                // If no #t tag, it belongs to general
+                if (!msgChannelTag) return true;
+
+                // If has #t tag, check if it matches general
+                const msgChannelId = msgChannelTag.includes(':') ? msgChannelTag.split(':').pop()! : msgChannelTag;
+                return msgChannelId === 'general';
+              }
+
+              // For other channels, require #t tag
               if (!msgCommunityRef || !msgChannelTag) return false;
 
-              // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
-              const matchesCommunity = msgCommunityRef === community.id || msgCommunityRef.includes(`:${community.id}`);
+              // Match against the full community reference
+              const matchesCommunity = msgCommunityRef === fullCommunityRef;
 
               if (!matchesCommunity) return false;
 
@@ -4260,8 +4315,19 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             // Remove unused sortedMessages variable
 
             // Debug log for messages
-            if (channelMessages.length > 0) {
-              logger.log(`Channel ${channelId} has ${channelMessages.length} messages`);
+            logger.log(`Channel ${channelId}: Found ${channelMessages.length} messages (from ${allChannelMessages.length} total)`);
+            if (channelId === 'general') {
+              logger.log(`General channel debug:`, {
+                totalMessages: allChannelMessages.length,
+                filteredMessages: channelMessages.length,
+                sampleMessage: allChannelMessages[0] ? {
+                  kind: allChannelMessages[0].kind,
+                  hasATag: !!allChannelMessages[0].tags.find(([name]) => name === 'a'),
+                  hasTTag: !!allChannelMessages[0].tags.find(([name]) => name === 't'),
+                  aTags: allChannelMessages[0].tags.filter(([name]) => name === 'a'),
+                  tTags: allChannelMessages[0].tags.filter(([name]) => name === 't'),
+                } : 'no messages'
+              });
             }
 
             // Sort messages by timestamp (oldest first) to match what Virtuoso expects
