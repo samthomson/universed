@@ -1,7 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 
 interface NostrProviderProps {
@@ -12,19 +11,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const { children } = props;
   const { config, presetRelays } = useAppContext();
 
-  const queryClient = useQueryClient();
-
   // Create NPool instance only once
   const pool = useRef<NPool | undefined>(undefined);
 
-  // Use refs so the pool always has the latest data
+  // Use ref so the pool always has the latest relay URL
+  // Note: Relay change side effects (cache clearing) are handled by RelayChangeHandler component
   const relayUrl = useRef<string>(config.relayUrl);
-
-  // Update refs when config changes
-  useEffect(() => {
-    relayUrl.current = config.relayUrl;
-    queryClient.resetQueries();
-  }, [config.relayUrl, queryClient]);
+  relayUrl.current = config.relayUrl;
 
   // Initialize NPool only once
   if (!pool.current) {
