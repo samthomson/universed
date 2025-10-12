@@ -43,6 +43,10 @@ vi.mock('@/components/DataManagerProvider', async () => {
         loadingPhase: 'initial',
         loadTime: null,
         loadBreakdown: null,
+        isLoadingCommunities: false,
+        isLoadingChannels: true,
+        isLoadingMessages: false,
+        hasBasicCommunitiesData: true,
         getFolders: vi.fn(() => []),
         getChannelsWithoutFolder: vi.fn(() => ({ text: [], voice: [] })),
         getSortedChannels: vi.fn(() => []),
@@ -84,8 +88,8 @@ describe('CommunityChannelList', () => {
       </TestApp>
     );
 
-    // Check that skeleton elements are present by looking for elements with skeleton class
-    const skeletons = document.querySelectorAll('.animate-pulse');
+    // Check that skeleton elements are present by looking for elements with skeleton data-testid
+    const skeletons = document.querySelectorAll('[data-testid="skeleton"]');
     expect(skeletons.length).toBeGreaterThan(0);
   });
 
