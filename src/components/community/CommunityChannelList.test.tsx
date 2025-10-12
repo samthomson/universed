@@ -172,6 +172,10 @@ describe('CommunityChannelList', () => {
         loadingPhase: 'ready',
         loadTime: null,
         loadBreakdown: null,
+        isLoadingCommunities: false,
+        isLoadingChannels: false,
+        isLoadingMessages: false,
+        hasBasicCommunitiesData: true,
         getFolders: vi.fn(() => []),
         getChannelsWithoutFolder: vi.fn(() => ({
           text: [],
@@ -289,6 +293,10 @@ describe('CommunityChannelList', () => {
         loadingPhase: 'ready',
         loadTime: null,
         loadBreakdown: null,
+        isLoadingCommunities: false,
+        isLoadingChannels: false,
+        isLoadingMessages: false,
+        hasBasicCommunitiesData: true,
         getFolders: vi.fn(() => []),
         getChannelsWithoutFolder: vi.fn(() => ({
           text: [],
