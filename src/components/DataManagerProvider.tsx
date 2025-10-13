@@ -5185,6 +5185,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${cachedCommunities.size} communities loaded`);
           startCommunityMessagesSubscription(cachedCommunities);
           startCommunityManagementSubscription();
+
+          // Trigger background refresh to get updated data (including join requests)
+          logger.log('Communities: Starting background refresh to update data');
+          startCommunitiesLoading(true);
         } else {
           logger.log('Communities: No valid cache found, loading from network');
           startCommunitiesLoading();
