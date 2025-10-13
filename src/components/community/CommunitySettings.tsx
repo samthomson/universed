@@ -25,6 +25,7 @@ import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
+import { generateSpaceUrl } from "@/lib/utils";
 
 import { nip19 } from 'nostr-tools';
 import { Copy, Check, QrCode, Download, Crown, AlertTriangle } from 'lucide-react';
@@ -851,18 +852,15 @@ function CommunityShareContent({ community }: { community: CommunityData }) {
   const [isGeneratingQR, setIsGeneratingQR] = useState(true);
   const { toast } = useToast();
 
-  // Parse community ID to get the components for naddr
-  const [kind, pubkey, identifier] = community.id.split(':');
+  // Parse community fullAddressableId to get the components for naddr
+  const [kind, pubkey, identifier] = community.fullAddressableId.split(':');
 
   // Generate naddr for the community with error handling
   let naddr = '';
   try {
-    // Pad the pubkey to 64 characters (32 bytes) if needed
-    const paddedPubkey = pubkey.padStart(64, '0');
-
     naddr = nip19.naddrEncode({
       kind: parseInt(kind),
-      pubkey: paddedPubkey,
+      pubkey: pubkey,
       identifier,
       relays: community.info.relays.length > 0 ? community.info.relays : undefined,
     });
@@ -871,16 +869,16 @@ function CommunityShareContent({ community }: { community: CommunityData }) {
     // Fallback to a simple join URL without naddr
   }
 
-  // Generate shareable URLs
+  // Generate shareable URL - works for both joining and viewing the community
   const baseUrl = window.location.origin;
-  const joinUrl = `${baseUrl}/join/${naddr}`;
+  const communityUrl = `${baseUrl}${generateSpaceUrl(community.fullAddressableId).replace(baseUrl, '')}`;
 
   // Auto-generate QR code when component mounts
   useEffect(() => {
     const generateQRCode = async () => {
       try {
         setIsGeneratingQR(true);
-        const qrDataUrl = await QRCode.toDataURL(joinUrl, {
+        const qrDataUrl = await QRCode.toDataURL(communityUrl, {
           width: 256,
           margin: 2,
           color: {
@@ -902,7 +900,7 @@ function CommunityShareContent({ community }: { community: CommunityData }) {
     };
 
     generateQRCode();
-  }, [joinUrl, toast]);
+  }, [communityUrl, toast]);
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -955,21 +953,21 @@ function CommunityShareContent({ community }: { community: CommunityData }) {
 
   return (
     <div className="space-y-4">
-      {/* Join Link */}
+      {/* Community Link */}
       <div className="space-y-3">
         <div>
-          <Label>Join Link</Label>
+          <Label>Community Link</Label>
           <p className="text-sm text-muted-foreground mb-2">
-            Direct link for people to request to join your community
+            Share this link so people can view and request to join your community
           </p>
         </div>
         <div className="flex gap-2">
           <Input
-            value={joinUrl}
+            value={communityUrl}
             readOnly
             className="font-mono text-sm"
           />
-          <CopyButton text={joinUrl} field="join-url" />
+          <CopyButton text={communityUrl} field="community-url" />
         </div>
       </div>
 

@@ -102,6 +102,7 @@ function CommunityChatHeader({
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const { data: joinRequests } = useJoinRequests(communityId);
   const pendingJoinRequests = joinRequests?.length || 0;
+  const { communities } = useDataManager();
 
   if (!channel) {
     return null;
@@ -111,9 +112,21 @@ function CommunityChatHeader({
   const isVoiceChannel = channel.type === "voice";
 
   const copyChannelLink = () => {
-    // Use naddr format for community ID
+    // Get the full addressable ID from DataManager
+    const community = communities.communities.get(communityId);
+    
+    if (!community) {
+      toast({
+        title: 'Copy Failed',
+        description: 'Community not found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      const channelLink = generateSpaceUrl(communityId, channelId);
+      // Use the full addressable ID for proper naddr encoding
+      const channelLink = generateSpaceUrl(community.fullAddressableId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast({
         title: 'Link Copied',

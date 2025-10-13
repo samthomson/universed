@@ -65,9 +65,8 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
     relays: communityData.relays.length > 0 ? communityData.relays : undefined,
   });
 
-  // Generate shareable URLs
+  // Generate shareable URL - this works for both joining and viewing the community
   const communityUrl = generateSpaceUrl(`${communityData.kind}:${communityData.pubkey}:${communityData.identifier}`);
-  const joinUrl = `${window.location.origin}/join/${encodeURIComponent(naddr)}`;
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -93,14 +92,14 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
         await navigator.share({
           title: `Join ${communityData.name}`,
           text: `Join the ${communityData.name} community on Nostr!`,
-          url: joinUrl,
+          url: communityUrl,
         });
       } catch {
         // User cancelled or sharing failed - this is expected behavior
       }
     } else {
-      // Fallback to copying the join URL
-      copyToClipboard(joinUrl, 'native-share');
+      // Fallback to copying the community URL
+      copyToClipboard(communityUrl, 'native-share');
     }
   };
 
@@ -156,27 +155,6 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
 
           <Separator />
 
-          {/* Join Link */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="join-url" className="text-base font-medium">
-                Join Link
-              </Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Direct link for people to request to join your community in the main app
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="join-url"
-                value={joinUrl}
-                readOnly
-                className="font-mono text-sm"
-              />
-              <CopyButton text={joinUrl} field="join-url" />
-            </div>
-          </div>
-
           {/* Community Link */}
           <div className="space-y-4">
             <div>
@@ -184,7 +162,7 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
                 Community Link
               </Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Direct link to open the community in the main app (for existing members)
+                Share this link so people can view and request to join your community
               </p>
             </div>
             <div className="flex gap-2">
@@ -241,9 +219,9 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
             <CardContent className="pt-4">
               <h4 className="font-medium mb-2">Sharing Tips</h4>
               <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Use the <strong>Join Link</strong> to invite new members - opens join dialog in the app</li>
-                <li>• Share the <strong>Community Link</strong> with existing members - opens directly in the app</li>
+                <li>• Share the <strong>Community Link</strong> to invite new members or let existing members join</li>
                 <li>• The <strong>naddr</strong> works in any Nostr client that supports communities</li>
+                <li>• Use the <strong>QR Code</strong> for easy mobile sharing at events or in-person</li>
               </ul>
             </CardContent>
           </Card>
