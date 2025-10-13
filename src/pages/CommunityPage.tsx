@@ -4,10 +4,11 @@ import { ChatArea } from "@/components/layout/ChatArea";
 import { MemberList } from "@/components/layout/MemberList";
 import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CommunityShareDialog } from "@/components/community/CommunityShareDialog";
 
 // Page component for Community pages
 export function CommunityPage() {
@@ -15,9 +16,11 @@ export function CommunityPage() {
 	const { user } = useCurrentUser();
 	const navigate = useNavigate();
 	const { communities } = useDataManager();
+	const [searchParams, setSearchParams] = useSearchParams();
 
 	const [selectedChannel, setSelectedChannel] = useState<string | null>(channelId || null);
 	const [showMemberList, setShowMemberList] = useState(true);
+	const [showShareDialog, setShowShareDialog] = useState(false);
 
 	// Decode naddr format to full addressable format (kind:pubkey:identifier)
 	let decodedCommunityId = communityId || '';
@@ -79,6 +82,16 @@ export function CommunityPage() {
 			setSelectedChannel(null);
 		}
 	}, [channelId, channels]);
+
+	// Check for share query parameter and open share dialog
+	useEffect(() => {
+		if (searchParams.get('share') === 'true' && community) {
+			setShowShareDialog(true);
+			// Remove the query parameter from URL
+			searchParams.delete('share');
+			setSearchParams(searchParams, { replace: true });
+		}
+	}, [searchParams, setSearchParams, community]);
 
 	const handleCommunitySectionSelect = (sectionName: string) => {
 		// Navigate to the appropriate community section page
@@ -181,35 +194,46 @@ export function CommunityPage() {
 	const finalCommunityId = simpleCommunityId || communityId;
 
 	return (
-		<BasePageLayout
-			leftPanel={
-				<CommunityPanel
-					communityId={finalCommunityId}
-					selectedChannel={selectedChannel}
-					selectedSpace={null} // No spaces selected on channel page
-					onSelectChannel={(channelId) => {
-						navigate(`/space/${communityId}/${channelId}`);
-					}}
-					onSelectSpace={handleCommunitySectionSelect}
-				/>
-			}
-			mainContent={
-				// CHANNEL CHAT: Always show chat interface (spaces have separate routes)
-				<ChatArea
-					communityId={finalCommunityId}
-					channelId={selectedChannel}
-					onToggleMemberList={() => setShowMemberList(!showMemberList)}
-				/>
-			}
-			rightPanel={
-				isShowingMemberList ? (
-					<MemberList
+		<>
+			<BasePageLayout
+				leftPanel={
+					<CommunityPanel
+						communityId={finalCommunityId}
+						selectedChannel={selectedChannel}
+						selectedSpace={null} // No spaces selected on channel page
+						onSelectChannel={(channelId) => {
+							navigate(`/space/${communityId}/${channelId}`);
+						}}
+						onSelectSpace={handleCommunitySectionSelect}
+					/>
+				}
+				mainContent={
+					// CHANNEL CHAT: Always show chat interface (spaces have separate routes)
+					<ChatArea
 						communityId={finalCommunityId}
 						channelId={selectedChannel}
+						onToggleMemberList={() => setShowMemberList(!showMemberList)}
 					/>
-				) : undefined
-			}
-		/>
+				}
+				rightPanel={
+					isShowingMemberList ? (
+						<MemberList
+							communityId={finalCommunityId}
+							channelId={selectedChannel}
+						/>
+					) : undefined
+				}
+			/>
+
+			{/* Share Dialog - shown when ?share=true query param is present */}
+			{community && (
+				<CommunityShareDialog
+					community={community}
+					open={showShareDialog}
+					onOpenChange={setShowShareDialog}
+				/>
+			)}
+		</>
 	);
 }
 

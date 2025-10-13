@@ -654,11 +654,11 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
                           try {
                             const naddr = communityIdToNaddr(createdCommunityId);
                             const encodedNaddr = encodeNaddrForUrl(naddr);
-                            navigate(`/space/${encodedNaddr}`);
+                            navigate(`/space/${encodedNaddr}/general`);
                           } catch (error) {
                             console.error('Failed to encode community ID:', error);
                             // Fallback to unencoded format if encoding fails
-                            navigate(`/space/${createdCommunityId}`);
+                            navigate(`/space/${createdCommunityId}/general`);
                           }
                         }, 100);
                       }
@@ -668,31 +668,36 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
                     Go to Space
                   </Button>
 
+                  {/* Share Space button - navigates to space and opens share dialog */}
                   <Button
                     variant="outline"
                     className='w-full rounded-full py-3 sm:py-4 bg-slate-800/50 border-slate-700/50 text-indigo-200 hover:bg-slate-700/50 hover:text-white'
                     onClick={(e) => {
                       e.preventDefault();
-                      // Navigate to the community with share dialog open using encoded naddr
                       if (createdCommunityId) {
-                        // Notify parent that community was created and user wants to navigate to it
-                        onCommunityCreated?.(createdCommunityId);
+                        // Get the community from DataManager
+                        const communityIdentifier = createdCommunityId.split(':')[2];
+                        const community = communities.communities.get(communityIdentifier);
+                        
+                        if (community) {
+                          // Notify parent that community was created
+                          onCommunityCreated?.(createdCommunityId);
 
-                        // Close dialog first
-                        onOpenChange(false);
+                          // Close this dialog first
+                          onOpenChange(false);
 
-                        // Small delay to ensure dialog closes before navigation
-                        setTimeout(() => {
-                          try {
-                            const naddr = communityIdToNaddr(createdCommunityId);
-                            const encodedNaddr = encodeNaddrForUrl(naddr);
-                            navigate(`/space/${encodedNaddr}?share=true`);
-                          } catch (error) {
-                            console.error('Failed to encode community ID:', error);
-                            // Fallback to unencoded format if encoding fails
-                            navigate(`/space/${createdCommunityId}?share=true`);
-                          }
-                        }, 100);
+                          // Navigate to the space with share=true query param
+                          setTimeout(() => {
+                            try {
+                              const naddr = communityIdToNaddr(createdCommunityId);
+                              const encodedNaddr = encodeNaddrForUrl(naddr);
+                              navigate(`/space/${encodedNaddr}/general?share=true`);
+                            } catch (error) {
+                              console.error('Failed to encode community ID:', error);
+                              navigate(`/space/${createdCommunityId}/general?share=true`);
+                            }
+                          }, 100);
+                        }
                       }
                     }}
                   >

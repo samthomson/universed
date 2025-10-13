@@ -25,11 +25,18 @@ type ShareableCommunity = CommunityData | Community | UserCommunity;
 interface CommunityShareDialogProps {
   community: ShareableCommunity;
   children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CommunityShareDialog({ community, children }: CommunityShareDialogProps) {
+export function CommunityShareDialog({ community, children, open: controlledOpen, onOpenChange }: CommunityShareDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Use controlled state if provided, otherwise use internal state
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
 
   // Helper functions to extract data from different community types
   const getCommunityData = (community: ShareableCommunity) => {
@@ -119,15 +126,20 @@ export function CommunityShareDialog({ community, children }: CommunityShareDial
   );
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        {children || (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {children && (
+        <DialogTrigger asChild>
+          {children}
+        </DialogTrigger>
+      )}
+      {!children && (
+        <DialogTrigger asChild>
           <Button variant="outline" className="flex items-center gap-2">
             <Share2 className="h-4 w-4" />
             Share Community
           </Button>
-        )}
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
