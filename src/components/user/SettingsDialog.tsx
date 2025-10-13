@@ -47,7 +47,7 @@ export function SettingsDialog() {
         title: "Cache Cleared",
         description: "All cached data has been cleared successfully. Data will reload from the relay.",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to clear cache. Please try again.",
