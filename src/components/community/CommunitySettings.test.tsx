@@ -136,6 +136,8 @@ describe('CommunitySettings', () => {
         deleteChannelImmediately: vi.fn(),
         loadOlderMessages: vi.fn(),
         resetCommunitiesDataAndCache: vi.fn(),
+        addOptimisticCommunity: vi.fn(),
+        refreshCommunities: vi.fn(),
         useDataManagerPinnedMessages: vi.fn(() => []),
         approveMember: vi.fn(),
         declineMember: vi.fn(),
