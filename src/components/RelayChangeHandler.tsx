@@ -17,8 +17,12 @@ import { logger } from '@/lib/logger';
 export function RelayChangeHandler() {
   const { config } = useAppContext();
   const queryClient = useQueryClient();
-  const { messaging, communities } = useDataManager();
+  const dataManager = useDataManager();
   const prevRelayUrlRef = useRef<string | null>(null);
+  
+  // Keep stable refs to avoid effect running on every DataManagerProvider render
+  const dataManagerRef = useRef(dataManager);
+  dataManagerRef.current = dataManager;
 
   useEffect(() => {
     // Only trigger on actual relay changes (not initial mount)
@@ -31,8 +35,8 @@ export function RelayChangeHandler() {
       
       logger.log('RelayChangeHandler: Clearing message and community caches...');
       Promise.all([
-        messaging.resetMessageDataAndCache(),
-        communities.resetCommunitiesDataAndCache(),
+        dataManagerRef.current.messaging.resetMessageDataAndCache(),
+        dataManagerRef.current.communities.resetCommunitiesDataAndCache(),
       ]).then(() => {
         logger.log('RelayChangeHandler: All caches cleared, data will reload from new relay');
       }).catch((error) => {
@@ -41,7 +45,7 @@ export function RelayChangeHandler() {
     }
     
     prevRelayUrlRef.current = config.relayUrl;
-  }, [config.relayUrl, queryClient, messaging, communities]);
+  }, [config.relayUrl, queryClient]);
 
   // This component doesn't render anything
   return null;
