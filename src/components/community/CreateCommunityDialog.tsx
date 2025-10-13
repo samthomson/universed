@@ -16,6 +16,7 @@ import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2
 import { cn, communityIdToNaddr, generateCommunityIdentifier, generateChannelIdentifier, encodeNaddrForUrl } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import { QuickSetupStep } from "./QuickSetupStep";
+import { useDataManager } from "@/components/DataManagerProvider";
 
 
 interface CreateCommunityDialogProps {
@@ -45,6 +46,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { communities } = useDataManager();
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -253,11 +255,17 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
         variant: "destructive",
       });
     },
-    onSuccess: () => {
+    onSuccess: (communityEvent) => {
       toast({
         title: "Success",
         description: "Space created successfully!",
       });
+
+      // Add community to DataManager immediately for navigation
+      communities.addOptimisticCommunity(communityEvent);
+
+      // Trigger background refresh to set up subscriptions and load channels
+      communities.refreshCommunities();
 
       // Move to success step after creation animation
       setTimeout(() => {

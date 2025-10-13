@@ -400,6 +400,8 @@ interface CommunitiesDomain {
   approveMember: (communityId: string, memberPubkey: string) => Promise<void>;
   declineMember: (communityId: string, memberPubkey: string) => Promise<void>;
   banMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  addOptimisticCommunity: (communityEvent: NostrEvent) => void;
+  refreshCommunities: () => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -5091,6 +5093,75 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     loadCommunitiesWithCache();
   }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
 
+  // Add optimistic community for immediate UI feedback when creating a new community
+  const addOptimisticCommunity = useCallback((communityEvent: NostrEvent) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic community, no user pubkey');
+      return;
+    }
+
+    // Parse community data from event
+    const dTag = getTagValue(communityEvent, 'd');
+    if (!dTag) {
+      logger.error('Communities: Cannot add optimistic community, missing d tag');
+      return;
+    }
+
+    const nameTag = getTagValue(communityEvent, 'name');
+    const descriptionTag = getTagValue(communityEvent, 'description');
+    const imageTag = getTagValue(communityEvent, 'image');
+    const bannerTag = getTagValue(communityEvent, 'banner');
+
+    // Extract moderators from p tags with role=moderator
+    const moderators = getTagValueWithRole(communityEvent, 'p', 'moderator');
+
+    // Extract relay URLs
+    const relays = getTagValues(communityEvent, 'relay');
+
+    const fullAddressableId = `34550:${communityEvent.pubkey}:${dTag}`;
+
+    // Create optimistic community with minimal data
+    const optimisticCommunity: CommunityData = {
+      id: dTag,
+      fullAddressableId,
+      pubkey: communityEvent.pubkey,
+      info: {
+        name: nameTag || dTag,
+        description: descriptionTag,
+        image: imageTag,
+        banner: bannerTag,
+        moderators,
+        relays,
+      },
+      definitionEvent: communityEvent,
+      channels: new Map(), // Will be populated by background refresh
+      approvedMembers: null,
+      pendingMembers: null,
+      declinedMembers: null,
+      bannedMembers: null,
+      membershipStatus: 'owner', // Creator is always owner
+      lastActivity: communityEvent.created_at,
+      isLoadingChannels: true, // Indicate that channels are being loaded
+    };
+
+    // Add to state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      newCommunities.set(dTag, optimisticCommunity);
+      return newCommunities;
+    });
+
+    logger.log('Communities: Added optimistic community:', dTag);
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [user?.pubkey]);
+
+  // Refresh communities in the background to set up subscriptions and get full data
+  const refreshCommunities = useCallback(async () => {
+    logger.log('Communities: Triggering background refresh for newly created community');
+    await startCommunitiesLoading(true); // Pass true for background refresh
+  }, [startCommunitiesLoading]);
 
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
@@ -5607,6 +5678,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     approveMember,
     declineMember,
     banMember,
+    addOptimisticCommunity,
+    refreshCommunities,
   };
 
   const contextValue: DataManagerContextType = {
