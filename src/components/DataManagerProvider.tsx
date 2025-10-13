@@ -402,6 +402,7 @@ interface CommunitiesDomain {
   banMember: (communityId: string, memberPubkey: string) => Promise<void>;
   addOptimisticCommunity: (communityEvent: NostrEvent) => void;
   refreshCommunities: () => Promise<void>;
+  addProspectiveCommunity: (communityId: string) => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -3447,6 +3448,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [34550], // Community definitions
           '#p': [user.pubkey], // User is mentioned as moderator
           limit: 1000,
+        },
+        // Filter 4: Find communities where user has sent join requests
+        {
+          kinds: [4552], // Join request events
+          authors: [user.pubkey], // User sent the request
+          limit: 1000,
+          since: Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60), // Last 90 days
         }
       ], {
         signal: AbortSignal.timeout(15000)
@@ -3459,10 +3467,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const ownedCommunities = allCommunityEvents.filter(event =>
         event.kind === 34550
       );
+      const userJoinRequests = allCommunityEvents.filter(event =>
+        event.kind === 4552
+      );
 
       const membershipTime = Date.now() - startTime;
 
-      logger.log(`Communities: Found ${membershipEvents.length} membership records and ${ownedCommunities.length} owned/moderated communities in ${membershipTime}ms`);
+      logger.log(`Communities: Found ${membershipEvents.length} membership records, ${ownedCommunities.length} owned/moderated communities, and ${userJoinRequests.length} join requests in ${membershipTime}ms`);
 
       // Extract community IDs from owned/moderated communities
       const ownedCommunityIds = new Set<string>();
@@ -3489,8 +3500,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
       });
 
-      if (membershipEvents.length === 0 && ownedCommunityIds.size === 0) {
-        logger.log('Communities: User is not a member of any communities');
+      // Extract community IDs from user's join requests
+      const joinRequestCommunityIds = new Set<string>();
+      const joinRequestMap = new Map<string, NostrEvent>();
+      
+      userJoinRequests.forEach(event => {
+        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+        if (!aTag) return;
+        
+        const [kind, pubkey, id] = aTag.split(':');
+        if (!kind || !pubkey || !id) return;
+        
+        // Keep the most recent join request per community
+        const existing = joinRequestMap.get(id);
+        if (!existing || event.created_at > existing.created_at) {
+          joinRequestCommunityIds.add(id);
+          joinRequestMap.set(id, event);
+          logger.log(`Communities: Found join request for community "${id}"`);
+        }
+      });
+
+      if (membershipEvents.length === 0 && ownedCommunityIds.size === 0 && joinRequestCommunityIds.size === 0) {
+        logger.log('Communities: User is not a member of any communities and has no pending requests');
         const totalTime = Date.now() - startTime;
         return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
       }
@@ -3529,13 +3560,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           .filter((entry) => !!entry)
       );
 
-      // Combine community IDs from both membership events and owned communities
+      // Combine community IDs from membership events, owned communities, and join requests
       const communityIds = new Set([
         ...membershipStatusMap.keys(),
-        ...ownedCommunityIds
+        ...ownedCommunityIds,
+        ...joinRequestCommunityIds
       ]);
 
-      logger.log(`Communities: User is member of ${communityIds.size} communities (${membershipStatusMap.size} from membership events, ${ownedCommunityIds.size} owned/moderated)`);
+      logger.log(`Communities: User is member of ${communityIds.size} communities (${membershipStatusMap.size} from membership events, ${ownedCommunityIds.size} owned/moderated, ${joinRequestCommunityIds.size} pending requests)`);
 
       // Step 3: Load community definitions using efficient batch query
       const communityIdArray = Array.from(communityIds);
@@ -3583,21 +3615,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const communitiesWithStatus = communityDefinitions.map(definition => {
         const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
 
-        // Get membership status - check both explicit membership and owned/moderated status
+        // Get membership status - check explicit membership, owned/moderated status, and join requests
         let membershipStatus: 'approved' | 'pending' | 'banned';
         let membershipEvent: NostrEvent;
 
         const membershipInfo = membershipStatusMap.get(communityId!);
         const ownedInfo = ownedCommunityMap.get(communityId!);
+        const joinRequestInfo = joinRequestMap.get(communityId!);
 
         if (ownedInfo) {
           // User owns or moderates this community - always approved
           membershipStatus = 'approved';
           membershipEvent = ownedInfo.event;
         } else if (membershipInfo) {
-          // User has explicit membership
+          // User has explicit membership (approved, declined, or banned)
           membershipStatus = membershipInfo.status;
           membershipEvent = membershipInfo.event;
+        } else if (joinRequestInfo) {
+          // User has sent a join request but not been added to any list yet
+          membershipStatus = 'pending';
+          membershipEvent = joinRequestInfo;
+          logger.log(`Communities: Community ${communityId} marked as pending (join request only)`);
         } else {
           // This shouldn't happen, but fallback
           logger.warn(`Communities: No membership info found for community ${communityId}`);
@@ -5230,6 +5268,95 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     await startCommunitiesLoading(true); // Pass true for background refresh
   }, [startCommunitiesLoading]);
 
+  // Add prospective community after join request
+  const addProspectiveCommunity = useCallback(async (communityId: string) => {
+    if (!user?.pubkey || !nostr) {
+      logger.error('Communities: Cannot add prospective community, no user or nostr available');
+      return;
+    }
+
+    logger.log(`Communities: Adding prospective community ${communityId}`);
+
+    try {
+      // Parse communityId (format: "34550:pubkey:identifier")
+      const [kind, pubkey, identifier] = communityId.split(':');
+      if (!kind || !pubkey || !identifier) {
+        throw new Error(`Invalid community ID format: ${communityId}`);
+      }
+
+      // Fetch the community definition
+      const communityEvents = await nostr.query([{
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        '#d': [identifier],
+        limit: 1,
+      }], {
+        signal: AbortSignal.timeout(5000)
+      });
+
+      const communityEvent = communityEvents[0];
+      if (!communityEvent) {
+        throw new Error(`Community definition not found for ${communityId}`);
+      }
+
+      // Parse community metadata
+      const name = communityEvent.tags.find(([name]) => name === 'name')?.[1] || identifier;
+      const description = communityEvent.tags.find(([name]) => name === 'description')?.[1];
+      const image = communityEvent.tags.find(([name]) => name === 'image')?.[1];
+      const banner = communityEvent.tags.find(([name]) => name === 'banner')?.[1];
+
+      const moderators = communityEvent.tags
+        .filter(([name, , , role]) => name === 'p' && role === 'moderator')
+        .map(([, pubkey]) => pubkey);
+
+      const relays = communityEvent.tags
+        .filter(([name]) => name === 'relay')
+        .map(([, url]) => url);
+
+      // Create minimal community data with 'pending' status
+      const prospectiveCommunity: CommunityData = {
+        id: identifier,
+        fullAddressableId: communityId,
+        pubkey: communityEvent.pubkey,
+        info: {
+          name,
+          description,
+          image,
+          banner,
+          moderators,
+          relays,
+        },
+        definitionEvent: communityEvent,
+        channels: new Map(), // No channels yet
+        approvedMembers: null,
+        pendingMembers: null,
+        declinedMembers: null,
+        bannedMembers: null,
+        membershipStatus: 'pending',
+        lastActivity: communityEvent.created_at,
+      };
+
+      // Add to communities state
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        newCommunities.set(identifier, prospectiveCommunity);
+        logger.log(`Communities: Added prospective community ${identifier} (${name})`);
+        return newCommunities;
+      });
+
+      // Restart subscriptions to include this new community
+      // Wait a bit for state to update
+      setTimeout(() => {
+        startCommunityManagementSubscription();
+        logger.log(`Communities: Restarted subscriptions to include prospective community ${identifier}`);
+      }, 100);
+
+    } catch (error) {
+      logger.error(`Communities: Failed to add prospective community ${communityId}:`, error);
+      throw error;
+    }
+  }, [user, nostr, startCommunityManagementSubscription]);
+
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
     return () => {
@@ -5747,6 +5874,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     banMember,
     addOptimisticCommunity,
     refreshCommunities,
+    addProspectiveCommunity,
   };
 
   const contextValue: DataManagerContextType = {
