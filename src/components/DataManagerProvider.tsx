@@ -2448,7 +2448,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, communities, addMessageToChannel]);
 
   // Start community messages subscription for all loaded communities
-  const startCommunityMessagesSubscription = useCallback(async (communitiesToUse?: Map<string, CommunityData>) => {
+  const startCommunityMessagesSubscription = useCallback(async (communitiesToUse?: Map<string, CommunityData>, cacheTimestamp?: number | null) => {
     const communitiesForSubscription = communitiesToUse || communities;
     logger.log(`[CHANNEL-DEBUG] startCommunityMessagesSubscription called with ${communitiesForSubscription.size} communities`);
     if (!user?.pubkey || !nostr || communitiesForSubscription.size === 0) {
@@ -2480,13 +2480,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         return;
       }
 
-      // Use in-memory lastSync timestamp (consistent with DM pattern)
+      // Use provided cache timestamp, fall back to state, then default to 30 seconds ago
+      const lastSyncToUse = cacheTimestamp ?? communitiesLastSync;
       let subscriptionSince = Math.floor(Date.now() / 1000) - 30; // Default to 30 seconds ago to catch recent events
 
-      if (communitiesLastSync) {
+      if (lastSyncToUse) {
         // Start subscription from 60 seconds before last cache write (accounts for debounced saves)
-        subscriptionSince = Math.floor(communitiesLastSync / 1000) - 60;
-        logger.log(`Communities: Using in-memory lastSync timestamp for subscription: ${new Date(communitiesLastSync).toISOString()}`);
+        subscriptionSince = Math.floor(lastSyncToUse / 1000) - 60;
+        logger.log(`Communities: Using lastSync timestamp for subscription: ${new Date(lastSyncToUse).toISOString()}`);
       } else {
         logger.log('Communities: No lastSync timestamp available, using 30 seconds ago to catch recent events');
       }
@@ -2813,7 +2814,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [user, communities]);
 
   // Start community management subscription (membership changes, community updates, permissions)
-  const startCommunityManagementSubscription = useCallback(async () => {
+  const startCommunityManagementSubscription = useCallback(async (cacheTimestamp?: number | null) => {
     if (!user?.pubkey || !nostr || communities.size === 0) return;
 
     // Close existing subscription
@@ -2833,8 +2834,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         ownerPubkeys.push(community.pubkey);
       });
 
-      const subscriptionSince = communitiesLastSync
-        ? Math.floor(communitiesLastSync / 1000) - 60
+      // Use provided cache timestamp, fall back to state, then default to now
+      const lastSyncToUse = cacheTimestamp ?? communitiesLastSync;
+      const subscriptionSince = lastSyncToUse
+        ? Math.floor(lastSyncToUse / 1000) - 60
         : Math.floor(Date.now() / 1000);
 
       const filters = [
@@ -3404,297 +3407,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Communities Management Functions
   // ============================================================================
 
-  // Load communities the user is a member of with their membership status
-  const loadUserCommunities = useCallback(async (): Promise<{
-    communities: Array<{
-      id: string;
-      pubkey: string;
-      info: CommunityInfo;
-      definitionEvent: NostrEvent;
-      membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator';
-      membershipEvent: NostrEvent;
-    }>;
-    timing: {
-      membershipQuery: number;
-      definitionsQuery: number;
-      total: number;
-    };
-  }> => {
-    if (!user?.pubkey) {
-      logger.log('Communities: No user pubkey available');
-      return { communities: [], timing: { membershipQuery: 0, definitionsQuery: 0, total: 0 } };
-    }
-
-    logger.log('Communities: Loading user communities...');
-    const startTime = Date.now();
-
-    try {
-      // Step 1: Find communities where user is a member (both explicit and implicit) - single efficient query
-      const allCommunityEvents = await nostr.query([
-        // Filter 1: Find membership lists that include this user (approved + pending + blocked)
-        {
-          kinds: [34551, 34552, 34553], // Approved + Pending + Blocked members events
-          '#p': [user.pubkey], // User is mentioned in the member list
-          limit: 1000,
-        },
-        // Filter 2: Find communities where user is creator/owner
-        {
-          kinds: [34550], // Community definitions
-          authors: [user.pubkey], // User created the community
-          limit: 1000,
-        },
-        // Filter 3: Find communities where user is mentioned as moderator
-        {
-          kinds: [34550], // Community definitions
-          '#p': [user.pubkey], // User is mentioned as moderator
-          limit: 1000,
-        },
-        // Filter 4: Find communities where user has sent join requests
-        {
-          kinds: [4552], // Join request events
-          authors: [user.pubkey], // User sent the request
-          limit: 1000,
-          since: Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60), // Last 90 days
-        }
-      ], {
-        signal: AbortSignal.timeout(15000)
-      });
-
-      // Separate the results by event kind
-      const membershipEvents = allCommunityEvents.filter(event =>
-        [34551, 34552, 34553].includes(event.kind)
-      );
-      const ownedCommunities = allCommunityEvents.filter(event =>
-        event.kind === 34550
-      );
-      const userJoinRequests = allCommunityEvents.filter(event =>
-        event.kind === 4552
-      );
-
-      const membershipTime = Date.now() - startTime;
-
-      logger.log(`Communities: Found ${membershipEvents.length} membership records, ${ownedCommunities.length} owned/moderated communities, and ${userJoinRequests.length} join requests in ${membershipTime}ms`);
-
-      // Extract community IDs from owned/moderated communities
-      const ownedCommunityIds = new Set<string>();
-      const ownedCommunityMap = new Map<string, { event: NostrEvent; status: 'owner' | 'moderator' }>();
-
-      ownedCommunities.forEach(event => {
-        const communityId = event.tags.find(([name]) => name === 'd')?.[1];
-        if (!communityId) return;
-
-        // Check if user is creator (owner) or moderator
-        const isCreator = event.pubkey === user.pubkey;
-        const isModerator = event.tags.some(([name, pubkey, , role]) =>
-          name === 'p' && pubkey === user.pubkey && role === 'moderator'
-        );
-
-        // We query both by authors and #p to catch all cases:
-        // - authors: catches communities where user is creator (even without moderator tag)
-        // - #p: catches communities where user is added as moderator by someone else
-        if (isCreator || isModerator) {
-          ownedCommunityIds.add(communityId);
-          // Prioritize creator status over moderator status
-          const status = isCreator ? 'owner' : 'moderator';
-          ownedCommunityMap.set(communityId, { event, status });
-        }
-      });
-
-      // Extract community IDs from user's join requests
-      const joinRequestCommunityIds = new Set<string>();
-      const joinRequestMap = new Map<string, NostrEvent>();
-      
-      userJoinRequests.forEach(event => {
-        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
-        if (!aTag) return;
-        
-        const [kind, pubkey, id] = aTag.split(':');
-        if (!kind || !pubkey || !id) return;
-        
-        // Keep the most recent join request per community
-        const existing = joinRequestMap.get(id);
-        if (!existing || event.created_at > existing.created_at) {
-          joinRequestCommunityIds.add(id);
-          joinRequestMap.set(id, event);
-          logger.log(`Communities: Found join request for community "${id}"`);
-        }
-      });
-
-      if (membershipEvents.length === 0 && ownedCommunityIds.size === 0 && joinRequestCommunityIds.size === 0) {
-        logger.log('Communities: User is not a member of any communities and has no pending requests');
-        const totalTime = Date.now() - startTime;
-        return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
-      }
-
-      // Extract community IDs and their membership status from events
-      const membershipStatusMap = new Map(
-        membershipEvents
-          // Extract community ID and determine status
-          .map(event => {
-            const communityRef = event.tags.find(([name]) => name === 'd')?.[1];
-            if (!communityRef) return null;
-
-            const [kind, pubkey, id] = communityRef.split(':');
-            if (!kind || !pubkey || !id) {
-              logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
-              return null;
-            }
-
-            const status = (() => {
-              switch (event.kind) {
-                case 34551: return 'approved' as const;
-                case 34552: return 'pending' as const;
-                case 34553: return 'banned' as const;
-                default:
-                  logger.warn(`Communities: Unknown membership event kind ${event.kind}, skipping`);
-                  return null;
-              }
-            })();
-
-            if (status === null) return null;
-
-            logger.log(`Communities: Extracted community ID "${id}" from ref "${communityRef}" with status "${status}"`);
-            return [id, { status, event }] as const;
-          })
-          // Remove invalid entries
-          .filter((entry) => !!entry)
-      );
-
-      // Combine community IDs from membership events, owned communities, and join requests
-      const communityIds = new Set([
-        ...membershipStatusMap.keys(),
-        ...ownedCommunityIds,
-        ...joinRequestCommunityIds
-      ]);
-
-      logger.log(`Communities: User is member of ${communityIds.size} communities (${membershipStatusMap.size} from membership events, ${ownedCommunityIds.size} owned/moderated, ${joinRequestCommunityIds.size} pending requests)`);
-
-      // Step 3: Load community definitions using efficient batch query
-      const communityIdArray = Array.from(communityIds);
-
-      if (communityIdArray.length === 0) {
-        logger.log('Communities: No community IDs to query');
-        const totalTime = Date.now() - startTime;
-        return { communities: [], timing: { membershipQuery: membershipTime, definitionsQuery: 0, total: totalTime } };
-      }
-
-      logger.log(`Communities: Querying for ${communityIdArray.length} community definitions in single batch...`);
-
-      // Query community definitions - combine with already fetched owned communities
-      const definitionsStart = Date.now();
-
-      // Get community IDs that we don't already have definitions for
-      const alreadyHaveDefinitions = new Set(ownedCommunities.map(event =>
-        event.tags.find(([name]) => name === 'd')?.[1]
-      ).filter(Boolean));
-
-      const needDefinitions = communityIdArray.filter(id => !alreadyHaveDefinitions.has(id));
-
-      let additionalDefinitions: NostrEvent[] = [];
-      if (needDefinitions.length > 0) {
-        additionalDefinitions = await nostr.query([{
-          kinds: [34550],
-          '#d': needDefinitions, // Query specific community IDs we don't have
-        }], {
-          signal: AbortSignal.timeout(15000)
-        });
-      }
-
-      // Combine owned communities with additional definitions
-      const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
-      const definitionsTime = Date.now() - definitionsStart;
-
-      logger.log(`Communities: Found ${communityDefinitions.length} community definitions in ${definitionsTime}ms`);
-      if (communityDefinitions.length === 0 && communityIdArray.length > 0) {
-        logger.log('Communities: No community definitions found despite having membership records. This could mean:');
-        logger.log('Communities: 1. Community definitions are on different relays');
-        logger.log('Communities: 2. Community definitions have been deleted');
-        logger.log('Communities: 3. Query filters are too restrictive');
-      }
-      // Step 4: Parse community definitions and combine with membership status
-      const communitiesWithStatus = communityDefinitions.map(definition => {
-        const communityId = definition.tags.find(([name]) => name === 'd')?.[1];
-
-        // Get membership status - check explicit membership, owned/moderated status, and join requests
-        let membershipStatus: 'approved' | 'pending' | 'banned';
-        let membershipEvent: NostrEvent;
-
-        const membershipInfo = membershipStatusMap.get(communityId!);
-        const ownedInfo = ownedCommunityMap.get(communityId!);
-        const joinRequestInfo = joinRequestMap.get(communityId!);
-
-        if (ownedInfo) {
-          // User owns or moderates this community - always approved
-          membershipStatus = 'approved';
-          membershipEvent = ownedInfo.event;
-        } else if (membershipInfo) {
-          // User has explicit membership (approved, declined, or banned)
-          membershipStatus = membershipInfo.status;
-          membershipEvent = membershipInfo.event;
-        } else if (joinRequestInfo) {
-          // User has sent a join request but not been added to any list yet
-          membershipStatus = 'pending';
-          membershipEvent = joinRequestInfo;
-          logger.log(`Communities: Community ${communityId} marked as pending (join request only)`);
-        } else {
-          // This shouldn't happen, but fallback
-          logger.warn(`Communities: No membership info found for community ${communityId}`);
-          return null;
-        }
-
-        // Parse community metadata from tags
-        const name = definition.tags.find(([name]) => name === 'name')?.[1] || communityId!;
-        const description = definition.tags.find(([name]) => name === 'description')?.[1];
-        const image = definition.tags.find(([name]) => name === 'image')?.[1];
-        const banner = definition.tags.find(([name]) => name === 'banner')?.[1];
-
-        // Get moderators and relays
-        const moderators = definition.tags
-          .filter(([name, , , role]) => name === 'p' && role === 'moderator')
-          .map(([, pubkey]) => pubkey);
-
-        const relays = definition.tags
-          .filter(([name]) => name === 'relay')
-          .map(([, url]) => url);
-
-        return {
-          id: communityId!,
-          pubkey: definition.pubkey,
-          info: {
-            name,
-            description,
-            image,
-            banner,
-            moderators,
-            relays,
-          },
-          definitionEvent: definition,
-          membershipStatus,
-          membershipEvent,
-        };
-      }).filter(community => !!community);
-
-      const totalTime = Date.now() - startTime;
-      return {
-        communities: communitiesWithStatus,
-        timing: {
-          membershipQuery: membershipTime,
-          definitionsQuery: definitionsTime,
-          total: totalTime,
-        },
-      };
-    } catch (error) {
-      logger.error('Communities: Error loading communities:', error);
-      const totalTime = Date.now() - startTime;
-      return { communities: [], timing: { membershipQuery: 0, definitionsQuery: 0, total: totalTime } };
-    }
-  }, [user?.pubkey, nostr]);
-
-
-
-
-  // Main communities loading function with progressive loading
-  const startCommunitiesLoading = useCallback(async (isBackgroundRefresh = false) => {
+  // Query full community data from relay (community definitions, channels, messages, members, join requests, etc.)
+  const queryFullCommunityDataFromRelay = useCallback(async (isBackgroundRefresh = false) => {
     if (!user?.pubkey) {
       logger.log('Communities: No user pubkey available, skipping communities loading');
       return;
@@ -3786,10 +3500,121 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     try {
-      // Step 1: Load communities with membership status
+      // Step 1: Query user memberships to discover which communities they belong to
       const step1Start = Date.now();
-      const { communities: communitiesWithStatus, timing: step1Timing } = await loadUserCommunities();
+      
+      // Query for membership records, owned communities, and join requests
+      const allCommunityEvents = await nostr.query([
+        // Filter 1: Find membership lists that include this user
+        { kinds: [34551, 34552, 34553], '#p': [user.pubkey], limit: 1000 },
+        // Filter 2: Find communities where user is creator/owner  
+        { kinds: [34550], authors: [user.pubkey], limit: 1000 },
+        // Filter 3: Find communities where user is mentioned as moderator
+        { kinds: [34550], '#p': [user.pubkey], limit: 1000 },
+        // Filter 4: Find communities where user has sent join requests (no since filter - we want all)
+        { kinds: [4552], authors: [user.pubkey], limit: 1000 },
+      ], { signal: AbortSignal.timeout(15000) });
+
+      const membershipEvents = allCommunityEvents.filter(e => [34551, 34552, 34553].includes(e.kind));
+      const ownedCommunities = allCommunityEvents.filter(e => e.kind === 34550);
+      const userJoinRequests = allCommunityEvents.filter(e => e.kind === 4552);
+
+      logger.log(`Communities: Found ${membershipEvents.length} membership records, ${ownedCommunities.length} owned/moderated communities, and ${userJoinRequests.length} join requests`);
+
+      // Build maps of membership status, owned communities, and join requests
+      const membershipStatusMap = new Map<string, { status: 'approved' | 'pending' | 'banned'; event: NostrEvent }>();
+      membershipEvents.forEach(event => {
+        const communityRef = event.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef) return;
+        const [, , id] = communityRef.split(':');
+        if (!id) return;
+        const status = (event.kind === 34551 ? 'approved' : event.kind === 34552 ? 'pending' : 'banned') as 'approved' | 'pending' | 'banned';
+        membershipStatusMap.set(id, { status, event });
+      });
+
+      const ownedCommunityIds = new Set<string>();
+      const ownedCommunityMap = new Map<string, { event: NostrEvent; status: 'owner' | 'moderator' }>();
+      ownedCommunities.forEach(event => {
+        const communityId = event.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityId) return;
+        const isCreator = event.pubkey === user.pubkey;
+        const isModerator = event.tags.some(([n, p, , r]) => n === 'p' && p === user.pubkey && r === 'moderator');
+        if (isCreator || isModerator) {
+          ownedCommunityIds.add(communityId);
+          ownedCommunityMap.set(communityId, { event, status: isCreator ? 'owner' : 'moderator' });
+        }
+      });
+
+      const joinRequestMap = new Map<string, NostrEvent>();
+      userJoinRequests.forEach(event => {
+        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+        if (!aTag) return;
+        const [, , id] = aTag.split(':');
+        if (!id) return;
+        const existing = joinRequestMap.get(id);
+        if (!existing || event.created_at > existing.created_at) joinRequestMap.set(id, event);
+      });
+
+      const communityIds = new Set([...membershipStatusMap.keys(), ...ownedCommunityIds, ...joinRequestMap.keys()]);
+
+      if (communityIds.size === 0) {
+        logger.log('Communities: No communities found for user');
+        setCommunities(new Map());
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        if (!isBackgroundRefresh) setCommunitiesLoading(false);
+        return;
+      }
+
+      // Query community definitions
+      const alreadyHaveDefinitions = new Set(ownedCommunities.map(e => e.tags.find(([n]) => n === 'd')?.[1]).filter(Boolean));
+      const needDefinitions = Array.from(communityIds).filter(id => !alreadyHaveDefinitions.has(id));
+      const additionalDefinitions = needDefinitions.length > 0
+        ? await nostr.query([{ kinds: [34550], '#d': needDefinitions }], { signal: AbortSignal.timeout(15000) })
+        : [];
+
+      const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
+      
+      // Parse community definitions with membership status
+      const communitiesWithStatus: Array<{
+        id: string;
+        pubkey: string;
+        info: CommunityInfo;
+        definitionEvent: NostrEvent;
+        membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator';
+        membershipEvent: NostrEvent;
+      }> = [];
+      
+      communityDefinitions.forEach(definition => {
+        const communityId = definition.tags.find(([n]) => n === 'd')?.[1];
+        if (!communityId) return;
+
+        const membershipInfo = membershipStatusMap.get(communityId);
+        const ownedInfo = ownedCommunityMap.get(communityId);
+        const joinRequestInfo = joinRequestMap.get(communityId);
+
+        const membershipStatus = ownedInfo ? 'approved' as const : (membershipInfo?.status || 'pending' as const);
+        const membershipEvent = ownedInfo?.event || membershipInfo?.event || joinRequestInfo;
+        if (!membershipEvent) return;
+
+        const name = definition.tags.find(([n]) => n === 'name')?.[1] || communityId;
+        const description = definition.tags.find(([n]) => n === 'description')?.[1];
+        const image = definition.tags.find(([n]) => n === 'image')?.[1];
+        const banner = definition.tags.find(([n]) => n === 'banner')?.[1];
+        const moderators = definition.tags.filter(([n, , , r]) => n === 'p' && r === 'moderator').map(([, p]) => p);
+        const relays = definition.tags.filter(([n]) => n === 'relay').map(([, url]) => url);
+
+        communitiesWithStatus.push({
+          id: communityId,
+          pubkey: definition.pubkey,
+          info: { name, description, image, banner, moderators, relays },
+          definitionEvent: definition,
+          membershipStatus,
+          membershipEvent,
+        });
+      });
+
       const step1Time = Date.now() - step1Start;
+      const step1Timing = { membershipQuery: step1Time, definitionsQuery: 0, total: step1Time };
 
       if (communitiesWithStatus.length === 0) {
         logger.log('Communities: No communities found for user');
@@ -3961,7 +3786,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [4552], // Join request events
           '#a': [communityRef],
           limit: 100, // Allow more join requests
-          since: Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60), // Last 30 days
+          // No "since" filter - we want all join requests regardless of age
         };
       });
 
@@ -4708,7 +4533,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         setCommunitiesLoading(false);
       }
     }
-  }, [user?.pubkey, communitiesLoading, loadUserCommunities, nostr, startCommunityMessagesSubscription]);
+  }, [user?.pubkey, communitiesLoading, nostr, startCommunityMessagesSubscription]);
 
   // Communities debug info
   const getCommunitiesDebugInfo = useCallback(() => {
@@ -5006,7 +4831,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   }, [communities, userPubkey]);
 
   // 2. Read communities data from cache (IndexedDB)
-  const readCommunitiesFromCache = useCallback(async (): Promise<CommunitiesState | null> => {
+  const readCommunitiesFromCache = useCallback(async (): Promise<{ communities: CommunitiesState; lastSync: number } | null> => {
     if (!userPubkey) {
       logger.log('Communities: No user pubkey available for reading from cache');
       return null;
@@ -5061,9 +4886,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Convert serialized data back to Map format
-      // Update in-memory lastSync timestamp from cache
-      setCommunitiesLastSync(cacheData.lastSync);
-
       const communitiesMap = new Map<string, CommunityData>();
 
       for (const communityData of cacheData.communities) {
@@ -5130,7 +4952,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Debug: Log first few community IDs from cache
       const cachedCommunityIds = Array.from(communitiesMap.keys()).slice(0, 3);
       logger.log(`Communities: Successfully read ${communitiesMap.size} communities from cache (age: ${Math.round(cacheAge / 1000)}s): ${cachedCommunityIds.join(', ')}${communitiesMap.size > 3 ? ` and ${communitiesMap.size - 3} more` : ''}`);
-      return communitiesMap;
+      return { communities: communitiesMap, lastSync: cacheData.lastSync };
     } catch (error) {
       logger.error('Communities: Error reading communities from IndexedDB:', error);
       return null;
@@ -5170,37 +4992,35 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     // Try to load from cache first, then fall back to network
     const loadCommunitiesWithCache = async () => {
       try {
-        const cachedCommunities = await readCommunitiesFromCache();
+        const cacheResult = await readCommunitiesFromCache();
 
-        if (cachedCommunities && cachedCommunities.size > 0) {
-          logger.log(`Communities: Loaded ${cachedCommunities.size} communities from cache, starting background refresh`);
+        if (cacheResult && cacheResult.communities.size > 0) {
+          logger.log(`Communities: Loaded ${cacheResult.communities.size} communities from cache`);
 
           // Set cached data immediately for fast UI
-          setCommunities(cachedCommunities);
+          setCommunities(cacheResult.communities);
           setHasCommunitiesInitialLoadCompleted(true);
           setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+          // Also set the lastSync state for future use
+          setCommunitiesLastSync(cacheResult.lastSync);
 
-          // Cache loaded successfully - start subscriptions
-          logger.log('Communities: Cache loaded successfully, starting subscriptions');
-          logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${cachedCommunities.size} communities loaded`);
-          startCommunityMessagesSubscription(cachedCommunities);
-          startCommunityManagementSubscription();
-
-          // Trigger background refresh to get updated data (including join requests)
-          logger.log('Communities: Starting background refresh to update data');
-          startCommunitiesLoading(true);
+          // Cache loaded successfully - start subscriptions WITH the cache timestamp
+          logger.log('Communities: Cache loaded successfully, starting subscriptions with cache timestamp');
+          logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${cacheResult.communities.size} communities loaded`);
+          startCommunityMessagesSubscription(cacheResult.communities, cacheResult.lastSync);
+          startCommunityManagementSubscription(cacheResult.lastSync);
         } else {
           logger.log('Communities: No valid cache found, loading from network');
-          startCommunitiesLoading();
+          queryFullCommunityDataFromRelay();
         }
       } catch (error) {
         logger.error('Communities: Error loading from cache, falling back to network:', error);
-        startCommunitiesLoading();
+        queryFullCommunityDataFromRelay();
       }
     };
 
     loadCommunitiesWithCache();
-  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, startCommunitiesLoading, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
+  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, queryFullCommunityDataFromRelay, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
 
   // Add optimistic community for immediate UI feedback when creating a new community
   const addOptimisticCommunity = useCallback((communityEvent: NostrEvent) => {
@@ -5269,8 +5089,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Refresh communities in the background to set up subscriptions and get full data
   const refreshCommunities = useCallback(async () => {
     logger.log('Communities: Triggering background refresh for newly created community');
-    await startCommunitiesLoading(true); // Pass true for background refresh
-  }, [startCommunitiesLoading]);
+    await queryFullCommunityDataFromRelay(true); // Pass true for background refresh
+  }, [queryFullCommunityDataFromRelay]);
 
   // Add prospective community after join request
   const addProspectiveCommunity = useCallback(async (communityId: string) => {
