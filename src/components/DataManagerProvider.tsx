@@ -2699,6 +2699,68 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         break;
       }
 
+      case 4552: {
+        // Join request event
+        const aTag = getTagValue(event, 'a');
+        if (!aTag) {
+          logger.warn(`Communities: No community reference found in join request ${event.id}`);
+          return;
+        }
+
+        // Extract community ID from full addressable format (34550:pubkey:identifier)
+        const [, , communityId] = aTag.split(':');
+        if (!communityId) {
+          logger.warn(`Communities: Invalid community reference format in join request: ${aTag}`);
+          return;
+        }
+
+        const community = communities.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for join request from ${event.pubkey}`);
+          return;
+        }
+
+        // Add join request to pending members
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+
+          // Get existing join requests
+          const existingJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+          
+          // Check if this join request already exists
+          const alreadyExists = existingJoinRequests.some(req => req.pubkey === event.pubkey);
+          if (alreadyExists) {
+            logger.log(`Communities: Join request from ${event.pubkey} already exists for ${communityId}`);
+            return prev;
+          }
+
+          // Add new join request
+          const updatedJoinRequests = [...existingJoinRequests, event];
+          
+          // Calculate pending members (join requests minus declined and approved)
+          const joinRequestPubkeys = updatedJoinRequests.map(req => req.pubkey);
+          const declinedPubkeys = updatedCommunity.declinedMembers?.members || [];
+          const approvedPubkeys = updatedCommunity.approvedMembers?.members || [];
+          const actualPendingPubkeys = joinRequestPubkeys.filter(pubkey =>
+            !declinedPubkeys.includes(pubkey) && !approvedPubkeys.includes(pubkey)
+          );
+
+          updatedCommunity.pendingMembers = actualPendingPubkeys.length > 0 ? {
+            members: actualPendingPubkeys,
+            event: updatedJoinRequests[0],
+            joinRequests: updatedJoinRequests.filter(req => actualPendingPubkeys.includes(req.pubkey))
+          } : null;
+
+          logger.log(`Communities: Added join request from ${event.pubkey} to ${communityId}. Now ${actualPendingPubkeys.length} pending`);
+          
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+          return newCommunities;
+        });
+        break;
+      }
+
       case 30143: {
         // Channel permission update
         const permissionRef = getTagValue(event, 'd');
@@ -2783,6 +2845,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         {
           kinds: [34551, 34552, 34553], // Member list updates
           '#d': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [4552], // Join request events
+          '#a': communityRefs,
           since: subscriptionSince,
         },
         {
