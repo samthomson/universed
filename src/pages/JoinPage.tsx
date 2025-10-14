@@ -17,6 +17,7 @@ import { useJoinCommunity } from "@/hooks/useJoinCommunity";
 import { useToast } from "@/hooks/useToast";
 import { genUserName } from "@/lib/genUserName";
 import { Users, Crown } from "lucide-react";
+import { useDataManager } from "@/components/DataManagerProvider";
 
 // Page component for Join flow pages
 export function JoinPage() {
@@ -27,6 +28,7 @@ export function JoinPage() {
 	const { toast } = useToast();
 	const navigate = useNavigate();
 	const [joinMessage, setJoinMessage] = useState("");
+	const { communities } = useDataManager();
 
 	// Show message if not logged in
 	if (!user) {
@@ -100,15 +102,17 @@ export function JoinPage() {
 				message: joinMessage.trim() || `I would like to join ${communityInfo?.name || "this community"}.`,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: async () => {
 					toast({
 						title: "Join Request Sent",
 						description: "Your request to join the community has been sent to the moderators.",
 					});
-					// Navigate to the communities page
+					// Add the community with pending status to DataManager
+					await communities.addProspectiveCommunity(communityId);
+					// Navigate to the community page to show pending state
 					setTimeout(() => {
-						navigate("/");
-					}, 1500);
+						navigate(`/space/${communityId}`);
+					}, 500);
 				},
 				onError: (error) => {
 					toast({

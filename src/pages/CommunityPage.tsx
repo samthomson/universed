@@ -225,7 +225,7 @@ export function CommunityPage() {
 
 	// Show join interface if community was fetched but user is not a member
 	if (!isCommunityFound && fetchedCommunityInfo && !isFetchingCommunity) {
-		const handleJoinRequest = () => {
+		const handleJoinRequest = async () => {
 			if (!decodedCommunityId) return;
 
 			joinCommunity(
@@ -234,15 +234,14 @@ export function CommunityPage() {
 					message: joinMessage.trim() || `I would like to join ${fetchedCommunityInfo.name}.`,
 				},
 				{
-					onSuccess: () => {
+					onSuccess: async () => {
 						toast({
 							title: "Join Request Sent",
 							description: "Your request to join the community has been sent to the moderators.",
 						});
-						// Navigate back after a delay
-						setTimeout(() => {
-							navigate("/");
-						}, 1500);
+						// Add the community with pending status to DataManager
+						await communities.addProspectiveCommunity(decodedCommunityId);
+						// The component will re-render and show the pending state
 					},
 					onError: (error) => {
 						toast({
@@ -338,6 +337,68 @@ export function CommunityPage() {
 										onClick={() => navigate("/")}
 									>
 										Cancel
+									</Button>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+				}
+			/>
+		);
+	}
+
+	// Show pending state if user has requested to join but not yet approved
+	if (isCommunityFound && community?.membershipStatus === 'pending') {
+		return (
+			<BasePageLayout
+				mainContent={
+					<div className="flex items-center justify-center bg-background h-full p-4">
+						<Card className="w-full max-w-2xl">
+							<CardHeader>
+								<div className="flex items-start gap-4">
+									{community.info.image && (
+										<img
+											src={community.info.image}
+											alt={community.info.name}
+											className="w-16 h-16 rounded-lg object-cover"
+										/>
+									)}
+									<div className="flex-1">
+										<CardTitle className="text-2xl flex items-center gap-2">
+											<Users className="h-6 w-6" />
+											{community.info.name}
+										</CardTitle>
+										{community.info.description && (
+											<CardDescription className="mt-2">
+												{community.info.description}
+											</CardDescription>
+										)}
+									</div>
+								</div>
+							</CardHeader>
+							<CardContent className="space-y-6">
+								<div className="p-6 bg-muted/50 rounded-lg text-center space-y-3">
+									<div className="flex justify-center">
+										<div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center">
+											<Users className="h-8 w-8 text-yellow-600 dark:text-yellow-500" />
+										</div>
+									</div>
+									<div>
+										<h3 className="text-lg font-semibold mb-2">Awaiting Membership Approval</h3>
+										<p className="text-sm text-muted-foreground">
+											Your request to join this community is pending review by the moderators. 
+											You'll be able to access channels and content once your request is approved.
+										</p>
+									</div>
+								</div>
+
+								<div className="flex gap-3">
+									<Button
+										variant="outline"
+										onClick={() => navigate("/")}
+										className="flex-1"
+									>
+										Back to Communities
 									</Button>
 								</div>
 							</CardContent>
