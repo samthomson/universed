@@ -2656,6 +2656,60 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
                 if (updatedCommunity.membershipStatus === 'pending') {
                   updatedCommunity.membershipStatus = 'approved';
                   logger.log(`Communities: 🎉 Current user approved for community ${communityId}!`);
+                  
+                  // Ensure a "general" channel exists now that user has access
+                  const hasGeneralChannel = updatedCommunity.channels.has('general');
+                  if (!hasGeneralChannel) {
+                    logger.log(`Communities: Creating default "general" channel for newly approved user`);
+                    
+                    // Create optimistic general channel
+                    const generalChannelEvent: NostrEvent = {
+                      id: `optimistic-general-${Date.now()}-${Math.random()}`,
+                      kind: 32807,
+                      pubkey: updatedCommunity.pubkey,
+                      created_at: event.created_at,
+                      content: JSON.stringify({
+                        name: 'general',
+                        description: 'General discussion',
+                        type: 'text',
+                        position: 0,
+                      }),
+                      tags: [
+                        ['d', 'general'],
+                        ['a', communityId],
+                        ['name', 'general'],
+                        ['channel_type', 'text'],
+                        ['position', '0'],
+                        ['t', 'channel'],
+                        ['alt', 'Channel: general'],
+                      ],
+                      sig: '',
+                    };
+                    
+                    const updatedChannels = new Map(updatedCommunity.channels);
+                    updatedChannels.set('general', {
+                      id: 'general',
+                      communityId: updatedCommunity.id,
+                      info: {
+                        name: 'general',
+                        description: 'General discussion',
+                        type: 'text',
+                        folderId: undefined,
+                        position: 0,
+                      },
+                      definition: generalChannelEvent,
+                      messages: [],
+                      replies: new Map(),
+                      reactions: new Map(),
+                      pinnedMessages: [],
+                      permissions: null,
+                      lastActivity: event.created_at,
+                      hasMoreMessages: true,
+                      isLoadingOlderMessages: false,
+                      reachedStartOfConversation: false,
+                    });
+                    updatedCommunity.channels = updatedChannels;
+                  }
                 }
               }
 
