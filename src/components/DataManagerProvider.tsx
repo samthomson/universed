@@ -4894,7 +4894,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Import the IndexedDB utilities
       const { openDB } = await import('idb');
 
-      // Create user-specific store name (like messages do)
+      // Create user-specific store name (matching messages pattern)
       const storeName = `communities-${userPubkey}`;
 
       // Open or create the communities database
@@ -4951,9 +4951,27 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         version: 1,
       };
 
-      // Write to user-specific store
-      await db.put(storeName, cacheData);
-      await db.close();
+      // Check if the store exists before trying to write to it (matching messages pattern)
+      if (!db.objectStoreNames.contains(storeName)) {
+        logger.log(`Communities: Store ${storeName} does not exist yet, creating it with version upgrade`);
+        // Force a database upgrade to create the store
+        await db.close();
+        const currentVersion = db.version;
+        const newDb = await openDB('nostr-communities', currentVersion + 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB during write`);
+            }
+          },
+        });
+        await newDb.put(storeName, cacheData);
+        await newDb.close();
+      } else {
+        // Store exists, write directly
+        await db.put(storeName, cacheData);
+        await db.close();
+      }
 
       // Update in-memory lastSync timestamp
       setCommunitiesLastSync(cacheData.lastSync);
@@ -4977,7 +4995,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Import the IndexedDB utilities
       const { openDB } = await import('idb');
 
-      // Create user-specific store name (like messages do)
+      // Create user-specific store name (matching messages pattern)
       const storeName = `communities-${userPubkey}`;
 
       // Open the communities database
@@ -5800,6 +5818,11 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Reset communities data and cache
   const resetCommunitiesDataAndCache = useCallback(async () => {
+    if (!userPubkey) {
+      logger.error('Communities: No user pubkey available for resetting cache');
+      return;
+    }
+
     try {
       logger.log('Communities: Resetting communities data and cache...');
 
@@ -5812,26 +5835,36 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       setHasCommunitiesInitialLoadCompleted(false);
       setCommunitiesLastSync(null);
 
-      // Clear IndexedDB cache
-      const dbName = 'nostr-communities';
-      const deleteRequest = indexedDB.deleteDatabase(dbName);
+      // Clear this user's store from IndexedDB (matching messages pattern)
+      const { openDB } = await import('idb');
+      const storeName = `communities-${userPubkey}`;
 
-      return new Promise<void>((resolve, reject) => {
-        deleteRequest.onsuccess = () => {
-          logger.log('Communities: Database cache cleared successfully');
-          resolve();
-        };
-
-        deleteRequest.onerror = () => {
-          logger.error('Communities: Failed to clear database cache');
-          reject(new Error('Failed to clear database cache'));
-        };
+      const db = await openDB('nostr-communities', 1, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName, { keyPath: 'id' });
+          }
+        },
       });
+
+      if (db.objectStoreNames.contains(storeName)) {
+        // Clear the entire store for this user
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        await store.clear();
+        await tx.done;
+        logger.log(`Communities: Cleared store ${storeName} from IndexedDB`);
+      } else {
+        logger.log(`Communities: Store ${storeName} does not exist, nothing to clear`);
+      }
+
+      await db.close();
+      logger.log('Communities: User-specific cache cleared successfully');
     } catch (error) {
       logger.error('Communities: Error resetting data and cache:', error);
       throw error;
     }
-  }, []);
+  }, [userPubkey]);
 
   // Hook to get pinned messages for a specific channel
   const useDataManagerPinnedMessages = useCallback((communityId: string | null, channelId: string | null): NostrEvent[] => {
