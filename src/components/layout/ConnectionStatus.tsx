@@ -42,9 +42,9 @@ export function ConnectionStatus() {
   // Determine icon and color
   const getStatusColor = () => {
     if (isInitializing) return "text-muted-foreground";
-    if (allConnected) return "text-green-500";
+    if (allConnected) return "text-emerald-500/40"; // Very subtle green indicating healthy connection
     if (noneConnected) return "text-red-500";
-    return "text-yellow-500";
+    return "text-orange-500"; // Orange is softer than yellow but still signals attention needed
   };
 
   const getStatusIcon = () => {
@@ -71,14 +71,14 @@ export function ConnectionStatus() {
                 getStatusColor(),
                 // Maintain color on hover with slightly darker background
                 isInitializing && "hover:text-muted-foreground hover:bg-muted/50",
-                allConnected && "hover:text-green-500 hover:bg-green-500/10",
+                allConnected && "hover:text-emerald-500/50 hover:bg-emerald-500/10",
                 noneConnected && "hover:text-red-500 hover:bg-red-500/10",
-                !isInitializing && !allConnected && !noneConnected && "hover:text-yellow-500 hover:bg-yellow-500/10"
+                !isInitializing && !allConnected && !noneConnected && "hover:text-orange-500 hover:bg-orange-500/10"
               )}
             >
               {getStatusIcon()}
               {!allConnected && !isInitializing && (
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
               )}
             </Button>
           </PopoverTrigger>
@@ -177,7 +177,7 @@ function ConnectionItem({
 }) {
   const getStatusColor = () => {
     if (isLoading) return "bg-muted-foreground";
-    return connected ? "bg-green-500" : "bg-red-500";
+    return connected ? "bg-emerald-500/50" : "bg-red-500"; // Very subtle green indicating healthy connection
   };
 
   const getStatusText = () => {
