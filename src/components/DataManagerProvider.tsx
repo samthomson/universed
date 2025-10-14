@@ -2650,6 +2650,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             case 34551: {
               updatedCommunity.approvedMembers = membersList;
 
+              // Check if current user is now approved
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                // User was approved! Update their status
+                if (updatedCommunity.membershipStatus === 'pending') {
+                  updatedCommunity.membershipStatus = 'approved';
+                  logger.log(`Communities: 🎉 Current user approved for community ${communityId}!`);
+                }
+              }
+
               // Recalculate pending members (join requests minus declined AND approved)
               const approvedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
               const approvedJoinRequestPubkeys = approvedJoinRequests.map(req => req.pubkey);
@@ -2672,6 +2681,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               // Kind 34552 is declined members, not pending
               // Store declined members and recalculate pending members (join requests minus declined AND approved)
               updatedCommunity.declinedMembers = membersList;
+
+              // Check if current user was declined
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                // User was declined - they should be removed from the community entirely
+                // But keep them in local state so they can see they were declined
+                logger.log(`Communities: Current user was declined for community ${communityId}`);
+                // Note: We don't remove the community from state, but the UI can check declinedMembers
+              }
 
               const declinedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
               const declinedJoinRequestPubkeys = declinedJoinRequests.map(req => req.pubkey);
