@@ -10,29 +10,34 @@ export function ConnectionStatus() {
   const { messaging, communities } = useDataManager();
   const [open, setOpen] = useState(false);
 
-  // Calculate connection status
-  const messagingConnections = {
-    nip4: messaging.subscriptions.nip4,
-    nip17: messaging.subscriptions.nip17,
-  };
-
-  const communityConnections = {
-    messages: communities.subscriptions.messages,
-    management: communities.subscriptions.management,
-  };
-
-  const allConnections = [
-    ...Object.values(messagingConnections),
-    ...Object.values(communityConnections),
-  ];
-
-  const connectedCount = allConnections.filter(Boolean).length;
-  const totalCount = allConnections.length;
-  const allConnected = connectedCount === totalCount;
-  const noneConnected = connectedCount === 0;
+  // Calculate connection status, but don't count as disconnected if still loading
+  // Only count subscriptions for domains that have finished loading
+  const messagingIsLoading = messaging.isLoading;
+  const communitiesIsLoading = communities.isLoading;
   
-  // Determine if we're in a loading/initializing state
-  const isInitializing = (messaging.isLoading || communities.isLoading) && noneConnected;
+  // Count connections only for domains that are NOT loading
+  const activeConnections = [
+    ...(!messagingIsLoading ? [messaging.subscriptions.nip4, messaging.subscriptions.nip17] : []),
+    ...(!communitiesIsLoading ? [communities.subscriptions.messages, communities.subscriptions.management] : []),
+  ];
+  
+  // Total expected connections (always 4)
+  const totalExpectedConnections = 4;
+  
+  // Count how many domains are still loading
+  const loadingDomains = [messagingIsLoading, communitiesIsLoading].filter(Boolean).length;
+  
+  // Connected count is only from active (non-loading) domains
+  const connectedCount = activeConnections.filter(Boolean).length;
+  
+  // Total count is expected connections minus loading domains' connections
+  const totalActiveCount = totalExpectedConnections - (loadingDomains * 2); // Each domain has 2 subscriptions
+  
+  const allConnected = totalActiveCount > 0 && connectedCount === totalActiveCount;
+  const noneConnected = totalActiveCount > 0 && connectedCount === 0;
+  
+  // Determine if we're in a loading/initializing state (all domains are still loading)
+  const isInitializing = messagingIsLoading && communitiesIsLoading;
 
   // Determine icon and color
   const getStatusColor = () => {
@@ -64,7 +69,11 @@ export function ConnectionStatus() {
               className={cn(
                 "w-12 h-12 rounded-2xl relative",
                 getStatusColor(),
-                !allConnected && "hover:bg-yellow-500/10"
+                // Maintain color on hover with slightly darker background
+                isInitializing && "hover:text-muted-foreground hover:bg-muted/50",
+                allConnected && "hover:text-green-500 hover:bg-green-500/10",
+                noneConnected && "hover:text-red-500 hover:bg-red-500/10",
+                !isInitializing && !allConnected && !noneConnected && "hover:text-yellow-500 hover:bg-yellow-500/10"
               )}
             >
               {getStatusIcon()}
@@ -82,7 +91,7 @@ export function ConnectionStatus() {
               ? "All relay subscriptions active"
               : noneConnected
               ? "No relay connections"
-              : `${connectedCount}/${totalCount} relay subscriptions active`}
+              : `${connectedCount}/${totalActiveCount} relay subscriptions active`}
           </p>
         </TooltipContent>
       </Tooltip>
@@ -109,11 +118,13 @@ export function ConnectionStatus() {
               <div className="space-y-1">
                 <ConnectionItem
                   label="NIP-4 (Legacy DMs)"
-                  connected={messagingConnections.nip4}
+                  connected={messaging.subscriptions.nip4}
+                  isLoading={messagingIsLoading}
                 />
                 <ConnectionItem
                   label="NIP-17 (Private DMs)"
-                  connected={messagingConnections.nip17}
+                  connected={messaging.subscriptions.nip17}
+                  isLoading={messagingIsLoading}
                 />
               </div>
             </div>
@@ -126,17 +137,19 @@ export function ConnectionStatus() {
               <div className="space-y-1">
                 <ConnectionItem
                   label="Channel Messages"
-                  connected={communityConnections.messages}
+                  connected={communities.subscriptions.messages}
+                  isLoading={communitiesIsLoading}
                 />
                 <ConnectionItem
                   label="Community Management"
-                  connected={communityConnections.management}
+                  connected={communities.subscriptions.management}
+                  isLoading={communitiesIsLoading}
                 />
               </div>
             </div>
           </div>
 
-          {!allConnected && (
+          {!allConnected && !isInitializing && (
             <Button
               onClick={handleReload}
               className="w-full"
@@ -156,10 +169,22 @@ export function ConnectionStatus() {
 function ConnectionItem({
   label,
   connected,
+  isLoading,
 }: {
   label: string;
   connected: boolean;
+  isLoading: boolean;
 }) {
+  const getStatusColor = () => {
+    if (isLoading) return "bg-muted-foreground";
+    return connected ? "bg-green-500" : "bg-red-500";
+  };
+
+  const getStatusText = () => {
+    if (isLoading) return "Initializing...";
+    return connected ? "Connected" : "Disconnected";
+  };
+
   return (
     <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
       <span className="text-xs">{label}</span>
@@ -167,11 +192,12 @@ function ConnectionItem({
         <span
           className={cn(
             "h-2 w-2 rounded-full",
-            connected ? "bg-green-500" : "bg-red-500"
+            getStatusColor(),
+            isLoading && "animate-pulse"
           )}
         />
         <span className="text-xs text-muted-foreground">
-          {connected ? "Connected" : "Disconnected"}
+          {getStatusText()}
         </span>
       </div>
     </div>
