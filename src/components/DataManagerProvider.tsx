@@ -3543,7 +3543,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         { kinds: [34550], '#p': [user.pubkey], limit: 1000 },
         // Filter 4: Find communities where user has sent join requests (no since filter - we want all)
         { kinds: [4552], authors: [user.pubkey], limit: 1000 },
-      ], { signal: AbortSignal.timeout(15000) });
+      ], { signal: AbortSignal.timeout(5000) });
 
       const membershipEvents = allCommunityEvents.filter(e => [34551, 34552, 34553].includes(e.kind));
       const ownedCommunities = allCommunityEvents.filter(e => e.kind === 34550);
@@ -3591,7 +3591,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         logger.log('Communities: No communities found for user');
         setCommunities(new Map());
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
-        if (!isBackgroundRefresh) setCommunitiesLoading(false);
+        if (!isBackgroundRefresh) {
+          setCommunitiesLoading(false);
+          setIsLoadingCommunities(false);
+          setIsLoadingChannels(false);
+          setIsLoadingMessages(false);
+        }
+        setHasCommunitiesInitialLoadCompleted(true);
         return;
       }
 
@@ -3599,7 +3605,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const alreadyHaveDefinitions = new Set(ownedCommunities.map(e => e.tags.find(([n]) => n === 'd')?.[1]).filter(Boolean));
       const needDefinitions = Array.from(communityIds).filter(id => !alreadyHaveDefinitions.has(id));
       const additionalDefinitions = needDefinitions.length > 0
-        ? await nostr.query([{ kinds: [34550], '#d': needDefinitions }], { signal: AbortSignal.timeout(15000) })
+        ? await nostr.query([{ kinds: [34550], '#d': needDefinitions }], { signal: AbortSignal.timeout(5000) })
         : [];
 
       const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
@@ -3684,6 +3690,9 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         });
         setHasCommunitiesInitialLoadCompleted(true);
         setCommunitiesLoading(false);
+        setIsLoadingCommunities(false);
+        setIsLoadingChannels(false);
+        setIsLoadingMessages(false);
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
         return;
       }
@@ -3831,14 +3840,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Wrap each query with individual timing
       const channelsQueryPromise = (async () => {
         const start = Date.now();
-        const result = await nostr.query(allChannelFilters, { signal: AbortSignal.timeout(15000) });
+        const result = await nostr.query(allChannelFilters, { signal: AbortSignal.timeout(8000) });
         const time = Date.now() - start;
         return { result, time };
       })();
 
       const membersQueryPromise = (async () => {
         const start = Date.now();
-        const result = await nostr.query(allMemberFilters, { signal: AbortSignal.timeout(15000) });
+        const result = await nostr.query(allMemberFilters, { signal: AbortSignal.timeout(8000) });
         const time = Date.now() - start;
         return { result, time };
       })();
@@ -3846,7 +3855,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const joinRequestsQueryPromise = (async () => {
         const start = Date.now();
         const result = allJoinRequestFilters.length > 0
-          ? await nostr.query(allJoinRequestFilters, { signal: AbortSignal.timeout(15000) })
+          ? await nostr.query(allJoinRequestFilters, { signal: AbortSignal.timeout(8000) })
           : [];
         const time = Date.now() - start;
         return { result, time };
@@ -4070,7 +4079,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const permissionsQueryPromise = (async () => {
         const start = Date.now();
         const result = allPermissionFilters.length > 0
-          ? await nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(15000) })
+          ? await nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(8000) })
           : [];
         const time = Date.now() - start;
         return { result, time };
@@ -4079,7 +4088,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const messagesQueryPromise = (async () => {
         const start = Date.now();
         const result = allMessageFilters.length > 0
-          ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(15000) })
+          ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(8000) })
           : [];
         const time = Date.now() - start;
         return { result, time };
@@ -4092,7 +4101,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             kinds: [34554], // Pinned posts
             '#d': channelIdentifiers,
             // No limit - get all pinned posts
-          }], { signal: AbortSignal.timeout(10000) })
+          }], { signal: AbortSignal.timeout(8000) })
           : [];
         const time = Date.now() - start;
         return { result, time };
@@ -4150,7 +4159,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             kinds: [1111], // Reply/comment events
             '#e': messageIds, // Replies to our messages
             // No limit - get all replies to our messages
-          }], { signal: AbortSignal.timeout(10000) });
+          }], { signal: AbortSignal.timeout(8000) });
           const time = Date.now() - start;
           return { result, time };
         })();
@@ -4161,7 +4170,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             kinds: [7, 9735], // Reaction events and Zap receipts
             '#e': messageIds, // Reactions/zaps to our messages
             // No limit - get all reactions/zaps to our messages
-          }], { signal: AbortSignal.timeout(10000) });
+          }], { signal: AbortSignal.timeout(8000) });
           const time = Date.now() - start;
           return { result, time };
         })();
@@ -4183,7 +4192,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           const start = Date.now();
           const result = await nostr.query([{
             ids: uniquePinnedMessageIds
-          }], { signal: AbortSignal.timeout(10000) });
+          }], { signal: AbortSignal.timeout(8000) });
           const time = Date.now() - start;
           return { result, time };
         })();
@@ -4592,7 +4601,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       setCommunitiesLoadTime(totalTime);
       if (!isBackgroundRefresh) {
         setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        setIsLoadingCommunities(false);
+        setIsLoadingChannels(false);
+        setIsLoadingMessages(false);
       }
+      // Ensure empty state is set on error
+      setCommunities(new Map());
+      setHasCommunitiesInitialLoadCompleted(true);
     } finally {
       if (!isBackgroundRefresh) {
         setCommunitiesLoading(false);
@@ -5659,7 +5674,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         '#t': [channelTag],
         until: channel.oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
         limit: MESSAGES_PER_PAGE,
-      }], { signal: AbortSignal.timeout(10000) });
+      }], { signal: AbortSignal.timeout(8000) });
 
       // Load reactions for the older messages
       let olderReactions: NostrEvent[] = [];
@@ -5669,7 +5684,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           kinds: [7, 9735], // Reaction events and Zap receipts
           '#e': olderMessageIds, // Reactions/zaps to older messages
           // No limit - get all reactions/zaps to older messages
-        }], { signal: AbortSignal.timeout(10000) });
+        }], { signal: AbortSignal.timeout(8000) });
       }
 
       // Update channel with new messages
