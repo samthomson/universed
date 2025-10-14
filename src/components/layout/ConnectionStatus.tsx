@@ -11,7 +11,7 @@ export function ConnectionStatus() {
   const [open, setOpen] = useState(false);
 
   // Calculate connection status, but don't count as disconnected if still loading
-  // Only count subscriptions for domains that have finished loading
+  // Only count subscriptions for domains that are NOT loading
   const messagingIsLoading = messaging.isLoading;
   const communitiesIsLoading = communities.isLoading;
   
@@ -58,8 +58,17 @@ export function ConnectionStatus() {
     window.location.reload();
   };
 
+  // This is the key - we're manually controlling the open state
+  const handleOpenChange = (newOpen: boolean) => {
+    // Only allow changes initiated by the user (clicking the button)
+    // Ignore changes triggered by React re-renders
+    if (newOpen !== open) {
+      setOpen(newOpen);
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
@@ -96,7 +105,15 @@ export function ConnectionStatus() {
         </TooltipContent>
       </Tooltip>
 
-      <PopoverContent side="right" align="start" className="w-80">
+      <PopoverContent 
+        side="right" 
+        align="start" 
+        className="w-80"
+        // Prevent auto-focus which can cause issues
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        // Prevent close on outside interactions
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Relay Connection Status</h4>
@@ -203,4 +220,3 @@ function ConnectionItem({
     </div>
   );
 }
-
