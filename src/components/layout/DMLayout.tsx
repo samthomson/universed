@@ -7,6 +7,7 @@ import { useMutualFriends } from "@/hooks/useFollowers";
 import { useNavigate } from "react-router-dom";
 import { Virtuoso } from "react-virtuoso";
 import { FriendItem } from "@/components/friends/FriendsList";
+import { LoginArea } from "@/components/auth/LoginArea";
 
 interface DMLayoutProps {
 	targetPubkey?: string;
@@ -101,11 +102,14 @@ export function DMLayout({ targetPubkey }: DMLayoutProps = {}) {
 			mainContent={
 				user ? mainContent : (
 					<div className="flex items-center justify-center bg-background h-full">
-						<div className="text-center max-w-md p-8">
-							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
-							<p className="text-muted-foreground">
-								Please log in to access direct messages.
-							</p>
+						<div className="text-center max-w-md p-8 space-y-6">
+							<div>
+								<h2 className="text-2xl font-bold mb-4">Login Required</h2>
+								<p className="text-muted-foreground mb-6">
+									Please log in to access direct messages.
+								</p>
+							</div>
+							<LoginArea className="flex w-full" />
 						</div>
 					</div>
 				)
