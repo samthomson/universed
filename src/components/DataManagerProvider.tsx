@@ -76,6 +76,12 @@ interface SubscriptionStatus {
   nip17: boolean;
 }
 
+// Community subscription status
+interface CommunitySubscriptionStatus {
+  messages: boolean; // Community messages subscription (kind 9411, etc.)
+  management: boolean; // Community management subscription (kinds 34550, 34551, etc.)
+}
+
 // Scan progress tracking
 interface ScanProgress {
   current: number;
@@ -380,6 +386,7 @@ interface CommunitiesDomain {
   isLoadingChannels: boolean;
   isLoadingMessages: boolean;
   hasBasicCommunitiesData: boolean;
+  subscriptions: CommunitySubscriptionStatus;
   getDebugInfo: () => {
     communityCount: number;
     channelCount: number;
@@ -1910,9 +1917,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('DMS: DataManager: NIP-4 subscription ended unexpectedly');
+            setSubscriptions(prev => ({ ...prev, nip4: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-4 subscription error:', error);
+            setSubscriptions(prev => ({ ...prev, nip4: false }));
           }
         }
       })();
@@ -1920,6 +1933,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       nip4SubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setSubscriptions(prev => ({ ...prev, nip4: false }));
           logger.log('DMS: DataManager: NIP-4 subscription closed');
         }
       };
@@ -1978,9 +1992,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('DMS: DataManager: NIP-17 subscription ended unexpectedly');
+            setSubscriptions(prev => ({ ...prev, nip17: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-17 subscription error:', error);
+            setSubscriptions(prev => ({ ...prev, nip17: false }));
           }
         }
       })();
@@ -1988,6 +2008,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       nip17SubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setSubscriptions(prev => ({ ...prev, nip17: false }));
           logger.log('DMS: DataManager: NIP-17 subscription closed');
         }
       };
@@ -2547,9 +2568,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`Communities: Received non-event message:`, msg);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('Communities: Community messages subscription ended unexpectedly');
+            setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('Communities: Subscription error:', error);
+            setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
           }
         }
       })();
@@ -2557,14 +2584,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       communityMessagesSubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
           logger.log('Communities: Community messages subscription closed');
         }
       };
 
+      setCommunitySubscriptions(prev => ({ ...prev, messages: true }));
       logger.log('Communities: Community messages subscription started successfully');
 
     } catch (error) {
       logger.error('Communities: Failed to start community messages subscription:', error);
+      setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
     }
   }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityMessage]);
 
@@ -2961,9 +2991,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               await processIncomingCommunityManagementEvent(msg[2]);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('Communities: Management subscription ended unexpectedly');
+            setCommunitySubscriptions(prev => ({ ...prev, management: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('Communities: Management subscription error:', error);
+            setCommunitySubscriptions(prev => ({ ...prev, management: false }));
           }
         }
       })();
@@ -2971,14 +3007,17 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       communityManagementSubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setCommunitySubscriptions(prev => ({ ...prev, management: false }));
           logger.log('Communities: Management subscription closed');
         }
       };
 
+      setCommunitySubscriptions(prev => ({ ...prev, management: true }));
       logger.log('Communities: Management subscription started successfully');
 
     } catch (error) {
       logger.error('Communities: Failed to start management subscription:', error);
+      setCommunitySubscriptions(prev => ({ ...prev, management: false }));
     }
   }, [user, nostr, communitiesLastSync, processIncomingCommunityManagementEvent]); // Note: uses communitiesRef.current, not communities state
 
@@ -5899,6 +5938,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const [isLoadingChannels, setIsLoadingChannels] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [hasBasicCommunitiesData, setHasBasicCommunitiesData] = useState(false);
+  const [communitySubscriptions, setCommunitySubscriptions] = useState<CommunitySubscriptionStatus>({
+    messages: false,
+    management: false
+  });
 
   // Derived state to check if we have basic community data
   useEffect(() => {
@@ -5916,6 +5959,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     isLoadingChannels,
     isLoadingMessages,
     hasBasicCommunitiesData,
+    subscriptions: communitySubscriptions,
     getDebugInfo: getCommunitiesDebugInfo,
     getSortedChannels,
     getFolders,
