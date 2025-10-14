@@ -3724,8 +3724,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Set initial state so UI can show communities immediately
-      setCommunities(initialCommunitiesState);
-      logger.log(`Communities: Set initial state with ${initialCommunitiesState.size} communities (channels loading in background)`);
+      // Avoid wiping existing channels during background refresh to prevent flicker/disappearing channels
+      if (!isBackgroundRefresh) {
+        setCommunities(initialCommunitiesState);
+        logger.log(`Communities: Set initial state with ${initialCommunitiesState.size} communities (channels loading in background)`);
+      } else {
+        logger.log('Communities: Skipping initial state replacement during background refresh to preserve optimistic channels');
+      }
 
       // Continue loading channels in background for approved communities only
       const approvedCommunities = communitiesWithStatus.filter(({ membershipStatus }) => membershipStatus === 'approved');
@@ -4497,9 +4502,54 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
 
       // Update communities state with loaded channel data and remove loading flags
-      setCommunities(updatedCommunitiesState);
+      // Merge with existing state to preserve optimistic/synthetic channels when network returns nothing yet
+      setCommunities(prev => {
+        const merged = new Map(prev);
+
+        updatedCommunitiesState.forEach((updatedCommunity, id) => {
+          const existing = merged.get(id);
+          if (!existing) {
+            merged.set(id, updatedCommunity);
+            return;
+          }
+
+          // Minimal guard: if update has zero channels, keep existing channels
+          const channelsToUse = (updatedCommunity.channels.size === 0 && existing.channels.size > 0)
+            ? existing.channels
+            : updatedCommunity.channels;
+
+          merged.set(id, {
+            ...existing,
+            ...updatedCommunity,
+            channels: channelsToUse,
+          });
+        });
+
+        // Keep any communities not present in the update (e.g., transient network issues)
+        prev.forEach((existingCommunity, id) => {
+          if (!updatedCommunitiesState.has(id)) {
+            merged.set(id, existingCommunity);
+          }
+        });
+
+        return merged;
+      });
       // Update ref synchronously for subscriptions
-      communitiesRef.current = updatedCommunitiesState;
+      communitiesRef.current = (() => {
+        const merged = new Map(communitiesRef.current);
+        updatedCommunitiesState.forEach((updatedCommunity, id) => {
+          const existing = merged.get(id);
+          if (!existing) {
+            merged.set(id, updatedCommunity);
+            return;
+          }
+          const channelsToUse = (updatedCommunity.channels.size === 0 && existing.channels.size > 0)
+            ? existing.channels
+            : updatedCommunity.channels;
+          merged.set(id, { ...existing, ...updatedCommunity, channels: channelsToUse });
+        });
+        return merged;
+      })();
 
       // Mark channels and messages as loaded
       setIsLoadingChannels(false);
@@ -5084,6 +5134,55 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     const fullAddressableId = `34550:${communityEvent.pubkey}:${dTag}`;
 
     // Create optimistic community with minimal data
+    // Create an optimistic default "general" channel to exist immediately
+    const generalChannelId = 'general';
+    const optimisticGeneralChannelEvent: NostrEvent = {
+      id: `optimistic-channel-${generalChannelId}-${Date.now()}-${Math.random()}`,
+      kind: 32807,
+      pubkey: communityEvent.pubkey,
+      created_at: communityEvent.created_at,
+      content: JSON.stringify({
+        name: generalChannelId,
+        description: 'General discussion',
+        type: 'text',
+        position: 0,
+      }),
+      tags: [
+        ['d', generalChannelId],
+        ['a', dTag],
+        ['name', generalChannelId],
+        ['channel_type', 'text'],
+        ['position', '0'],
+        ['t', 'channel'],
+        ['alt', `Channel: ${generalChannelId}`],
+      ],
+      sig: '',
+      isSending: true,
+    } as unknown as NostrEvent;
+
+    const channels = new Map<string, ChannelData>();
+    channels.set(generalChannelId, {
+      id: generalChannelId,
+      communityId: dTag,
+      info: {
+        name: generalChannelId,
+        description: 'General discussion',
+        type: 'text',
+        folderId: undefined,
+        position: 0,
+      },
+      definition: optimisticGeneralChannelEvent,
+      messages: [],
+      replies: new Map(),
+      reactions: new Map(),
+      pinnedMessages: [],
+      permissions: null,
+      lastActivity: communityEvent.created_at,
+      hasMoreMessages: true,
+      isLoadingOlderMessages: false,
+      reachedStartOfConversation: false,
+    });
+
     const optimisticCommunity: CommunityData = {
       id: dTag,
       fullAddressableId,
@@ -5097,14 +5196,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         relays,
       },
       definitionEvent: communityEvent,
-      channels: new Map(), // Will be populated by background refresh
+      channels, // Seed with optimistic "general" channel
       approvedMembers: null,
       pendingMembers: null,
       declinedMembers: null,
       bannedMembers: null,
-      membershipStatus: 'owner', // Creator is always owner
+      membershipStatus: 'owner',
       lastActivity: communityEvent.created_at,
-      isLoadingChannels: true, // Indicate that channels are being loaded
+      isLoadingChannels: true,
     };
 
     // Add to state immediately
@@ -5113,6 +5212,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       newCommunities.set(dTag, optimisticCommunity);
       return newCommunities;
     });
+
+    // Also update the ref immediately so subscriptions can include the new community
+    communitiesRef.current = (() => {
+      const newMap = new Map(communitiesRef.current);
+      newMap.set(dTag, optimisticCommunity);
+      return newMap;
+    })();
+
+    // Restart subscriptions to include the new community without a full refresh
+    try {
+      startCommunityMessagesSubscription(communitiesRef.current);
+      startCommunityManagementSubscription();
+    } catch (e) {
+      logger.warn('Communities: Failed to restart subscriptions after optimistic community add', e);
+    }
 
     logger.log('Communities: Added optimistic community:', dTag);
 

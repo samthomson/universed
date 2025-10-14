@@ -264,8 +264,10 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
       // Add community to DataManager immediately for navigation
       communities.addOptimisticCommunity(communityEvent);
 
-      // Trigger background refresh to set up subscriptions and load channels
-      communities.refreshCommunities();
+      // Optimistic general channel is now created inside addOptimisticCommunity
+
+      // No background refresh; just ensure subscriptions include the new community
+      // Subscriptions auto-start from DataManager on state changes
 
       // Move to success step after creation animation
       setTimeout(() => {
