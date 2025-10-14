@@ -4501,55 +4501,38 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         updatedCommunitiesState.set(community.id, communityData);
       }
 
-      // Update communities state with loaded channel data and remove loading flags
-      // Merge with existing state to preserve optimistic/synthetic channels when network returns nothing yet
-      setCommunities(prev => {
-        const merged = new Map(prev);
+      // Update communities state with loaded channel data
+      // Compute once from the current ref (authoritative snapshot), then assign to both state and ref
+      const mergedCommunities: CommunitiesState = (() => {
+        const base = new Map(communitiesRef.current);
 
         updatedCommunitiesState.forEach((updatedCommunity, id) => {
-          const existing = merged.get(id);
+          const existing = base.get(id);
           if (!existing) {
-            merged.set(id, updatedCommunity);
+            base.set(id, updatedCommunity);
             return;
           }
 
-          // Minimal guard: if update has zero channels, keep existing channels
           const channelsToUse = (updatedCommunity.channels.size === 0 && existing.channels.size > 0)
             ? existing.channels
             : updatedCommunity.channels;
 
-          merged.set(id, {
-            ...existing,
-            ...updatedCommunity,
-            channels: channelsToUse,
-          });
+          base.set(id, { ...existing, ...updatedCommunity, channels: channelsToUse });
         });
 
         // Keep any communities not present in the update (e.g., transient network issues)
-        prev.forEach((existingCommunity, id) => {
+        communitiesRef.current.forEach((existingCommunity, id) => {
           if (!updatedCommunitiesState.has(id)) {
-            merged.set(id, existingCommunity);
+            base.set(id, existingCommunity);
           }
         });
 
-        return merged;
-      });
-      // Update ref synchronously for subscriptions
-      communitiesRef.current = (() => {
-        const merged = new Map(communitiesRef.current);
-        updatedCommunitiesState.forEach((updatedCommunity, id) => {
-          const existing = merged.get(id);
-          if (!existing) {
-            merged.set(id, updatedCommunity);
-            return;
-          }
-          const channelsToUse = (updatedCommunity.channels.size === 0 && existing.channels.size > 0)
-            ? existing.channels
-            : updatedCommunity.channels;
-          merged.set(id, { ...existing, ...updatedCommunity, channels: channelsToUse });
-        });
-        return merged;
+        return base;
       })();
+
+      setCommunities(mergedCommunities);
+      // Update ref synchronously for subscriptions
+      communitiesRef.current = mergedCommunities;
 
       // Mark channels and messages as loaded
       setIsLoadingChannels(false);
