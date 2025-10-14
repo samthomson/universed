@@ -1008,6 +1008,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
   // Communities state
   const [communities, setCommunities] = useState<CommunitiesState>(new Map());
+  
+  // Ref to always access current communities in subscriptions (avoids stale closure)
+  const communitiesRef = useRef<CommunitiesState>(communities);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    communitiesRef.current = communities;
+  }, [communities]);
+  
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   const [communitiesLoadingPhase, setCommunitiesLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
   const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
@@ -2574,7 +2583,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return;
         }
 
-        const community = communities.get(communityId);
+        const community = communitiesRef.current.get(communityId);
         if (!community) {
           logger.log(`Communities: Community ${communityId} not found for definition update`);
           return;
@@ -2622,7 +2631,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return;
         }
 
-        const community = communities.get(communityId);
+        const community = communitiesRef.current.get(communityId);
         if (!community) {
           logger.log(`Communities: Community ${communityId} not found for member list update`);
           return;
@@ -2703,11 +2712,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       case 4552: {
         // Join request event
+        logger.log(`Communities: 🔔 Received join request event ${event.id.slice(0, 8)} from ${event.pubkey.slice(0, 8)}`);
         const aTag = getTagValue(event, 'a');
         if (!aTag) {
           logger.warn(`Communities: No community reference found in join request ${event.id}`);
           return;
         }
+        logger.log(`Communities: Join request references community: ${aTag}`);
 
         // Extract community ID from full addressable format (34550:pubkey:identifier)
         const [, , communityId] = aTag.split(':');
@@ -2716,11 +2727,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return;
         }
 
-        const community = communities.get(communityId);
+        const community = communitiesRef.current.get(communityId);
         if (!community) {
-          logger.log(`Communities: Community ${communityId} not found for join request from ${event.pubkey}`);
+          logger.log(`Communities: ⚠️ Community ${communityId} not found for join request from ${event.pubkey.slice(0, 8)}. Have ${communitiesRef.current.size} communities loaded.`);
           return;
         }
+        logger.log(`Communities: ✅ Found community ${communityId}, processing join request`);
 
         // Add join request to pending members
         setCommunities(prev => {
@@ -2755,7 +2767,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           } : null;
 
           logger.log(`Communities: Added join request from ${event.pubkey} to ${communityId}. Now ${actualPendingPubkeys.length} pending`);
-          
+
           updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
           newCommunities.set(communityId, updatedCommunity);
           return newCommunities;
@@ -2778,7 +2790,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           return;
         }
 
-        const community = communities.get(communityId);
+        const community = communitiesRef.current.get(communityId);
         if (!community) {
           logger.log(`Communities: Community ${communityId} not found for permission update`);
           return;
@@ -2811,11 +2823,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       default:
         logger.warn(`Communities: Unknown management event kind: ${event.kind}`);
     }
-  }, [user, communities]);
+  }, [user]); // Note: uses communitiesRef.current, not communities state
 
   // Start community management subscription (membership changes, community updates, permissions)
   const startCommunityManagementSubscription = useCallback(async (cacheTimestamp?: number | null) => {
-    if (!user?.pubkey || !nostr || communities.size === 0) return;
+    // Use ref to get current communities state (avoids async state issues)
+    if (!user?.pubkey || !nostr || communitiesRef.current.size === 0) return;
 
     // Close existing subscription
     if (communityManagementSubscriptionRef.current) {
@@ -2828,7 +2841,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const communityRefs: string[] = [];
       const ownerPubkeys: string[] = [];
 
-      communities.forEach((community) => {
+      communitiesRef.current.forEach((community) => {
         communityIds.push(community.id);
         communityRefs.push(community.fullAddressableId);
         ownerPubkeys.push(community.pubkey);
@@ -2863,7 +2876,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         }
       ];
 
-      logger.log(`Communities: Starting management subscription for ${communities.size} communities`);
+      logger.log(`Communities: Starting management subscription for ${communitiesRef.current.size} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
 
       const subscription = nostr.req(filters);
       let isActive = true;
@@ -2896,7 +2909,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } catch (error) {
       logger.error('Communities: Failed to start management subscription:', error);
     }
-  }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityManagementEvent]);
+  }, [user, nostr, communitiesLastSync, processIncomingCommunityManagementEvent]); // Note: uses communitiesRef.current, not communities state
 
   // Add optimistic community message for immediate UI feedback
   const addOptimisticCommunityMessage = useCallback((communityId: string, channelId: string, content: string, additionalTags: string[][] = []) => {
@@ -4468,6 +4481,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
       // Update communities state with loaded channel data and remove loading flags
       setCommunities(updatedCommunitiesState);
+      // Update ref synchronously for subscriptions
+      communitiesRef.current = updatedCommunitiesState;
 
       // Mark channels and messages as loaded
       setIsLoadingChannels(false);
@@ -4999,6 +5014,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
           // Set cached data immediately for fast UI
           setCommunities(cacheResult.communities);
+          // Update ref synchronously for subscriptions
+          communitiesRef.current = cacheResult.communities;
           setHasCommunitiesInitialLoadCompleted(true);
           setCommunitiesLoadingPhase(LOADING_PHASES.READY);
           // Also set the lastSync state for future use
@@ -5160,20 +5177,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         lastActivity: communityEvent.created_at,
       };
 
-      // Add to communities state
+      // Add to communities state and restart subscriptions
       setCommunities(prev => {
         const newCommunities = new Map(prev);
         newCommunities.set(identifier, prospectiveCommunity);
+        // Update ref synchronously to ensure subscription sees the new community
+        communitiesRef.current = newCommunities;
         logger.log(`Communities: Added prospective community ${identifier} (${name})`);
         return newCommunities;
       });
 
       // Restart subscriptions to include this new community
-      // Wait a bit for state to update
-      setTimeout(() => {
-        startCommunityManagementSubscription();
-        logger.log(`Communities: Restarted subscriptions to include prospective community ${identifier}`);
-      }, 100);
+      // Note: startCommunityManagementSubscription uses communitiesRef which we just updated synchronously
+      startCommunityManagementSubscription();
+      logger.log(`Communities: Restarted subscriptions to include prospective community ${identifier}`);
 
     } catch (error) {
       logger.error(`Communities: Failed to add prospective community ${communityId}:`, error);
