@@ -30,6 +30,40 @@ export function JoinPage() {
 	const [joinMessage, setJoinMessage] = useState("");
 	const { communities } = useDataManager();
 
+	// Fetch the community event directly from the naddr
+	// Move ALL hooks to the top before any conditional returns
+	const { data: communityEvent, isLoading } = useQuery({
+		queryKey: ["community-join", communityId],
+		queryFn: async (c) => {
+			const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+			const [kind, pubkey, identifier] = communityId!.split(":");
+			
+			const events = await nostr.query(
+				[{
+					kinds: [parseInt(kind)],
+					authors: [pubkey],
+					"#d": [identifier],
+					limit: 1,
+				}],
+				{ signal }
+			);
+
+			return events[0] as NostrEvent | undefined;
+		},
+		enabled: !!communityId && !!user && !!isJoinRequest,
+	});
+
+	const communityInfo = communityEvent ? {
+		id: communityEvent.tags.find(([name]) => name === "d")?.[1] || "",
+		name: communityEvent.tags.find(([name]) => name === "name")?.[1] || "Unnamed Community",
+		description: communityEvent.tags.find(([name]) => name === "description")?.[1] || "",
+		image: communityEvent.tags.find(([name]) => name === "image")?.[1],
+		creator: communityEvent.pubkey,
+	} : null;
+
+	const creatorAuthor = useAuthor(communityInfo?.creator || "");
+	const creatorMetadata = creatorAuthor.data?.metadata;
+
 	// Show message if not logged in
 	if (!user) {
 		return (
@@ -59,39 +93,6 @@ export function JoinPage() {
 			</div>
 		);
 	}
-
-	// Fetch the community event directly from the naddr
-	const { data: communityEvent, isLoading } = useQuery({
-		queryKey: ["community-join", communityId],
-		queryFn: async (c) => {
-			const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-			const [kind, pubkey, identifier] = communityId.split(":");
-			
-			const events = await nostr.query(
-				[{
-					kinds: [parseInt(kind)],
-					authors: [pubkey],
-					"#d": [identifier],
-					limit: 1,
-				}],
-				{ signal }
-			);
-
-			return events[0] as NostrEvent | undefined;
-		},
-		enabled: !!communityId,
-	});
-
-	const communityInfo = communityEvent ? {
-		id: communityEvent.tags.find(([name]) => name === "d")?.[1] || "",
-		name: communityEvent.tags.find(([name]) => name === "name")?.[1] || "Unnamed Community",
-		description: communityEvent.tags.find(([name]) => name === "description")?.[1] || "",
-		image: communityEvent.tags.find(([name]) => name === "image")?.[1],
-		creator: communityEvent.pubkey,
-	} : null;
-
-	const creatorAuthor = useAuthor(communityInfo?.creator || "");
-	const creatorMetadata = creatorAuthor.data?.metadata;
 
 	const handleJoinRequest = () => {
 		if (!communityId) return;
