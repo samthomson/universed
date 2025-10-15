@@ -65,7 +65,7 @@ function QuadrantArcs({
           fill={seg.connected ? 'currentColor' : 'transparent'}
           stroke="currentColor"
           strokeWidth="2"
-          className={seg.connected ? 'text-emerald-500' : 'text-red-500'}
+          className={seg.connected ? 'text-nostr-purple' : 'text-orange-500'}
         />
       ))}
     </svg>
