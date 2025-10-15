@@ -128,7 +128,7 @@ export function ConnectionStatus() {
   // Determine icon and color
   const getStatusColor = () => {
     if (isInitializing) return "text-muted-foreground";
-    if (allConnected) return "text-emerald-500/40"; // Very subtle green indicating healthy connection
+    if (allConnected) return "text-emerald-500/60"; // Slightly brighter green for better visibility
     if (noneConnected) return "text-red-500";
     return "text-orange-500"; // Orange is softer than yellow but still signals attention needed
   };
