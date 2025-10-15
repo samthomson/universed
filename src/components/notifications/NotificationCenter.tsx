@@ -322,7 +322,7 @@ export const NotificationCenter = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="relative w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200"
+          className="relative w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200"
         >
           <Bell className="h-6 w-6" />
           {unreadCount > 0 && (

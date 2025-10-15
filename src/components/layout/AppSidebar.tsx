@@ -473,7 +473,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200 ${selectedCommunity === null ? 'bg-accent' : ''
+                className={`w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 ${selectedCommunity === null ? 'bg-accent' : ''
                   }`}
                 onClick={() => navigate('/dm')}
               >
@@ -517,7 +517,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-border hover:border-nostr-purple text-nostr-purple"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 border-2 border-dashed border-border hover:border-nostr-purple text-nostr-purple"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
@@ -535,7 +535,7 @@ export function AppSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                  className="w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200"
                 >
                   <div className="relative">
                     <Avatar className="w-10 h-10">
