@@ -1,33 +1,22 @@
 import { useState, useMemo } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { cn } from "@/lib/utils";
 
-// (Deprecated) SubscriptionRing removed in favor of CombinedConnectionIcon to ensure centering
-
-// Combined icon that guarantees perfect centering: draws the ring and the globe in one SVG
-function CombinedConnectionIcon({
+// Quadrant arcs component - positioned around the globe
+function QuadrantArcs({ 
   subscriptions,
-  statusColorClass,
-  size = 200,
-}: {
+  size = 32 // Default size, but can be changed easily
+}: { 
   subscriptions: boolean[];
-  statusColorClass: string;
   size?: number;
 }) {
   const center = size / 2;
-  
-  // Fill ENTIRE button - use 100% with just 1px margin for stroke
-  const ringOuterR = (size / 2) - 2; // right to the edge
-  const ringThickness = 6; // thick ring
-  const ringInnerR = ringOuterR - ringThickness;
-  
-  // Globe fills center with clear gap
-  const gap = 24;
-  const globeR = ringInnerR - gap;
+  const outerR = (size / 2) * 0.85; // 85% of radius
+  const innerR = (size / 2) * 0.7; // 70% of radius
 
   const quadrantAngles = [
     { start: 15, end: 75 },
@@ -39,19 +28,19 @@ function CombinedConnectionIcon({
   const segs = quadrantAngles.map((qa, i) => {
     const start = (qa.start * Math.PI) / 180;
     const end = (qa.end * Math.PI) / 180;
-    const x1 = center + ringOuterR * Math.cos(start);
-    const y1 = center + ringOuterR * Math.sin(start);
-    const x2 = center + ringOuterR * Math.cos(end);
-    const y2 = center + ringOuterR * Math.sin(end);
-    const x3 = center + ringInnerR * Math.cos(end);
-    const y3 = center + ringInnerR * Math.sin(end);
-    const x4 = center + ringInnerR * Math.cos(start);
-    const y4 = center + ringInnerR * Math.sin(start);
-    const d = [
-      `M ${x1} ${y1}`,
-      `A ${ringOuterR} ${ringOuterR} 0 0 1 ${x2} ${y2}`,
-      `L ${x3} ${y3}`,
-      `A ${ringInnerR} ${ringInnerR} 0 0 0 ${x4} ${y4}`,
+      const x1 = center + outerR * Math.cos(start);
+      const y1 = center + outerR * Math.sin(start);
+      const x2 = center + outerR * Math.cos(end);
+      const y2 = center + outerR * Math.sin(end);
+      const x3 = center + innerR * Math.cos(end);
+      const y3 = center + innerR * Math.sin(end);
+      const x4 = center + innerR * Math.cos(start);
+      const y4 = center + innerR * Math.sin(start);
+      const d = [
+        `M ${x1} ${y1}`,
+        `A ${outerR} ${outerR} 0 0 1 ${x2} ${y2}`,
+        `L ${x3} ${y3}`,
+        `A ${innerR} ${innerR} 0 0 0 ${x4} ${y4}`,
       'Z',
     ].join(' ');
     return { d, connected: !!subscriptions[i], i };
@@ -59,30 +48,26 @@ function CombinedConnectionIcon({
 
   return (
     <svg 
-      viewBox={`0 0 ${size} ${size}`} 
-      width="100%"
-      height="100%"
-      className="block"
+      viewBox={`0 0 ${size} ${size}`}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: 'translate(-50%, -50%)'
+      }}
     >
-      {/* Ring */}
       {segs.map(seg => (
         <path
           key={seg.i}
           d={seg.d}
           fill={seg.connected ? 'currentColor' : 'transparent'}
           stroke="currentColor"
-          strokeWidth="3"
+          strokeWidth="2"
           className={seg.connected ? 'text-emerald-500' : 'text-red-500'}
         />
       ))}
-      {/* Globe (simple) */}
-      <g className={statusColorClass} stroke="currentColor" strokeWidth="2.5" fill="none">
-        <circle cx={center} cy={center} r={globeR} />
-        {/* horizontal */}
-        <line x1={center - globeR} y1={center} x2={center + globeR} y2={center} />
-        {/* vertical */}
-        <line x1={center} y1={center - globeR} x2={center} y2={center + globeR} />
-      </g>
     </svg>
   );
 }
@@ -181,11 +166,21 @@ export function ConnectionStatus() {
                 !isInitializing && !allConnected && !noneConnected && "hover:text-orange-500 hover:bg-slate-200 dark:hover:bg-slate-700"
               )}
             >
-              <CombinedConnectionIcon
-                subscriptions={subscriptionStates}
-                statusColorClass={getStatusColor()}
-                // size={48}
-              />
+              {/* <div className="absolute inset-0 flex items-center justify-center"> */}
+                <div className="relative w-full h-full">
+                  {/* Center the globe icon absolutely */}
+                  <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <Globe className={cn("w-8 h-8", getStatusColor())} />
+                  </div>
+                  {/* Quadrants positioned independently */}
+                  <div className="absolute inset-0">
+                    <QuadrantArcs 
+                      subscriptions={subscriptionStates}
+                      size={40} // You can easily change this number to make the quadrants bigger or smaller
+                    />
+                  </div>
+                </div>
+              {/* </div> */}
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
