@@ -67,6 +67,12 @@ export function CommunityPage() {
 	const isCommunitiesLoading = communities.isLoading;
 	const isCommunityFound = !!community;
 
+	// Only fetch from relay if:
+	// 1. Community not found in DataManager
+	// 2. Communities have finished their initial load (size > 0 means cache loaded)
+	// 3. Not currently loading
+	const shouldFetchFromRelay = !isCommunityFound && communities.communities.size > 0 && !isCommunitiesLoading && !!decodedCommunityId;
+
 	// If community not found in DataManager after loading is complete, try fetching it from the relay
 	const { data: fetchedCommunityEvent, isLoading: isFetchingCommunity } = useQuery({
 		queryKey: ["community-fetch", decodedCommunityId],
@@ -87,7 +93,9 @@ export function CommunityPage() {
 
 			return events[0] as NostrEvent | undefined;
 		},
-		enabled: !isCommunityFound && !isCommunitiesLoading && !!decodedCommunityId,
+		enabled: shouldFetchFromRelay,
+		staleTime: 60000, // Don't refetch for 60 seconds
+		gcTime: 300000, // Keep in cache for 5 minutes
 	});
 
 	const fetchedCommunityInfo = fetchedCommunityEvent ? {
