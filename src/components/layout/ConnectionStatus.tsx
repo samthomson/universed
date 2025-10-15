@@ -1,43 +1,144 @@
-import { useState } from "react";
-import { Globe, Globe2, RefreshCw } from "lucide-react";
+import { useState, useMemo } from "react";
+import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { cn } from "@/lib/utils";
 
+// (Deprecated) SubscriptionRing removed in favor of CombinedConnectionIcon to ensure centering
+
+// Combined icon that guarantees perfect centering: draws the ring and the globe in one SVG
+function CombinedConnectionIcon({
+  subscriptions,
+  statusColorClass,
+  size = 200,
+}: {
+  subscriptions: boolean[];
+  statusColorClass: string;
+  size?: number;
+}) {
+  const center = size / 2;
+  
+  // Fill ENTIRE button - use 100% with just 1px margin for stroke
+  const ringOuterR = (size / 2) - 2; // right to the edge
+  const ringThickness = 6; // thick ring
+  const ringInnerR = ringOuterR - ringThickness;
+  
+  // Globe fills center with clear gap
+  const gap = 24;
+  const globeR = ringInnerR - gap;
+
+  const quadrantAngles = [
+    { start: 15, end: 75 },
+    { start: 105, end: 165 },
+    { start: 195, end: 255 },
+    { start: 285, end: 345 },
+  ];
+
+  const segs = quadrantAngles.map((qa, i) => {
+    const start = (qa.start * Math.PI) / 180;
+    const end = (qa.end * Math.PI) / 180;
+    const x1 = center + ringOuterR * Math.cos(start);
+    const y1 = center + ringOuterR * Math.sin(start);
+    const x2 = center + ringOuterR * Math.cos(end);
+    const y2 = center + ringOuterR * Math.sin(end);
+    const x3 = center + ringInnerR * Math.cos(end);
+    const y3 = center + ringInnerR * Math.sin(end);
+    const x4 = center + ringInnerR * Math.cos(start);
+    const y4 = center + ringInnerR * Math.sin(start);
+    const d = [
+      `M ${x1} ${y1}`,
+      `A ${ringOuterR} ${ringOuterR} 0 0 1 ${x2} ${y2}`,
+      `L ${x3} ${y3}`,
+      `A ${ringInnerR} ${ringInnerR} 0 0 0 ${x4} ${y4}`,
+      'Z',
+    ].join(' ');
+    return { d, connected: !!subscriptions[i], i };
+  });
+
+  return (
+    <svg 
+      viewBox={`0 0 ${size} ${size}`} 
+      width="100%"
+      height="100%"
+      className="block"
+    >
+      {/* Ring */}
+      {segs.map(seg => (
+        <path
+          key={seg.i}
+          d={seg.d}
+          fill={seg.connected ? 'currentColor' : 'transparent'}
+          stroke="currentColor"
+          strokeWidth="3"
+          className={seg.connected ? 'text-emerald-500' : 'text-red-500'}
+        />
+      ))}
+      {/* Globe (simple) */}
+      <g className={statusColorClass} stroke="currentColor" strokeWidth="2.5" fill="none">
+        <circle cx={center} cy={center} r={globeR} />
+        {/* horizontal */}
+        <line x1={center - globeR} y1={center} x2={center + globeR} y2={center} />
+        {/* vertical */}
+        <line x1={center} y1={center - globeR} x2={center} y2={center + globeR} />
+      </g>
+    </svg>
+  );
+}
+
 export function ConnectionStatus() {
   const { messaging, communities } = useDataManager();
   const [open, setOpen] = useState(false);
 
-  // Calculate connection status, but don't count as disconnected if still loading
-  // Only count subscriptions for domains that are NOT loading
+  // Memoize subscription states for performance
+  const subscriptionStates = useMemo(() => {
+    const messagingIsLoading = messaging.isLoading;
+    const communitiesIsLoading = communities.isLoading;
+    
+    // Always show all 4 subscriptions, but mark loading ones as disconnected
+    return [
+      messagingIsLoading ? false : messaging.subscriptions.nip4,
+      messagingIsLoading ? false : messaging.subscriptions.nip17,
+      communitiesIsLoading ? false : communities.subscriptions.messages,
+      communitiesIsLoading ? false : communities.subscriptions.management,
+    ];
+  }, [
+    messaging.isLoading,
+    messaging.subscriptions.nip4,
+    messaging.subscriptions.nip17,
+    communities.isLoading,
+    communities.subscriptions.messages,
+    communities.subscriptions.management,
+  ]);
+
+  // Calculate connection status - count ALL subscriptions, including loading ones
   const messagingIsLoading = messaging.isLoading;
   const communitiesIsLoading = communities.isLoading;
   
-  // Count connections only for domains that are NOT loading
-  const activeConnections = [
-    ...(!messagingIsLoading ? [messaging.subscriptions.nip4, messaging.subscriptions.nip17] : []),
-    ...(!communitiesIsLoading ? [communities.subscriptions.messages, communities.subscriptions.management] : []),
+  // Count ALL connections (including loading ones as "not connected")
+  const allConnections = [
+    messagingIsLoading ? false : messaging.subscriptions.nip4,
+    messagingIsLoading ? false : messaging.subscriptions.nip17,
+    communitiesIsLoading ? false : communities.subscriptions.messages,
+    communitiesIsLoading ? false : communities.subscriptions.management,
   ];
   
   // Total expected connections (always 4)
   const totalExpectedConnections = 4;
   
+  // Connected count includes only truly connected subscriptions
+  const connectedCount = allConnections.filter(Boolean).length;
+  
   // Count how many domains are still loading
   const loadingDomains = [messagingIsLoading, communitiesIsLoading].filter(Boolean).length;
   
-  // Connected count is only from active (non-loading) domains
-  const connectedCount = activeConnections.filter(Boolean).length;
+  // All connected only if all 4 subscriptions are connected AND no domains are loading
+  const allConnected = connectedCount === totalExpectedConnections && loadingDomains === 0;
+  const noneConnected = connectedCount === 0 && loadingDomains === 0;
   
-  // Total count is expected connections minus loading domains' connections
-  const totalActiveCount = totalExpectedConnections - (loadingDomains * 2); // Each domain has 2 subscriptions
-  
-  const allConnected = totalActiveCount > 0 && connectedCount === totalActiveCount;
-  const noneConnected = totalActiveCount > 0 && connectedCount === 0;
-  
-  // Determine if we're in a loading/initializing state (all domains are still loading)
-  const isInitializing = messagingIsLoading && communitiesIsLoading;
+  // Determine if we're in a loading/initializing state (any domains are still loading)
+  const isInitializing = loadingDomains > 0;
 
   // Determine icon and color
   const getStatusColor = () => {
@@ -47,12 +148,7 @@ export function ConnectionStatus() {
     return "text-orange-500"; // Orange is softer than yellow but still signals attention needed
   };
 
-  const getStatusIcon = () => {
-    if (isInitializing) return <Globe className="h-4 w-4 animate-pulse" />;
-    if (noneConnected) return <Globe className="h-4 w-4 opacity-50" />;
-    if (allConnected) return <Globe2 className="h-4 w-4" />;
-    return <Globe2 className="h-4 w-4" />;
-  };
+  // getStatusIcon replaced by CombinedConnectionIcon (globe drawn in SVG)
 
   const handleReload = () => {
     window.location.reload();
@@ -76,19 +172,20 @@ export function ConnectionStatus() {
               variant="ghost"
               size="icon"
               className={cn(
-                "w-12 h-12 rounded-2xl relative",
+                "w-12 h-12 rounded-2xl relative overflow-visible p-0 bg-accent", // overflow-visible to allow arcs to extend beyond button, p-0 to maximize space
                 getStatusColor(),
-                // Maintain color on hover with slightly darker background
-                isInitializing && "hover:text-muted-foreground hover:bg-muted/50",
-                allConnected && "hover:text-emerald-500/50 hover:bg-emerald-500/10",
-                noneConnected && "hover:text-red-500 hover:bg-red-500/10",
-                !isInitializing && !allConnected && !noneConnected && "hover:text-orange-500 hover:bg-orange-500/10"
+                // Maintain color on hover with darker background
+                isInitializing && "hover:text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-700",
+                allConnected && "hover:text-emerald-500/50 hover:bg-slate-200 dark:hover:bg-slate-700",
+                noneConnected && "hover:text-red-500 hover:bg-slate-200 dark:hover:bg-slate-700",
+                !isInitializing && !allConnected && !noneConnected && "hover:text-orange-500 hover:bg-slate-200 dark:hover:bg-slate-700"
               )}
             >
-              {getStatusIcon()}
-              {!allConnected && !isInitializing && (
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
-              )}
+              <CombinedConnectionIcon
+                subscriptions={subscriptionStates}
+                statusColorClass={getStatusColor()}
+                // size={48}
+              />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -100,7 +197,7 @@ export function ConnectionStatus() {
               ? "All relay subscriptions active"
               : noneConnected
               ? "No relay connections"
-              : `${connectedCount}/${totalActiveCount} relay subscriptions active`}
+              : `${connectedCount}/${totalExpectedConnections} relay subscriptions active`}
           </p>
         </TooltipContent>
       </Tooltip>
