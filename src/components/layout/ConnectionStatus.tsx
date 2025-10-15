@@ -16,7 +16,7 @@ function QuadrantArcs({
 }) {
   const center = size / 2;
   const outerR = (size / 2) * 0.85; // 85% of radius
-  const innerR = (size / 2) * 0.8; // 70% of radius
+  const innerR = (size / 2) * 0.82; // 70% of radius
 
   const quadrantAngles = [
     { start: 15, end: 75 },
