@@ -4936,15 +4936,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Create user-specific store name (matching messages pattern)
       const storeName = `communities-${userPubkey}`;
 
-      // Open or create the communities database
-      const db = await openDB('nostr-communities', 1, {
-        upgrade(db) {
-          if (!db.objectStoreNames.contains(storeName)) {
-            db.createObjectStore(storeName, { keyPath: 'id' });
-            logger.log(`Communities: Created store ${storeName} in IndexedDB`);
-          }
-        },
-      });
+      // Open or create the communities database with flexible version handling
+      let db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, create it with version 1
+        db = await openDB('nostr-communities', 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB`);
+            }
+          },
+        });
+      }
 
       // Convert Map to serializable format
       const communitiesArray = Array.from(communities.entries()).map(([id, community]) => ({
@@ -4994,8 +4999,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       if (!db.objectStoreNames.contains(storeName)) {
         logger.log(`Communities: Store ${storeName} does not exist yet, creating it with version upgrade`);
         // Force a database upgrade to create the store
+        const currentVersion = db.version; // Get version BEFORE closing
         await db.close();
-        const currentVersion = db.version;
         const newDb = await openDB('nostr-communities', currentVersion + 1, {
           upgrade(db) {
             if (!db.objectStoreNames.contains(storeName)) {
@@ -5037,15 +5042,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       // Create user-specific store name (matching messages pattern)
       const storeName = `communities-${userPubkey}`;
 
-      // Open the communities database
-      const db = await openDB('nostr-communities', 1, {
-        upgrade(db) {
-          if (!db.objectStoreNames.contains(storeName)) {
-            db.createObjectStore(storeName, { keyPath: 'id' });
-            logger.log(`Communities: Created store ${storeName} in IndexedDB during read`);
-          }
-        },
-      });
+      // Open the communities database with flexible version handling
+      // Use a very high version number so we can open existing DBs at any version
+      let db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, create it with version 1
+        db = await openDB('nostr-communities', 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB during read`);
+            }
+          },
+        });
+      }
 
       // Check if the store exists before trying to read from it
       if (!db.objectStoreNames.contains(storeName)) {
@@ -5179,14 +5190,22 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     logger.log('Communities: Starting communities loading for user');
+    
+    // Set ALL loading states immediately to prevent initial render with wrong state
+    // Components check these granular states, not just communitiesLoading
+    setCommunitiesLoading(true);
+    setIsLoadingCommunities(true);
+    setIsLoadingChannels(true);
+    setIsLoadingMessages(true);
 
     // Try to load from cache first, then fall back to network
     const loadCommunitiesWithCache = async () => {
       try {
+        logger.log('Communities: Attempting to read from cache...');
         const cacheResult = await readCommunitiesFromCache();
 
         if (cacheResult && cacheResult.communities.size > 0) {
-          logger.log(`Communities: Loaded ${cacheResult.communities.size} communities from cache`);
+          logger.log(`Communities: ✅ Loaded ${cacheResult.communities.size} communities from cache`);
 
           // Set cached data immediately for fast UI
           setCommunities(cacheResult.communities);
@@ -5194,8 +5213,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           communitiesRef.current = cacheResult.communities;
           setHasCommunitiesInitialLoadCompleted(true);
           setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+          setCommunitiesLoading(false);
           // Also set the lastSync state for future use
           setCommunitiesLastSync(cacheResult.lastSync);
+          
+          // Clear all granular loading states - cache is fully loaded
+          setIsLoadingCommunities(false);
+          setIsLoadingChannels(false);
+          setIsLoadingMessages(false);
+          setHasBasicCommunitiesData(true);
+          
+          // Log cache stats for debugging
+          let totalChannels = 0;
+          let totalMessages = 0;
+          cacheResult.communities.forEach(community => {
+            totalChannels += community.channels.size;
+            community.channels.forEach(channel => {
+              totalMessages += channel.messages.length;
+            });
+          });
+          logger.log(`Communities: Cache loaded - ${cacheResult.communities.size} communities, ${totalChannels} channels, ${totalMessages} messages`);
 
           // Cache loaded successfully - start subscriptions WITH the cache timestamp
           logger.log('Communities: Cache loaded successfully, starting subscriptions with cache timestamp');
@@ -5203,7 +5240,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           startCommunityMessagesSubscription(cacheResult.communities, cacheResult.lastSync);
           startCommunityManagementSubscription(cacheResult.lastSync);
         } else {
-          logger.log('Communities: No valid cache found, loading from network');
+          logger.log('Communities: ❌ No valid cache found, loading from network');
           queryFullCommunityDataFromRelay();
         }
       } catch (error) {
@@ -5878,13 +5915,14 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const { openDB } = await import('idb');
       const storeName = `communities-${userPubkey}`;
 
-      const db = await openDB('nostr-communities', 1, {
-        upgrade(db) {
-          if (!db.objectStoreNames.contains(storeName)) {
-            db.createObjectStore(storeName, { keyPath: 'id' });
-          }
-        },
-      });
+      // Open database with flexible version handling
+      const db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, nothing to clear
+        logger.log('Communities: Database does not exist, nothing to clear');
+        return;
+      }
 
       if (db.objectStoreNames.contains(storeName)) {
         // Clear the entire store for this user
