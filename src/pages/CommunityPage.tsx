@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { CommunityPanel } from "@/components/layout/CommunityPanel";
 import { ChatArea } from "@/components/layout/ChatArea";
 import { MemberList } from "@/components/layout/MemberList";
@@ -39,28 +39,31 @@ export function CommunityPage() {
 	const [showShareDialog, setShowShareDialog] = useState(false);
 	const [joinMessage, setJoinMessage] = useState("");
 
-	// Decode naddr format to full addressable format (kind:pubkey:identifier)
-	let decodedCommunityId = communityId || '';
-	if (communityId && communityId.startsWith('naddr1')) {
-		try {
-			const naddr = decodeNaddrFromUrl(communityId);
-			decodedCommunityId = naddrToCommunityId(naddr);
-		} catch {
-			console.error('Failed to decode naddr');
+	// Memoize community ID decoding - only recalculate when URL parameter changes
+	const decodedCommunityId = useMemo(() => {
+		if (!communityId) return '';
+		if (communityId.startsWith('naddr1')) {
+			try {
+				const naddr = decodeNaddrFromUrl(communityId);
+				return naddrToCommunityId(naddr);
+			} catch {
+				console.error('Failed to decode naddr');
+				return communityId;
+			}
 		}
-	}
+		return communityId;
+	}, [communityId]);
 
-	// Extract simple community ID from full addressable format for DataManager lookup
-	const getSimpleCommunityId = (id: string): string => {
-		if (id.includes(':')) {
+	// Memoize simple community ID extraction
+	const simpleCommunityId = useMemo(() => {
+		if (!decodedCommunityId) return '';
+		if (decodedCommunityId.includes(':')) {
 			// Full addressable format: "34550:pubkey:identifier" -> "identifier"
-			const parts = id.split(':');
-			return parts.length === 3 ? parts[2] : id;
+			const parts = decodedCommunityId.split(':');
+			return parts.length === 3 ? parts[2] : decodedCommunityId;
 		}
-		return id;
-	};
-
-	const simpleCommunityId = decodedCommunityId ? getSimpleCommunityId(decodedCommunityId) : '';
+		return decodedCommunityId;
+	}, [decodedCommunityId]);
 
 	// Check if community exists and if we're still loading
 	const community = simpleCommunityId ? communities.communities.get(simpleCommunityId) : null;
@@ -98,18 +101,23 @@ export function CommunityPage() {
 		gcTime: 300000, // Keep in cache for 5 minutes
 	});
 
-	const fetchedCommunityInfo = fetchedCommunityEvent ? {
-		id: fetchedCommunityEvent.tags.find(([name]) => name === "d")?.[1] || "",
-		name: fetchedCommunityEvent.tags.find(([name]) => name === "name")?.[1] || "Unnamed Community",
-		description: fetchedCommunityEvent.tags.find(([name]) => name === "description")?.[1] || "",
-		image: fetchedCommunityEvent.tags.find(([name]) => name === "image")?.[1],
-		creator: fetchedCommunityEvent.pubkey,
-	} : null;
+	// Memoize fetched community info parsing - only recalculate when event changes
+	const fetchedCommunityInfo = useMemo(() => {
+		if (!fetchedCommunityEvent) return null;
+		return {
+			id: fetchedCommunityEvent.tags.find(([name]) => name === "d")?.[1] || "",
+			name: fetchedCommunityEvent.tags.find(([name]) => name === "name")?.[1] || "Unnamed Community",
+			description: fetchedCommunityEvent.tags.find(([name]) => name === "description")?.[1] || "",
+			image: fetchedCommunityEvent.tags.find(([name]) => name === "image")?.[1],
+			creator: fetchedCommunityEvent.pubkey,
+		};
+	}, [fetchedCommunityEvent]);
 
 	const creatorAuthor = useAuthor(fetchedCommunityInfo?.creator || "");
 	const creatorMetadata = creatorAuthor.data?.metadata;
 
 	// Get channels from DataManager instead of old useChannels hook
+	// getSortedChannels is already memoized via useCallback in DataManagerProvider
 	const channels = useMemo(() => {
 		return simpleCommunityId ? communities.getSortedChannels(simpleCommunityId) : [];
 	}, [simpleCommunityId, communities]);
@@ -152,7 +160,8 @@ export function CommunityPage() {
 		}
 	}, [searchParams, setSearchParams, community]);
 
-	const handleCommunitySectionSelect = (sectionName: string) => {
+	// Memoize callback to prevent unnecessary re-renders of child components
+	const handleCommunitySectionSelect = useCallback((sectionName: string) => {
 		// Navigate to the appropriate community section page
 		if (!communityId) return; // Guard against undefined
 
@@ -161,7 +170,7 @@ export function CommunityPage() {
 		} else if (sectionName === 'resources') {
 			navigate(`/space/${encodeURIComponent(communityId)}/resources`);
 		}
-	};
+	}, [communityId, navigate]);
 
 	// Always viewing channels on this page (spaces have separate routes now)
 	const isShowingMemberList = showMemberList && selectedChannel;
