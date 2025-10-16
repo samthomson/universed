@@ -307,6 +307,7 @@ describe('CommunityChannelList', () => {
         isLoadingChannels: false,
         isLoadingMessages: false,
         hasBasicCommunitiesData: true,
+        subscriptions: { messages: false, management: false },
         getFolders: vi.fn(() => []),
         getChannelsWithoutFolder: vi.fn(() => ({
           text: [],
@@ -321,6 +322,7 @@ describe('CommunityChannelList', () => {
         resetCommunitiesDataAndCache: vi.fn(),
         addOptimisticCommunity: vi.fn(),
         refreshCommunities: vi.fn(),
+        addProspectiveCommunity: vi.fn(),
         useDataManagerPinnedMessages: vi.fn(() => []),
         approveMember: vi.fn(),
         declineMember: vi.fn(),
