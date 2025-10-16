@@ -1,5 +1,6 @@
 import { BasePageLayout } from "@/components/layout/BasePageLayout";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { LoginArea } from "@/components/auth/LoginArea";
 
 // Page component for Community List page (/space with no community selected)
 export function CommunityListPage() {
@@ -23,11 +24,14 @@ export function CommunityListPage() {
 					</div>
 				) : (
 					<div className="flex items-center justify-center bg-background h-full">
-						<div className="text-center max-w-md p-8">
-							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
-							<p className="text-muted-foreground">
-								Please log in to view communities.
-							</p>
+						<div className="text-center max-w-md p-8 space-y-6">
+							<div>
+								<h2 className="text-2xl font-bold mb-4">Login Required</h2>
+								<p className="text-muted-foreground mb-6">
+									Please log in to view communities.
+								</p>
+							</div>
+							<LoginArea className="flex w-full" />
 						</div>
 					</div>
 				)
