@@ -474,7 +474,6 @@ export function useConversationMessages(conversationId: string) {
 // Hook for retrieving a specific channel with its data from DataManager
 export function useDataManagerCommunityChannel(communityId: string | null, channelId: string | null) {
   const { communities } = useDataManager();
-  const { user } = useCurrentUser();
 
   return useMemo(() => {
     if (!communityId || !channelId) {
@@ -503,14 +502,16 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       };
     }
 
-    // Get the channel
-    const channelData = community.channels.get(channelId);
-    if (!channelData) {
-      logger.log('Communities: Channel not found:', {
+    // Use getSortedChannels to get the pre-computed DisplayChannel with permissions already checked
+    // This avoids duplicating the permission checking logic
+    const allChannels = communities.getSortedChannels(simpleCommunityId);
+    const displayChannel = allChannels.find(ch => ch.id === channelId);
+    
+    if (!displayChannel) {
+      logger.log('Communities: Channel not found in sorted channels:', {
         channelId,
         communityId: simpleCommunityId,
-        availableChannels: Array.from(community.channels.keys()),
-        channelsCount: community.channels.size
+        availableChannels: allChannels.map(ch => ch.id),
       });
       return {
         isLoading: false,
@@ -518,128 +519,30 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       };
     }
 
-    // Create a DisplayChannel object that matches the format used throughout the app
-    // We'll use a simplified approach since we don't have direct access to the helper functions
-
-    // Try to parse permissions from the event
-    let readPermissions: 'everyone' | 'members' | 'moderators' | 'specific' = 'everyone';
-    let writePermissions: 'everyone' | 'members' | 'moderators' | 'specific' = 'members';
-
-    if (channelData.permissions) {
-      try {
-        const content = JSON.parse(channelData.permissions.content);
-        if (content.readPermissions === 'everyone' ||
-          content.readPermissions === 'members' ||
-          content.readPermissions === 'moderators' ||
-          content.readPermissions === 'specific') {
-          readPermissions = content.readPermissions;
-        }
-
-        if (content.writePermissions === 'everyone' ||
-          content.writePermissions === 'members' ||
-          content.writePermissions === 'moderators' ||
-          content.writePermissions === 'specific') {
-          writePermissions = content.writePermissions;
-        }
-      } catch {
-        // Use default permissions if parsing fails
-      }
+    // Get the raw channel data to access messages
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return {
+        isLoading: false,
+        channel: null
+      };
     }
 
-    const parsedPermissions = {
-      readPermissions,
-      writePermissions
-    };
-
-    // Determine if the channel has access restrictions
-    const isRestricted =
-      readPermissions === 'moderators' ||
-      readPermissions === 'specific' ||
-      writePermissions === 'moderators' ||
-      writePermissions === 'specific';
-
-    // Check if user has access to this channel
-    const hasAccess = (() => {
-      // If no permissions event, assume public access
-      if (!channelData.permissions) {
-        return true;
-      }
-
-      // Get community data to check membership status
-      const community = communities.communities.get(channelData.communityId);
-      if (!community) {
-        return false; // No community data, no access
-      }
-
-      // Get current user's pubkey
-      const userPubkey = user?.pubkey;
-      if (!userPubkey) {
-        // No logged-in user - can only access "everyone" channels
-        return readPermissions === 'everyone';
-      }
-
-      // Owners and moderators always have access
-      if (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') {
-        return true;
-      }
-
-      // Parse permission tags from the permissions event
-      const allowedReaders = channelData.permissions.tags
-        .filter(([name, , , permission]) => name === 'p' && permission === 'read-allow')
-        .map(([, pubkey]) => pubkey);
-
-      const deniedReaders = channelData.permissions.tags
-        .filter(([name, , , permission]) => name === 'p' && permission === 'read-deny')
-        .map(([, pubkey]) => pubkey);
-
-      // Check if user is explicitly denied access
-      if (deniedReaders.includes(userPubkey)) {
-        return false;
-      }
-
-      // Check read permissions
-      switch (readPermissions) {
-        case 'everyone':
-          return true;
-        case 'members':
-          return ['approved', 'owner', 'moderator'].includes(community.membershipStatus);
-        case 'moderators':
-          return ['owner', 'moderator'].includes(community.membershipStatus);
-        case 'specific':
-          // Check if user is in the allowed readers list
-          return allowedReaders.includes(userPubkey);
-        default:
-          return true;
-      }
-    })();
-
-    // Create the DisplayChannel object with messages included
+    // Add messages to the pre-computed DisplayChannel
     // Ensure messages are sorted by timestamp (oldest first)
     const sortedMessages = [...channelData.messages].sort((a, b) => a.created_at - b.created_at);
 
     const channel: DisplayChannel & { messages: NostrEvent[] } = {
-      id: channelData.id,
-      name: channelData.info.name,
-      description: channelData.info.description,
-      type: channelData.info.type,
-      communityId: channelData.communityId,
-      creator: channelData.definition.pubkey,
-      position: channelData.info.position ?? 0,
-      folderId: channelData.info.folderId,
-      event: channelData.definition,
-      permissions: channelData.permissions,
-      hasAccess, // Use proper permission checking
-      parsedPermissions,
-      isRestricted,
-      messages: sortedMessages // Include sorted messages in the channel object
+      ...displayChannel, // Use all pre-computed data from getSortedChannels
+      messages: sortedMessages // Just add the messages
     };
 
-    // Return just the channel with messages included
+    // Return the channel with messages included
     return {
       isLoading: false,
       channel
     };
-  }, [communities.communities, communityId, channelId, user?.pubkey]);
+  }, [communities, communityId, channelId]);
 }
 
 // Hook to get reactions for a specific message from DataManager
