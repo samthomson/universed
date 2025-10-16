@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { cn, generateSpaceUrl } from '@/lib/utils';
 import {
   Hash,
@@ -56,9 +56,9 @@ export function CommunityChannelList({
   const { toast } = useToast();
   const { communities } = useDataManager();
 
-  // Get all data from DataManager - no network calls needed
-  const folders = communities.getFolders(communityId);
-  const channelsWithoutFolder = communities.getChannelsWithoutFolder(communityId);
+  // Get all data from DataManager - memoized to avoid recomputation on every render
+  const folders = useMemo(() => communities.getFolders(communityId), [communities, communityId]);
+  const channelsWithoutFolder = useMemo(() => communities.getChannelsWithoutFolder(communityId), [communities, communityId]);
 
   // Use the specific channels loading state for better UX
   const isLoading = communities.isLoadingChannels;

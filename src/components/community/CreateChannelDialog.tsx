@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Hash, Volume2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,10 +66,10 @@ export function CreateChannelDialog({
     community.membershipStatus === 'moderator'
   );
 
-  // Get folders and channels from DataManager
+  // Get folders and channels from DataManager - memoized to avoid recomputation
   const { getFolders, getSortedChannels } = useDataManager().communities;
-  const folders = community ? getFolders(communityId) : [];
-  const existingChannels = community ? getSortedChannels(communityId) : [];
+  const folders = useMemo(() => community ? getFolders(communityId) : [], [community, getFolders, communityId]);
+  const existingChannels = useMemo(() => community ? getSortedChannels(communityId) : [], [community, getSortedChannels, communityId]);
 
   // Calculate next position based on existing channels in the same folder/root
   const calculateNextPosition = () => {
