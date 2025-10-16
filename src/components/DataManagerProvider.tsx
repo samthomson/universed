@@ -4091,8 +4091,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         };
       }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null entries with proper typing
 
-      logger.log('DEBUG_PERMISSIONS: allPermissionFilters', allPermissionFilters);
-
       // Create ONE filter PER CHANNEL (matching production event format)
       // Each channel gets its own query with full addressable format for both 'a' and 't' tags
       const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) =>
@@ -4193,8 +4191,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
       const pinnedPostsQueryTime = pinnedPostsQueryResult.time;
-
-      logger.log('DEBUG_PERMISSIONS: allPermissionSettings', allPermissionSettings);
 
       // DEBUG: Log message query results
       logger.log(`Communities: Messages query returned ${allChannelMessages.length} messages`);
@@ -4432,24 +4428,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
             const channelPermissions = channelPermissionEvents.length > 0 
               ? channelPermissionEvents.sort((a, b) => b.created_at - a.created_at)[0]
               : null;
-
-            // DEBUG: Log deduplication results for this channel
-            if (channelPermissionEvents.length > 0) {
-              logger.log(`DEBUG_PERMISSIONS_DEDUPED: Channel ${channelId} in community ${community.id}`, {
-                totalEvents: channelPermissionEvents.length,
-                selectedEvent: {
-                  id: channelPermissions?.id.slice(0, 8),
-                  created_at: channelPermissions?.created_at,
-                  dTag: channelPermissions?.tags.find(([name]) => name === 'd')?.[1],
-                  content: channelPermissions?.content
-                },
-                allEvents: channelPermissionEvents.map(evt => ({
-                  id: evt.id.slice(0, 8),
-                  created_at: evt.created_at,
-                  dTag: evt.tags.find(([name]) => name === 'd')?.[1]
-                }))
-              });
-            }
 
             // Parse channel info from tags
             const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
@@ -6054,26 +6032,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     messaging,
     communities: communitiesDomain,
   };
-
-  // DEBUG: Log final channel permissions data for all communities
-  useEffect(() => {
-    if (communities.size > 0) {
-      const allChannelsData = Array.from(communities.entries()).map(([communityId, community]) => ({
-        communityId,
-        communityName: community.info.name,
-        channels: Array.from(community.channels.entries()).map(([channelId, channelData]) => ({
-          channelId,
-          channelName: channelData.info.name,
-          hasPermissions: !!channelData.permissions,
-          permissionsContent: channelData.permissions ? JSON.parse(channelData.permissions.content) : null,
-          permissionsCreatedAt: channelData.permissions?.created_at,
-          permissionsId: channelData.permissions?.id?.slice(0, 8)
-        }))
-      }));
-      
-      logger.log('DEBUG_PERMISSIONS_FINAL: All channels with permissions data', allChannelsData);
-    }
-  }, [communities]);
 
   return (
     <DataManagerContext.Provider value={contextValue}>
