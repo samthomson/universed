@@ -8,6 +8,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
 import { useDataManager } from "@/components/DataManagerProvider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoginArea } from "@/components/auth/LoginArea";
 import { CommunityShareDialog } from "@/components/community/CommunityShareDialog";
 import { useNostr } from "@nostrify/react";
 import { useQuery } from "@tanstack/react-query";
@@ -181,11 +182,14 @@ export function CommunityPage() {
 			<BasePageLayout
 				mainContent={
 					<div className="flex items-center justify-center bg-background h-full">
-						<div className="text-center max-w-md p-8">
-							<h2 className="text-2xl font-bold mb-4">Login Required</h2>
-							<p className="text-muted-foreground">
-								Please log in to access communities.
-							</p>
+						<div className="text-center max-w-md p-8 space-y-6">
+							<div>
+								<h2 className="text-2xl font-bold mb-4">Login Required</h2>
+								<p className="text-muted-foreground mb-6">
+									Please log in to access communities.
+								</p>
+							</div>
+							<LoginArea className="flex w-full" />
 						</div>
 					</div>
 				}
