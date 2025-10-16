@@ -474,6 +474,7 @@ export function useConversationMessages(conversationId: string) {
 // Hook for retrieving a specific channel with its data from DataManager
 export function useDataManagerCommunityChannel(communityId: string | null, channelId: string | null) {
   const { communities } = useDataManager();
+  const { user } = useCurrentUser();
 
   return useMemo(() => {
     if (!communityId || !channelId) {
@@ -557,6 +558,61 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       writePermissions === 'moderators' ||
       writePermissions === 'specific';
 
+    // Check if user has access to this channel
+    const hasAccess = (() => {
+      // If no permissions event, assume public access
+      if (!channelData.permissions) {
+        return true;
+      }
+
+      // Get community data to check membership status
+      const community = communities.communities.get(channelData.communityId);
+      if (!community) {
+        return false; // No community data, no access
+      }
+
+      // Get current user's pubkey
+      const userPubkey = user?.pubkey;
+      if (!userPubkey) {
+        // No logged-in user - can only access "everyone" channels
+        return readPermissions === 'everyone';
+      }
+
+      // Owners and moderators always have access
+      if (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') {
+        return true;
+      }
+
+      // Parse permission tags from the permissions event
+      const allowedReaders = channelData.permissions.tags
+        .filter(([name, , , permission]) => name === 'p' && permission === 'read-allow')
+        .map(([, pubkey]) => pubkey);
+
+      const deniedReaders = channelData.permissions.tags
+        .filter(([name, , , permission]) => name === 'p' && permission === 'read-deny')
+        .map(([, pubkey]) => pubkey);
+
+      // Check if user is explicitly denied access
+      if (deniedReaders.includes(userPubkey)) {
+        return false;
+      }
+
+      // Check read permissions
+      switch (readPermissions) {
+        case 'everyone':
+          return true;
+        case 'members':
+          return ['approved', 'owner', 'moderator'].includes(community.membershipStatus);
+        case 'moderators':
+          return ['owner', 'moderator'].includes(community.membershipStatus);
+        case 'specific':
+          // Check if user is in the allowed readers list
+          return allowedReaders.includes(userPubkey);
+        default:
+          return true;
+      }
+    })();
+
     // Create the DisplayChannel object with messages included
     // Ensure messages are sorted by timestamp (oldest first)
     const sortedMessages = [...channelData.messages].sort((a, b) => a.created_at - b.created_at);
@@ -572,7 +628,7 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       folderId: channelData.info.folderId,
       event: channelData.definition,
       permissions: channelData.permissions,
-      hasAccess: true, // Assume access is granted for simplicity
+      hasAccess, // Use proper permission checking
       parsedPermissions,
       isRestricted,
       messages: sortedMessages // Include sorted messages in the channel object
@@ -583,7 +639,7 @@ export function useDataManagerCommunityChannel(communityId: string | null, chann
       isLoading: false,
       channel
     };
-  }, [communities.communities, communityId, channelId]);
+  }, [communities.communities, communityId, channelId, user?.pubkey]);
 }
 
 // Hook to get reactions for a specific message from DataManager
@@ -4105,13 +4161,34 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         });
       });
 
-      // Create ONE permission filter per community with all channel d-tags
-      const allPermissionFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => ({
-        kinds: [30143], // Channel permissions events
-        authors: [channels[0].communityPubkey],
-        '#d': channels.map(ch => `${ch.communityId}/${ch.channelId}`), // All channels in one filter
-        limit: channels.length * 2, // Generous limit for all channels
-      }));
+      // Create ONE permission filter per community using a-tag for better efficiency
+      // Query by community a-tag and restrict to owners and moderators for security
+      // Note: Permission events are NOT replaceable - each update creates a new event
+      const allPermissionFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => {
+        const community = communitiesWithStatus.find(c => c.id === channels[0].communityId);
+        if (!community) return null;
+
+        // Get community owners and moderators
+        const authorizedPubkeys = new Set<string>();
+        
+        // Add community owner
+        authorizedPubkeys.add(community.pubkey);
+        
+        // Add moderators from community definition
+        const moderatorTags = community.definitionEvent.tags.filter(([name, , role]) => 
+          name === 'p' && role === 'moderator'
+        );
+        moderatorTags.forEach(([, pubkey]) => authorizedPubkeys.add(pubkey));
+
+        return {
+          kinds: [30143], // Channel permissions events
+          '#a': [channels[0].communityRef], // Query by community addressable tag
+          authors: Array.from(authorizedPubkeys), // Restrict to owners and moderators for security
+          limit: 100, // Higher limit since we need all permission events for the community
+        };
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null entries with proper typing
+
+      logger.log('DEBUG_PERMISSIONS: allPermissionFilters', allPermissionFilters);
 
       // Create ONE filter PER CHANNEL (matching production event format)
       // Each channel gets its own query with full addressable format for both 'a' and 't' tags
@@ -4213,6 +4290,8 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const permissionsQueryTime = permissionsQueryResult.time;
       const messagesQueryTime = messagesQueryResult.time;
       const pinnedPostsQueryTime = pinnedPostsQueryResult.time;
+
+      logger.log('DEBUG_PERMISSIONS: allPermissionSettings', allPermissionSettings);
 
       // DEBUG: Log message query results
       logger.log(`Communities: Messages query returned ${allChannelMessages.length} messages`);
@@ -4432,11 +4511,42 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               return msgChannelId === channelId;
             });
 
-            // Find permissions for this channel
-            const channelPermissions = allPermissionSettings.find(perm => {
+            // Find permissions for this channel - handle multiple events and take the latest
+            const channelPermissionEvents = allPermissionSettings.filter(perm => {
               const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
-              return permRef === `${community.id}/${channelId}`;
+              if (!permRef) return false;
+              
+              // Handle both formats:
+              // Format A: "34550:pubkey:communityId:channelId"
+              // Format B: "34550:pubkey:communityId:34550:pubkey:communityId:channelId" (duplicated)
+              const expectedFormatA = `34550:${community.pubkey}:${community.id}:${channelId}`;
+              const expectedFormatB = `34550:${community.pubkey}:${community.id}:34550:${community.pubkey}:${community.id}:${channelId}`;
+              
+              return permRef === expectedFormatA || permRef === expectedFormatB;
             });
+            
+            // Sort by created_at descending and take the latest (most recent) permission event
+            const channelPermissions = channelPermissionEvents.length > 0 
+              ? channelPermissionEvents.sort((a, b) => b.created_at - a.created_at)[0]
+              : null;
+
+            // DEBUG: Log deduplication results for this channel
+            if (channelPermissionEvents.length > 0) {
+              logger.log(`DEBUG_PERMISSIONS_DEDUPED: Channel ${channelId} in community ${community.id}`, {
+                totalEvents: channelPermissionEvents.length,
+                selectedEvent: {
+                  id: channelPermissions?.id.slice(0, 8),
+                  created_at: channelPermissions?.created_at,
+                  dTag: channelPermissions?.tags.find(([name]) => name === 'd')?.[1],
+                  content: channelPermissions?.content
+                },
+                allEvents: channelPermissionEvents.map(evt => ({
+                  id: evt.id.slice(0, 8),
+                  created_at: evt.created_at,
+                  dTag: evt.tags.find(([name]) => name === 'd')?.[1]
+                }))
+              });
+            }
 
             // Parse channel info from tags
             const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
@@ -4772,9 +4882,30 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
     const parsedPermissions = parsePermissions(channel.permissions);
 
+    // Get current user's pubkey
+    const userPubkey = user?.pubkey;
+    if (!userPubkey) {
+      // No logged-in user - can only access "everyone" channels
+      return parsedPermissions.readPermissions === 'everyone';
+    }
+
     // Owners and moderators always have access
     if (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') {
       return true;
+    }
+
+    // Parse permission tags from the permissions event
+    const allowedReaders = channel.permissions.tags
+      .filter(([name, , , permission]) => name === 'p' && permission === 'read-allow')
+      .map(([, pubkey]) => pubkey);
+
+    const deniedReaders = channel.permissions.tags
+      .filter(([name, , , permission]) => name === 'p' && permission === 'read-deny')
+      .map(([, pubkey]) => pubkey);
+
+    // Check if user is explicitly denied access
+    if (deniedReaders.includes(userPubkey)) {
+      return false;
     }
 
     // Check read permissions
@@ -4786,12 +4917,12 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       case 'moderators':
         return ['owner', 'moderator'].includes(community.membershipStatus);
       case 'specific':
-        // TODO: Check if user is in allowed readers list from permissions event tags
-        return true; // For now, assume access
+        // Check if user is in the allowed readers list
+        return allowedReaders.includes(userPubkey);
       default:
         return true;
     }
-  }, [parsePermissions]);
+  }, [parsePermissions, user?.pubkey]);
 
   // Get sorted channels for a community with all data pre-computed and filtered by access
   const getSortedChannels = useCallback((communityId: string): DisplayChannel[] => {
@@ -6020,6 +6151,26 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     messaging,
     communities: communitiesDomain,
   };
+
+  // DEBUG: Log final channel permissions data for all communities
+  useEffect(() => {
+    if (communities.size > 0) {
+      const allChannelsData = Array.from(communities.entries()).map(([communityId, community]) => ({
+        communityId,
+        communityName: community.info.name,
+        channels: Array.from(community.channels.entries()).map(([channelId, channelData]) => ({
+          channelId,
+          channelName: channelData.info.name,
+          hasPermissions: !!channelData.permissions,
+          permissionsContent: channelData.permissions ? JSON.parse(channelData.permissions.content) : null,
+          permissionsCreatedAt: channelData.permissions?.created_at,
+          permissionsId: channelData.permissions?.id?.slice(0, 8)
+        }))
+      }));
+      
+      logger.log('DEBUG_PERMISSIONS_FINAL: All channels with permissions data', allChannelsData);
+    }
+  }, [communities]);
 
   return (
     <DataManagerContext.Provider value={contextValue}>
