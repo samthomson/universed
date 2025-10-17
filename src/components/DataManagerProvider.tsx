@@ -1032,6 +1032,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     };
   }, [userPubkey]); // Only depend on userPubkey for cleanup
 
+  // Clear communities data when user logs out (becomes null)
+  useEffect(() => {
+    if (!user) {
+      logger.log('DataManager: User logged out, clearing communities data');
+      setCommunities(new Map());
+      setCommunitiesLoading(false);
+      setCommunitiesLoadingPhase(LOADING_PHASES.IDLE);
+      setCommunitiesLoadTime(null);
+      setCommunitiesLoadBreakdown(null);
+      setHasCommunitiesInitialLoadCompleted(false);
+      setCommunitiesLastSync(null);
+    }
+  }, [user]);
+
 
 
   // Load past NIP-4 messages from relays (following useNIP4DirectMessages pattern)
