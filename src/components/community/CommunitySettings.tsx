@@ -24,6 +24,7 @@ import { useAuthor } from "@/hooks/useAuthor";
 import { useUploadFile } from "@/hooks/useUploadFile";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
 import { useToast } from "@/hooks/useToast";
+import { useDeleteCommunity } from "@/hooks/useDeleteCommunity";
 import { genUserName } from "@/lib/genUserName";
 import { generateSpaceUrl } from "@/lib/utils";
 
@@ -40,6 +41,7 @@ interface CommunitySettingsProps {
 export function CommunitySettings({ communityId, open, onOpenChange }: CommunitySettingsProps) {
   const { communities } = useDataManager();
   const { user } = useCurrentUser();
+  const { mutateAsync: deleteCommunity, isPending: isDeleting } = useDeleteCommunity(communityId);
   const [activeTab, setActiveTab] = useState("overview");
   const [formData, setFormData] = useState({
     name: "",
@@ -262,34 +264,12 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
 
   const handleDeleteCommunity = async () => {
     if (!user || !community) return;
-
-    try {
-      // Create a kind 5 deletion request event
-      await createEvent({
-        kind: 5,
-        content: "Community deleted by owner",
-        tags: [
-          ["e", community.definitionEvent.id], // Reference the community event to be deleted
-          ["k", "34550"], // Specify the kind of the event being deleted
-        ],
-      });
-
-      toast({
-        title: "Success",
-        description: "Community deletion request sent successfully!",
-      });
-
-      // Close the settings dialog
-      onOpenChange(false);
-
-    } catch (error) {
-      console.error("Failed to delete community:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete community",
-        variant: "destructive",
-      });
-    }
+    
+    // Close the settings dialog
+    onOpenChange(false);
+    
+    // Delete community (hook handles navigation and toast notifications)
+    await deleteCommunity();
   };
 
   // Check if user is admin/mod
@@ -540,12 +520,13 @@ export function CommunitySettings({ communityId, open, onOpenChange }: Community
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
                             <AlertDialogAction
                               className="bg-destructive hover:bg-destructive/90"
                               onClick={handleDeleteCommunity}
+                              disabled={isDeleting}
                             >
-                              Delete Community
+                              {isDeleting ? "Deleting..." : "Delete Community"}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

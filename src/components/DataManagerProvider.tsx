@@ -401,6 +401,7 @@ interface CommunitiesDomain {
   addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
   addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
   deleteChannelImmediately: (communityId: string, channelId: string) => void;
+  deleteCommunityImmediately: (communityId: string) => void;
   loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
   resetCommunitiesDataAndCache: () => Promise<void>;
   useDataManagerPinnedMessages: (communityId: string | null, channelId: string | null) => NostrEvent[];
@@ -2894,6 +2895,49 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         break;
       }
 
+      case 5: {
+        // Deletion event
+        const deletedKind = getTagValue(event, 'k');
+        
+        if (deletedKind === '34550') {
+          // Community definition deletion - remove entire community
+          logger.log(`Communities: Processing community deletion event ${event.id}`);
+          
+          // For addressable events, MUST use 'a' tag with coordinate
+          const addressableCoordinate = getTagValue(event, 'a');
+          
+          if (!addressableCoordinate) {
+            logger.warn(`Communities: Deletion event ${event.id} missing 'a' tag (required for addressable events)`);
+            return;
+          }
+          
+          // Extract community ID from addressable coordinate: "34550:pubkey:identifier"
+          const [, , identifier] = addressableCoordinate.split(':');
+          
+          if (!identifier) {
+            logger.warn(`Communities: Invalid addressable coordinate format: ${addressableCoordinate}`);
+            return;
+          }
+          
+          if (!communitiesRef.current.has(identifier)) {
+            logger.log(`Communities: Community ${identifier} not found in state, ignoring deletion`);
+            return;
+          }
+
+          setCommunities(prev => {
+            const newCommunities = new Map(prev);
+            newCommunities.delete(identifier);
+            logger.log(`Communities: 🗑️ Removed community ${identifier} from state (deleted by owner/moderator)`);
+            return newCommunities;
+          });
+
+          // Trigger cache save via existing mechanism
+          setShouldSaveCommunitiesImmediately(true);
+        }
+        // Channel and message deletions are handled by the messages subscription
+        break;
+      }
+
       default:
         logger.warn(`Communities: Unknown management event kind: ${event.kind}`);
     }
@@ -2914,12 +2958,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const communityIds: string[] = [];
       const communityRefs: string[] = [];
       const ownerPubkeys: string[] = [];
+      const moderatorPubkeys: string[] = [];
 
       communitiesRef.current.forEach((community) => {
         communityIds.push(community.id);
         communityRefs.push(community.fullAddressableId);
         ownerPubkeys.push(community.pubkey);
+        // Include moderators for deletion event subscriptions (they can delete channels/messages)
+        moderatorPubkeys.push(...community.info.moderators);
       });
+
+      // Combine owners and moderators for subscription filters that need both
+      const adminPubkeys = [...new Set([...ownerPubkeys, ...moderatorPubkeys])];
 
       // Use provided cache timestamp, fall back to state, then default to now
       const lastSyncToUse = cacheTimestamp ?? communitiesLastSync;
@@ -2944,8 +2994,13 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
           since: subscriptionSince,
         },
         {
-          kinds: [30143], // Channel permission updates
+          kinds: [30143], // Channel permission updates (only owners can set permissions)
           authors: ownerPubkeys,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [5], // Deletion events (both owners and moderators can delete)
+          authors: adminPubkeys,
           since: subscriptionSince,
         }
       ];
@@ -3074,6 +3129,28 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     });
 
     // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities]);
+
+  // Delete community immediately from local state and save to cache
+  const deleteCommunityImmediately = useCallback((communityId: string) => {
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot delete community, not found:', communityId);
+      return;
+    }
+
+    logger.log(`Communities: 🗑️ Immediately deleting community "${community.info.name}" (${communityId})`);
+
+    // Remove from state
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      newCommunities.delete(communityId);
+      logger.log(`Communities: Removed community ${communityId} (${community.info.name}) from local state`);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save (uses existing debounced mechanism)
     setShouldSaveCommunitiesImmediately(true);
   }, [communities]);
 
@@ -3677,6 +3754,10 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
       
       // Parse community definitions with membership status
+      // Note: We don't filter deletion events here because:
+      // 1. Relays should filter deleted content (but many don't honor NIP-09)
+      // 2. We handle deletions via real-time subscription for both our own and others' deletions
+      // 3. This matches the channel deletion pattern (soft-delete locally, handle via subscription)
       const communitiesWithStatus: Array<{
         id: string;
         pubkey: string;
@@ -6031,6 +6112,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     addOptimisticMessage: addOptimisticCommunityMessage,
     addOptimisticChannel,
     deleteChannelImmediately,
+    deleteCommunityImmediately,
     loadOlderMessages,
     resetCommunitiesDataAndCache,
     useDataManagerPinnedMessages,
