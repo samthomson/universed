@@ -70,12 +70,22 @@ export function CommunityPage() {
 	const community = simpleCommunityId ? communities.communities.get(simpleCommunityId) : null;
 	const isCommunitiesLoading = communities.isLoading;
 	const isCommunityFound = !!community;
+	
+	// Determine if we should try fetching from relay or just redirect
+	// If communities are loaded (size > 0) and this one isn't there, assume it doesn't exist or was deleted
+	const communitiesAreLoaded = communities.communities.size > 0 && !isCommunitiesLoading;
+	const shouldRedirectToSpace = !isCommunityFound && communitiesAreLoaded && simpleCommunityId;
+	
+	// Redirect immediately if community not found after initial load
+	// (either never existed, or was deleted - either way, don't try to fetch)
+	useEffect(() => {
+		if (shouldRedirectToSpace) {
+			navigate("/space");
+		}
+	}, [shouldRedirectToSpace, navigate]);
 
-	// Only fetch from relay if:
-	// 1. Community not found in DataManager
-	// 2. Communities have finished their initial load (size > 0 means cache loaded)
-	// 3. Not currently loading
-	const shouldFetchFromRelay = !isCommunityFound && communities.communities.size > 0 && !isCommunitiesLoading && !!decodedCommunityId;
+	// Don't fetch from relay - if it's not in our loaded communities, redirect instead
+	const shouldFetchFromRelay = false;
 
 	// If community not found in DataManager after loading is complete, try fetching it from the relay
 	const { data: fetchedCommunityEvent, isLoading: isFetchingCommunity } = useQuery({
