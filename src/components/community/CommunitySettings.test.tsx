@@ -268,7 +268,7 @@ describe('CommunitySettings', () => {
         kind: 5,
         content: 'Community deleted by owner',
         tags: [
-          ['e', 'test-event-id'],
+          ['a', '34550:test-pubkey:test-community'],
           ['k', '34550'],
         ],
       });
@@ -315,7 +315,7 @@ describe('CommunitySettings', () => {
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
         title: 'Error',
-        description: 'Failed to delete community',
+        description: 'Failed to delete community. Please try again.',
         variant: 'destructive',
       });
     });
