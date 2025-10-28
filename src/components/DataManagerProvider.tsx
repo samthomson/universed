@@ -233,6 +233,7 @@ interface MessagingDomain {
   isNIP17Enabled: boolean;
   isDebugging: boolean;
   scanProgress: ScanProgressState;
+  clearCacheAndRefetch: () => Promise<void>;
 }
 
 // ============================================================================
@@ -411,6 +412,7 @@ interface CommunitiesDomain {
   addOptimisticCommunity: (communityEvent: NostrEvent) => void;
   refreshCommunities: () => Promise<void>;
   addProspectiveCommunity: (communityId: string) => Promise<void>;
+  clearCacheAndRefetch: () => Promise<void>;
 }
 
 // Main DataManager interface - organized by domain
@@ -5809,6 +5811,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     try {
+      // Close messaging subscriptions
+      if (nip4SubscriptionRef.current) {
+        nip4SubscriptionRef.current.close();
+        nip4SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Closed NIP-4 subscription');
+      }
+      if (nip17SubscriptionRef.current) {
+        nip17SubscriptionRef.current.close();
+        nip17SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Closed NIP-17 subscription');
+      }
+
       const { clearMessagesFromDB } = await import('@/lib/messageStore');
       await clearMessagesFromDB(userPubkey);
 
@@ -5873,25 +5887,6 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       logger.error(`DMS: DataManager: Failed to send ${protocol} message to ${recipientPubkey}:`, error);
     }
   }, [userPubkey, addMessageToState, sendNIP4Message, sendNIP17Message]);
-
-  // Organize messaging functionality into its own domain
-  const messaging: MessagingDomain = {
-    messages,
-    isLoading,
-    loadingPhase,
-    isDoingInitialLoad,
-    lastSync,
-    conversations,
-    getDebugInfo,
-    writeAllMessagesToStore,
-    resetMessageDataAndCache,
-    handleNIP17SettingChange,
-    sendMessage,
-    isNIP17Enabled: settings.enableNIP17,
-    isDebugging: true, // Hardcoded for now
-    scanProgress,
-    subscriptions,
-  };
 
   // Load older messages for a channel - simplified approach matching useMessages.ts
   const loadOlderMessages = useCallback(async (communityId: string, channelId: string) => {
@@ -6009,6 +6004,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     try {
       logger.log('Communities: Resetting communities data and cache...');
 
+      // Close community subscriptions
+      if (communityMessagesSubscriptionRef.current) {
+        communityMessagesSubscriptionRef.current.close();
+        communityMessagesSubscriptionRef.current = null;
+        logger.log('Communities: Closed messages subscription');
+      }
+      if (communityManagementSubscriptionRef.current) {
+        communityManagementSubscriptionRef.current.close();
+        communityManagementSubscriptionRef.current = null;
+        logger.log('Communities: Closed management subscription');
+      }
+
       // Clear in-memory state
       setCommunities(new Map());
       setCommunitiesLoading(false);
@@ -6093,6 +6100,62 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     setHasBasicCommunitiesData(communities.size > 0);
   }, [communities.size]);
 
+  // ============================================================================
+  // Hard Refresh Cache Clearing
+  // ============================================================================
+
+  /**
+   * Clear all caches and refetch data from relays.
+   * Used for hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to force fresh data.
+   * 
+   * Simply calls the existing reset functions which handle subscriptions, cache, and state.
+   */
+  const clearCacheAndRefetch = useCallback(async () => {
+    if (!userPubkey) {
+      logger.log('DataManager: No user pubkey available for cache clearing');
+      return;
+    }
+
+    try {
+      logger.log('DataManager: Clearing all caches and refetching...');
+
+      // Use existing reset functions - they handle subscription closing, cache clearing, and state reset
+      await Promise.all([
+        resetMessageDataAndCache(),
+        resetCommunitiesDataAndCache(),
+      ]);
+
+      logger.log('DataManager: Cache cleared successfully, reload will trigger automatically');
+    } catch (error) {
+      logger.error('DataManager: Error clearing cache:', error);
+      throw error;
+    }
+  }, [userPubkey, resetMessageDataAndCache, resetCommunitiesDataAndCache]);
+
+  // ============================================================================
+  // Domain Objects - Created here so clearCacheAndRefetch can be included
+  // ============================================================================
+
+  // Organize messaging functionality into its own domain
+  const messaging: MessagingDomain = {
+    messages,
+    isLoading,
+    loadingPhase,
+    isDoingInitialLoad,
+    lastSync,
+    conversations,
+    getDebugInfo,
+    writeAllMessagesToStore,
+    resetMessageDataAndCache,
+    handleNIP17SettingChange,
+    sendMessage,
+    isNIP17Enabled: settings.enableNIP17,
+    isDebugging: true, // Hardcoded for now
+    scanProgress,
+    subscriptions,
+    clearCacheAndRefetch,
+  };
+
   const communitiesDomain: CommunitiesDomain = {
     communities,
     isLoading: communitiesLoading,
@@ -6122,12 +6185,52 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     addOptimisticCommunity,
     refreshCommunities,
     addProspectiveCommunity,
+    clearCacheAndRefetch,
   };
 
   const contextValue: DataManagerContextType = {
     messaging,
     communities: communitiesDomain,
   };
+
+  // ============================================================================
+  // Hard Refresh Detection
+  // ============================================================================
+
+  // Detect hard refresh shortcut (Ctrl+Shift+R / Cmd+Shift+R) to clear cache
+  useEffect(() => {
+    if (!userPubkey) return;
+
+    const handleHardRefresh = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        try {
+          sessionStorage.setItem('dm-clear-cache-on-load', 'true');
+          logger.log('DataManager: Hard refresh detected, cache will be cleared on next load');
+        } catch (error) {
+          logger.warn('DataManager: SessionStorage unavailable, cache won\'t clear on hard refresh:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleHardRefresh);
+    return () => window.removeEventListener('keydown', handleHardRefresh);
+  }, [userPubkey]);
+
+  // Clear cache after hard refresh
+  useEffect(() => {
+    if (!userPubkey) return;
+
+    try {
+      const shouldClearCache = sessionStorage.getItem('dm-clear-cache-on-load');
+      if (shouldClearCache) {
+        sessionStorage.removeItem('dm-clear-cache-on-load');
+        logger.log('DataManager: Hard refresh detected, clearing cache now');
+        clearCacheAndRefetch();
+      }
+    } catch (error) {
+      logger.warn('DataManager: Could not check sessionStorage for cache clear flag:', error);
+    }
+  }, [userPubkey, clearCacheAndRefetch]);
 
   return (
     <DataManagerContext.Provider value={contextValue}>
