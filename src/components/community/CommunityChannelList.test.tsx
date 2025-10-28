@@ -36,6 +36,7 @@ vi.mock('@/components/DataManagerProvider', async () => {
         isNIP17Enabled: false,
         isDebugging: false,
         scanProgress: { nip4: null, nip17: null },
+        clearCacheAndRefetch: vi.fn(),
       },
       communities: {
         communities: new Map(),
@@ -62,6 +63,8 @@ vi.mock('@/components/DataManagerProvider', async () => {
         approveMember: vi.fn(),
         declineMember: vi.fn(),
         banMember: vi.fn(),
+        deleteCommunityImmediately: vi.fn(),
+        clearCacheAndRefetch: vi.fn(),
       },
     })),
   };
@@ -171,6 +174,7 @@ describe('CommunityChannelList', () => {
         isNIP17Enabled: false,
         isDebugging: false,
         scanProgress: { nip4: null, nip17: null },
+        clearCacheAndRefetch: vi.fn(),
       },
       communities: {
         communities: new Map<string, CommunityData>(),
@@ -202,6 +206,8 @@ describe('CommunityChannelList', () => {
         approveMember: vi.fn(),
         declineMember: vi.fn(),
         banMember: vi.fn(),
+        deleteCommunityImmediately: vi.fn(),
+        clearCacheAndRefetch: vi.fn(),
       },
     });
 
@@ -296,6 +302,7 @@ describe('CommunityChannelList', () => {
         isNIP17Enabled: false,
         isDebugging: false,
         scanProgress: { nip4: null, nip17: null },
+        clearCacheAndRefetch: vi.fn(),
       },
       communities: {
         communities: new Map<string, CommunityData>(),
@@ -327,6 +334,8 @@ describe('CommunityChannelList', () => {
         approveMember: vi.fn(),
         declineMember: vi.fn(),
         banMember: vi.fn(),
+        deleteCommunityImmediately: vi.fn(),
+        clearCacheAndRefetch: vi.fn(),
       },
     });
 

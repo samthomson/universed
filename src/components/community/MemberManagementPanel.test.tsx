@@ -90,6 +90,7 @@ describe('MemberManagementPanel', () => {
         isNIP17Enabled: false,
         isDebugging: false,
         scanProgress: { nip4: null, nip17: null },
+        clearCacheAndRefetch: vi.fn(),
       },
       communities: {
         communities: communityMap,
@@ -118,6 +119,8 @@ describe('MemberManagementPanel', () => {
         approveMember: vi.fn(),
         declineMember: vi.fn(),
         banMember: vi.fn(),
+        deleteCommunityImmediately: vi.fn(),
+        clearCacheAndRefetch: vi.fn(),
       },
     });
 
@@ -168,6 +171,7 @@ describe('MemberManagementPanel', () => {
         isNIP17Enabled: false,
         isDebugging: false,
         scanProgress: { nip4: null, nip17: null },
+        clearCacheAndRefetch: vi.fn(),
       },
       communities: {
         communities: new Map(),
@@ -196,6 +200,8 @@ describe('MemberManagementPanel', () => {
         approveMember: vi.fn(),
         declineMember: vi.fn(),
         banMember: vi.fn(),
+        deleteCommunityImmediately: vi.fn(),
+        clearCacheAndRefetch: vi.fn(),
       },
     });
 
