@@ -217,7 +217,7 @@ const getTagValueWithRole = (event: NostrEvent, tagName: string, role: string): 
 };
 
 // Messaging domain interface
-interface MessagingDomain {
+export interface MessagingDomain {
   messages: MessagesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
@@ -376,7 +376,7 @@ export interface DisplayChannel {
 }
 
 // Communities domain interface
-interface CommunitiesDomain {
+export interface CommunitiesDomain {
   communities: CommunitiesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;

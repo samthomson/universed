@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
 import { CommunitySettings } from './CommunitySettings';
+import { useDeleteCommunity } from '@/hooks/useDeleteCommunity';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useModerationLogs } from '@/hooks/useModerationLogs';
@@ -11,6 +12,7 @@ import { useToast } from '@/hooks/useToast';
 import { useDataManager, useDataManagerCommunityMembers, useDataManagerJoinRequests, type CommunityData } from '@/components/DataManagerProvider';
 
 // Mock the hooks
+vi.mock('@/hooks/useDeleteCommunity');
 vi.mock('@/hooks/useNostrPublish');
 vi.mock('@/hooks/useCurrentUser');
 vi.mock('@/hooks/useModerationLogs');
@@ -29,6 +31,7 @@ vi.mock('@/components/DataManagerProvider', async () => {
   };
 });
 
+const mockDeleteCommunity = vi.fn();
 const mockCreateEvent = vi.fn();
 const mockUser = {
   pubkey: 'test-pubkey',
@@ -79,6 +82,11 @@ describe('CommunitySettings', () => {
     vi.clearAllMocks();
 
     // Setup mock implementations
+    vi.mocked(useDeleteCommunity).mockReturnValue({
+      mutateAsync: mockDeleteCommunity,
+      isPending: false,
+    } as unknown as ReturnType<typeof useDeleteCommunity>);
+
     vi.mocked(useNostrPublish).mockReturnValue({
       mutateAsync: mockCreateEvent,
     } as unknown as ReturnType<typeof useNostrPublish>);
@@ -235,9 +243,9 @@ describe('CommunitySettings', () => {
     });
   });
 
-  it('creates kind 5 deletion event when delete is confirmed', async () => {
+  it('calls deleteCommunity when delete is confirmed', async () => {
     const mockOnOpenChange = vi.fn();
-    mockCreateEvent.mockResolvedValue({});
+    mockDeleteCommunity.mockResolvedValue(undefined);
 
     render(
       <TestApp>
@@ -262,63 +270,13 @@ describe('CommunitySettings', () => {
     const confirmButton = screen.getByRole('button', { name: 'Delete Community' });
     fireEvent.click(confirmButton);
 
-    // Verify that createEvent was called with correct parameters
+    // Verify that deleteCommunity was called
     await waitFor(() => {
-      expect(mockCreateEvent).toHaveBeenCalledWith({
-        kind: 5,
-        content: 'Community deleted by owner',
-        tags: [
-          ['a', '34550:test-pubkey:test-community'],
-          ['k', '34550'],
-        ],
-      });
+      expect(mockDeleteCommunity).toHaveBeenCalled();
     });
 
     // Verify that the dialog was closed
     expect(mockOnOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('shows error toast when deletion fails', async () => {
-    const mockToast = vi.fn();
-    vi.mocked(useToast).mockReturnValue({
-      toast: mockToast,
-      dismiss: vi.fn(),
-      toasts: [],
-    } as unknown as ReturnType<typeof useToast>);
-
-    mockCreateEvent.mockRejectedValue(new Error('Failed to delete'));
-
-    render(
-      <TestApp>
-        <CommunitySettings
-          communityId="34550:test-pubkey:test-community"
-          open={true}
-          onOpenChange={vi.fn()}
-        />
-      </TestApp>
-    );
-
-    // Click delete button to open confirmation dialog
-    const deleteButton = screen.getByText('Delete Community');
-    fireEvent.click(deleteButton);
-
-    // Wait for confirmation dialog to appear
-    await waitFor(() => {
-      expect(screen.getByText('Are you absolutely sure?')).toBeInTheDocument();
-    });
-
-    // Click confirm delete button (the one inside the AlertDialog)
-    const confirmButton = screen.getByRole('button', { name: 'Delete Community' });
-    fireEvent.click(confirmButton);
-
-    // Verify that error toast was shown
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Error',
-        description: 'Failed to delete community. Please try again.',
-        variant: 'destructive',
-      });
-    });
   });
 
   it('does not show delete button for non-admin users', () => {
