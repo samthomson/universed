@@ -8,6 +8,7 @@ import type { NostrEvent } from "@/types/nostr";
 
 interface BaseChatAreaProps {
   messages: NostrEvent[];
+  pinnedMessages?: NostrEvent[]; // Full pinned message events from DataManager
   isLoading: boolean;
   onSendMessage: (content: string) => Promise<void>;
   queryKey: string[]; // Specific query key for this chat context
@@ -51,6 +52,7 @@ interface BaseChatAreaProps {
 
 export function BaseChatArea({
   messages,
+  pinnedMessages,
   isLoading,
   onSendMessage,
   queryKey,
@@ -149,6 +151,7 @@ export function BaseChatArea({
       <div className="flex-1 flex flex-col min-h-0">
         <BaseMessageList
           messages={messages}
+          pinnedMessages={pinnedMessages}
           isLoading={isLoading}
           config={messageListConfig}
           communityId={communityId}
@@ -172,7 +175,7 @@ export function BaseChatArea({
             channelId={channelId}
             membershipStatus={membershipStatus}
             onJoinRequest={onJoinRequest}
-            
+
           />
         </div>
       </div>

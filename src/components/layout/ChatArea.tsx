@@ -9,19 +9,17 @@ import {
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from "react-router-dom";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceChannel } from "@/components/voice/VoiceChannel";
-import { useChannels } from "@/hooks/useChannels";
 import { generateSpaceUrl } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useCanModerate } from "@/hooks/useCommunityRoles";
-import { useUserRole } from "@/hooks/useCommunityRoles";
 import { useJoinRequests } from "@/hooks/useJoinRequests";
 import { Badge } from "@/components/ui/badge";
-import { useMessages } from "@/hooks/useMessages";
+import { useDataManagerCommunityChannel, DisplayChannel, useDataManagerUserRole, useDataManagerCanModerate, useDataManagerUserMembership, useDataManager, useDataManagerPinnedMessages } from "@/components/DataManagerProvider";
 import { useNostrPublish } from "@/hooks/useNostrPublish";
-import { usePinMessage, useUnpinMessage, usePinnedMessages } from "@/hooks/usePinnedMessages";
+import { usePinMessage, useUnpinMessage } from "@/hooks/usePinnedMessages";
 import { useModerationActions } from "@/hooks/useModerationActions";
 import { useMentionNotifications } from "@/hooks/useMentionNotifications";
 import { useDeleteMessage } from "@/hooks/useMessageActions";
@@ -31,7 +29,6 @@ import { ChannelSettingsDialog } from "@/components/community/ChannelSettingsDia
 import { CommunitySettings } from "@/components/community/CommunitySettings";
 import { useToast } from '@/hooks/useToast';
 import { MessageThread } from "@/components/chat/MessageThread";
-import { useUserCommunityMembership } from "@/hooks/useUserCommunityMembership";
 import { JoinRequestDialog } from "@/components/community/JoinRequestDialog";
 
 import {
@@ -48,6 +45,36 @@ import {
   groupMessageListConfig,
 } from "@/components/messaging/configs/groupConfig";
 
+// Component for when a channel is not found
+function ChannelNotFound({ channelId }: { channelId: string }) {
+  return (
+    <div className="flex flex-col h-full w-full max-w-full overflow-hidden bg-white dark:bg-gray-900">
+      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-full border border-red-200 dark:border-red-800">
+            <Hash className="w-4 h-4 text-red-600 dark:text-red-400" />
+          </div>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">#{channelId}</span>
+        </div>
+      </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center text-gray-600 dark:text-gray-400">
+          <div className="p-4 bg-red-100 dark:bg-red-900/20 rounded-full border border-red-200 dark:border-red-800 inline-block mb-6">
+            <Hash className="w-16 h-16 text-red-600 dark:text-red-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3">Channel not found</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            The channel <span className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">#{channelId}</span> doesn't exist or you don't have access to it.
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Try selecting a different channel from the sidebar.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 interface ChatAreaProps {
   communityId: string | null;
@@ -59,35 +86,47 @@ interface ChatAreaProps {
 function CommunityChatHeader({
   communityId,
   channelId,
-  onToggleMemberList
+  onToggleMemberList,
+  channel
 }: {
   communityId: string;
   channelId: string;
   onToggleMemberList: () => void;
+  channel: DisplayChannel | null;
 }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { data: channels } = useChannels(communityId);
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [showModerationPanel, setShowModerationPanel] = useState(false);
   const { data: joinRequests } = useJoinRequests(communityId);
   const pendingJoinRequests = joinRequests?.length || 0;
-
-  const channel = channels?.find((c) => c.id === channelId);
+  const { communities } = useDataManager();
 
   if (!channel) {
     return null;
   }
 
-  const channelName = channel?.name || channelId;
-  const isVoiceChannel = channel?.type === "voice";
+  const channelName = channel.name || channelId;
+  const isVoiceChannel = channel.type === "voice";
 
   const copyChannelLink = () => {
-    // Use naddr format for community ID
+    // Get the full addressable ID from DataManager
+    const community = communities.communities.get(communityId);
+    
+    if (!community) {
+      toast({
+        title: 'Copy Failed',
+        description: 'Community not found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      const channelLink = generateSpaceUrl(communityId, channelId);
+      // Use the full addressable ID for proper naddr encoding
+      const channelLink = generateSpaceUrl(community.fullAddressableId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast({
         title: 'Link Copied',
@@ -165,12 +204,12 @@ function CommunityChatHeader({
                   <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-800 backdrop-blur-sm rounded-xl shadow-sm">
                     <DropdownMenuItem
                       onClick={() => setShowChannelSettings(true)}
-                      className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg"
+                      className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg cursor-pointer"
                     >
                       <Settings className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                       Edit Channel
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg">
+                    <DropdownMenuItem onClick={copyChannelLink} className="text-gray-900 dark:text-gray-100 hover:bg-purple-100 dark:hover:bg-purple-900/20 focus:bg-purple-100 dark:hover:bg-purple-900/20 rounded-lg cursor-pointer">
                       <Copy className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                       Copy Channel Link
                     </DropdownMenuItem>
@@ -212,29 +251,44 @@ function CommunityChat(
     & Omit<ChatAreaProps, "communityId" | "channelId">
     & { communityId: string; channelId: string },
 ) {
-  const { data: channels } = useChannels(communityId);
+  // Use our enhanced hook that provides a channel with all its data including messages
   const {
-    data: messages,
     isLoading,
-    hasMoreMessages,
-    loadingOlderMessages,
-    loadOlderMessages,
-    reachedStartOfConversation
-  } = useMessages(communityId, channelId);
+    channel
+  } = useDataManagerCommunityChannel(communityId, channelId);
+
+  // Get messages from the channel object
+  const messages = channel?.messages || [];
+
+  // Get pagination state from DataManager
+  const { communities } = useDataManager();
+  const community = communities.communities.get(communityId);
+  const channelData = community?.channels.get(channelId);
+
+  const hasMoreMessages = channelData?.hasMoreMessages ?? false;
+  const loadingOlderMessages = channelData?.isLoadingOlderMessages ?? false;
+  const reachedStartOfConversation = channelData?.reachedStartOfConversation ?? true;
+
+  const loadOlderMessages = useCallback(async () => {
+    await communities.loadOlderMessages(communityId, channelId);
+  }, [communities, communityId, channelId]);
   const { mutateAsync: createEvent } = useNostrPublish();
   const { mutate: pinMessage } = usePinMessage();
   const { mutate: unpinMessage } = useUnpinMessage();
-  const { data: pinnedMessageIds } = usePinnedMessages(communityId, channelId);
-  const { role } = useUserRole(communityId);
+  // Get pinned messages from DataManager (full events, not just IDs)
+  const pinnedMessages = useDataManagerPinnedMessages(communityId, channelId);
+  // Derive message IDs from the full events for pin status checking
+  const pinnedMessageIds = useMemo(() => pinnedMessages.map(msg => msg.id), [pinnedMessages]);
+  const { role } = useDataManagerUserRole(communityId);
   const { banUser } = useModerationActions();
   const { mutate: deleteMessage } = useDeleteMessage(communityId);
   const { mutate: sendMentionNotifications } = useMentionNotifications();
-  const { data: membershipStatus } = useUserCommunityMembership(communityId);
+  const { data: membershipStatus } = useDataManagerUserMembership(communityId);
   const [threadRootMessage, setThreadRootMessage] = useState<NostrEvent | null>(null);
   const [isThreadOpen, setIsThreadOpen] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
-  const isAdmin = role === 'owner' || role === 'admin';
+  const isAdmin = role === 'owner' || role === 'moderator';
 
   // Create dynamic message item config based on user role
   const dynamicMessageItemConfig = useMemo(() => ({
@@ -246,40 +300,61 @@ function CommunityChat(
   const queryKey = useMemo(() => ['messages', communityId, channelId], [communityId, channelId]);
 
   const handleSendMessage = useCallback(async (content: string, additionalTags: string[][] = []) => {
-    const [kind, pubkey, identifier] = communityId.split(":");
-
-    const tags = [
-      ["t", channelId],
-      ["a", `${kind}:${pubkey}:${identifier}`],
-      ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
-    ];
-
-    // Extract mentioned pubkeys from p tags
-    const mentionedPubkeys = tags
-      .filter(([name]) => name === 'p')
-      .map(([, pubkey]) => pubkey);
-
-    const messageEvent = await createEvent({
-      kind: 9411,
-      content,
-      tags,
-    });
-
-    // Send mention notifications if there are any mentioned users
-    if (mentionedPubkeys.length > 0 && messageEvent) {
-      try {
-        await sendMentionNotifications({
-          mentionedPubkeys,
-          messageEvent,
-          communityId,
-          channelId,
-        });
-      } catch (error) {
-        console.error('Failed to send mention notifications:', error);
-        // Don't fail the message send if notifications fail
-      }
+    // Get the full addressable ID from DataManager
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      console.error('Community not found for sending message:', communityId);
+      return;
     }
-  }, [communityId, channelId, createEvent, sendMentionNotifications]);
+
+    // Add optimistic message immediately for UI feedback
+    const optimisticMessage = communities.addOptimisticMessage(communityId, channelId, content, additionalTags);
+    if (!optimisticMessage) {
+      console.error('Failed to add optimistic message');
+      return;
+    }
+
+    try {
+      // Build proper addressable references to match query format
+      const communityRef = `34550:${community.pubkey}:${community.id}`; // "34550:pubkey:communitySlug"
+      const channelRef = `${communityRef}:${channelId}`; // "34550:pubkey:communitySlug:channelSlug"
+
+      const tags = [
+        ["t", channelRef], // Full addressable channel reference
+        ["a", communityRef], // Full addressable community reference
+        ...additionalTags, // Add any additional tags (like imeta for files, p tags for mentions)
+      ];
+
+      // Extract mentioned pubkeys from p tags
+      const mentionedPubkeys = tags
+        .filter(([name]) => name === 'p')
+        .map(([, pubkey]) => pubkey);
+
+      const messageEvent = await createEvent({
+        kind: 9411,
+        content,
+        tags,
+      });
+
+      // Send mention notifications if there are any mentioned users
+      if (mentionedPubkeys.length > 0 && messageEvent) {
+        try {
+          await sendMentionNotifications({
+            mentionedPubkeys,
+            messageEvent,
+            communityId,
+            channelId,
+          });
+        } catch (error) {
+          console.error('Failed to send mention notifications:', error);
+          // Don't fail the message send if notifications fail
+        }
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // TODO: add error handling to remove optimistic message or mark it as failed
+    }
+  }, [communityId, channelId, createEvent, sendMentionNotifications, communities]);
 
   const handlePinMessage = useCallback((message: NostrEvent) => {
     const isPinned = pinnedMessageIds?.includes(message.id) || false;
@@ -317,8 +392,9 @@ function CommunityChat(
       communityId={communityId}
       channelId={channelId}
       onToggleMemberList={onToggleMemberList}
+      channel={channel}
     />
-  ), [communityId, channelId, onToggleMemberList]);
+  ), [communityId, channelId, onToggleMemberList, channel]);
 
   const additionalContent = useMemo(() => (
     <div className="flex-shrink-0">
@@ -327,15 +403,37 @@ function CommunityChat(
   ), [channelId]);
 
   // Now we can do early returns and computed values
-  const channel = channels?.find((c) => c.id === channelId);
   const channelName = channel?.name || channelId;
   const isVoiceChannel = channel?.type === "voice";
 
   // Memoize input placeholder to prevent re-renders (must be after channelName is defined)
   const inputPlaceholder = useMemo(() => `Message #${channelName}`, [channelName]);
 
+  // Show loading state while channel is loading
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full w-full max-w-full overflow-hidden bg-white dark:bg-gray-900">
+        <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 bg-white dark:bg-gray-900 backdrop-blur-sm">
+          <div className="flex items-center space-x-3">
+            <Skeleton className="w-6 h-6 rounded" />
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <Skeleton className="w-8 h-8 rounded" />
+        </div>
+        <div className="flex-1 p-4 space-y-4">
+          <div className="space-y-3">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-5/6" />
+            <Skeleton className="h-12 w-4/5" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show channel not found only after loading is complete
   if (!channel) {
-    return <div>Channel not found</div>;
+    return <ChannelNotFound channelId={channelId} />;
   }
 
   const handleJoinRequest = () => {
@@ -357,6 +455,7 @@ function CommunityChat(
     <>
       <BaseChatArea
         messages={messages || []}
+        pinnedMessages={pinnedMessages}
         isLoading={isLoading}
         onSendMessage={handleSendMessage}
         queryKey={queryKey}

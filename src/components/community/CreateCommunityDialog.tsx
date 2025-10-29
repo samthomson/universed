@@ -16,6 +16,7 @@ import { Upload, X, Users, Sparkles, MessageSquare, Hash, Settings, Share, Wand2
 import { cn, communityIdToNaddr, generateCommunityIdentifier, generateChannelIdentifier, encodeNaddrForUrl } from "@/lib/utils";
 import type { Community } from "@/hooks/useCommunities";
 import { QuickSetupStep } from "./QuickSetupStep";
+import { useDataManager } from "@/components/DataManagerProvider";
 
 
 interface CreateCommunityDialogProps {
@@ -45,6 +46,7 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { communities } = useDataManager();
 
   // Reset state when dialog opens
   useEffect(() => {
@@ -253,11 +255,19 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
         variant: "destructive",
       });
     },
-    onSuccess: () => {
+    onSuccess: (communityEvent) => {
       toast({
         title: "Success",
         description: "Space created successfully!",
       });
+
+      // Add community to DataManager immediately for navigation
+      communities.addOptimisticCommunity(communityEvent);
+
+      // Optimistic general channel is now created inside addOptimisticCommunity
+
+      // No background refresh; just ensure subscriptions include the new community
+      // Subscriptions auto-start from DataManager on state changes
 
       // Move to success step after creation animation
       setTimeout(() => {
@@ -646,11 +656,11 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
                           try {
                             const naddr = communityIdToNaddr(createdCommunityId);
                             const encodedNaddr = encodeNaddrForUrl(naddr);
-                            navigate(`/space/${encodedNaddr}`);
+                            navigate(`/space/${encodedNaddr}/general`);
                           } catch (error) {
                             console.error('Failed to encode community ID:', error);
                             // Fallback to unencoded format if encoding fails
-                            navigate(`/space/${createdCommunityId}`);
+                            navigate(`/space/${createdCommunityId}/general`);
                           }
                         }, 100);
                       }
@@ -660,31 +670,36 @@ export function CreateCommunityDialog({ open, onOpenChange, onCommunityCreated, 
                     Go to Space
                   </Button>
 
+                  {/* Share Space button - navigates to space and opens share dialog */}
                   <Button
                     variant="outline"
                     className='w-full rounded-full py-3 sm:py-4 bg-slate-800/50 border-slate-700/50 text-indigo-200 hover:bg-slate-700/50 hover:text-white'
                     onClick={(e) => {
                       e.preventDefault();
-                      // Navigate to the community with share dialog open using encoded naddr
                       if (createdCommunityId) {
-                        // Notify parent that community was created and user wants to navigate to it
-                        onCommunityCreated?.(createdCommunityId);
+                        // Get the community from DataManager
+                        const communityIdentifier = createdCommunityId.split(':')[2];
+                        const community = communities.communities.get(communityIdentifier);
+                        
+                        if (community) {
+                          // Notify parent that community was created
+                          onCommunityCreated?.(createdCommunityId);
 
-                        // Close dialog first
-                        onOpenChange(false);
+                          // Close this dialog first
+                          onOpenChange(false);
 
-                        // Small delay to ensure dialog closes before navigation
-                        setTimeout(() => {
-                          try {
-                            const naddr = communityIdToNaddr(createdCommunityId);
-                            const encodedNaddr = encodeNaddrForUrl(naddr);
-                            navigate(`/space/${encodedNaddr}?share=true`);
-                          } catch (error) {
-                            console.error('Failed to encode community ID:', error);
-                            // Fallback to unencoded format if encoding fails
-                            navigate(`/space/${createdCommunityId}?share=true`);
-                          }
-                        }, 100);
+                          // Navigate to the space with share=true query param
+                          setTimeout(() => {
+                            try {
+                              const naddr = communityIdToNaddr(createdCommunityId);
+                              const encodedNaddr = encodeNaddrForUrl(naddr);
+                              navigate(`/space/${encodedNaddr}/general?share=true`);
+                            } catch (error) {
+                              console.error('Failed to encode community ID:', error);
+                              navigate(`/space/${createdCommunityId}/general?share=true`);
+                            }
+                          }, 100);
+                        }
                       }
                     }}
                   >

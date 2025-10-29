@@ -12,6 +12,7 @@ import { logger } from "@/lib/logger";
 interface BaseMessageListProps {
   messages: NostrEvent[];
   pinnedMessageIds?: string[];
+  pinnedMessages?: NostrEvent[]; // Full pinned message events from DataManager
   isLoading: boolean;
   hasMore?: boolean;
   loadingOlder?: boolean;
@@ -29,6 +30,7 @@ interface BaseMessageListProps {
 export function BaseMessageList({
   messages,
   pinnedMessageIds = [],
+  pinnedMessages,
   isLoading,
   hasMore = false,
   loadingOlder = false,
@@ -140,6 +142,7 @@ export function BaseMessageList({
           communityId={communityId}
           channelId={channelId}
           onNavigateToDMs={messageItemProps.onNavigateToDMs}
+          messages={pinnedMessages} // Pass pinned messages from DataManager to avoid duplicate queries
         />
       )}
       <Virtuoso

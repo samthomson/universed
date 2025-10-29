@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, QueryClient } from '@tanstack/re
 import { useNostr } from '@nostrify/react';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
-import { useCanModerate } from './useCommunityRoles';
+import { useDataManagerCanModerate, useDataManager } from '@/components/DataManagerProvider';
 import { useEventCache } from './useEventCache';
 import { logger } from '@/lib/logger';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
@@ -76,6 +76,7 @@ function parseChannelEvent(event: NostrEvent, communityId: string): Channel {
 }
 
 export function useChannels(communityId: string | null) {
+  logger.warn('useChannels IS OBSOLETE - REPLACE', { communityId });
   const { nostr } = useNostr();
   const { getCachedEventsByKind, cacheEvents } = useEventCache();
   const queryClient = useQueryClient();
@@ -223,11 +224,6 @@ export function useChannels(communityId: string | null) {
           },
         ];
 
-        // Start immediate retry with longer timeout for better chance of success
-        setTimeout(() => {
-          refreshChannelsInBackground(communityId, nostr, cacheEvents);
-        }, 500); // Retry sooner
-
         return defaultChannels;
       }
     },
@@ -259,7 +255,6 @@ async function refreshChannelsInBackground(
     if (events.length > 0) {
       cacheEvents(events);
       logger.log(`Background refreshed ${events.length} channel events for ${communityId}`);
-      
       // Invalidate the query to trigger a refetch with fresh data
       if (queryClient) {
         queryClient.invalidateQueries({ queryKey: ['channels', communityId] });
@@ -273,7 +268,7 @@ async function refreshChannelsInBackground(
 export function useUpdateChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -298,7 +293,7 @@ export function useUpdateChannel(communityId: string) {
 
       const tags = [
         ['d', `${communityId}:${channelId}`],
-        ['a', communityId],
+        ['a', communityId], // Reference to community (simple community ID)
         ['name', name],
         ['description', description || ''],
         ['channel_type', type],
@@ -332,7 +327,8 @@ export function useUpdateChannel(communityId: string) {
 export function useDeleteChannel(communityId: string) {
   const { mutateAsync: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
+  const { communities } = useDataManager();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -346,15 +342,20 @@ export function useDeleteChannel(communityId: string) {
         throw new Error('Cannot delete the general channel');
       }
 
+      // Publish the delete event
       await createEvent({
         kind: 5, // Deletion event
         content: `Channel "${channelName}" deleted`,
         tags: [
           ['e', channelEventId],
           ['k', '32807'],
+          ['a', communityId], // Add community reference so subscription can receive it
           ['alt', `Delete channel: ${channelName}`],
         ],
       });
+
+      // Immediately delete from local state and save to cache
+      communities.deleteChannelImmediately(communityId, channelName);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels', communityId] });

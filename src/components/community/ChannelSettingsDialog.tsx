@@ -19,7 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/useToast';
-import { useCanModerate } from '@/hooks/useCommunityRoles';
+import { useDataManagerCanModerate } from '@/components/DataManagerProvider';
 import { useUpdateChannel, useDeleteChannel } from '@/hooks/useChannels';
 import { useChannelFolders } from '@/hooks/useChannelFolders';
 import { useChannelPermissions, useUpdateChannelPermissions } from '@/hooks/useChannelPermissions';
@@ -48,7 +48,7 @@ export function ChannelSettingsDialog({
   const [description, setDescription] = useState(channel.description || '');
   const [type, setType] = useState<'text' | 'voice'>(channel.type);
   const [folderId, setFolderId] = useState(channel.folderId || 'none');
-  const [position, setPosition] = useState(channel.position);
+  const [position, _] = useState(channel.position);
   const [readPermissions, setReadPermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('everyone');
   const [writePermissions, setWritePermissions] = useState<'everyone' | 'members' | 'moderators' | 'specific'>('members');
   const [allowedReaders, setAllowedReaders] = useState<string[]>([]);
@@ -60,7 +60,7 @@ export function ChannelSettingsDialog({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { toast } = useToast();
-  const { canModerate } = useCanModerate(communityId);
+  const { canModerate } = useDataManagerCanModerate(communityId);
   const { mutateAsync: updateChannel } = useUpdateChannel(communityId);
   const { mutateAsync: deleteChannel } = useDeleteChannel(communityId);
   const { data: folders } = useChannelFolders(communityId);
@@ -259,7 +259,7 @@ export function ChannelSettingsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {type === 'text' ? <Hash className="w-5 h-5" /> : <><Volume2 className="w-5 h-5" />&nbsp;</>}{channel.name} Settings
@@ -269,14 +269,14 @@ export function ChannelSettingsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="permissions">Permissions</TabsTrigger>
             <TabsTrigger value="danger">Danger Zone</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="h-[400px] mt-4">
+          <ScrollArea className="mt-4 flex-1 min-h-0">
             <TabsContent value="general" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="channel-name">Channel Name</Label>
@@ -285,13 +285,11 @@ export function ChannelSettingsDialog({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={100}
-                  disabled={channel.name === 'general'}
+                  disabled={true}
                 />
-                {channel.name === 'general' && (
-                  <p className="text-xs text-muted-foreground">
-                    The general channel name cannot be changed.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Channel renaming temporarily disabled.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -353,11 +351,10 @@ export function ChannelSettingsDialog({
                   id="position"
                   type="number"
                   value={position}
-                  onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
-                  min={0}
+                  disabled={true}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Lower numbers appear first in the channel list.
+                  Position editing temporarily disabled.
                 </p>
               </div>
 

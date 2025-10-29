@@ -32,11 +32,12 @@ export function PinnedMessages({ communityId, channelId, onNavigateToDMs, messag
 
   // Use passed messages if available, otherwise use fetched pinned messages
   const displayMessages = useMemo(() => {
-    let toDisplay = messages || [];
-    if (toDisplay && messageIds) {
+    // Prefer passed messages from DataManager (if they have length)
+    let toDisplay = (messages && messages.length > 0) ? messages : (pinnedMessages || []);
+
+    // If messageIds filter is provided, apply it
+    if (messageIds && messageIds.length > 0) {
       toDisplay = toDisplay.filter(message => messageIds.includes(message.id));
-    } else {
-      toDisplay = pinnedMessages || [];
     }
 
     // Sort messages by created_at timestamp in descending order (newest first)

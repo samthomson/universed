@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { generateSpaceUrl } from "@/lib/utils";
+import { useDataManager } from "@/components/DataManagerProvider";
 
 interface MobileChannelHeaderProps {
   communityId: string;
@@ -22,6 +23,7 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
   const { data: members } = useCommunityMembers(communityId);
   const { data: communities } = useCommunities();
   const { toast } = useToast();
+  const { communities: dataManagerCommunities } = useDataManager();
 
   const channel = channels?.find((c) => c.id === channelId);
   const community = communities?.find((c) => c.id === communityId);
@@ -36,9 +38,21 @@ export function MobileChannelHeader({ communityId, channelId, onNavigateToDMs }:
   const copyChannelLink = () => {
     if (!channelId) return;
 
-    // Use naddr format for community ID
+    // Get the full addressable ID from DataManager
+    const dmCommunity = dataManagerCommunities.communities.get(communityId);
+    
+    if (!dmCommunity) {
+      toast({
+        title: "Error",
+        description: "Community not found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const channelLink = generateSpaceUrl(communityId, channelId);
+      // Use the full addressable ID for proper naddr encoding
+      const channelLink = generateSpaceUrl(dmCommunity.fullAddressableId, channelId);
       navigator.clipboard.writeText(channelLink);
       toast({
         title: "Channel link copied",

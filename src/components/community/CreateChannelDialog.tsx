@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Hash, Volume2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,9 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import { useCommunities } from '@/hooks/useCommunities';
-import { useUserMembership } from '@/hooks/useUserMembership';
-import { useChannelFolders } from '@/hooks/useChannelFolders';
+import { useDataManager } from '@/components/DataManagerProvider';
 import { Switch } from '@/components/ui/switch';
 
 interface CreateChannelDialogProps {
@@ -43,30 +42,48 @@ export function CreateChannelDialog({
   const [description, setDescription] = useState('');
   const [type, setType] = useState<'text' | 'voice'>(defaultType);
   const [selectedFolderId, setSelectedFolderId] = useState(initialFolderId || 'none');
-  const [position, setPosition] = useState(0);
+  const [_, setPosition] = useState(0);
   const [isPrivate, setIsPrivate] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { user } = useCurrentUser();
   const { mutateAsync: createEvent } = useNostrPublish();
   const { toast } = useToast();
-  const { data: communities } = useCommunities();
-  const { data: memberships } = useUserMembership();
-  const { data: folders } = useChannelFolders(communityId);
+  const { communities } = useDataManager();
+  const navigate = useNavigate();
+
+  // Get community from DataManager
+  const community = communities.communities.get(communityId);
 
   // Check if user has permission to create channels
-  const community = communities?.find(c => c.id === communityId);
-  const membership = memberships?.find(m => m.communityId === communityId);
-
   const canCreateChannel = user && community && (
     // User is the community creator
-    community.creator === user.pubkey ||
+    community.definitionEvent.pubkey === user.pubkey ||
     // User is a moderator
-    community.moderators.includes(user.pubkey) ||
+    community.info.moderators.includes(user.pubkey) ||
     // User has owner/moderator membership status
-    membership?.status === 'owner' ||
-    membership?.status === 'moderator'
+    community.membershipStatus === 'owner' ||
+    community.membershipStatus === 'moderator'
   );
+
+  // Get folders and channels from DataManager - memoized to avoid recomputation
+  const { getFolders, getSortedChannels } = useDataManager().communities;
+  const folders = useMemo(() => community ? getFolders(communityId) : [], [community, getFolders, communityId]);
+  const existingChannels = useMemo(() => community ? getSortedChannels(communityId) : [], [community, getSortedChannels, communityId]);
+
+  // Calculate next position based on existing channels in the same folder/root
+  const calculateNextPosition = () => {
+    const targetFolderId = selectedFolderId !== 'none' ? selectedFolderId : undefined;
+    const channelsInSameLocation = existingChannels.filter(channel =>
+      channel.folderId === targetFolderId && channel.type === type
+    );
+
+    if (channelsInSameLocation.length === 0) return 0;
+
+    // Find the highest position and add 1
+    const maxPosition = Math.max(...channelsInSameLocation.map(ch => ch.position));
+    return maxPosition + 1;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,13 +131,28 @@ export function CreateChannelDialog({
     setIsSubmitting(true);
 
     try {
+      // Calculate the correct position for the new channel
+      const calculatedPosition = calculateNextPosition();
+
+      // Add optimistic channel immediately for instant UI feedback
+      communities.addOptimisticChannel(
+        communityId,
+        channelName,
+        type,
+        selectedFolderId !== 'none' ? selectedFolderId : undefined,
+        calculatedPosition
+      );
+
+      // Get full addressable community reference (kind:pubkey:identifier)
+      const fullCommunityRef = `34550:${community.pubkey}:${communityId}`;
+
       const tags = [
         ['d', `${communityId}:${channelName}`], // Unique identifier: community:channel
-        ['a', communityId], // Reference to community
+        ['a', fullCommunityRef], // Reference to community (full addressable format)
         ['name', channelName],
         ['description', description.trim()],
         ['channel_type', type],
-        ['position', position.toString()],
+        ['position', calculatedPosition.toString()],
         ['t', 'channel'], // Tag for filtering
         ['alt', `Channel: ${channelName}`],
       ];
@@ -129,23 +161,26 @@ export function CreateChannelDialog({
         tags.push(['folder', selectedFolderId]);
       }
 
-      await createEvent({
+      const channelEvent = {
         kind: 32807, // Custom kind for channel definition
         content: JSON.stringify({
           name: channelName,
           description: description.trim() || undefined,
           type,
           folderId: selectedFolderId !== 'none' ? selectedFolderId : undefined,
-          position,
+          position: calculatedPosition,
         }),
         tags,
-      });
+      };
+
+
+      await createEvent(channelEvent);
 
       // Create default permissions if channel is private
       if (isPrivate) {
         const permissionTags = [
           ['d', `${communityId}:${channelName}`],
-          ['a', communityId],
+          ['a', communityId], // Reference to community (simple community ID)
           ['channel', channelName],
           ['t', 'channel-permissions'],
           ['alt', `Channel permissions for ${channelName}`],
@@ -174,6 +209,9 @@ export function CreateChannelDialog({
       setPosition(0);
       setIsPrivate(false);
       setOpen(false);
+
+      // Navigate to the newly created channel
+      navigate(`/space/${communityId}/${channelName}`);
 
       // Notify parent component
       onChannelCreated?.();
@@ -289,13 +327,14 @@ export function CreateChannelDialog({
             <Input
               id="position"
               type="number"
-              value={position}
+              value={'?'}
               onChange={(e) => setPosition(parseInt(e.target.value) || 0)}
               min={0}
-              placeholder="0"
+              placeholder="?"
+              disabled={true}
             />
             <p className="text-xs text-muted-foreground">
-              Lower numbers appear first in the channel list.
+              Position editing temporarily disabled.
             </p>
           </div>
 

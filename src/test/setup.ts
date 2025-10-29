@@ -22,6 +22,12 @@ Object.defineProperty(window, 'scrollTo', {
   value: vi.fn(),
 });
 
+// Mock window.event for React's getCurrentEventPriority
+Object.defineProperty(window, 'event', {
+  writable: true,
+  value: undefined,
+});
+
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn().mockImplementation((_callback) => ({
   observe: vi.fn(),

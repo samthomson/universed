@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/popover";
 import { useState } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
-import { useDataManager } from "@/components/DataManagerProvider";
 
 interface RelaySelectorProps {
   className?: string;
@@ -25,15 +24,10 @@ interface RelaySelectorProps {
 export function RelaySelector(props: RelaySelectorProps) {
   const { className } = props;
   const { config, updateConfig, presetRelays = [] } = useAppContext();
-  const { resetMessageDataAndCache } = useDataManager();
 
   const selectedRelay = config.relayUrl;
   const setSelectedRelay = (relay: string) => {
-    // if we've changed the relay, reset the message cache - it should be a shortcut, not a source of truth
-    if (relay !== selectedRelay) {
-      // Reset message cache when relay changes since cached messages may be from different relays
-      resetMessageDataAndCache();
-    }
+    // Cache clearing is now handled centrally in DataManagerProvider
     updateConfig((current) => ({ ...current, relayUrl: relay }));
   };
 
@@ -46,12 +40,12 @@ export function RelaySelector(props: RelaySelectorProps) {
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
     if (!trimmed) return trimmed;
-    
+
     // Check if it already has a protocol
     if (trimmed.includes('://')) {
       return trimmed;
     }
-    
+
     // Add wss:// prefix
     return `wss://${trimmed}`;
   };
@@ -67,7 +61,7 @@ export function RelaySelector(props: RelaySelectorProps) {
   const isValidRelayInput = (value: string): boolean => {
     const trimmed = value.trim();
     if (!trimmed) return false;
-    
+
     // Basic validation - should contain at least a domain-like structure
     const normalized = normalizeRelayUrl(trimmed);
     try {

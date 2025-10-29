@@ -4,10 +4,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useCommunityMembers } from "@/hooks/useCommunityMembers";
 import { useManageMembers } from "@/hooks/useManageMembers";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useCommunities } from "@/hooks/useCommunities";
+import { useDataManager, useDataManagerCommunityMembers } from "@/components/DataManagerProvider";
 import { useAuthorBatch } from "@/hooks/useAuthorBatch";
 import { genUserName } from "@/lib/genUserName";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -150,8 +149,8 @@ function MemberItem({ pubkey, role = 'member', isOnline: _isOnline = false, comm
 }
 
 export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
-  const { data: members, isLoading } = useCommunityMembers(communityId);
-  const { data: communities } = useCommunities();
+  const { data: members, isLoading } = useDataManagerCommunityMembers(communityId);
+  const { communities } = useDataManager();
   const { user } = useCurrentUser();
 
   // Extract all member pubkeys for batched author query
@@ -164,9 +163,9 @@ export function MemberList({ communityId, onNavigateToDMs }: MemberListProps) {
 
   // Check if current user can manage members (is owner or moderator)
   const canManageMembers = communityId && user ? (() => {
-    const community = communities?.find(c => c.id === communityId);
+    const community = communities.communities.get(communityId);
     if (!community) return false;
-    return community.creator === user.pubkey || community.moderators.includes(user.pubkey);
+    return community.pubkey === user.pubkey || community.info.moderators.includes(user.pubkey);
   })() : false;
 
   const handleStartDM = (pubkey: string) => {

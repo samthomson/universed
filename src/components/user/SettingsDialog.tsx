@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Wifi, Wallet, Sun, Moon, Monitor, Users, Palette, User } from "lucide-react";
+import { Wifi, Wallet, Sun, Moon, Monitor, Users, Palette, User, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useTheme } from "@/hooks/useTheme";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useDataManager } from "@/components/DataManagerProvider";
+import { useToast } from "@/hooks/useToast";
 
 import { EditProfileForm } from "@/components/EditProfileForm";
 import { useSettings, SETTINGS_TABS } from "@/contexts/settings.tsx";
@@ -18,9 +20,12 @@ export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
   const { settings, updateSetting } = useUserSettings();
   const { isOpen, closeSettings, activeTab, setActiveTab } = useSettings();
+  const { messaging, communities } = useDataManager();
+  const { toast } = useToast();
 
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
+  const [isClearing, setIsClearing] = useState(false);
 
   // Measure content height
   const measureHeight = useCallback(() => {
@@ -29,6 +34,29 @@ export function SettingsDialog() {
       setContentHeight(height);
     }
   }, []);
+
+  // Clear all caches
+  const handleClearCache = useCallback(async () => {
+    setIsClearing(true);
+    try {
+      await Promise.all([
+        messaging.resetMessageDataAndCache(),
+        communities.resetCommunitiesDataAndCache(),
+      ]);
+      toast({
+        title: "Cache Cleared",
+        description: "All cached data has been cleared successfully. Data will reload from the relay.",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to clear cache. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsClearing(false);
+    }
+  }, [messaging, communities, toast]);
 
   // Measure height when dialog opens (initial measurement)
   useEffect(() => {
@@ -153,6 +181,22 @@ export function SettingsDialog() {
                       Choose which relay to connect to for sending and receiving messages.
                     </p>
                     <RelaySelector className="w-full max-w-md" />
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h2 className="text-base font-semibold mb-2">Cache Management</h2>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Clear cached data to force reload from the relay. Use this if you're experiencing sync issues.
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={handleClearCache}
+                      disabled={isClearing}
+                      className="flex items-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {isClearing ? "Clearing..." : "Clear All Cache"}
+                    </Button>
                   </div>
                 </div>
               )}

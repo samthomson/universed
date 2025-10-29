@@ -3,15 +3,53 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useSendDM } from '@/hooks/useSendDM';
 import { useNostr } from '@nostrify/react';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { validateDMEvent } from '@/lib/dmUtils';
 import { logger } from '@/lib/logger';
 import { LOADING_PHASES, type LoadingPhase } from '@/lib/constants';
 import type { NostrEvent } from '@/types/nostr';
 import type { MessageProtocol } from '@/lib/dmConstants';
 import { MESSAGE_PROTOCOL } from '@/lib/dmConstants';
+import { nip57 } from 'nostr-tools';
 
 // ============================================================================
 // DataManager Types and Constants (co-located for better maintainability)
+// ============================================================================
+
+// Number of messages to load per pagination request
+const MESSAGES_PER_PAGE = 5; // Default number of messages to load per page (lowered for testing)
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Extract simple community slug from addressable format
+ * @param communityRef - Full addressable format "34550:pubkey:slug" or simple "slug"
+ * @returns The community slug
+ */
+function extractCommunitySlug(communityRef: string): string {
+  if (communityRef.includes(':')) {
+    const parts = communityRef.split(':');
+    if (parts.length === 3) {
+      return parts[2]; // Full addressable format: "34550:pubkey:slug"
+    }
+    return parts[parts.length - 1]; // Fallback
+  }
+  return communityRef; // Simple format
+}
+
+/**
+ * Extract channel slug from addressable format
+ * @param channelRef - Full addressable format or simple slug
+ * @returns The channel slug (last part after splitting by colons)
+ */
+function extractChannelSlug(channelRef: string): string {
+  return channelRef.includes(':') ? channelRef.split(':').pop()! : channelRef;
+}
+
+// ============================================================================
+// Messaging Domain Types
 // ============================================================================
 
 // Core participant data structure used throughout DataManager
@@ -36,6 +74,12 @@ interface LastSyncData {
 interface SubscriptionStatus {
   nip4: boolean;
   nip17: boolean;
+}
+
+// Community subscription status
+interface CommunitySubscriptionStatus {
+  messages: boolean; // Community messages subscription (kind 9411, etc.)
+  management: boolean; // Community management subscription (kinds 34550, 34551, etc.)
 }
 
 // Scan progress tracking
@@ -155,7 +199,25 @@ const createErrorLogger = (name: string) => {
 // Create error loggers outside component to prevent recreation
 const nip17ErrorLogger = createErrorLogger('NIP-17');
 
-interface DataManagerContextType {
+// Utility function to get tag value by name
+const getTagValue = (event: NostrEvent, tagName: string): string | undefined => {
+  return event.tags.find(([name]) => name === tagName)?.[1];
+};
+
+// Utility function to get all tag values by name
+const getTagValues = (event: NostrEvent, tagName: string): string[] => {
+  return event.tags.filter(([name]) => name === tagName).map(([, value]) => value);
+};
+
+// Utility function to get tag value with role filter
+const getTagValueWithRole = (event: NostrEvent, tagName: string, role: string): string[] => {
+  return event.tags
+    .filter(([name, , , tagRole]) => name === tagName && tagRole === role)
+    .map(([, value]) => value);
+};
+
+// Messaging domain interface
+export interface MessagingDomain {
   messages: MessagesState;
   isLoading: boolean;
   loadingPhase: LoadingPhase;
@@ -171,6 +233,192 @@ interface DataManagerContextType {
   isNIP17Enabled: boolean;
   isDebugging: boolean;
   scanProgress: ScanProgressState;
+  clearCacheAndRefetch: () => Promise<void>;
+}
+
+// ============================================================================
+// Communities Domain Types
+// ============================================================================
+
+// Configuration constants
+const ALWAYS_ADD_GENERAL_CHANNEL = true;
+const CACHE_MESSAGES_LIMIT_PER_CHANNEL = MESSAGES_PER_PAGE;
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds
+
+// Community metadata parsed from kind 34550 events
+interface CommunityInfo {
+  name: string; // from name tag
+  description?: string; // from description tag
+  image?: string; // from image tag
+  banner?: string; // from banner tag
+  moderators: string[]; // from p tags with role=moderator
+  relays: string[]; // from relay tags
+}
+
+// Parsed member list from kind 34551/34552/34553 events
+interface MembersList {
+  members: string[]; // list of member pubkeys
+  event: NostrEvent | null; // original event (can be null for combined lists)
+  joinRequests?: NostrEvent[]; // actual join request events (kind 4552) for pending members
+}
+
+// Complete community data structure
+export interface CommunityData {
+  id: string; // community identifier (d tag)
+  fullAddressableId: string; // full addressable format (34550:pubkey:identifier)
+  pubkey: string; // community creator/owner
+  info: CommunityInfo; // metadata from community definition
+  definitionEvent: NostrEvent; // original kind 34550 community definition
+  channels: Map<string, ChannelData>; // channelId -> channel data
+  approvedMembers: MembersList | null; // parsed approved members list (kind 34551)
+  pendingMembers: MembersList | null; // calculated: join requests (kind 4552) minus declined (kind 34552)
+  declinedMembers: MembersList | null; // parsed declined members list (kind 34552)
+  bannedMembers: MembersList | null; // parsed banned members list (kind 34553)
+  membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator'; // user's membership status
+  lastActivity: number;
+  isLoadingChannels?: boolean; // indicates if channels are still loading
+}
+
+// Channel metadata parsed from kind 32807 events
+export interface ChannelInfo {
+  name: string;
+  description?: string;
+  type: 'text' | 'voice';
+  folderId?: string;
+  position?: number; // Optional since it might be missing from JSON content
+}
+
+// Complete channel data structure
+interface ChannelData {
+  id: string; // Channel identifier from d tag (should be simple like "general", "design-team")
+  communityId: string; // parent community id
+  info: ChannelInfo; // parsed metadata from channel definition
+  definition: NostrEvent; // original kind 32807 channel definition
+  messages: NostrEvent[]; // kind 9411 messages
+  replies: Map<string, NostrEvent[]>; // messageId -> replies (kind 1111)
+  reactions: Map<string, NostrEvent[]>; // messageId -> reactions/zaps (kinds 7, 9735)
+  pinnedMessages: NostrEvent[]; // pinned messages (kind 34554 events)
+  permissions: NostrEvent | null; // kind 30143 permissions settings
+  lastActivity: number;
+  isLoadingData?: boolean; // indicates if channel data is still loading
+  // Pagination state
+  oldestMessageTimestamp?: number; // timestamp of oldest loaded message
+  hasMoreMessages: boolean; // whether there are more messages to load
+  isLoadingOlderMessages: boolean; // whether we're currently loading older messages
+  reachedStartOfConversation: boolean; // whether we've reached the very beginning
+}
+
+// Communities state structure
+type CommunitiesState = Map<string, CommunityData>; // communityId -> community data
+
+// Community loading breakdown for performance tracking
+interface CommunityLoadBreakdown {
+  step1_communities: {
+    total: number;
+    membershipQuery: number;
+    definitionsQuery: number;
+  };
+  step2_parallel_batch1: {
+    total: number;
+    channelsQuery: number;
+    membersQuery: number;
+    joinRequestsQuery: number;
+  };
+  step3_parallel_batch2: {
+    total: number;
+    permissionsQuery: number;
+    messagesQuery: number;
+    pinnedPostsQuery?: number; // Query for kind 34554 pinned posts events (runs in parallel)
+  };
+  step4_replies_batch: {
+    total: number;
+    repliesQuery: number;
+    reactionsQuery: number;
+    pinnedMessagesQuery?: number; // Query for actual pinned message events (runs in parallel)
+  };
+  step5_pinned_batch: {
+    total: number;
+    pinnedQuery: number;
+  };
+  total: number;
+}
+
+// Folder information extracted from channels
+export interface ChannelFolder {
+  id: string;
+  name: string;
+  description?: string;
+  position: number;
+  communityId: string;
+  creator: string;
+  channels: DisplayChannel[]; // Channels in this folder
+}
+
+// Helper interface for channel display (matching useChannels format but with cached permissions)
+export interface DisplayChannel {
+  id: string; // Simple channel name for URLs (e.g., "general", "design-team")
+  name: string;
+  description?: string;
+  type: 'text' | 'voice';
+  communityId: string;
+  creator: string;
+  folderId?: string;
+  position: number;
+  event: NostrEvent;
+  permissions?: NostrEvent | null; // Include cached permissions to avoid additional queries
+  isLoading?: boolean; // True when channel is being created (optimistic)
+  hasAccess: boolean; // Pre-computed access check - REQUIRED, no fallback
+  parsedPermissions: {
+    readPermissions: 'everyone' | 'members' | 'moderators' | 'specific';
+    writePermissions: 'everyone' | 'members' | 'moderators' | 'specific';
+  }; // Pre-parsed permissions - REQUIRED
+  isRestricted: boolean; // Pre-computed restriction check - REQUIRED
+}
+
+// Communities domain interface
+export interface CommunitiesDomain {
+  communities: CommunitiesState;
+  isLoading: boolean;
+  loadingPhase: LoadingPhase;
+  loadTime: number | null;
+  loadBreakdown: CommunityLoadBreakdown | null;
+  // Granular loading states for progressive UI rendering
+  isLoadingCommunities: boolean;
+  isLoadingChannels: boolean;
+  isLoadingMessages: boolean;
+  hasBasicCommunitiesData: boolean;
+  subscriptions: CommunitySubscriptionStatus;
+  getDebugInfo: () => {
+    communityCount: number;
+    channelCount: number;
+    messageCount: number;
+    replyCount: number;
+    reactionCount: number;
+    pinnedCount: number;
+  };
+  getSortedChannels: (communityId: string) => DisplayChannel[];
+  getFolders: (communityId: string) => ChannelFolder[];
+  getChannelsWithoutFolder: (communityId: string) => { text: DisplayChannel[]; voice: DisplayChannel[] };
+  addOptimisticMessage: (communityId: string, channelId: string, content: string, additionalTags?: string[][]) => NostrEvent | null;
+  addOptimisticChannel: (communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => void;
+  deleteChannelImmediately: (communityId: string, channelId: string) => void;
+  deleteCommunityImmediately: (communityId: string) => void;
+  loadOlderMessages: (communityId: string, channelId: string) => Promise<void>;
+  resetCommunitiesDataAndCache: () => Promise<void>;
+  useDataManagerPinnedMessages: (communityId: string | null, channelId: string | null) => NostrEvent[];
+  approveMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  declineMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  banMember: (communityId: string, memberPubkey: string) => Promise<void>;
+  addOptimisticCommunity: (communityEvent: NostrEvent) => void;
+  refreshCommunities: () => Promise<void>;
+  addProspectiveCommunity: (communityId: string) => Promise<void>;
+  clearCacheAndRefetch: () => Promise<void>;
+}
+
+// Main DataManager interface - organized by domain
+interface DataManagerContextType {
+  messaging: MessagingDomain;
+  communities: CommunitiesDomain;
 }
 
 const DataManagerContext = createContext<DataManagerContextType | null>(null);
@@ -185,7 +433,8 @@ export function useDataManager(): DataManagerContextType {
 
 // Hook for conversation-specific message subscriptions to avoid unnecessary re-renders
 export function useConversationMessages(conversationId: string) {
-  const { messages: allMessages } = useDataManager();
+  const { messaging } = useDataManager();
+  const { messages: allMessages } = messaging;
 
   logger.log(`${DATA_MANAGER_CONSTANTS.CONVERSATION_LOG_PREFIX} Hook called for conversation ${conversationId}, total conversations in state: ${allMessages.size}`);
 
@@ -225,6 +474,459 @@ export function useConversationMessages(conversationId: string) {
   }, [allMessages, conversationId]);
 }
 
+// Hook for retrieving a specific channel with its data from DataManager
+export function useDataManagerCommunityChannel(communityId: string | null, channelId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId) {
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Extract simple community ID from full addressable format
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    // Get the community
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      logger.log('Communities: Community not found:', { communityId, simpleCommunityId, decodedId: simpleCommunityId });
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Use getSortedChannels to get the pre-computed DisplayChannel with permissions already checked
+    // This avoids duplicating the permission checking logic
+    const allChannels = communities.getSortedChannels(simpleCommunityId);
+    const displayChannel = allChannels.find(ch => ch.id === channelId);
+    
+    if (!displayChannel) {
+      logger.log('Communities: Channel not found in sorted channels:', {
+        channelId,
+        communityId: simpleCommunityId,
+        availableChannels: allChannels.map(ch => ch.id),
+      });
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Get the raw channel data to access messages
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return {
+        isLoading: false,
+        channel: null
+      };
+    }
+
+    // Add messages to the pre-computed DisplayChannel
+    // Ensure messages are sorted by timestamp (oldest first)
+    const sortedMessages = [...channelData.messages].sort((a, b) => a.created_at - b.created_at);
+
+    const channel: DisplayChannel & { messages: NostrEvent[] } = {
+      ...displayChannel, // Use all pre-computed data from getSortedChannels
+      messages: sortedMessages // Just add the messages
+    };
+
+    // Return the channel with messages included
+    return {
+      isLoading: false,
+      channel
+    };
+  }, [communities, communityId, channelId]);
+}
+
+// Hook to get reactions for a specific message from DataManager
+export function useDataManagerMessageReactions(communityId: string | null, channelId: string | null, messageId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId || !messageId) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    // Extract simple community ID from full addressable format
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    // Get the community and channel
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return {
+        reactions: [],
+        zaps: [],
+        reactionGroups: {},
+        totalSats: 0,
+        zapCount: 0
+      };
+    }
+
+    // Get reactions for this message
+    const messageReactions = channelData.reactions.get(messageId) || [];
+
+    // Separate reactions and zaps
+    const reactions = messageReactions.filter(r => r.kind === 7);
+    const zaps = messageReactions.filter(r => r.kind === 9735);
+
+    // Group reactions by emoji
+    const reactionGroups = reactions.reduce((acc, reaction) => {
+      const emoji = reaction.content || "👍";
+      if (!acc[emoji]) {
+        acc[emoji] = [];
+      }
+      acc[emoji].push(reaction);
+      return acc;
+    }, {} as Record<string, NostrEvent[]>);
+
+    // Calculate zap totals
+    let zapCount = 0;
+    let totalSats = 0;
+
+    zaps.forEach(zap => {
+      zapCount++;
+
+      // Try multiple methods to extract the amount:
+      // Method 1: amount tag (from zap request, sometimes copied to receipt)
+      const amountTag = zap.tags.find(([name]) => name === 'amount')?.[1];
+      if (amountTag) {
+        const millisats = parseInt(amountTag);
+        totalSats += Math.floor(millisats / 1000);
+        return;
+      }
+
+      // Method 2: Extract from bolt11 invoice
+      const bolt11Tag = zap.tags.find(([name]) => name === 'bolt11')?.[1];
+      if (bolt11Tag) {
+        try {
+          const invoiceSats = nip57.getSatoshisAmountFromBolt11(bolt11Tag);
+          totalSats += invoiceSats;
+          return;
+        } catch (error) {
+          console.warn('Failed to parse bolt11 amount:', error);
+        }
+      }
+
+      // Method 3: Parse from description (zap request JSON)
+      const descriptionTag = zap.tags.find(([name]) => name === 'description')?.[1];
+      if (descriptionTag) {
+        try {
+          const zapRequest = JSON.parse(descriptionTag);
+          const requestAmountTag = zapRequest.tags?.find(([name]: string[]) => name === 'amount')?.[1];
+          if (requestAmountTag) {
+            const millisats = parseInt(requestAmountTag);
+            totalSats += Math.floor(millisats / 1000);
+            return;
+          }
+        } catch (error) {
+          console.warn('Failed to parse description JSON:', error);
+        }
+      }
+
+      console.warn('Could not extract amount from zap receipt:', zap.id);
+    });
+
+    return {
+      reactions,
+      zaps,
+      reactionGroups,
+      totalSats,
+      zapCount
+    };
+  }, [communities.communities, communityId, channelId, messageId]);
+}
+
+// Hook to get pinned messages for a specific channel from DataManager
+export function useDataManagerPinnedMessages(communityId: string | null, channelId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId || !channelId) {
+      return [];
+    }
+
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    const community = communities.communities.get(simpleCommunityId);
+    if (!community) {
+      return [];
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return [];
+    }
+
+    return channelData.pinnedMessages;
+  }, [communities.communities, communityId, channelId]);
+}
+
+// Hook to get join requests (pending members) from DataManager
+export function useDataManagerJoinRequests(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: [],
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: [],
+        isLoading: communities.isLoading,
+      };
+    }
+
+    // Get pending members from the community data
+    const pendingMembers = community.pendingMembers?.members || [];
+    const joinRequestEvents = community.pendingMembers?.joinRequests || [];
+
+    // Create a map of pubkey to join request event for efficient lookup
+    const joinRequestMap = new Map<string, NostrEvent>();
+    joinRequestEvents.forEach(event => {
+      joinRequestMap.set(event.pubkey, event);
+    });
+
+    // Transform into the format expected by the UI (similar to useJoinRequests)
+    const joinRequests = pendingMembers.map(pubkey => {
+      const joinRequestEvent = joinRequestMap.get(pubkey);
+      return {
+        requesterPubkey: pubkey,
+        message: joinRequestEvent?.content || '', // Use actual join request message
+        createdAt: joinRequestEvent?.created_at || community.pendingMembers?.event?.created_at || Math.floor(Date.now() / 1000),
+      };
+    });
+
+
+    return {
+      data: joinRequests,
+      isLoading: false,
+    };
+  }, [communities.communities, communities.isLoading, communityId]);
+}
+
+// Hook to get community members from DataManager instead of making separate network requests
+export function useDataManagerCommunityMembers(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: [],
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: [],
+        isLoading: communities.isLoading,
+      };
+    }
+
+    const members: Array<{
+      pubkey: string;
+      role: 'owner' | 'moderator' | 'member';
+      isOnline: boolean;
+      joinedAt?: number;
+    }> = [];
+    const addedMembers = new Set<string>();
+
+    // Add community creator as owner
+    if (!addedMembers.has(community.pubkey)) {
+      members.push({
+        pubkey: community.pubkey,
+        role: 'owner',
+        isOnline: false, // We don't have online status in DataManager yet
+        joinedAt: community.definitionEvent.created_at,
+      });
+      addedMembers.add(community.pubkey);
+    }
+
+    // Add moderators
+    community.info.moderators.forEach(modPubkey => {
+      if (!addedMembers.has(modPubkey)) {
+        members.push({
+          pubkey: modPubkey,
+          role: 'moderator',
+          isOnline: false, // We don't have online status in DataManager yet
+        });
+        addedMembers.add(modPubkey);
+      }
+    });
+
+    // Add approved members (excluding banned ones)
+    const bannedMemberPubkeys = new Set(community.bannedMembers?.members || []);
+
+
+    if (community.approvedMembers) {
+      community.approvedMembers.members.forEach(memberPubkey => {
+        if (!addedMembers.has(memberPubkey) && !bannedMemberPubkeys.has(memberPubkey)) {
+          members.push({
+            pubkey: memberPubkey,
+            role: 'member',
+            isOnline: false, // We don't have online status in DataManager yet
+          });
+          addedMembers.add(memberPubkey);
+        }
+      });
+    }
+
+    // Sort by role priority, then by pubkey
+    const sortedMembers = members.sort((a, b) => {
+      const roleOrder = { owner: 0, moderator: 1, member: 2 };
+      const roleComparison = roleOrder[a.role] - roleOrder[b.role];
+      if (roleComparison !== 0) return roleComparison;
+
+      // Then by online status (when we have it)
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+
+      // Then alphabetically by pubkey
+      return a.pubkey.localeCompare(b.pubkey);
+    });
+
+
+    return {
+      data: sortedMembers,
+      isLoading: false,
+    };
+  }, [communityId, communities]);
+}
+
+// Hook to get the current user's membership status in a community from DataManager
+export function useDataManagerUserMembership(communityId: string | null) {
+  const { communities } = useDataManager();
+
+  return useMemo(() => {
+    if (!communityId) {
+      return {
+        data: 'not-member' as const,
+        isLoading: false,
+      };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return {
+        data: communities.isLoading ? undefined : 'not-member' as const,
+        isLoading: communities.isLoading,
+      };
+    }
+
+    // Map DataManager membership status to expected format
+    const membershipStatus = (() => {
+      switch (community.membershipStatus) {
+        case 'approved':
+        case 'pending':
+        case 'banned':
+        case 'owner':
+        case 'moderator':
+          return community.membershipStatus;
+        default:
+          return 'not-member' as const;
+      }
+    })();
+
+    return {
+      data: membershipStatus,
+      isLoading: false,
+    };
+  }, [communityId, communities]);
+}
+
+// Hook to get the current user's role in a community from DataManager
+export function useDataManagerUserRole(communityId: string, userPubkey?: string) {
+  const { communities } = useDataManager();
+  const { user } = useCurrentUser();
+
+  const targetPubkey = userPubkey || user?.pubkey;
+
+  return useMemo(() => {
+    if (!targetPubkey || !communityId) {
+      return { role: 'member' as const, hasModeratorAccess: false };
+    }
+
+    const community = communities.communities.get(communityId);
+    if (!community) {
+      return { role: 'member' as const, hasModeratorAccess: false };
+    }
+
+    // Check if user is the community owner
+    if (community.pubkey === targetPubkey) {
+      return { role: 'owner' as const, hasModeratorAccess: true };
+    }
+
+    // Check if user is a moderator
+    if (community.info.moderators.includes(targetPubkey)) {
+      return { role: 'moderator' as const, hasModeratorAccess: true };
+    }
+
+    return { role: 'member' as const, hasModeratorAccess: false };
+  }, [communityId, targetPubkey, communities]);
+}
+
+// Hook to check if current user can perform moderation actions from DataManager
+export function useDataManagerCanModerate(communityId: string) {
+  const { user } = useCurrentUser();
+  const { role, hasModeratorAccess } = useDataManagerUserRole(communityId, user?.pubkey);
+
+  return {
+    canModerate: hasModeratorAccess,
+    canAssignModerators: role === 'owner',
+    canDeletePosts: hasModeratorAccess,
+    canBanUsers: hasModeratorAccess,
+    canMuteUsers: hasModeratorAccess,
+    canPinPosts: hasModeratorAccess,
+    canApproveContent: hasModeratorAccess,
+    role,
+  };
+}
+
 interface DataManagerProviderProps {
   children: ReactNode;
 }
@@ -234,6 +936,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   const { settings } = useUserSettings();
   const { nostr } = useNostr();
   const { sendNIP4Message, sendNIP17Message } = useSendDM();
+  const { mutateAsync: createEvent } = useNostrPublish();
 
   // Memoize the user pubkey to prevent unnecessary re-renders
   const userPubkey = useMemo(() => user?.pubkey, [user?.pubkey]);
@@ -265,6 +968,32 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
   // Subscription refs for real-time message processing
   const nip4SubscriptionRef = useRef<{ close: () => void } | null>(null);
   const nip17SubscriptionRef = useRef<{ close: () => void } | null>(null);
+
+  // Community messages subscription ref
+  const communityMessagesSubscriptionRef = useRef<{ close: () => void } | null>(null);
+
+  // Community management subscription ref (for membership changes, etc.)
+  const communityManagementSubscriptionRef = useRef<{ close: () => void } | null>(null);
+
+  // Communities state
+  const [communities, setCommunities] = useState<CommunitiesState>(new Map());
+  
+  // Ref to always access current communities in subscriptions (avoids stale closure)
+  const communitiesRef = useRef<CommunitiesState>(communities);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    communitiesRef.current = communities;
+  }, [communities]);
+  
+  const [communitiesLoading, setCommunitiesLoading] = useState(false);
+  const [communitiesLoadingPhase, setCommunitiesLoadingPhase] = useState<LoadingPhase>(LOADING_PHASES.IDLE);
+  const [communitiesLoadTime, setCommunitiesLoadTime] = useState<number | null>(null);
+  const [communitiesLoadBreakdown, setCommunitiesLoadBreakdown] = useState<CommunityLoadBreakdown | null>(null);
+  const [communitiesLastSync, setCommunitiesLastSync] = useState<number | null>(null);
+
+  // Track whether we should save communities immediately (for network loads)
+  const [shouldSaveCommunitiesImmediately, setShouldSaveCommunitiesImmediately] = useState(false);
 
   // Single, deterministic message loading - happens exactly once when provider initializes
   useEffect(() => {
@@ -305,6 +1034,20 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       }
     };
   }, [userPubkey]); // Only depend on userPubkey for cleanup
+
+  // Clear communities data when user logs out (becomes null)
+  useEffect(() => {
+    if (!user) {
+      logger.log('DataManager: User logged out, clearing communities data');
+      setCommunities(new Map());
+      setCommunitiesLoading(false);
+      setCommunitiesLoadingPhase(LOADING_PHASES.IDLE);
+      setCommunitiesLoadTime(null);
+      setCommunitiesLoadBreakdown(null);
+      setHasCommunitiesInitialLoadCompleted(false);
+      setCommunitiesLastSync(null);
+    }
+  }, [user]);
 
 
 
@@ -1150,9 +1893,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('DMS: DataManager: NIP-4 subscription ended unexpectedly');
+            setSubscriptions(prev => ({ ...prev, nip4: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-4 subscription error:', error);
+            setSubscriptions(prev => ({ ...prev, nip4: false }));
           }
         }
       })();
@@ -1160,6 +1909,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       nip4SubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setSubscriptions(prev => ({ ...prev, nip4: false }));
           logger.log('DMS: DataManager: NIP-4 subscription closed');
         }
       };
@@ -1218,9 +1968,15 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
               logger.log(`DMS: DataManager: Received non-event message:`, msg);
             }
           }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('DMS: DataManager: NIP-17 subscription ended unexpectedly');
+            setSubscriptions(prev => ({ ...prev, nip17: false }));
+          }
         } catch (error) {
           if (isActive) {
             logger.error('DMS: DataManager: NIP-17 subscription error:', error);
+            setSubscriptions(prev => ({ ...prev, nip17: false }));
           }
         }
       })();
@@ -1228,6 +1984,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
       nip17SubscriptionRef.current = {
         close: () => {
           isActive = false;
+          setSubscriptions(prev => ({ ...prev, nip17: false }));
           logger.log('DMS: DataManager: NIP-17 subscription closed');
         }
       };
@@ -1246,6 +2003,1427 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
 
 
 
+
+  // Helper function to add a message to a community channel (more succinct than nested state updates)
+  const addMessageToChannel = useCallback((communityId: string, channelId: string, message: NostrEvent, isOptimistic = false) => {
+    setCommunities(prev => {
+      const community = prev.get(communityId);
+      if (!community) return prev;
+
+      const channel = community.channels.get(channelId);
+      if (!channel) return prev;
+
+      // Check if message already exists (for real messages)
+      if (!isOptimistic && channel.messages.some(msg => msg.id === message.id)) {
+        logger.log(`Communities: Message ${message.id} already exists in channel ${channelId}, skipping`);
+        return prev;
+      }
+
+      // Check for optimistic replacement (for real messages)
+      let updatedMessages: NostrEvent[];
+      if (!isOptimistic) {
+        const optimisticIndex = channel.messages.findIndex(msg =>
+          msg.isSending &&
+          msg.pubkey === message.pubkey &&
+          msg.content === message.content &&
+          Math.abs(msg.created_at - message.created_at) <= 30 // 30 second window
+        );
+
+        if (optimisticIndex !== -1) {
+          // Replace optimistic with real message (preserve animation timestamp)
+          logger.log(`Communities: Replacing optimistic message at index ${optimisticIndex} with real message ${message.id}`);
+          const existingMessage = channel.messages[optimisticIndex];
+          updatedMessages = [...channel.messages];
+          updatedMessages[optimisticIndex] = {
+            ...message,
+            created_at: existingMessage.created_at, // Preserve optimistic timestamp
+            clientFirstSeen: existingMessage.clientFirstSeen // Preserve animation timestamp
+          };
+        } else {
+          // Add new message and sort by timestamp (oldest first)
+          updatedMessages = [...channel.messages, message].sort((a, b) => a.created_at - b.created_at);
+        }
+      } else {
+        // Add optimistic message and sort by timestamp (oldest first)
+        updatedMessages = [...channel.messages, message].sort((a, b) => a.created_at - b.created_at);
+      }
+
+      // Create updated structures efficiently
+      const updatedChannel = { ...channel, messages: updatedMessages, lastActivity: Math.max(channel.lastActivity, message.created_at) };
+      const updatedChannels = new Map(community.channels);
+      updatedChannels.set(channelId, updatedChannel);
+      const updatedCommunity = { ...community, channels: updatedChannels, lastActivity: Math.max(community.lastActivity, message.created_at) };
+      const newCommunities = new Map(prev);
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Added ${isOptimistic ? 'optimistic ' : ''}message ${message.id} to channel ${channelId} in community ${communityId}`);
+      return newCommunities;
+    });
+  }, []);
+
+  // Process incoming community messages and route them to the correct channel
+  const processIncomingCommunityMessage = useCallback(async (event: NostrEvent, communitiesToUse?: Map<string, CommunityData>) => {
+    if (!user?.pubkey) return;
+
+    logger.log(`Communities: Processing incoming message: ${event.id} (kind: ${event.kind})`);
+
+    // Validate message kinds
+    if (![9411, 1111, 7, 9735, 32807, 5].includes(event.kind)) {
+      logger.warn(`Communities: Invalid message kind: ${event.kind} for event ${event.id}`);
+      return;
+    }
+
+    // Get community reference from 'a' tag (reactions don't have this, handle them separately)
+    const communityRef = event.tags.find(([name]) => name === 'a')?.[1];
+    if (!communityRef && ![7, 9735].includes(event.kind)) {
+      logger.warn(`Communities: No community reference found in event ${event.id}`);
+      return;
+    }
+
+    const communitiesForProcessing = communitiesToUse || communities;
+
+    // Extract community slug once (for all non-reaction events)
+    const simpleCommunityId = communityRef ? extractCommunitySlug(communityRef) : null;
+    const community = simpleCommunityId ? communitiesForProcessing.get(simpleCommunityId) : null;
+
+    // Process event by kind
+    switch (event.kind) {
+      // Messages and replies - require 'a' tag for community lookup
+      case 9411:
+      case 1111: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
+        }
+
+        // Handle each event type
+        switch (event.kind) {
+          case 9411: {
+            // Channel message - get channel slug from 't' tag
+            const tTag = event.tags.find(([name]) => name === 't')?.[1];
+            if (!tTag) {
+              logger.warn(`Communities: No 't' tag found in channel message ${event.id}`);
+              return;
+            }
+
+            // Extract just the channel slug
+            const channelId = extractChannelSlug(tTag);
+
+            // Find the channel in the community
+            const channel = community.channels.get(channelId);
+            if (!channel) {
+              logger.log(`Communities: Channel ${channelId} not found in community ${simpleCommunityId}, creating placeholder channel for message ${event.id}`);
+
+              // Create a placeholder channel for this message
+              // This handles the race condition where a message arrives before the channel creation event
+              const placeholderChannel: ChannelData = {
+                id: channelId,
+                communityId: simpleCommunityId!,
+                info: {
+                  name: channelId, // Use channel ID as name initially
+                  description: undefined,
+                  type: 'text', // Default to text
+                  folderId: undefined,
+                  position: 999, // Put at end until we get the real channel definition
+                },
+                definition: {} as NostrEvent, // Placeholder - will be replaced when real channel definition arrives
+                messages: [],
+                replies: new Map(),
+                reactions: new Map(),
+                pinnedMessages: [],
+                permissions: null,
+                lastActivity: event.created_at,
+                // Initialize pagination state
+                hasMoreMessages: false,
+                isLoadingOlderMessages: false,
+                reachedStartOfConversation: true,
+              };
+
+              // Add placeholder channel to community
+              setCommunities(prev => {
+                const newCommunities = new Map(prev);
+                const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+                const updatedChannels = new Map(updatedCommunity.channels);
+                updatedChannels.set(channelId, placeholderChannel);
+                updatedCommunity.channels = updatedChannels;
+                newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+                logger.log(`Communities: Created placeholder channel ${channelId} in community ${simpleCommunityId}`);
+                return newCommunities;
+              });
+            }
+
+            // Use helper function to add message
+            addMessageToChannel(simpleCommunityId!, channelId, event);
+            break;
+          }
+
+          case 1111: {
+            // Reply message - get the message ID it's replying to from 'e' tag
+            const replyToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+            if (!replyToMessageId) {
+              logger.warn(`Communities: No reply target found in reply ${event.id}`);
+              return;
+            }
+
+            // Find which channel contains the message being replied to
+            let targetChannelId: string | null = null;
+            for (const [channelId, channel] of community.channels) {
+              if (channel.messages.some(msg => msg.id === replyToMessageId)) {
+                targetChannelId = channelId;
+                break;
+              }
+            }
+
+            if (!targetChannelId) {
+              logger.log(`Communities: Target message ${replyToMessageId} not found in any channel, ignoring reply ${event.id}`);
+              return;
+            }
+
+            // Add reply to the channel
+            setCommunities(prev => {
+              const newCommunities = new Map(prev);
+              const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+              const updatedChannels = new Map(updatedCommunity.channels);
+              const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+              // Check if reply already exists
+              const existingReplies = updatedChannel.replies.get(replyToMessageId) || [];
+              if (existingReplies.some(reply => reply.id === event.id)) {
+                logger.log(`Communities: Reply ${event.id} already exists for message ${replyToMessageId}, skipping`);
+                return prev;
+              }
+
+              // Add reply and sort by timestamp
+              const updatedReplies = [...existingReplies, event].sort((a, b) => a.created_at - b.created_at);
+              const newRepliesMap = new Map(updatedChannel.replies);
+              newRepliesMap.set(replyToMessageId, updatedReplies);
+
+              updatedChannel.replies = newRepliesMap;
+              updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+              updatedChannels.set(targetChannelId, updatedChannel);
+              updatedCommunity.channels = updatedChannels;
+              updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+              newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+              logger.log(`Communities: Added reply ${event.id} to message ${replyToMessageId} in channel ${targetChannelId}`);
+              return newCommunities;
+            });
+            break;
+          }
+        }
+        break;
+      }
+
+      case 7:
+      case 9735: {
+        // Reactions - don't have 'a' tag, need to search for target message
+        const reactToMessageId = event.tags.find(([name]) => name === 'e')?.[1];
+        if (!reactToMessageId) {
+          logger.warn(`Communities: No reaction target found in ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id}`);
+          return;
+        }
+
+        logger.log(`Communities: Processing ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) for message ${reactToMessageId}`);
+
+        let targetCommunityId: string | null = null;
+        let targetChannelId: string | null = null;
+
+        // Search through all loaded messages and replies to find the target
+        searchLoop: for (const [communityId, community] of communitiesForProcessing) {
+          for (const [channelId, channel] of community.channels) {
+            // Check messages
+            if (channel.messages.some(msg => msg.id === reactToMessageId)) {
+              targetCommunityId = communityId;
+              targetChannelId = channelId;
+              break searchLoop;
+            }
+            // Check replies
+            for (const replies of channel.replies.values()) {
+              if (replies.some(reply => reply.id === reactToMessageId)) {
+                targetCommunityId = communityId;
+                targetChannelId = channelId;
+                break searchLoop;
+              }
+            }
+          }
+        }
+
+        if (!targetCommunityId || !targetChannelId) {
+          logger.log(`Communities: Target message ${reactToMessageId} not found in loaded messages, ignoring reaction`);
+          return;
+        }
+
+        // Add reaction to the channel
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...newCommunities.get(targetCommunityId)! };
+          const updatedChannels = new Map(updatedCommunity.channels);
+          const updatedChannel = { ...updatedChannels.get(targetChannelId)! };
+
+          // Check if reaction already exists
+          const existingReactions = updatedChannel.reactions.get(reactToMessageId) || [];
+          if (existingReactions.some(reaction => reaction.id === event.id)) {
+            logger.log(`Communities: Reaction ${event.id} already exists, skipping`);
+            return prev;
+          }
+
+          // Add reaction and sort by timestamp
+          const updatedReactions = [...existingReactions, event].sort((a, b) => a.created_at - b.created_at);
+          const newReactionsMap = new Map(updatedChannel.reactions);
+          newReactionsMap.set(reactToMessageId, updatedReactions);
+
+          updatedChannel.reactions = newReactionsMap;
+          updatedChannel.lastActivity = Math.max(updatedChannel.lastActivity, event.created_at);
+          updatedChannels.set(targetChannelId, updatedChannel);
+          updatedCommunity.channels = updatedChannels;
+          updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, event.created_at);
+          newCommunities.set(targetCommunityId, updatedCommunity);
+
+          logger.log(`Communities: ✅ Added ${event.kind === 7 ? 'reaction' : 'zap'} ${event.id} (${event.content}) to message ${reactToMessageId}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 32807: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
+        }
+
+        // New channel creation event
+        const dTag = event.tags.find(([name]) => name === 'd')?.[1];
+        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+
+        if (!dTag) {
+          logger.warn(`Communities: No d tag found in channel creation event ${event.id}`);
+          return;
+        }
+
+        // Extract channel slug from d tag
+        // CreateChannelDialog creates: "universes:channelName" (composite format)
+        // But we store channels using just the channel name for simplicity
+        // TODO: Decide if we should use composite IDs or simple names consistently
+        const channelId = extractChannelSlug(dTag);
+
+        logger.log(`Communities: Received channel creation event ${event.id} for channel "${channelId}" (d tag: "${dTag}") in community "${aTag}"`);
+
+        // Check if channel already exists
+        const existingChannel = community.channels.get(channelId);
+        if (existingChannel && existingChannel.definition.id && !existingChannel.definition.isSending) {
+          // Real channel definition already exists, ignore duplicate
+          logger.log(`Communities: Channel ${channelId} already exists in community ${simpleCommunityId}, ignoring duplicate`);
+          return;
+        }
+
+        // Parse channel info from the event
+        const channelName = event.tags.find(([name]) => name === 'name')?.[1] || channelId;
+        const channelDescription = event.tags.find(([name]) => name === 'description')?.[1] ||
+          event.tags.find(([name]) => name === 'about')?.[1];
+        const channelType = event.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
+        const folderId = event.tags.find(([name]) => name === 'folder')?.[1];
+        const position = parseInt(event.tags.find(([name]) => name === 'position')?.[1] || '0');
+
+        // Try to parse content for additional metadata
+        let contentData: ChannelInfo = { name: '', type: 'text' };
+        try {
+          contentData = JSON.parse(event.content) as ChannelInfo;
+        } catch {
+          // Ignore parsing errors
+        }
+
+        // Create new channel data
+        const newChannelData: ChannelData = {
+          id: channelId,
+          communityId: simpleCommunityId!,
+          info: {
+            name: contentData?.name || channelName,
+            description: contentData?.description || channelDescription,
+            type: contentData?.type || channelType,
+            folderId: contentData?.folderId || folderId,
+            position: contentData?.position ?? position ?? 0,
+          },
+          definition: event,
+          messages: [], // Start with empty messages
+          replies: new Map(), // Start with empty replies
+          reactions: new Map(), // Start with empty reactions
+          pinnedMessages: [], // Start with empty pinned messages
+          permissions: null, // Will be loaded separately if needed
+          lastActivity: event.created_at,
+          // Initialize pagination state
+          hasMoreMessages: false,
+          isLoadingOlderMessages: false,
+          reachedStartOfConversation: true,
+        };
+
+        // If this was a placeholder or optimistic channel, preserve any messages it had
+        if (existingChannel && (!existingChannel.definition.id || existingChannel.definition.isSending)) {
+          const channelType = existingChannel.definition.isSending ? 'optimistic' : 'placeholder';
+          logger.log(`Communities: Replacing ${channelType} channel ${channelId} with real definition, preserving ${existingChannel.messages.length} messages`);
+          newChannelData.messages = existingChannel.messages;
+          newChannelData.replies = existingChannel.replies;
+          newChannelData.lastActivity = Math.max(newChannelData.lastActivity, existingChannel.lastActivity);
+        }
+
+        // Add the new channel to the community (or replace placeholder)
+        setCommunities(prev => {
+          const community = prev.get(simpleCommunityId!)!;
+          const beforeCount = community.channels.size;
+          const updatedChannels = new Map(community.channels);
+          updatedChannels.set(channelId, newChannelData);
+          const afterCount = updatedChannels.size;
+
+          const updatedCommunity = {
+            ...community,
+            channels: updatedChannels,
+            lastActivity: Math.max(community.lastActivity, event.created_at),
+          };
+
+          const newCommunities = new Map(prev);
+          newCommunities.set(simpleCommunityId!, updatedCommunity);
+
+          const action = existingChannel && !existingChannel.definition.id ? 'Updated placeholder' : 'Added new';
+          logger.log(`Communities: ${action} channel "${channelName}" (${channelId}) in community ${simpleCommunityId} (channels: ${beforeCount} -> ${afterCount})`);
+
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 5: {
+        if (!community) {
+          logger.log(`Communities: Community ${simpleCommunityId} not found in state, ignoring message ${event.id}`);
+          return;
+        }
+
+        // Deletion event - remove the referenced event
+        const deletedEventId = event.tags.find(([name]) => name === 'e')?.[1];
+        if (!deletedEventId) {
+          logger.warn(`Communities: No event ID found in deletion event ${event.id}`);
+          return;
+        }
+
+        const deletedKind = event.tags.find(([name]) => name === 'k')?.[1];
+
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...newCommunities.get(simpleCommunityId!)! };
+          const updatedChannels = new Map(updatedCommunity.channels);
+
+          switch (deletedKind) {
+            case '32807': {
+              // Channel definition deletion - remove entire channel
+              for (const [channelId, channel] of updatedChannels) {
+                if (channel.definition.id === deletedEventId) {
+                  updatedChannels.delete(channelId);
+                  logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name})`);
+                  updatedCommunity.channels = updatedChannels;
+                  newCommunities.set(simpleCommunityId!, updatedCommunity);
+                  return newCommunities;
+                }
+              }
+              break;
+            }
+            default: {
+              // Message deletion - find and remove message from any channel
+              for (const [channelId, channel] of updatedChannels) {
+                const messageIndex = channel.messages.findIndex(msg => msg.id === deletedEventId);
+                if (messageIndex !== -1) {
+                  const updatedMessages = [...channel.messages];
+                  updatedMessages.splice(messageIndex, 1);
+                  updatedChannels.set(channelId, { ...channel, messages: updatedMessages });
+                  logger.log(`Communities: Deleted message ${deletedEventId} from channel ${channelId}`);
+                  updatedCommunity.channels = updatedChannels;
+                  newCommunities.set(simpleCommunityId!, updatedCommunity);
+                  return newCommunities;
+                }
+              }
+              break;
+            }
+          }
+
+          return prev;
+        });
+        break;
+      }
+
+      default:
+        logger.warn(`Communities: Unhandled event kind: ${event.kind} for event ${event.id}`);
+    }
+  }, [user, communities, addMessageToChannel]);
+
+  // Start community messages subscription for all loaded communities
+  const startCommunityMessagesSubscription = useCallback(async (communitiesToUse?: Map<string, CommunityData>, cacheTimestamp?: number | null) => {
+    const communitiesForSubscription = communitiesToUse || communities;
+    logger.log(`[CHANNEL-DEBUG] startCommunityMessagesSubscription called with ${communitiesForSubscription.size} communities`);
+    if (!user?.pubkey || !nostr || communitiesForSubscription.size === 0) {
+      logger.log('[CHANNEL-DEBUG] Cannot start subscription - missing requirements:', {
+        hasUser: !!user,
+        hasPubkey: !!user?.pubkey,
+        hasNostr: !!nostr,
+        communitiesSize: communitiesForSubscription.size
+      });
+      return;
+    }
+
+    // Close existing subscription
+    if (communityMessagesSubscriptionRef.current) {
+      communityMessagesSubscriptionRef.current.close();
+      logger.log('Communities: Closed existing community messages subscription');
+    }
+
+    try {
+      // Build filters for all communities (one per community, not per channel)
+      const communityRefs: string[] = []; // Full addressable format for all events
+
+      communitiesForSubscription.forEach((community) => {
+        communityRefs.push(community.fullAddressableId); // e.g., "34550:pubkey:universes"
+      });
+
+      if (communityRefs.length === 0) {
+        logger.log('Communities: No community references to subscribe to');
+        return;
+      }
+
+      // Use provided cache timestamp, fall back to state, then default to 30 seconds ago
+      const lastSyncToUse = cacheTimestamp ?? communitiesLastSync;
+      let subscriptionSince = Math.floor(Date.now() / 1000) - 30; // Default to 30 seconds ago to catch recent events
+
+      if (lastSyncToUse) {
+        // Start subscription from 60 seconds before last cache write (accounts for debounced saves)
+        subscriptionSince = Math.floor(lastSyncToUse / 1000) - 60;
+        logger.log(`Communities: Using lastSync timestamp for subscription: ${new Date(lastSyncToUse).toISOString()}`);
+      } else {
+        logger.log('Communities: No lastSync timestamp available, using 30 seconds ago to catch recent events');
+      }
+
+      // All community-related events now use full addressable format
+      const filters = [
+        {
+          kinds: [9411], // Channel messages
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [1111], // Replies
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [7, 9735], // Reactions and Zaps - filter by 'k' tag to get reactions to channel messages and replies
+          '#k': ['9411', '1111'], // Reactions to channel messages (9411) and thread replies (1111)
+          since: subscriptionSince,
+        },
+        {
+          kinds: [32807], // Channel creation
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [5], // Deletion events
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+      ];
+
+      logger.log(`Communities: Starting subscription for ${communityRefs.length} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process messages
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              logger.log(`Communities: Received event: ${msg[2].id} (kind: ${msg[2].kind})`);
+              await processIncomingCommunityMessage(msg[2], communitiesForSubscription);
+            } else {
+              logger.log(`Communities: Received non-event message:`, msg);
+            }
+          }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('Communities: Community messages subscription ended unexpectedly');
+            setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('Communities: Subscription error:', error);
+            setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
+          }
+        }
+      })();
+
+      communityMessagesSubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
+          logger.log('Communities: Community messages subscription closed');
+        }
+      };
+
+      setCommunitySubscriptions(prev => ({ ...prev, messages: true }));
+      logger.log('Communities: Community messages subscription started successfully');
+
+    } catch (error) {
+      logger.error('Communities: Failed to start community messages subscription:', error);
+      setCommunitySubscriptions(prev => ({ ...prev, messages: false }));
+    }
+  }, [user, nostr, communities, communitiesLastSync, processIncomingCommunityMessage]);
+
+  // Process incoming community management events
+  const processIncomingCommunityManagementEvent = useCallback(async (event: NostrEvent) => {
+    if (!user?.pubkey) return;
+
+    logger.log(`Communities: Processing management event: ${event.id} (kind: ${event.kind})`);
+
+    switch (event.kind) {
+      case 34550: {
+        // Community definition update
+        const communityId = getTagValue(event, 'd');
+        if (!communityId) {
+          logger.warn(`Communities: No community ID found in definition update ${event.id}`);
+          return;
+        }
+
+        const community = communitiesRef.current.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for definition update`);
+          return;
+        }
+
+        // Parse updated community info using helper functions
+        const name = getTagValue(event, 'name') || communityId;
+        const description = getTagValue(event, 'description');
+        const image = getTagValue(event, 'image');
+        const banner = getTagValue(event, 'banner');
+        const moderators = getTagValueWithRole(event, 'p', 'moderator');
+        const relays = getTagValues(event, 'relay');
+
+        // Update community info
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = {
+            ...community,
+            info: { name, description, image, banner, moderators, relays },
+            definitionEvent: event,
+            lastActivity: Math.max(community.lastActivity, event.created_at),
+          };
+          newCommunities.set(communityId, updatedCommunity);
+
+          logger.log(`Communities: Updated definition for community ${communityId}: ${name}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 34551:
+      case 34552:
+      case 34553: {
+        // Member list updates
+        const communityRef = getTagValue(event, 'd');
+        if (!communityRef) {
+          logger.warn(`Communities: No community reference found in member list update ${event.id}`);
+          return;
+        }
+
+        // Extract community ID from full addressable format
+        const [, , communityId] = communityRef.split(':');
+        if (!communityId) {
+          logger.warn(`Communities: Invalid community reference format: ${communityRef}`);
+          return;
+        }
+
+        const community = communitiesRef.current.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for member list update`);
+          return;
+        }
+
+        // Parse member list using helper function
+        const members = getTagValues(event, 'p');
+        const membersList: MembersList = { members, event };
+
+        // Update appropriate member list
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+
+          switch (event.kind) {
+            case 34551: {
+              updatedCommunity.approvedMembers = membersList;
+
+              // Check if current user is now approved
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                // User was approved! Update their status
+                if (updatedCommunity.membershipStatus === 'pending') {
+                  updatedCommunity.membershipStatus = 'approved';
+                  logger.log(`Communities: 🎉 Current user approved for community ${communityId}!`);
+                  
+                  // Ensure a "general" channel exists now that user has access
+                  const hasGeneralChannel = updatedCommunity.channels.has('general');
+                  if (!hasGeneralChannel) {
+                    logger.log(`Communities: Creating default "general" channel for newly approved user`);
+                    
+                    // Create optimistic general channel
+                    const generalChannelEvent: NostrEvent = {
+                      id: `optimistic-general-${Date.now()}-${Math.random()}`,
+                      kind: 32807,
+                      pubkey: updatedCommunity.pubkey,
+                      created_at: event.created_at,
+                      content: JSON.stringify({
+                        name: 'general',
+                        description: 'General discussion',
+                        type: 'text',
+                        position: 0,
+                      }),
+                      tags: [
+                        ['d', 'general'],
+                        ['a', communityId],
+                        ['name', 'general'],
+                        ['channel_type', 'text'],
+                        ['position', '0'],
+                        ['t', 'channel'],
+                        ['alt', 'Channel: general'],
+                      ],
+                      sig: '',
+                    };
+                    
+                    const updatedChannels = new Map(updatedCommunity.channels);
+                    updatedChannels.set('general', {
+                      id: 'general',
+                      communityId: updatedCommunity.id,
+                      info: {
+                        name: 'general',
+                        description: 'General discussion',
+                        type: 'text',
+                        folderId: undefined,
+                        position: 0,
+                      },
+                      definition: generalChannelEvent,
+                      messages: [],
+                      replies: new Map(),
+                      reactions: new Map(),
+                      pinnedMessages: [],
+                      permissions: null,
+                      lastActivity: event.created_at,
+                      hasMoreMessages: true,
+                      isLoadingOlderMessages: false,
+                      reachedStartOfConversation: false,
+                    });
+                    updatedCommunity.channels = updatedChannels;
+                  }
+                }
+              }
+
+              // Recalculate pending members (join requests minus declined AND approved)
+              const approvedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+              const approvedJoinRequestPubkeys = approvedJoinRequests.map(req => req.pubkey);
+              const newApprovedPubkeys = members;
+              const existingDeclinedPubkeys = updatedCommunity.declinedMembers?.members || [];
+              const recalculatedPendingPubkeys = approvedJoinRequestPubkeys.filter(pubkey =>
+                !existingDeclinedPubkeys.includes(pubkey) && !newApprovedPubkeys.includes(pubkey)
+              );
+
+              updatedCommunity.pendingMembers = recalculatedPendingPubkeys.length > 0 ? {
+                members: recalculatedPendingPubkeys,
+                event: approvedJoinRequests[0] || null,
+                joinRequests: approvedJoinRequests.filter(req => recalculatedPendingPubkeys.includes(req.pubkey))
+              } : null;
+
+              logger.log(`Communities: Updated approved members for ${communityId}: ${members.length} approved, ${recalculatedPendingPubkeys.length} still pending`);
+              break;
+            }
+            case 34552: {
+              // Kind 34552 is declined members, not pending
+              // Store declined members and recalculate pending members (join requests minus declined AND approved)
+              updatedCommunity.declinedMembers = membersList;
+
+              // Check if current user was declined
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                // User was declined - they should be removed from the community entirely
+                // But keep them in local state so they can see they were declined
+                logger.log(`Communities: Current user was declined for community ${communityId}`);
+                // Note: We don't remove the community from state, but the UI can check declinedMembers
+              }
+
+              const declinedJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+              const declinedJoinRequestPubkeys = declinedJoinRequests.map(req => req.pubkey);
+              const newDeclinedPubkeys = members;
+              const existingApprovedPubkeys = updatedCommunity.approvedMembers?.members || [];
+              const recalculatedPendingFromDeclined = declinedJoinRequestPubkeys.filter(pubkey =>
+                !newDeclinedPubkeys.includes(pubkey) && !existingApprovedPubkeys.includes(pubkey)
+              );
+
+              updatedCommunity.pendingMembers = recalculatedPendingFromDeclined.length > 0 ? {
+                members: recalculatedPendingFromDeclined,
+                event: declinedJoinRequests[0] || null,
+                joinRequests: declinedJoinRequests.filter(req => recalculatedPendingFromDeclined.includes(req.pubkey))
+              } : null;
+
+              logger.log(`Communities: Updated declined members for ${communityId}: ${members.length} declined, ${recalculatedPendingFromDeclined.length} still pending`);
+              break;
+            }
+            case 34553:
+              updatedCommunity.bannedMembers = membersList;
+
+              // Check if current user is in the banned list
+              if (user?.pubkey && members.includes(user.pubkey)) {
+                updatedCommunity.membershipStatus = 'banned';
+                logger.warn(`Communities: Current user has been banned from community ${communityId}`);
+              }
+
+              logger.log(`Communities: Updated banned members for ${communityId}: ${members.length} members`);
+              break;
+          }
+
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 4552: {
+        // Join request event
+        logger.log(`Communities: 🔔 Received join request event ${event.id.slice(0, 8)} from ${event.pubkey.slice(0, 8)}`);
+        const aTag = getTagValue(event, 'a');
+        if (!aTag) {
+          logger.warn(`Communities: No community reference found in join request ${event.id}`);
+          return;
+        }
+        logger.log(`Communities: Join request references community: ${aTag}`);
+
+        // Extract community ID from full addressable format (34550:pubkey:identifier)
+        const [, , communityId] = aTag.split(':');
+        if (!communityId) {
+          logger.warn(`Communities: Invalid community reference format in join request: ${aTag}`);
+          return;
+        }
+
+        const community = communitiesRef.current.get(communityId);
+        if (!community) {
+          logger.log(`Communities: ⚠️ Community ${communityId} not found for join request from ${event.pubkey.slice(0, 8)}. Have ${communitiesRef.current.size} communities loaded.`);
+          return;
+        }
+        logger.log(`Communities: ✅ Found community ${communityId}, processing join request`);
+
+        // Add join request to pending members
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+
+          // Get existing join requests
+          const existingJoinRequests = updatedCommunity.pendingMembers?.joinRequests || [];
+          
+          // Check if this join request already exists
+          const alreadyExists = existingJoinRequests.some(req => req.pubkey === event.pubkey);
+          if (alreadyExists) {
+            logger.log(`Communities: Join request from ${event.pubkey} already exists for ${communityId}`);
+            return prev;
+          }
+
+          // Add new join request
+          const updatedJoinRequests = [...existingJoinRequests, event];
+          
+          // Calculate pending members (join requests minus declined and approved)
+          const joinRequestPubkeys = updatedJoinRequests.map(req => req.pubkey);
+          const declinedPubkeys = updatedCommunity.declinedMembers?.members || [];
+          const approvedPubkeys = updatedCommunity.approvedMembers?.members || [];
+          const actualPendingPubkeys = joinRequestPubkeys.filter(pubkey =>
+            !declinedPubkeys.includes(pubkey) && !approvedPubkeys.includes(pubkey)
+          );
+
+          updatedCommunity.pendingMembers = actualPendingPubkeys.length > 0 ? {
+            members: actualPendingPubkeys,
+            event: updatedJoinRequests[0],
+            joinRequests: updatedJoinRequests.filter(req => actualPendingPubkeys.includes(req.pubkey))
+          } : null;
+
+          logger.log(`Communities: Added join request from ${event.pubkey} to ${communityId}. Now ${actualPendingPubkeys.length} pending`);
+
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 30143: {
+        // Channel permission update
+        const permissionRef = getTagValue(event, 'd');
+        if (!permissionRef) {
+          logger.warn(`Communities: No permission reference found in permission update ${event.id}`);
+          return;
+        }
+
+        // Parse permission reference (format: "communityId/channelId")
+        const [communityId, channelId] = permissionRef.split('/');
+        if (!communityId || !channelId) {
+          logger.warn(`Communities: Invalid permission reference format: ${permissionRef}`);
+          return;
+        }
+
+        const community = communitiesRef.current.get(communityId);
+        if (!community) {
+          logger.log(`Communities: Community ${communityId} not found for permission update`);
+          return;
+        }
+
+        const channel = community.channels.get(channelId);
+        if (!channel) {
+          logger.log(`Communities: Channel ${channelId} not found for permission update`);
+          return;
+        }
+
+        // Update channel permissions
+        setCommunities(prev => {
+          const newCommunities = new Map(prev);
+          const updatedCommunity = { ...community };
+          const updatedChannels = new Map(updatedCommunity.channels);
+          const updatedChannel = { ...channel, permissions: event };
+
+          updatedChannels.set(channelId, updatedChannel);
+          updatedCommunity.channels = updatedChannels;
+          updatedCommunity.lastActivity = Math.max(community.lastActivity, event.created_at);
+          newCommunities.set(communityId, updatedCommunity);
+
+          logger.log(`Communities: Updated permissions for channel ${channelId} in community ${communityId}`);
+          return newCommunities;
+        });
+        break;
+      }
+
+      case 5: {
+        // Deletion event
+        const deletedKind = getTagValue(event, 'k');
+        
+        if (deletedKind === '34550') {
+          // Community definition deletion - remove entire community
+          logger.log(`Communities: Processing community deletion event ${event.id}`);
+          
+          // For addressable events, MUST use 'a' tag with coordinate
+          const addressableCoordinate = getTagValue(event, 'a');
+          
+          if (!addressableCoordinate) {
+            logger.warn(`Communities: Deletion event ${event.id} missing 'a' tag (required for addressable events)`);
+            return;
+          }
+          
+          // Extract community ID from addressable coordinate: "34550:pubkey:identifier"
+          const [, , identifier] = addressableCoordinate.split(':');
+          
+          if (!identifier) {
+            logger.warn(`Communities: Invalid addressable coordinate format: ${addressableCoordinate}`);
+            return;
+          }
+          
+          if (!communitiesRef.current.has(identifier)) {
+            logger.log(`Communities: Community ${identifier} not found in state, ignoring deletion`);
+            return;
+          }
+
+          setCommunities(prev => {
+            const newCommunities = new Map(prev);
+            newCommunities.delete(identifier);
+            logger.log(`Communities: 🗑️ Removed community ${identifier} from state (deleted by owner/moderator)`);
+            return newCommunities;
+          });
+
+          // Trigger cache save via existing mechanism
+          setShouldSaveCommunitiesImmediately(true);
+        }
+        // Channel and message deletions are handled by the messages subscription
+        break;
+      }
+
+      default:
+        logger.warn(`Communities: Unknown management event kind: ${event.kind}`);
+    }
+  }, [user]); // Note: uses communitiesRef.current, not communities state
+
+  // Start community management subscription (membership changes, community updates, permissions)
+  const startCommunityManagementSubscription = useCallback(async (cacheTimestamp?: number | null) => {
+    // Use ref to get current communities state (avoids async state issues)
+    if (!user?.pubkey || !nostr || communitiesRef.current.size === 0) return;
+
+    // Close existing subscription
+    if (communityManagementSubscriptionRef.current) {
+      communityManagementSubscriptionRef.current.close();
+      logger.log('Communities: Closed existing management subscription');
+    }
+
+    try {
+      const communityIds: string[] = [];
+      const communityRefs: string[] = [];
+      const ownerPubkeys: string[] = [];
+      const moderatorPubkeys: string[] = [];
+
+      communitiesRef.current.forEach((community) => {
+        communityIds.push(community.id);
+        communityRefs.push(community.fullAddressableId);
+        ownerPubkeys.push(community.pubkey);
+        // Include moderators for deletion event subscriptions (they can delete channels/messages)
+        moderatorPubkeys.push(...community.info.moderators);
+      });
+
+      // Combine owners and moderators for subscription filters that need both
+      const adminPubkeys = [...new Set([...ownerPubkeys, ...moderatorPubkeys])];
+
+      // Use provided cache timestamp, fall back to state, then default to now
+      const lastSyncToUse = cacheTimestamp ?? communitiesLastSync;
+      const subscriptionSince = lastSyncToUse
+        ? Math.floor(lastSyncToUse / 1000) - 60
+        : Math.floor(Date.now() / 1000);
+
+      const filters = [
+        {
+          kinds: [34550], // Community definition updates
+          '#d': communityIds,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [34551, 34552, 34553], // Member list updates
+          '#d': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [4552], // Join request events
+          '#a': communityRefs,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [30143], // Channel permission updates (only owners can set permissions)
+          authors: ownerPubkeys,
+          since: subscriptionSince,
+        },
+        {
+          kinds: [5], // Deletion events (both owners and moderators can delete)
+          authors: adminPubkeys,
+          since: subscriptionSince,
+        }
+      ];
+
+      logger.log(`Communities: Starting management subscription for ${communitiesRef.current.size} communities since ${new Date(subscriptionSince * 1000).toISOString()}`);
+
+      const subscription = nostr.req(filters);
+      let isActive = true;
+
+      // Process management events
+      (async () => {
+        try {
+          for await (const msg of subscription) {
+            if (!isActive) break;
+            if (msg[0] === 'EVENT') {
+              await processIncomingCommunityManagementEvent(msg[2]);
+            }
+          }
+          // If loop ends naturally, subscription was closed/disconnected
+          if (isActive) {
+            logger.warn('Communities: Management subscription ended unexpectedly');
+            setCommunitySubscriptions(prev => ({ ...prev, management: false }));
+          }
+        } catch (error) {
+          if (isActive) {
+            logger.error('Communities: Management subscription error:', error);
+            setCommunitySubscriptions(prev => ({ ...prev, management: false }));
+          }
+        }
+      })();
+
+      communityManagementSubscriptionRef.current = {
+        close: () => {
+          isActive = false;
+          setCommunitySubscriptions(prev => ({ ...prev, management: false }));
+          logger.log('Communities: Management subscription closed');
+        }
+      };
+
+      setCommunitySubscriptions(prev => ({ ...prev, management: true }));
+      logger.log('Communities: Management subscription started successfully');
+
+    } catch (error) {
+      logger.error('Communities: Failed to start management subscription:', error);
+      setCommunitySubscriptions(prev => ({ ...prev, management: false }));
+    }
+  }, [user, nostr, communitiesLastSync, processIncomingCommunityManagementEvent]); // Note: uses communitiesRef.current, not communities state
+
+  // Add optimistic community message for immediate UI feedback
+  const addOptimisticCommunityMessage = useCallback((communityId: string, channelId: string, content: string, additionalTags: string[][] = []) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic message, no user pubkey');
+      return null;
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot add optimistic message, community not found:', communityId);
+      return null;
+    }
+
+    const channel = community.channels.get(channelId);
+    if (!channel) {
+      logger.error('Communities: Cannot add optimistic message, channel not found:', channelId);
+      return null;
+    }
+
+    // Build full addressable references matching production format
+    const fullCommunityRef = community.fullAddressableId; // "34550:pubkey:communitySlug"
+    const fullChannelRef = `${fullCommunityRef}:${channelId}`; // "34550:pubkey:communitySlug:channelSlug"
+
+    // Create optimistic message with proper structure
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
+    const optimisticMessage: NostrEvent = {
+      id: optimisticId,
+      kind: 9411,
+      pubkey: user.pubkey,
+      created_at: Math.floor(Date.now() / 1000),
+      content,
+      tags: [
+        ["t", fullChannelRef], // Full addressable channel reference
+        ["a", fullCommunityRef], // Full addressable community reference
+        ...additionalTags,
+      ],
+      sig: '',
+      isSending: true, // Mark as optimistic for UI
+      clientFirstSeen: Date.now(), // For animation
+    };
+
+    // Use helper function to add optimistic message
+    addMessageToChannel(communityId, channelId, optimisticMessage, true);
+
+    return optimisticMessage;
+  }, [user, communities, addMessageToChannel]);
+
+  // Delete channel immediately from local state and save to cache
+  const deleteChannelImmediately = useCallback((communityId: string, channelId: string) => {
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot delete channel, community not found:', communityId);
+      return;
+    }
+
+    const channel = community.channels.get(channelId);
+    if (!channel) {
+      logger.error('Communities: Cannot delete channel, channel not found:', channelId);
+      return;
+    }
+
+    logger.log(`Communities: Immediately deleting channel "${channel.info.name}" (${channelId}) from community ${communityId}`);
+
+    // Update state to remove the channel
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+
+      // Remove the channel
+      updatedChannels.delete(channelId);
+
+      updatedCommunity.channels = updatedChannels;
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Deleted channel ${channelId} (${channel.info.name}) from local state`);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities]);
+
+  // Delete community immediately from local state and save to cache
+  const deleteCommunityImmediately = useCallback((communityId: string) => {
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot delete community, not found:', communityId);
+      return;
+    }
+
+    logger.log(`Communities: 🗑️ Immediately deleting community "${community.info.name}" (${communityId})`);
+
+    // Remove from state
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      newCommunities.delete(communityId);
+      logger.log(`Communities: Removed community ${communityId} (${community.info.name}) from local state`);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save (uses existing debounced mechanism)
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities]);
+
+  // Member management functions
+  const approveMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions - only owners and moderators can approve members
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can approve members');
+    }
+
+    logger.log(`Communities: Approving member ${memberPubkey} for community ${communityId}`);
+
+    // Get current approved members
+    const currentMembers = new Set(community.approvedMembers?.members || []);
+    currentMembers.add(memberPubkey);
+
+    // Create new approved members list event
+    const fullCommunityId = `34550:${community.pubkey}:${communityId}`;
+    const tags = [
+      ['d', fullCommunityId],
+      ...Array.from(currentMembers).map(pubkey => ['p', pubkey])
+    ];
+
+    await createEvent({
+      kind: 34551, // Approved members list
+      content: '',
+      tags,
+    });
+
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Update approved members
+      updatedCommunity.approvedMembers = {
+        members: Array.from(currentMembers),
+        event: { ...updatedCommunity.approvedMembers?.event, tags } as NostrEvent
+      };
+
+      // Remove from pending members if present
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey, createEvent]);
+
+  const declineMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can decline members');
+    }
+
+    logger.log(`Communities: Declining member ${memberPubkey} for community ${communityId}`);
+
+    // Simply remove from pending members (don't add to declined list)
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Remove from pending members
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey]);
+
+  const banMember = useCallback(async (communityId: string, memberPubkey: string) => {
+    if (!user?.pubkey) {
+      throw new Error('User must be logged in to manage members');
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    // Check permissions
+    const canModerate = community.membershipStatus === 'owner' ||
+      community.membershipStatus === 'moderator' ||
+      community.info.moderators.includes(user.pubkey) ||
+      community.pubkey === user.pubkey;
+
+    if (!canModerate) {
+      throw new Error('Only moderators and owners can ban members');
+    }
+
+    logger.log(`Communities: Banning member ${memberPubkey} for community ${communityId}`);
+
+    // Get current banned members
+    const currentBanned = new Set(community.bannedMembers?.members || []);
+    currentBanned.add(memberPubkey);
+
+    // Create new banned members list event
+    const fullCommunityId = `34550:${community.pubkey}:${communityId}`;
+    const tags = [
+      ['d', fullCommunityId],
+      ...Array.from(currentBanned).map(pubkey => ['p', pubkey])
+    ];
+
+    await createEvent({
+      kind: 34553, // Banned members list
+      content: '',
+      tags,
+    });
+
+    // Update local state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+
+      // Update banned members
+      updatedCommunity.bannedMembers = {
+        members: Array.from(currentBanned),
+        event: { ...updatedCommunity.bannedMembers?.event, tags } as NostrEvent
+      };
+
+      // Remove from approved members if present
+      if (updatedCommunity.approvedMembers) {
+        updatedCommunity.approvedMembers = {
+          ...updatedCommunity.approvedMembers,
+          members: updatedCommunity.approvedMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      // Remove from pending members if present
+      if (updatedCommunity.pendingMembers) {
+        updatedCommunity.pendingMembers = {
+          ...updatedCommunity.pendingMembers,
+          members: updatedCommunity.pendingMembers.members.filter(pubkey => pubkey !== memberPubkey)
+        };
+      }
+
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [communities, user?.pubkey, createEvent]);
+
+  // Add optimistic channel for immediate UI feedback
+  const addOptimisticChannel = useCallback((communityId: string, channelName: string, channelType: 'text' | 'voice', folderId?: string, position?: number) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic channel, no user pubkey');
+      return;
+    }
+
+    const community = communities.get(communityId);
+    if (!community) {
+      logger.error('Communities: Cannot add optimistic channel, community not found:', communityId);
+      return;
+    }
+
+    // Check if channel already exists (use simple channel name like 'general')
+    if (community.channels.has(channelName)) {
+      logger.warn('Communities: Channel already exists, skipping optimistic add:', channelName);
+      return;
+    }
+
+    // Create optimistic channel event with loading state
+    const optimisticChannelEvent: NostrEvent = {
+      id: `optimistic-channel-${Date.now()}-${Math.random()}`,
+      kind: 32807,
+      pubkey: user.pubkey,
+      created_at: Math.floor(Date.now() / 1000),
+      content: JSON.stringify({
+        name: channelName,
+        type: channelType,
+        folderId,
+        position: position ?? 0,
+      }),
+      tags: [
+        ['d', channelName], // Use simple channel name format (like 'general')
+        ['a', communityId], // Use simple community ID
+        ['name', channelName],
+        ['channel_type', channelType],
+        ['position', (position ?? 0).toString()],
+        ['t', 'channel'],
+        ['alt', `Channel: ${channelName}`],
+        ...(folderId ? [['folder', folderId]] : []),
+      ],
+      sig: '',
+      isSending: true, // Mark as optimistic/loading
+    };
+
+    // Create optimistic channel data with loading state
+    const optimisticChannelData: ChannelData = {
+      id: channelName,
+      communityId,
+      info: {
+        name: channelName,
+        type: channelType,
+        folderId,
+        position: position ?? 0,
+      },
+      definition: optimisticChannelEvent,
+      messages: [],
+      replies: new Map(),
+      reactions: new Map(),
+      pinnedMessages: [],
+      permissions: null,
+      lastActivity: optimisticChannelEvent.created_at,
+      // Initialize pagination state
+      hasMoreMessages: true,
+      isLoadingOlderMessages: false,
+      reachedStartOfConversation: false,
+    };
+
+    // Add to community channels
+    setCommunities(prev => {
+      const updatedCommunity = { ...prev.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+      updatedChannels.set(channelName, optimisticChannelData);
+      updatedCommunity.channels = updatedChannels;
+      updatedCommunity.lastActivity = Math.max(updatedCommunity.lastActivity, optimisticChannelEvent.created_at);
+
+      const newCommunities = new Map(prev);
+      newCommunities.set(communityId, updatedCommunity);
+
+      logger.log(`Communities: Added optimistic channel "${channelName}" to community ${communityId}`);
+      return newCommunities;
+    });
+  }, [user, communities]);
 
   // Main method to start message loading for all enabled protocols
   const startMessageLoading = useCallback(async () => {
@@ -1307,7 +3485,7 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17]);
+  }, [loadPreviousCachedMessages, queryRelaysForMessagesSince, startNIP4Subscription, startNIP17Subscription, settings.enableNIP17, isLoading]);
 
   // Handle NIP-17 setting changes explicitly
   const handleNIP17SettingChange = useCallback(async (enabled: boolean) => {
@@ -1400,6 +3578,2012 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [settings.enableNIP17, hasInitialLoadCompleted, handleNIP17SettingChange]);
 
+  // ============================================================================
+  // Communities Management Functions
+  // ============================================================================
+
+  // Query full community data from relay (community definitions, channels, messages, members, join requests, etc.)
+  const queryFullCommunityDataFromRelay = useCallback(async (isBackgroundRefresh = false) => {
+    if (!user?.pubkey) {
+      logger.log('Communities: No user pubkey available, skipping communities loading');
+      return;
+    }
+
+    // Set granular loading states at the start
+    if (!isBackgroundRefresh) {
+      setIsLoadingCommunities(true);
+      setIsLoadingChannels(true);
+      setIsLoadingMessages(true);
+    }
+
+    // Helper: Add channels to communities state (used for progressive loading)
+    const addChannelsToState = (
+      baseState: CommunitiesState,
+      channelDefinitions: NostrEvent[],
+      communitiesData: Array<{ id: string; pubkey: string; definitionEvent: NostrEvent; membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator' }>
+    ): CommunitiesState => {
+      const newState = new Map(baseState);
+
+      for (const community of communitiesData) {
+        const existingCommunity = newState.get(community.id);
+        if (!existingCommunity || community.membershipStatus !== 'approved') continue;
+
+        const channelsMap = new Map<string, ChannelData>();
+        const communityChannels = channelDefinitions.filter(channelDef => {
+          const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+          return communityRef === community.id || communityRef?.includes(`:${community.id}`);
+        });
+
+        for (const channelDef of communityChannels) {
+          const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+          if (!dTag) continue;
+          const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+          // Parse channel info
+          let contentData: { name?: string; description?: string; type?: 'text' | 'voice'; folderId?: string; position?: number } = {};
+          try { contentData = JSON.parse(channelDef.content || '{}'); } catch { /* ignore */ }
+
+          const channelName = contentData?.name || channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
+          const channelDescription = contentData?.description || channelDef.tags.find(([name]) => name === 'description')?.[1];
+          const channelType = (contentData?.type || channelDef.tags.find(([name]) => name === 'channel_type')?.[1] || 'text') as 'text' | 'voice';
+
+          channelsMap.set(channelId, {
+            id: channelId,
+            communityId: community.id,
+            info: {
+              name: channelName,
+              description: channelDescription,
+              type: channelType,
+              folderId: contentData?.folderId,
+              position: contentData?.position,
+            },
+            definition: channelDef,
+            messages: [],
+            replies: new Map(),
+            reactions: new Map(),
+            pinnedMessages: [],
+            permissions: null,
+            lastActivity: channelDef.created_at,
+            hasMoreMessages: false,
+            isLoadingOlderMessages: false,
+            reachedStartOfConversation: true,
+          });
+        }
+
+        newState.set(community.id, {
+          ...existingCommunity,
+          channels: channelsMap,
+          isLoadingChannels: false,
+        });
+      }
+
+      return newState;
+    };
+
+    if (communitiesLoading && !isBackgroundRefresh) {
+      logger.log('Communities: Loading already in progress, skipping duplicate request');
+      return;
+    }
+
+    const startTime = Date.now();
+    logger.log(`Communities: Starting communities loading process${isBackgroundRefresh ? ' (background refresh)' : ''}`);
+
+    // Only show loading states for non-background refreshes
+    if (!isBackgroundRefresh) {
+      setCommunitiesLoading(true);
+      setCommunitiesLoadingPhase(LOADING_PHASES.RELAYS);
+    }
+
+    try {
+      // Step 1: Query user memberships to discover which communities they belong to
+      const step1Start = Date.now();
+      
+      // Query for membership records, owned communities, and join requests
+      const allCommunityEvents = await nostr.query([
+        // Filter 1: Find membership lists that include this user
+        { kinds: [34551, 34552, 34553], '#p': [user.pubkey], limit: 1000 },
+        // Filter 2: Find communities where user is creator/owner  
+        { kinds: [34550], authors: [user.pubkey], limit: 1000 },
+        // Filter 3: Find communities where user is mentioned as moderator
+        { kinds: [34550], '#p': [user.pubkey], limit: 1000 },
+        // Filter 4: Find communities where user has sent join requests (no since filter - we want all)
+        { kinds: [4552], authors: [user.pubkey], limit: 1000 },
+      ], { signal: AbortSignal.timeout(5000) });
+
+      const membershipEvents = allCommunityEvents.filter(e => [34551, 34552, 34553].includes(e.kind));
+      const ownedCommunities = allCommunityEvents.filter(e => e.kind === 34550);
+      const userJoinRequests = allCommunityEvents.filter(e => e.kind === 4552);
+
+      logger.log(`Communities: Found ${membershipEvents.length} membership records, ${ownedCommunities.length} owned/moderated communities, and ${userJoinRequests.length} join requests`);
+
+      // Build maps of membership status, owned communities, and join requests
+      const membershipStatusMap = new Map<string, { status: 'approved' | 'pending' | 'banned'; event: NostrEvent }>();
+      membershipEvents.forEach(event => {
+        const communityRef = event.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef) return;
+        const [, , id] = communityRef.split(':');
+        if (!id) return;
+        const status = (event.kind === 34551 ? 'approved' : event.kind === 34552 ? 'pending' : 'banned') as 'approved' | 'pending' | 'banned';
+        membershipStatusMap.set(id, { status, event });
+      });
+
+      const ownedCommunityIds = new Set<string>();
+      const ownedCommunityMap = new Map<string, { event: NostrEvent; status: 'owner' | 'moderator' }>();
+      ownedCommunities.forEach(event => {
+        const communityId = event.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityId) return;
+        const isCreator = event.pubkey === user.pubkey;
+        const isModerator = event.tags.some(([n, p, , r]) => n === 'p' && p === user.pubkey && r === 'moderator');
+        if (isCreator || isModerator) {
+          ownedCommunityIds.add(communityId);
+          ownedCommunityMap.set(communityId, { event, status: isCreator ? 'owner' : 'moderator' });
+        }
+      });
+
+      const joinRequestMap = new Map<string, NostrEvent>();
+      userJoinRequests.forEach(event => {
+        const aTag = event.tags.find(([name]) => name === 'a')?.[1];
+        if (!aTag) return;
+        const [, , id] = aTag.split(':');
+        if (!id) return;
+        const existing = joinRequestMap.get(id);
+        if (!existing || event.created_at > existing.created_at) joinRequestMap.set(id, event);
+      });
+
+      const communityIds = new Set([...membershipStatusMap.keys(), ...ownedCommunityIds, ...joinRequestMap.keys()]);
+
+      if (communityIds.size === 0) {
+        logger.log('Communities: No communities found for user');
+        setCommunities(new Map());
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        if (!isBackgroundRefresh) {
+          setCommunitiesLoading(false);
+          setIsLoadingCommunities(false);
+          setIsLoadingChannels(false);
+          setIsLoadingMessages(false);
+        }
+        setHasCommunitiesInitialLoadCompleted(true);
+        return;
+      }
+
+      // Query community definitions
+      const alreadyHaveDefinitions = new Set(ownedCommunities.map(e => e.tags.find(([n]) => n === 'd')?.[1]).filter(Boolean));
+      const needDefinitions = Array.from(communityIds).filter(id => !alreadyHaveDefinitions.has(id));
+      const additionalDefinitions = needDefinitions.length > 0
+        ? await nostr.query([{ kinds: [34550], '#d': needDefinitions }], { signal: AbortSignal.timeout(5000) })
+        : [];
+
+      const communityDefinitions = [...ownedCommunities, ...additionalDefinitions];
+      
+      // Parse community definitions with membership status
+      // Note: We don't filter deletion events here because:
+      // 1. Relays should filter deleted content (but many don't honor NIP-09)
+      // 2. We handle deletions via real-time subscription for both our own and others' deletions
+      // 3. This matches the channel deletion pattern (soft-delete locally, handle via subscription)
+      const communitiesWithStatus: Array<{
+        id: string;
+        pubkey: string;
+        info: CommunityInfo;
+        definitionEvent: NostrEvent;
+        membershipStatus: 'approved' | 'pending' | 'banned' | 'owner' | 'moderator';
+        membershipEvent: NostrEvent;
+      }> = [];
+      
+      communityDefinitions.forEach(definition => {
+        const communityId = definition.tags.find(([n]) => n === 'd')?.[1];
+        if (!communityId) return;
+
+        const membershipInfo = membershipStatusMap.get(communityId);
+        const ownedInfo = ownedCommunityMap.get(communityId);
+        const joinRequestInfo = joinRequestMap.get(communityId);
+
+        const membershipStatus = ownedInfo ? 'approved' as const : (membershipInfo?.status || 'pending' as const);
+        const membershipEvent = ownedInfo?.event || membershipInfo?.event || joinRequestInfo;
+        if (!membershipEvent) return;
+
+        const name = definition.tags.find(([n]) => n === 'name')?.[1] || communityId;
+        const description = definition.tags.find(([n]) => n === 'description')?.[1];
+        const image = definition.tags.find(([n]) => n === 'image')?.[1];
+        const banner = definition.tags.find(([n]) => n === 'banner')?.[1];
+        const moderators = definition.tags.filter(([n, , , r]) => n === 'p' && r === 'moderator').map(([, p]) => p);
+        const relays = definition.tags.filter(([n]) => n === 'relay').map(([, url]) => url);
+
+        communitiesWithStatus.push({
+          id: communityId,
+          pubkey: definition.pubkey,
+          info: { name, description, image, banner, moderators, relays },
+          definitionEvent: definition,
+          membershipStatus,
+          membershipEvent,
+        });
+      });
+
+      const step1Time = Date.now() - step1Start;
+      const step1Timing = { membershipQuery: step1Time, definitionsQuery: 0, total: step1Time };
+
+      if (communitiesWithStatus.length === 0) {
+        logger.log('Communities: No communities found for user');
+
+        // Set empty communities state and cache it (to avoid re-querying immediately)
+        setCommunities(new Map());
+
+        const totalTime = Date.now() - startTime;
+        setCommunitiesLoadTime(totalTime);
+        setCommunitiesLoadBreakdown({
+          step1_communities: {
+            total: step1Time,
+            membershipQuery: step1Timing.membershipQuery,
+            definitionsQuery: step1Timing.definitionsQuery,
+          },
+          step2_parallel_batch1: {
+            total: 0,
+            channelsQuery: 0,
+            membersQuery: 0,
+            joinRequestsQuery: 0,
+          },
+          step3_parallel_batch2: {
+            total: 0,
+            permissionsQuery: 0,
+            messagesQuery: 0,
+          },
+          step4_replies_batch: {
+            total: 0,
+            repliesQuery: 0,
+            reactionsQuery: 0,
+          },
+          step5_pinned_batch: {
+            total: 0,
+            pinnedQuery: 0,
+          },
+          total: totalTime,
+        });
+        setHasCommunitiesInitialLoadCompleted(true);
+        setCommunitiesLoading(false);
+        setIsLoadingCommunities(false);
+        setIsLoadingChannels(false);
+        setIsLoadingMessages(false);
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        return;
+      }
+
+      // PROGRESSIVE LOADING: Return communities immediately with isLoadingChannels=true
+      logger.log('Communities: Creating initial community state with basic info');
+      const initialCommunitiesState = new Map<string, CommunityData>();
+
+      // Mark that we've finished loading basic community data
+      setIsLoadingCommunities(false);
+
+      for (const community of communitiesWithStatus) {
+        // Determine the user's role in this community
+        let finalMembershipStatus = community.membershipStatus;
+        if (community.pubkey === userPubkey) {
+          finalMembershipStatus = 'owner' as const;
+        } else if (community.info.moderators.includes(userPubkey || '')) {
+          finalMembershipStatus = 'moderator' as const;
+        }
+
+        const communityData: CommunityData = {
+          id: community.id,
+          fullAddressableId: `34550:${community.pubkey}:${community.id}`,
+          pubkey: community.pubkey,
+          info: community.info,
+          definitionEvent: community.definitionEvent,
+          channels: new Map<string, ChannelData>(), // Empty initially
+          approvedMembers: null, // Will be loaded in background
+          pendingMembers: null, // Will be loaded in background
+          declinedMembers: null, // Will be loaded in background
+          bannedMembers: null, // Will be loaded in background
+          membershipStatus: finalMembershipStatus,
+          lastActivity: community.definitionEvent.created_at,
+          isLoadingChannels: true, // Indicate channels are still loading
+        };
+
+        initialCommunitiesState.set(community.id, communityData);
+      }
+
+      // Set initial state so UI can show communities immediately
+      // Avoid wiping existing channels during background refresh to prevent flicker/disappearing channels
+      if (!isBackgroundRefresh) {
+        setCommunities(initialCommunitiesState);
+        logger.log(`Communities: Set initial state with ${initialCommunitiesState.size} communities (channels loading in background)`);
+      } else {
+        logger.log('Communities: Skipping initial state replacement during background refresh to preserve optimistic channels');
+      }
+
+      // Continue loading channels in background for approved communities only
+      const approvedCommunities = communitiesWithStatus.filter(({ membershipStatus }) => membershipStatus === 'approved');
+
+      if (approvedCommunities.length === 0) {
+        logger.log('Communities: No approved communities, skipping channel loading');
+        // Update communities to remove loading flags
+        setCommunities(prev => {
+          const updated = new Map(prev);
+          updated.forEach(community => {
+            community.isLoadingChannels = false;
+          });
+          return updated;
+        });
+
+
+        const totalTime = Date.now() - startTime;
+        setCommunitiesLoadTime(totalTime);
+        setCommunitiesLoadBreakdown({
+          step1_communities: {
+            total: step1Time,
+            membershipQuery: step1Timing.membershipQuery,
+            definitionsQuery: step1Timing.definitionsQuery,
+          },
+          step2_parallel_batch1: {
+            total: 0,
+            channelsQuery: 0,
+            membersQuery: 0,
+            joinRequestsQuery: 0,
+          },
+          step3_parallel_batch2: {
+            total: 0,
+            permissionsQuery: 0,
+            messagesQuery: 0,
+          },
+          step4_replies_batch: {
+            total: 0,
+            repliesQuery: 0,
+            reactionsQuery: 0,
+          },
+          step5_pinned_batch: {
+            total: 0,
+            pinnedQuery: 0,
+          },
+          total: totalTime,
+        });
+        setHasCommunitiesInitialLoadCompleted(true);
+        setCommunitiesLoading(false);
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        return;
+      }
+
+      // BACKGROUND LOADING: Load channels, permissions, and messages in parallel
+      logger.log('Communities: Loading channels, permissions, and messages in parallel...');
+
+      // Prepare all filters for parallel execution
+      // NOTE: Channels use full addressable format for 'a' tag: ['a', '34550:pubkey:universes']
+      const allChannelFilters = approvedCommunities.map(({ definitionEvent, pubkey }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityId) return null;
+
+        const fullAddressableId = `34550:${pubkey}:${communityId}`;
+
+        return {
+          kinds: [32807], // Channel definitions
+          '#a': [fullAddressableId],
+          '#t': ['channel'], // Filter for channel events specifically
+          limit: 50, // Max channels per community
+        };
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
+
+      const allMemberFilters = communitiesWithStatus.map(({ definitionEvent }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
+        return {
+          kinds: [34551], // Approved members events
+          authors: [definitionEvent.pubkey],
+          '#d': [communityRef],
+          limit: 1,
+        };
+      });
+
+      // Add join requests filters (kind 4552)
+      const allJoinRequestFilters = communitiesWithStatus.map(({ definitionEvent }) => {
+        const communityId = definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+        const communityRef = `34550:${definitionEvent.pubkey}:${communityId}`;
+        return {
+          kinds: [4552], // Join request events
+          '#a': [communityRef],
+          limit: 100, // Allow more join requests
+          // No "since" filter - we want all join requests regardless of age
+        };
+      });
+
+      // BATCH 1: Execute channels, members, and join requests queries in parallel
+      const batch1Start = Date.now();
+
+      // Wrap each query with individual timing
+      const channelsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = await nostr.query(allChannelFilters, { signal: AbortSignal.timeout(8000) });
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const membersQueryPromise = (async () => {
+        const start = Date.now();
+        const result = await nostr.query(allMemberFilters, { signal: AbortSignal.timeout(8000) });
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const joinRequestsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allJoinRequestFilters.length > 0
+          ? await nostr.query(allJoinRequestFilters, { signal: AbortSignal.timeout(8000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [channelsQueryResult, membersQueryResult, joinRequestsQueryResult] = await Promise.all([
+        channelsQueryPromise,
+        membersQueryPromise,
+        joinRequestsQueryPromise
+      ]);
+
+      const batch1Time = Date.now() - batch1Start;
+      let allChannelDefinitions = channelsQueryResult.result;
+      const allMemberLists = membersQueryResult.result;
+      const allJoinRequests = joinRequestsQueryResult.result;
+      const channelsQueryTime = channelsQueryResult.time;
+      const membersQueryTime = membersQueryResult.time;
+      const joinRequestsQueryTime = joinRequestsQueryResult.time;
+
+      // Add missing "general" channels for each approved community (if enabled)
+      const additionalGeneralChannels: NostrEvent[] = [];
+      if (ALWAYS_ADD_GENERAL_CHANNEL) {
+        for (const community of approvedCommunities) {
+          const communityId = community.definitionEvent.tags.find(([name]) => name === 'd')?.[1];
+          if (!communityId) continue;
+
+          // Check if this community already has a "general" channel
+          const existingChannels = allChannelDefinitions.filter(channelDef => {
+            const channelCommunityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+            return channelCommunityRef === communityId || channelCommunityRef?.includes(`:${communityId}`);
+          });
+
+          logger.log(`Communities: Community ${communityId} has ${existingChannels.length} existing channels:`,
+            existingChannels.map(ch => ({
+              id: ch.tags.find(([name]) => name === 'd')?.[1],
+              name: ch.tags.find(([name]) => name === 'name')?.[1]
+            }))
+          );
+
+          const hasGeneralChannel = existingChannels.some(channelDef => {
+            const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1];
+            // Extract simple channel ID from d tag (format can be "general" or "communityId:general")
+            const channelId = dTag?.includes(':') ? dTag.split(':').pop()! : dTag;
+            const isGeneralChannel = channelId === 'general' || channelName?.toLowerCase() === 'general';
+
+            if (isGeneralChannel) {
+              logger.log(`Communities: Found existing general channel for ${communityId}: id=${channelId}, name=${channelName}`);
+            }
+
+            return isGeneralChannel;
+          });
+
+          if (!hasGeneralChannel) {
+            // Create a synthetic "general" channel definition
+            const properCommunityRef = `34550:${community.pubkey}:${communityId}`;
+            const generalChannelEvent: NostrEvent = {
+              id: `synthetic-general-${communityId}`,
+              kind: 32807,
+              pubkey: community.pubkey,
+              created_at: community.definitionEvent.created_at,
+              content: JSON.stringify({
+                name: 'general',
+                description: 'General discussion',
+                type: 'text',
+                position: 0,
+              }),
+              tags: [
+                ['d', `${properCommunityRef}:general`], // Match format used in CreateChannelDialog: full addressable format
+                ['a', properCommunityRef],
+                ['t', 'channel'],
+                ['name', 'general'],
+                ['description', 'General discussion'],
+                ['channel_type', 'text'],
+                ['position', '0'],
+              ],
+              sig: '',
+            };
+
+            additionalGeneralChannels.push(generalChannelEvent);
+            logger.log(`Communities: Added synthetic "general" channel for community ${communityId}`);
+          }
+        }
+      }
+
+      // Add the synthetic general channels to the channel definitions
+      allChannelDefinitions = [...allChannelDefinitions, ...additionalGeneralChannels];
+
+      // PROGRESSIVE UPDATE 1: Show channels immediately in sidebar (before messages load)
+      const stateWithChannels = addChannelsToState(initialCommunitiesState, allChannelDefinitions, communitiesWithStatus);
+      setCommunities(stateWithChannels);
+      logger.log(`Communities: Progressive update - showing ${allChannelDefinitions.length} channels in sidebar (messages loading...)`);
+
+      // Group channels by community to create ONE filter per community instead of one per channel
+      const channelsByCommunity = new Map<string, Array<{
+        dTag: string;
+        channelId: string;
+        communityRef: string;
+        communityPubkey: string;
+        communityId: string;
+      }>>();
+
+      allChannelDefinitions.forEach(channelDef => {
+        const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+        const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (!communityRef || !dTag) return;
+
+        // Extract channel ID from d tag
+        const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+        // Debug log for general channel
+        if (channelId === 'general') {
+          logger.log(`Communities: Processing general channel definition:`, {
+            dTag,
+            communityRef,
+            channelId,
+            isGeneral: true
+          });
+        }
+
+        // Parse community reference to get proper format
+        let properCommunityRef: string;
+        let communityPubkey: string;
+        let communityId: string;
+
+        if (communityRef.includes(':')) {
+          // Already in proper format (34550:pubkey:id)
+          properCommunityRef = communityRef;
+          const parts = communityRef.split(':');
+          communityPubkey = parts[1];
+          communityId = parts[2];
+        } else {
+          // Legacy simple format - need to construct proper reference
+          const community = communitiesWithStatus.find(c => c.id === communityRef);
+          if (community) {
+            properCommunityRef = `34550:${community.pubkey}:${communityRef}`;
+            communityPubkey = community.pubkey;
+            communityId = communityRef;
+          } else {
+            return; // Skip if we can't find community
+          }
+        }
+
+        if (!channelsByCommunity.has(communityId)) {
+          channelsByCommunity.set(communityId, []);
+        }
+
+        channelsByCommunity.get(communityId)!.push({
+          dTag,
+          channelId,
+          communityRef: properCommunityRef,
+          communityPubkey,
+          communityId,
+        });
+      });
+
+      // Create ONE permission filter per community using a-tag for better efficiency
+      // Query by community a-tag and restrict to owners and moderators for security
+      // Note: Permission events are NOT replaceable - each update creates a new event
+      const allPermissionFilters = Array.from(channelsByCommunity.entries()).map(([_communityId, channels]) => {
+        const community = communitiesWithStatus.find(c => c.id === channels[0].communityId);
+        if (!community) return null;
+
+        // Get community owners and moderators
+        const authorizedPubkeys = new Set<string>();
+        
+        // Add community owner
+        authorizedPubkeys.add(community.pubkey);
+        
+        // Add moderators from community definition
+        const moderatorTags = community.definitionEvent.tags.filter(([name, , role]) => 
+          name === 'p' && role === 'moderator'
+        );
+        moderatorTags.forEach(([, pubkey]) => authorizedPubkeys.add(pubkey));
+
+        return {
+          kinds: [30143], // Channel permissions events
+          '#a': [channels[0].communityRef], // Query by community addressable tag
+          authors: Array.from(authorizedPubkeys), // Restrict to owners and moderators for security
+          limit: 100, // Higher limit since we need all permission events for the community
+        };
+      }).filter((filter): filter is NonNullable<typeof filter> => filter !== null); // Remove null entries with proper typing
+
+      // Create ONE filter PER CHANNEL (matching production event format)
+      // Each channel gets its own query with full addressable format for both 'a' and 't' tags
+      const allMessageFilters = Array.from(channelsByCommunity.entries()).flatMap(([_communityId, channels]) =>
+        channels.map(ch => {
+          // Special handling for general channel - query with simple channel name
+          if (ch.channelId === 'general') {
+            return {
+              kinds: [9411],
+              '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
+              '#t': ['general'], // General messages are tagged with simple "general", not full addressable format
+              limit: MESSAGES_PER_PAGE,
+            };
+          } else {
+            // Build the full addressable channel reference: "34550:pubkey:communitySlug:channelSlug"
+            const fullChannelRef = `${ch.communityRef}:${ch.channelId}`;
+
+            return {
+              kinds: [9411],
+              '#a': [ch.communityRef], // "34550:pubkey:communitySlug"
+              '#t': [fullChannelRef], // "34550:pubkey:communitySlug:channelSlug"
+              limit: MESSAGES_PER_PAGE,
+            };
+          }
+        })
+      );
+
+      logger.log(`Communities: Created ${allPermissionFilters.length} permission filters and ${allMessageFilters.length} message filters (1 per channel)`);
+
+      // DEBUG: Log sample message filters to verify format
+      if (allMessageFilters.length > 0) {
+        logger.log('Communities: Sample message filters:', allMessageFilters.slice(0, 3));
+        // Log general channel filter specifically
+        const generalFilter = allMessageFilters.find(f => !f['#t']);
+        if (generalFilter) {
+          logger.log('Communities: General channel filter:', generalFilter);
+        }
+      }
+
+      // Channels have been loaded, update loading state
+      setIsLoadingChannels(false);
+
+      // BATCH 2: Execute permissions, messages, and pinned posts queries in parallel
+      const batch2Start = Date.now();
+
+      // Collect all channel identifiers for pinned posts query
+      // Build from allChannelDefinitions (which has the loaded channels) not initialCommunitiesState (which has empty channels)
+      const channelIdentifiers: string[] = [];
+
+      allChannelDefinitions.forEach(channelDef => {
+        const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+        if (dTag) {
+          channelIdentifiers.push(dTag);
+        }
+      });
+
+      // Wrap each query with individual timing
+      const permissionsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allPermissionFilters.length > 0
+          ? await nostr.query(allPermissionFilters, { signal: AbortSignal.timeout(8000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const messagesQueryPromise = (async () => {
+        const start = Date.now();
+        const result = allMessageFilters.length > 0
+          ? await nostr.query(allMessageFilters, { signal: AbortSignal.timeout(8000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const pinnedPostsQueryPromise = (async () => {
+        const start = Date.now();
+        const result = channelIdentifiers.length > 0
+          ? await nostr.query([{
+            kinds: [34554], // Pinned posts
+            '#d': channelIdentifiers,
+            // No limit - get all pinned posts
+          }], { signal: AbortSignal.timeout(8000) })
+          : [];
+        const time = Date.now() - start;
+        return { result, time };
+      })();
+
+      const [permissionsQueryResult, messagesQueryResult, pinnedPostsQueryResult] = await Promise.all([
+        permissionsQueryPromise,
+        messagesQueryPromise,
+        pinnedPostsQueryPromise
+      ]);
+
+      const batch2Time = Date.now() - batch2Start;
+      const allPermissionSettings = permissionsQueryResult.result;
+      const allChannelMessages = messagesQueryResult.result;
+      const allPinnedPostsEvents = pinnedPostsQueryResult.result;
+      const permissionsQueryTime = permissionsQueryResult.time;
+      const messagesQueryTime = messagesQueryResult.time;
+      const pinnedPostsQueryTime = pinnedPostsQueryResult.time;
+
+      // DEBUG: Log message query results
+      logger.log(`Communities: Messages query returned ${allChannelMessages.length} messages`);
+      if (allChannelMessages.length > 0) {
+        logger.log('Communities: First message sample:', {
+          id: allChannelMessages[0].id.slice(0, 8),
+          kind: allChannelMessages[0].kind,
+          aTags: allChannelMessages[0].tags.filter(([name]) => name === 'a'),
+          tTags: allChannelMessages[0].tags.filter(([name]) => name === 't'),
+        });
+      }
+
+      // BATCH 3: Get replies (kind 1111), reactions/zaps (kinds 7, 9735), and pinned messages in parallel
+      const batch3Start = Date.now();
+      const messageIds = allChannelMessages.map(msg => msg.id);
+
+      // Extract all pinned message IDs from pinned posts events we already fetched
+      const allPinnedMessageIds = allPinnedPostsEvents.flatMap(event =>
+        event.tags.filter(([name]) => name === 'e').map(([, eventId]) => eventId)
+      );
+
+      // Remove duplicates
+      const uniquePinnedMessageIds = [...new Set(allPinnedMessageIds)];
+
+      let allReplies: NostrEvent[] = [];
+      let allReactionsAndZaps: NostrEvent[] = [];
+      let pinnedMessages: NostrEvent[] = [];
+      let repliesQueryTime = 0;
+      let reactionsQueryTime = 0;
+      let pinnedMessagesQueryTime = 0;
+
+      if (messageIds.length > 0) {
+        // Query for replies and reactions/zaps in parallel (keep existing structure)
+        const repliesQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            kinds: [1111], // Reply/comment events
+            '#e': messageIds, // Replies to our messages
+            // No limit - get all replies to our messages
+          }], { signal: AbortSignal.timeout(8000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const reactionsQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            kinds: [7, 9735], // Reaction events and Zap receipts
+            '#e': messageIds, // Reactions/zaps to our messages
+            // No limit - get all reactions/zaps to our messages
+          }], { signal: AbortSignal.timeout(8000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const [repliesResult, reactionsResult] = await Promise.all([
+          repliesQueryPromise,
+          reactionsQueryPromise
+        ]);
+
+        allReplies = repliesResult.result;
+        allReactionsAndZaps = reactionsResult.result;
+        repliesQueryTime = repliesResult.time;
+        reactionsQueryTime = reactionsResult.time;
+      }
+
+      // Query for pinned message events
+      if (uniquePinnedMessageIds.length > 0) {
+        const pinnedMessagesQueryPromise = (async () => {
+          const start = Date.now();
+          const result = await nostr.query([{
+            ids: uniquePinnedMessageIds
+          }], { signal: AbortSignal.timeout(8000) });
+          const time = Date.now() - start;
+          return { result, time };
+        })();
+
+        const pinnedMessagesResult = await pinnedMessagesQueryPromise;
+        pinnedMessages = pinnedMessagesResult.result;
+        pinnedMessagesQueryTime = pinnedMessagesResult.time;
+      }
+
+      const batch3Time = Date.now() - batch3Start;
+
+      // Organize pinned messages by channel for efficient lookup
+      const pinnedMessagesByChannel = new Map<string, NostrEvent[]>();
+
+      // Group pinned posts events by channel and map to actual messages
+      allPinnedPostsEvents.forEach(pinnedPostEvent => {
+        const dTag = pinnedPostEvent.tags.find(([name]) => name === 'd')?.[1];
+        if (!dTag) return;
+
+        const channelKey = dTag; // dTag is already in format "communityId:channelId"
+        const pinnedMessageIds = pinnedPostEvent.tags
+          .filter(([name]) => name === 'e')
+          .map(([, eventId]) => eventId);
+
+        // Find the actual pinned messages for this channel
+        const channelPinnedMessages = pinnedMessages.filter(msg =>
+          pinnedMessageIds.includes(msg.id)
+        );
+
+        pinnedMessagesByChannel.set(channelKey, channelPinnedMessages);
+      });
+
+      const totalParallelTime = batch1Time + batch2Time + batch3Time;
+
+      logger.log(`Communities: All batches complete in ${totalParallelTime}ms - Batch 1: ${batch1Time}ms, Batch 2: ${batch2Time}ms, Batch 3: ${batch3Time}ms - Results: Channels: ${allChannelDefinitions.length}, Members: ${allMemberLists.length}, Permissions: ${allPermissionSettings.length}, Messages: ${allChannelMessages.length}, Replies: ${allReplies.length}, Reactions/Zaps: ${allReactionsAndZaps.length}, Pinned: ${pinnedMessages.length}`);
+
+      // Organize replies by message ID for efficient lookup
+      const repliesByMessageId = new Map<string, NostrEvent[]>();
+      allReplies.forEach(reply => {
+        const eTags = reply.tags.filter(([name]) => name === 'e');
+        eTags.forEach(([, messageId]) => {
+          if (!repliesByMessageId.has(messageId)) {
+            repliesByMessageId.set(messageId, []);
+          }
+          repliesByMessageId.get(messageId)!.push(reply);
+        });
+      });
+
+      // Sort replies by timestamp for each message
+      repliesByMessageId.forEach(replies => {
+        replies.sort((a, b) => a.created_at - b.created_at);
+      });
+
+      // Organize reactions/zaps by message ID for efficient lookup
+      const reactionsByMessageId = new Map<string, NostrEvent[]>();
+      allReactionsAndZaps.forEach(reaction => {
+        const eTags = reaction.tags.filter(([name]) => name === 'e');
+        eTags.forEach(([, messageId]) => {
+          if (!reactionsByMessageId.has(messageId)) {
+            reactionsByMessageId.set(messageId, []);
+          }
+          reactionsByMessageId.get(messageId)!.push(reaction);
+        });
+      });
+
+      // Sort reactions by timestamp for each message
+      reactionsByMessageId.forEach(reactions => {
+        reactions.sort((a, b) => a.created_at - b.created_at);
+      });
+
+      logger.log(`Communities: Organized ${allReplies.length} replies for ${repliesByMessageId.size} messages and ${allReactionsAndZaps.length} reactions/zaps for ${reactionsByMessageId.size} messages`);
+
+      // Build final communities state with loaded channel data
+      const updatedCommunitiesState = new Map<string, CommunityData>();
+
+      for (const community of communitiesWithStatus) {
+        const isApproved = community.membershipStatus === 'approved';
+        const channelsMap = new Map<string, ChannelData>();
+
+        // Only load channels/messages for approved communities
+        if (isApproved) {
+          // Find channels for this community
+          const communityChannels = allChannelDefinitions.filter(channelDef => {
+            const communityRef = channelDef.tags.find(([name]) => name === 'a')?.[1];
+            if (!communityRef) return false;
+
+            // Handle both legacy format ("universes") and proper format ("34550:pubkey:universes")
+            return communityRef === community.id || communityRef.includes(`:${community.id}`);
+          });
+
+          for (const channelDef of communityChannels) {
+            const dTag = channelDef.tags.find(([name]) => name === 'd')?.[1];
+            if (!dTag) continue;
+
+            // Extract the channel name from the d tag
+            // Format can be either "channelName" or "communityId:channelName"
+            const channelId = dTag.includes(':') ? dTag.split(':').pop()! : dTag;
+
+            // Find messages for this channel
+            // Build the full community reference once for this channel
+            const fullCommunityRef = `34550:${community.pubkey}:${community.id}`;
+
+            const channelMessages = allChannelMessages.filter(msg => {
+              const msgCommunityRef = msg.tags.find(([name]) => name === 'a')?.[1];
+              const msgChannelTag = msg.tags.find(([name]) => name === 't')?.[1];
+
+              // Special handling for general channel - accepts messages without #t tag
+              if (channelId === 'general') {
+                // General channel gets all messages for this community that don't have a #t tag
+                // OR have a #t tag that matches "general"
+                if (!msgCommunityRef) return false;
+
+                // Match against the full community reference
+                const matchesCommunity = msgCommunityRef === fullCommunityRef;
+
+                if (!matchesCommunity) return false;
+
+                // Only kind 9411 messages for general channel
+                if (msg.kind !== 9411) return false;
+
+                // If no #t tag, it belongs to general
+                if (!msgChannelTag) return true;
+
+                // If has #t tag, check if it matches general
+                const msgChannelId = msgChannelTag.includes(':') ? msgChannelTag.split(':').pop()! : msgChannelTag;
+                return msgChannelId === 'general';
+              }
+
+              // For other channels, require #t tag
+              if (!msgCommunityRef || !msgChannelTag) return false;
+
+              // Match against the full community reference
+              const matchesCommunity = msgCommunityRef === fullCommunityRef;
+
+              if (!matchesCommunity) return false;
+
+              // Only kind 9411 messages
+              if (msg.kind !== 9411) return false;
+
+              // Extract channel slug from 't' tag (format: "34550:pubkey:communitySlug:channelSlug")
+              const msgChannelId = msgChannelTag.includes(':') ? msgChannelTag.split(':').pop()! : msgChannelTag;
+
+              // Must have matching channel slug
+              return msgChannelId === channelId;
+            });
+
+            // Find permissions for this channel - handle multiple events and take the latest
+            const channelPermissionEvents = allPermissionSettings.filter(perm => {
+              const permRef = perm.tags.find(([name]) => name === 'd')?.[1];
+              if (!permRef) return false;
+              
+              // Handle both formats:
+              // Format A: "34550:pubkey:communityId:channelId"
+              // Format B: "34550:pubkey:communityId:34550:pubkey:communityId:channelId" (duplicated)
+              const expectedFormatA = `34550:${community.pubkey}:${community.id}:${channelId}`;
+              const expectedFormatB = `34550:${community.pubkey}:${community.id}:34550:${community.pubkey}:${community.id}:${channelId}`;
+              
+              return permRef === expectedFormatA || permRef === expectedFormatB;
+            });
+            
+            // Sort by created_at descending and take the latest (most recent) permission event
+            const channelPermissions = channelPermissionEvents.length > 0 
+              ? channelPermissionEvents.sort((a, b) => b.created_at - a.created_at)[0]
+              : null;
+
+            // Parse channel info from tags
+            const channelName = channelDef.tags.find(([name]) => name === 'name')?.[1] || channelId;
+            const channelDescription = channelDef.tags.find(([name]) => name === 'description')?.[1] ||
+              channelDef.tags.find(([name]) => name === 'about')?.[1];
+            const channelType = channelDef.tags.find(([name]) => name === 'channel_type')?.[1] as 'text' | 'voice' || 'text';
+            const folderId = channelDef.tags.find(([name]) => name === 'folder')?.[1];
+            const position = parseInt(channelDef.tags.find(([name]) => name === 'position')?.[1] || '0');
+
+            // Try to parse content for additional metadata
+            let contentData: ChannelInfo = { name: '', type: 'text' };
+            try {
+              contentData = JSON.parse(channelDef.content) as ChannelInfo;
+            } catch {
+              // Ignore parsing errors
+            }
+
+            // Build replies map for this channel's messages
+            const channelReplies = new Map<string, NostrEvent[]>();
+            channelMessages.forEach(message => {
+              const messageReplies = repliesByMessageId.get(message.id) || [];
+              if (messageReplies.length > 0) {
+                channelReplies.set(message.id, messageReplies);
+              }
+            });
+
+            // Build reactions map for this channel's messages
+            const channelReactions = new Map<string, NostrEvent[]>();
+            channelMessages.forEach(message => {
+              const messageReactions = reactionsByMessageId.get(message.id) || [];
+              if (messageReactions.length > 0) {
+                channelReactions.set(message.id, messageReactions);
+              }
+            });
+
+            // Remove unused sortedMessages variable
+
+            // Debug log for messages
+            logger.log(`Channel ${channelId}: Found ${channelMessages.length} messages (from ${allChannelMessages.length} total)`);
+            if (channelId === 'general') {
+              logger.log(`General channel debug:`, {
+                totalMessages: allChannelMessages.length,
+                filteredMessages: channelMessages.length,
+                sampleMessage: allChannelMessages[0] ? {
+                  kind: allChannelMessages[0].kind,
+                  hasATag: !!allChannelMessages[0].tags.find(([name]) => name === 'a'),
+                  hasTTag: !!allChannelMessages[0].tags.find(([name]) => name === 't'),
+                  aTags: allChannelMessages[0].tags.filter(([name]) => name === 'a'),
+                  tTags: allChannelMessages[0].tags.filter(([name]) => name === 't'),
+                } : 'no messages'
+              });
+            }
+
+            // Sort messages by timestamp (oldest first) to match what Virtuoso expects
+            const sortedMessages = [...channelMessages].sort((a, b) => a.created_at - b.created_at);
+
+            channelsMap.set(channelId, {
+              id: channelId, // Channel ID from d tag
+              communityId: community.id,
+              info: {
+                name: contentData?.name || channelName,
+                description: contentData?.description || channelDescription,
+                type: contentData?.type || channelType,
+                folderId: contentData?.folderId || folderId,
+                position: contentData?.position ?? position ?? 0,
+              },
+              definition: channelDef,
+              messages: sortedMessages, // Use sorted messages (oldest first)
+              replies: channelReplies,
+              reactions: channelReactions,
+              // Use fullAddressableId to match the key format used when building the Map
+              pinnedMessages: pinnedMessagesByChannel.get(`34550:${community.pubkey}:${community.id}:${channelId}`) || [],
+              permissions: channelPermissions || null,
+              lastActivity: sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1].created_at : channelDef.created_at,
+              // Initialize pagination state
+              oldestMessageTimestamp: sortedMessages.length > 0 ? sortedMessages[0].created_at : undefined,
+              hasMoreMessages: sortedMessages.length >= MESSAGES_PER_PAGE, // Assume more if we got a full page
+              isLoadingOlderMessages: false,
+              reachedStartOfConversation: sortedMessages.length < MESSAGES_PER_PAGE, // Reached start if we got less than a full page
+            });
+          }
+        }
+
+        // Find member lists for this community
+        const communityRef = `34550:${community.pubkey}:${community.id}`;
+        const approvedMembersEvent = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34551;
+        });
+        const declinedMembersEvent = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34552;
+        });
+        const bannedMembersEvent = allMemberLists.find(memberList => {
+          const memberRef = memberList.tags.find(([name]) => name === 'd')?.[1];
+          return memberRef === communityRef && memberList.kind === 34553;
+        });
+
+        // Parse member lists from events
+        const approvedMembers = approvedMembersEvent ? {
+          members: approvedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: approvedMembersEvent
+        } : null;
+
+        const declinedMembers = declinedMembersEvent ? {
+          members: declinedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: declinedMembersEvent
+        } : null;
+
+        const bannedMembers = bannedMembersEvent ? {
+          members: bannedMembersEvent.tags.filter(([name]) => name === 'p').map(([, pubkey]) => pubkey),
+          event: bannedMembersEvent
+        } : null;
+
+        // Find join requests for this community (kind 4552)
+        const communityJoinRequests = allJoinRequests.filter(joinRequest => {
+          const aTag = joinRequest.tags.find(([name]) => name === 'a')?.[1];
+          return aTag === communityRef;
+        });
+
+        // Create pending members list: join requests minus declined AND approved members
+        // 1. Get all individual join requests (kind 4552) - created by users
+        // 2. Subtract declined members (kind 34552) - managed by moderators
+        // 3. Subtract approved members (kind 34551) - already approved
+        const joinRequestPubkeys = communityJoinRequests.map(req => req.pubkey);
+        const declinedPubkeys = declinedMembers?.members || [];
+        const approvedPubkeys = approvedMembers?.members || [];
+        const actualPendingPubkeys = joinRequestPubkeys.filter(pubkey =>
+          !declinedPubkeys.includes(pubkey) && !approvedPubkeys.includes(pubkey)
+        );
+
+        const combinedPendingMembers = actualPendingPubkeys.length > 0 ? {
+          members: actualPendingPubkeys,
+          event: communityJoinRequests[0] || null, // Use the first join request as the event
+          joinRequests: communityJoinRequests.filter(req => actualPendingPubkeys.includes(req.pubkey)) // Only include non-declined requests
+        } : null;
+
+        // Determine the user's role in this community
+        let finalMembershipStatus = community.membershipStatus;
+        if (community.pubkey === userPubkey) {
+          finalMembershipStatus = 'owner' as const;
+        } else if (community.info.moderators.includes(userPubkey || '')) {
+          finalMembershipStatus = 'moderator' as const;
+        }
+
+        const communityData: CommunityData = {
+          id: community.id,
+          fullAddressableId: `34550:${community.pubkey}:${community.id}`,
+          pubkey: community.pubkey,
+          info: community.info,
+          definitionEvent: community.definitionEvent,
+          channels: channelsMap,
+          approvedMembers: approvedMembers || null,
+          pendingMembers: combinedPendingMembers || null, // Actual pending (join requests minus declined)
+          declinedMembers: declinedMembers || null, // Declined members from kind 34552
+          bannedMembers: bannedMembers || null, // Banned members from kind 34553
+          membershipStatus: finalMembershipStatus,
+          lastActivity: isApproved && channelsMap.size > 0
+            ? Math.max(community.definitionEvent.created_at, ...Array.from(channelsMap.values()).map(c => c.lastActivity))
+            : community.definitionEvent.created_at,
+          isLoadingChannels: false, // Channels have finished loading
+        };
+
+        updatedCommunitiesState.set(community.id, communityData);
+      }
+
+      // Update communities state with loaded channel data
+      // Compute once from the current ref (authoritative snapshot), then assign to both state and ref
+      const mergedCommunities: CommunitiesState = (() => {
+        const base = new Map(communitiesRef.current);
+
+        updatedCommunitiesState.forEach((updatedCommunity, id) => {
+          const existing = base.get(id);
+          if (!existing) {
+            base.set(id, updatedCommunity);
+            return;
+          }
+
+          const channelsToUse = (updatedCommunity.channels.size === 0 && existing.channels.size > 0)
+            ? existing.channels
+            : updatedCommunity.channels;
+
+          base.set(id, { ...existing, ...updatedCommunity, channels: channelsToUse });
+        });
+
+        // Keep any communities not present in the update (e.g., transient network issues)
+        communitiesRef.current.forEach((existingCommunity, id) => {
+          if (!updatedCommunitiesState.has(id)) {
+            base.set(id, existingCommunity);
+          }
+        });
+
+        return base;
+      })();
+
+      setCommunities(mergedCommunities);
+      // Update ref synchronously for subscriptions
+      communitiesRef.current = mergedCommunities;
+
+      // Mark channels and messages as loaded
+      setIsLoadingChannels(false);
+      setIsLoadingMessages(false);
+
+      // Flag for immediate cache write after successful network load (like messages do)
+      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities from network, will save to cache after state update`);
+      setShouldSaveCommunitiesImmediately(true);
+
+      const totalTime = Date.now() - startTime;
+      setCommunitiesLoadTime(totalTime);
+      setCommunitiesLoadBreakdown({
+        step1_communities: {
+          total: step1Time,
+          membershipQuery: step1Timing.membershipQuery,
+          definitionsQuery: step1Timing.definitionsQuery,
+        },
+        step2_parallel_batch1: {
+          total: batch1Time,
+          channelsQuery: channelsQueryTime,
+          membersQuery: membersQueryTime,
+          joinRequestsQuery: joinRequestsQueryTime,
+        },
+        step3_parallel_batch2: {
+          total: batch2Time,
+          permissionsQuery: permissionsQueryTime,
+          messagesQuery: messagesQueryTime,
+          pinnedPostsQuery: pinnedPostsQueryTime, // Pinned posts query runs in batch 2
+        },
+        step4_replies_batch: {
+          total: batch3Time,
+          repliesQuery: repliesQueryTime,
+          reactionsQuery: reactionsQueryTime,
+          pinnedMessagesQuery: pinnedMessagesQueryTime, // Pinned messages query runs in batch 3
+        },
+        step5_pinned_batch: {
+          total: 0, // Deprecated - pinned queries integrated into batch 2 & 3
+          pinnedQuery: 0, // Deprecated - see batch 2 & 3 for actual timings
+        },
+        total: totalTime,
+      });
+      logger.log(`Communities: Successfully loaded ${updatedCommunitiesState.size} communities in ${totalTime}ms (communities: ${step1Time}ms, batch1: ${batch1Time}ms, batch2: ${batch2Time}ms)`);
+
+      if (!isBackgroundRefresh) {
+        setHasCommunitiesInitialLoadCompleted(true);
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+
+        // Start community subscriptions after successful loading
+        logger.log('Communities: Starting subscriptions after successful loading');
+        logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${updatedCommunitiesState.size} communities loaded`);
+        startCommunityMessagesSubscription(updatedCommunitiesState);
+        startCommunityManagementSubscription();
+      }
+    } catch (error) {
+      logger.error('Communities: Error in communities loading:', error);
+      const totalTime = Date.now() - startTime;
+      setCommunitiesLoadTime(totalTime);
+      if (!isBackgroundRefresh) {
+        setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+        setIsLoadingCommunities(false);
+        setIsLoadingChannels(false);
+        setIsLoadingMessages(false);
+      }
+      // Ensure empty state is set on error
+      setCommunities(new Map());
+      setHasCommunitiesInitialLoadCompleted(true);
+    } finally {
+      if (!isBackgroundRefresh) {
+        setCommunitiesLoading(false);
+      }
+    }
+  }, [user?.pubkey, communitiesLoading, nostr, startCommunityMessagesSubscription]);
+
+  // Communities debug info
+  const getCommunitiesDebugInfo = useCallback(() => {
+    let totalChannels = 0;
+    let totalMessages = 0;
+    let totalReplies = 0;
+    let totalReactions = 0;
+    let totalPinned = 0;
+
+    communities.forEach((community) => {
+      totalChannels += community.channels.size;
+      community.channels.forEach((channel) => {
+        totalMessages += channel.messages.length;
+        channel.replies.forEach((replies) => {
+          totalReplies += replies.length;
+        });
+        channel.reactions.forEach((reactions) => {
+          totalReactions += reactions.length;
+        });
+        totalPinned += channel.pinnedMessages.length;
+      });
+    });
+
+    return {
+      communityCount: communities.size,
+      channelCount: totalChannels,
+      messageCount: totalMessages,
+      replyCount: totalReplies,
+      reactionCount: totalReactions,
+      pinnedCount: totalPinned,
+    };
+  }, [communities]);
+
+  // Helper function to parse permissions from NostrEvent
+  const parsePermissions = useCallback((permissionsEvent: NostrEvent | null) => {
+    if (!permissionsEvent) {
+      return {
+        readPermissions: 'everyone' as const,
+        writePermissions: 'members' as const,
+      };
+    }
+
+    try {
+      const content = JSON.parse(permissionsEvent.content);
+      return {
+        readPermissions: content.readPermissions || 'everyone',
+        writePermissions: content.writePermissions || 'members',
+      };
+    } catch {
+      return {
+        readPermissions: 'everyone' as const,
+        writePermissions: 'members' as const,
+      };
+    }
+  }, []);
+
+  // Helper function to check channel access based on permissions
+  const checkChannelAccess = useCallback((channel: ChannelData, community: CommunityData): boolean => {
+    // If no permissions event, assume public access
+    if (!channel.permissions) {
+      return true;
+    }
+
+    const parsedPermissions = parsePermissions(channel.permissions);
+
+    // Get current user's pubkey
+    const userPubkey = user?.pubkey;
+    if (!userPubkey) {
+      // No logged-in user - can only access "everyone" channels
+      return parsedPermissions.readPermissions === 'everyone';
+    }
+
+    // Owners and moderators always have access
+    if (community.membershipStatus === 'owner' || community.membershipStatus === 'moderator') {
+      return true;
+    }
+
+    // Parse permission tags from the permissions event
+    const allowedReaders = channel.permissions.tags
+      .filter(([name, , , permission]) => name === 'p' && permission === 'read-allow')
+      .map(([, pubkey]) => pubkey);
+
+    const deniedReaders = channel.permissions.tags
+      .filter(([name, , , permission]) => name === 'p' && permission === 'read-deny')
+      .map(([, pubkey]) => pubkey);
+
+    // Check if user is explicitly denied access
+    if (deniedReaders.includes(userPubkey)) {
+      return false;
+    }
+
+    // Check read permissions
+    switch (parsedPermissions.readPermissions) {
+      case 'everyone':
+        return true;
+      case 'members':
+        return ['approved', 'owner', 'moderator'].includes(community.membershipStatus);
+      case 'moderators':
+        return ['owner', 'moderator'].includes(community.membershipStatus);
+      case 'specific':
+        // Check if user is in the allowed readers list
+        return allowedReaders.includes(userPubkey);
+      default:
+        return true;
+    }
+  }, [parsePermissions, user?.pubkey]);
+
+  // Get sorted channels for a community with all data pre-computed and filtered by access
+  const getSortedChannels = useCallback((communityId: string): DisplayChannel[] => {
+    const community = communities.get(communityId);
+    if (!community) {
+      return [];
+    }
+
+    // Convert DataManager ChannelData to DisplayChannel format with all data pre-computed
+    const channelsArray: DisplayChannel[] = Array.from(community.channels.values())
+      .map(channel => {
+        const hasAccess = checkChannelAccess(channel, community);
+        const parsedPermissions = parsePermissions(channel.permissions);
+
+        // Assert that we can determine access - fail fast if not
+        if (hasAccess === undefined || hasAccess === null) {
+          throw new Error(`DataManager: Cannot determine access for channel ${channel.id} in community ${communityId}`);
+        }
+
+        // Assert that we can parse permissions - fail fast if not
+        if (!parsedPermissions) {
+          throw new Error(`DataManager: Cannot parse permissions for channel ${channel.id} in community ${communityId}`);
+        }
+
+        // Pre-compute restriction check
+        const isRestricted =
+          parsedPermissions.readPermissions === 'moderators' ||
+          parsedPermissions.readPermissions === 'specific' ||
+          parsedPermissions.writePermissions === 'moderators' ||
+          parsedPermissions.writePermissions === 'specific';
+
+        const displayChannel = {
+          id: channel.id, // Simple channel name for URLs (e.g., "general", "design-team")
+          name: channel.info.name,
+          description: channel.info.description,
+          type: channel.info.type,
+          communityId: channel.communityId,
+          creator: channel.definition.pubkey,
+          folderId: channel.info.folderId,
+          position: channel.info.position ?? 0, // Default to 0 if undefined
+          event: channel.definition,
+          permissions: channel.permissions,
+          isLoading: channel.definition.isSending, // Show loading for optimistic channels
+          hasAccess,
+          parsedPermissions,
+          isRestricted,
+        };
+        return displayChannel;
+      })
+      // Filter out channels the user can't access (unless they're a moderator who can see everything)
+      .filter(channel => {
+        const canModerate = community.membershipStatus === 'owner' || community.membershipStatus === 'moderator';
+        return channel.hasAccess || canModerate;
+      });
+
+
+    // Apply the same sorting logic as useChannels
+    return channelsArray.sort((a, b) => {
+      // 1. Folder first: Channels without folders come first
+      if (a.folderId !== b.folderId) {
+        if (!a.folderId) return -1;
+        if (!b.folderId) return 1;
+        return a.folderId.localeCompare(b.folderId);
+      }
+      // 2. Then by position: Within the same folder, sort by position number
+      if (a.position !== b.position) {
+        return a.position - b.position;
+      }
+      // 3. Then by type: Text channels come before voice channels
+      if (a.type !== b.type) {
+        return a.type === 'text' ? -1 : 1;
+      }
+      // 4. Finally by name: Alphabetical order as the final tiebreaker
+      return a.name.localeCompare(b.name);
+    });
+  }, [communities, checkChannelAccess, parsePermissions]);
+
+  // Get folders for a community with channels grouped by folder
+  const getFolders = useCallback((communityId: string): ChannelFolder[] => {
+    const allChannels = getSortedChannels(communityId);
+    const folderMap = new Map<string, ChannelFolder>();
+
+    // Group channels by folder
+    allChannels.forEach(channel => {
+      if (channel.folderId) {
+        if (!folderMap.has(channel.folderId)) {
+          folderMap.set(channel.folderId, {
+            id: channel.folderId,
+            name: channel.folderId, // Use folderId as name for now
+            description: undefined,
+            position: 0,
+            communityId,
+            creator: '',
+            channels: [],
+          });
+        }
+        folderMap.get(channel.folderId)!.channels.push(channel);
+      }
+    });
+
+    return Array.from(folderMap.values()).sort((a, b) => a.position - b.position);
+  }, [getSortedChannels]);
+
+  // Get channels without folders, grouped by type
+  const getChannelsWithoutFolder = useCallback((communityId: string): { text: DisplayChannel[]; voice: DisplayChannel[] } => {
+    const allChannels = getSortedChannels(communityId);
+    const channelsWithoutFolder = allChannels.filter(channel => !channel.folderId);
+
+    return {
+      text: channelsWithoutFolder.filter(channel => channel.type === 'text'),
+      voice: channelsWithoutFolder.filter(channel => channel.type === 'voice'),
+    };
+  }, [getSortedChannels]);
+
+  // Track whether communities initial load has completed
+  const [hasCommunitiesInitialLoadCompleted, setHasCommunitiesInitialLoadCompleted] = useState(false);
+
+  // Debounced write ref for communities cache persistence
+  const debouncedCommunitiesWriteRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ============================================================================
+  // Communities Cache Management Functions
+  // ============================================================================
+
+  // 1. Write communities data to cache (IndexedDB)
+  const writeCommunitiesToCache = useCallback(async () => {
+    if (!userPubkey) {
+      logger.error('Communities: No user pubkey available for writing to cache');
+      return;
+    }
+
+    logger.log(`Communities: writeCommunitiesToCache called with ${communities.size} communities`);
+
+    // Debug: Log first few community IDs
+    const communityIds = Array.from(communities.keys()).slice(0, 3);
+    logger.log(`Communities: Writing communities to cache: ${communityIds.join(', ')}${communities.size > 3 ? ` and ${communities.size - 3} more` : ''}`);
+
+    try {
+      // Import the IndexedDB utilities
+      const { openDB } = await import('idb');
+
+      // Create user-specific store name (matching messages pattern)
+      const storeName = `communities-${userPubkey}`;
+
+      // Open or create the communities database with flexible version handling
+      let db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, create it with version 1
+        db = await openDB('nostr-communities', 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB`);
+            }
+          },
+        });
+      }
+
+      // Convert Map to serializable format
+      const communitiesArray = Array.from(communities.entries()).map(([id, community]) => ({
+        id,
+        fullAddressableId: community.fullAddressableId,
+        pubkey: community.pubkey,
+        info: community.info,
+        definitionEvent: community.definitionEvent,
+        // Convert channels Map to array for serialization
+        channels: Array.from(community.channels.entries()).map(([channelId, channel]) => ({
+          id: channelId,
+          communityId: channel.communityId,
+          info: channel.info,
+          definition: channel.definition,
+          // Only cache the most recent messages (messages are already sorted oldest first, so take last N)
+          messages: channel.messages.slice(-CACHE_MESSAGES_LIMIT_PER_CHANNEL),
+          // Convert replies Map to array for serialization
+          replies: Array.from(channel.replies.entries()).map(([messageId, replies]) => ({
+            messageId,
+            replies,
+          })),
+          // Convert reactions Map to array for serialization
+          reactions: Array.from(channel.reactions.entries()).map(([messageId, reactions]) => ({
+            messageId,
+            reactions,
+          })),
+          pinnedMessages: channel.pinnedMessages,
+          permissions: channel.permissions,
+          lastActivity: channel.lastActivity,
+        })),
+        approvedMembers: community.approvedMembers,
+        pendingMembers: community.pendingMembers,
+        membershipStatus: community.membershipStatus,
+        lastActivity: community.lastActivity,
+      }));
+
+      // Create the cache object with consistent structure
+      const cacheData = {
+        id: 'communitiesStore', // Fixed ID for the cache object
+        userPubkey,
+        communities: communitiesArray,
+        lastSync: Date.now(),
+        version: 1,
+      };
+
+      // Check if the store exists before trying to write to it (matching messages pattern)
+      if (!db.objectStoreNames.contains(storeName)) {
+        logger.log(`Communities: Store ${storeName} does not exist yet, creating it with version upgrade`);
+        // Force a database upgrade to create the store
+        const currentVersion = db.version; // Get version BEFORE closing
+        await db.close();
+        const newDb = await openDB('nostr-communities', currentVersion + 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB during write`);
+            }
+          },
+        });
+        await newDb.put(storeName, cacheData);
+        await newDb.close();
+      } else {
+        // Store exists, write directly
+        await db.put(storeName, cacheData);
+        await db.close();
+      }
+
+      // Update in-memory lastSync timestamp
+      setCommunitiesLastSync(cacheData.lastSync);
+
+      logger.log('Communities: Successfully wrote communities cache to IndexedDB');
+    } catch (error) {
+      logger.error('Communities: Error writing communities to IndexedDB:', error);
+    }
+  }, [communities, userPubkey]);
+
+  // 2. Read communities data from cache (IndexedDB)
+  const readCommunitiesFromCache = useCallback(async (): Promise<{ communities: CommunitiesState; lastSync: number } | null> => {
+    if (!userPubkey) {
+      logger.log('Communities: No user pubkey available for reading from cache');
+      return null;
+    }
+
+    logger.log('Communities: Reading communities from cache...');
+
+    try {
+      // Import the IndexedDB utilities
+      const { openDB } = await import('idb');
+
+      // Create user-specific store name (matching messages pattern)
+      const storeName = `communities-${userPubkey}`;
+
+      // Open the communities database with flexible version handling
+      // Use a very high version number so we can open existing DBs at any version
+      let db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, create it with version 1
+        db = await openDB('nostr-communities', 1, {
+          upgrade(db) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: 'id' });
+              logger.log(`Communities: Created store ${storeName} in IndexedDB during read`);
+            }
+          },
+        });
+      }
+
+      // Check if the store exists before trying to read from it
+      if (!db.objectStoreNames.contains(storeName)) {
+        logger.log(`Communities: Store ${storeName} does not exist yet for user ${userPubkey.slice(0, 8)}...`);
+        await db.close();
+        return null;
+      }
+
+      // Read cached data for this user
+      const cacheData = await db.get(storeName, 'communitiesStore');
+      await db.close();
+
+      if (!cacheData) {
+        logger.log('Communities: No cached data found for user');
+        return null;
+      }
+
+      // Check cache version and freshness
+      if (cacheData.version !== 1) {
+        logger.log('Communities: Cache version mismatch, ignoring cached data');
+        return null;
+      }
+
+      // Check if cache is too old
+      const cacheAge = Date.now() - cacheData.lastSync;
+      if (cacheAge > CACHE_MAX_AGE_MS) {
+        logger.log(`Communities: Cache is too old (${Math.round(cacheAge / 1000 / 60 / 60 / 24)} days), ignoring`);
+        return null;
+      }
+
+      // Convert serialized data back to Map format
+      const communitiesMap = new Map<string, CommunityData>();
+
+      for (const communityData of cacheData.communities) {
+        // Convert channels array back to Map
+        const channelsMap = new Map<string, ChannelData>();
+        for (const channelData of communityData.channels) {
+          // Convert replies array back to Map
+          const repliesMap = new Map<string, NostrEvent[]>();
+          for (const replyData of channelData.replies) {
+            repliesMap.set(replyData.messageId, replyData.replies);
+          }
+
+          // Convert reactions array back to Map
+          const reactionsMap = new Map<string, NostrEvent[]>();
+          for (const reactionData of channelData.reactions) {
+            reactionsMap.set(reactionData.messageId, reactionData.reactions);
+          }
+
+          // Handle corrupted cache data - extract simple channel ID if needed
+          const cleanChannelId = (() => {
+            if (channelData.id.includes(':')) {
+              const parts = channelData.id.split(':');
+              return parts[parts.length - 1]; // Extract simple name from corrupted cache
+            }
+            return channelData.id; // Already clean
+          })();
+
+          channelsMap.set(cleanChannelId, {
+            id: cleanChannelId, // Clean channel ID
+            communityId: channelData.communityId,
+            info: channelData.info,
+            definition: channelData.definition,
+            messages: channelData.messages,
+            replies: repliesMap,
+            reactions: reactionsMap,
+            pinnedMessages: channelData.pinnedMessages || [],
+            permissions: channelData.permissions,
+            lastActivity: channelData.lastActivity,
+            // Initialize pagination state for cached data (be conservative: no earlier messages until proven)
+            hasMoreMessages: channelData.messages.length >= MESSAGES_PER_PAGE,
+            isLoadingOlderMessages: false,
+            reachedStartOfConversation: channelData.messages.length < MESSAGES_PER_PAGE,
+            oldestMessageTimestamp: channelData.messages.length > 0 ? channelData.messages[0].created_at : undefined,
+          });
+        }
+
+        communitiesMap.set(communityData.id, {
+          id: communityData.id,
+          fullAddressableId: communityData.fullAddressableId,
+          pubkey: communityData.pubkey,
+          info: communityData.info,
+          definitionEvent: communityData.definitionEvent,
+          channels: channelsMap,
+          approvedMembers: communityData.approvedMembers,
+          pendingMembers: communityData.pendingMembers,
+          declinedMembers: communityData.declinedMembers || null,
+          bannedMembers: communityData.bannedMembers || null,
+          membershipStatus: communityData.membershipStatus,
+          lastActivity: communityData.lastActivity,
+          isLoadingChannels: false, // Always false when loading from cache
+        });
+      }
+
+      // Debug: Log first few community IDs from cache
+      const cachedCommunityIds = Array.from(communitiesMap.keys()).slice(0, 3);
+      logger.log(`Communities: Successfully read ${communitiesMap.size} communities from cache (age: ${Math.round(cacheAge / 1000)}s): ${cachedCommunityIds.join(', ')}${communitiesMap.size > 3 ? ` and ${communitiesMap.size - 3} more` : ''}`);
+      return { communities: communitiesMap, lastSync: cacheData.lastSync };
+    } catch (error) {
+      logger.error('Communities: Error reading communities from IndexedDB:', error);
+      return null;
+    }
+  }, [userPubkey]);
+
+  // 3. Debounced write to cache (similar to messages debouncing)
+  const triggerDebouncedCommunitiesWrite = useCallback(() => {
+    if (debouncedCommunitiesWriteRef.current) {
+      clearTimeout(debouncedCommunitiesWriteRef.current);
+    }
+    debouncedCommunitiesWriteRef.current = setTimeout(() => {
+      writeCommunitiesToCache();
+      debouncedCommunitiesWriteRef.current = null;
+    }, DATA_MANAGER_CONSTANTS.DEBOUNCED_WRITE_DELAY); // Reuse same 15s delay
+  }, [writeCommunitiesToCache]);
+
+  // Start communities loading when user is available
+  useEffect(() => {
+    if (!userPubkey) {
+      logger.log('Communities: No user pubkey available, skipping communities loading');
+      return;
+    }
+
+    if (hasCommunitiesInitialLoadCompleted) {
+      logger.log('Communities: Initial load already completed, skipping duplicate request');
+      return;
+    }
+
+    if (communitiesLoading) {
+      logger.log('Communities: Communities loading already in progress');
+      return;
+    }
+
+    logger.log('Communities: Starting communities loading for user');
+    
+    // Set ALL loading states immediately to prevent initial render with wrong state
+    // Components check these granular states, not just communitiesLoading
+    setCommunitiesLoading(true);
+    setIsLoadingCommunities(true);
+    setIsLoadingChannels(true);
+    setIsLoadingMessages(true);
+
+    // Try to load from cache first, then fall back to network
+    const loadCommunitiesWithCache = async () => {
+      try {
+        logger.log('Communities: Attempting to read from cache...');
+        const cacheResult = await readCommunitiesFromCache();
+
+        if (cacheResult && cacheResult.communities.size > 0) {
+          logger.log(`Communities: ✅ Loaded ${cacheResult.communities.size} communities from cache`);
+
+          // Set cached data immediately for fast UI
+          setCommunities(cacheResult.communities);
+          // Update ref synchronously for subscriptions
+          communitiesRef.current = cacheResult.communities;
+          setHasCommunitiesInitialLoadCompleted(true);
+          setCommunitiesLoadingPhase(LOADING_PHASES.READY);
+          setCommunitiesLoading(false);
+          // Also set the lastSync state for future use
+          setCommunitiesLastSync(cacheResult.lastSync);
+          
+          // Clear all granular loading states - cache is fully loaded
+          setIsLoadingCommunities(false);
+          setIsLoadingChannels(false);
+          setIsLoadingMessages(false);
+          setHasBasicCommunitiesData(true);
+          
+          // Log cache stats for debugging
+          let totalChannels = 0;
+          let totalMessages = 0;
+          cacheResult.communities.forEach(community => {
+            totalChannels += community.channels.size;
+            community.channels.forEach(channel => {
+              totalMessages += channel.messages.length;
+            });
+          });
+          logger.log(`Communities: Cache loaded - ${cacheResult.communities.size} communities, ${totalChannels} channels, ${totalMessages} messages`);
+
+          // Cache loaded successfully - start subscriptions WITH the cache timestamp
+          logger.log('Communities: Cache loaded successfully, starting subscriptions with cache timestamp');
+          logger.log(`[CHANNEL-DEBUG] Starting subscriptions with ${cacheResult.communities.size} communities loaded`);
+          startCommunityMessagesSubscription(cacheResult.communities, cacheResult.lastSync);
+          startCommunityManagementSubscription(cacheResult.lastSync);
+        } else {
+          logger.log('Communities: ❌ No valid cache found, loading from network');
+          queryFullCommunityDataFromRelay();
+        }
+      } catch (error) {
+        logger.error('Communities: Error loading from cache, falling back to network:', error);
+        queryFullCommunityDataFromRelay();
+      }
+    };
+
+    loadCommunitiesWithCache();
+  }, [userPubkey, hasCommunitiesInitialLoadCompleted, communitiesLoading, queryFullCommunityDataFromRelay, readCommunitiesFromCache, startCommunityMessagesSubscription, startCommunityManagementSubscription]);
+
+  // Add optimistic community for immediate UI feedback when creating a new community
+  const addOptimisticCommunity = useCallback((communityEvent: NostrEvent) => {
+    if (!user?.pubkey) {
+      logger.error('Communities: Cannot add optimistic community, no user pubkey');
+      return;
+    }
+
+    // Parse community data from event
+    const dTag = getTagValue(communityEvent, 'd');
+    if (!dTag) {
+      logger.error('Communities: Cannot add optimistic community, missing d tag');
+      return;
+    }
+
+    const nameTag = getTagValue(communityEvent, 'name');
+    const descriptionTag = getTagValue(communityEvent, 'description');
+    const imageTag = getTagValue(communityEvent, 'image');
+    const bannerTag = getTagValue(communityEvent, 'banner');
+
+    // Extract moderators from p tags with role=moderator
+    const moderators = getTagValueWithRole(communityEvent, 'p', 'moderator');
+
+    // Extract relay URLs
+    const relays = getTagValues(communityEvent, 'relay');
+
+    const fullAddressableId = `34550:${communityEvent.pubkey}:${dTag}`;
+
+    // Create optimistic community with minimal data
+    // Create an optimistic default "general" channel to exist immediately
+    const generalChannelId = 'general';
+    const optimisticGeneralChannelEvent: NostrEvent = {
+      id: `optimistic-channel-${generalChannelId}-${Date.now()}-${Math.random()}`,
+      kind: 32807,
+      pubkey: communityEvent.pubkey,
+      created_at: communityEvent.created_at,
+      content: JSON.stringify({
+        name: generalChannelId,
+        description: 'General discussion',
+        type: 'text',
+        position: 0,
+      }),
+      tags: [
+        ['d', generalChannelId],
+        ['a', dTag],
+        ['name', generalChannelId],
+        ['channel_type', 'text'],
+        ['position', '0'],
+        ['t', 'channel'],
+        ['alt', `Channel: ${generalChannelId}`],
+      ],
+      sig: '',
+      isSending: true,
+    } as unknown as NostrEvent;
+
+    const channels = new Map<string, ChannelData>();
+    channels.set(generalChannelId, {
+      id: generalChannelId,
+      communityId: dTag,
+      info: {
+        name: generalChannelId,
+        description: 'General discussion',
+        type: 'text',
+        folderId: undefined,
+        position: 0,
+      },
+      definition: optimisticGeneralChannelEvent,
+      messages: [],
+      replies: new Map(),
+      reactions: new Map(),
+      pinnedMessages: [],
+      permissions: null,
+      lastActivity: communityEvent.created_at,
+      hasMoreMessages: true,
+      isLoadingOlderMessages: false,
+      reachedStartOfConversation: false,
+    });
+
+    const optimisticCommunity: CommunityData = {
+      id: dTag,
+      fullAddressableId,
+      pubkey: communityEvent.pubkey,
+      info: {
+        name: nameTag || dTag,
+        description: descriptionTag,
+        image: imageTag,
+        banner: bannerTag,
+        moderators,
+        relays,
+      },
+      definitionEvent: communityEvent,
+      channels, // Seed with optimistic "general" channel
+      approvedMembers: null,
+      pendingMembers: null,
+      declinedMembers: null,
+      bannedMembers: null,
+      membershipStatus: 'owner',
+      lastActivity: communityEvent.created_at,
+      isLoadingChannels: true,
+    };
+
+    // Add to state immediately
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      newCommunities.set(dTag, optimisticCommunity);
+      return newCommunities;
+    });
+
+    // Also update the ref immediately so subscriptions can include the new community
+    communitiesRef.current = (() => {
+      const newMap = new Map(communitiesRef.current);
+      newMap.set(dTag, optimisticCommunity);
+      return newMap;
+    })();
+
+    // Restart subscriptions to include the new community without a full refresh
+    try {
+      startCommunityMessagesSubscription(communitiesRef.current);
+      startCommunityManagementSubscription();
+    } catch (e) {
+      logger.warn('Communities: Failed to restart subscriptions after optimistic community add', e);
+    }
+
+    logger.log('Communities: Added optimistic community:', dTag);
+
+    // Trigger immediate cache save
+    setShouldSaveCommunitiesImmediately(true);
+  }, [user?.pubkey]);
+
+  // Refresh communities in the background to set up subscriptions and get full data
+  const refreshCommunities = useCallback(async () => {
+    logger.log('Communities: Triggering background refresh for newly created community');
+    await queryFullCommunityDataFromRelay(true); // Pass true for background refresh
+  }, [queryFullCommunityDataFromRelay]);
+
+  // Add prospective community after join request
+  const addProspectiveCommunity = useCallback(async (communityId: string) => {
+    if (!user?.pubkey || !nostr) {
+      logger.error('Communities: Cannot add prospective community, no user or nostr available');
+      return;
+    }
+
+    logger.log(`Communities: Adding prospective community ${communityId}`);
+
+    try {
+      // Parse communityId (format: "34550:pubkey:identifier")
+      const [kind, pubkey, identifier] = communityId.split(':');
+      if (!kind || !pubkey || !identifier) {
+        throw new Error(`Invalid community ID format: ${communityId}`);
+      }
+
+      // Fetch the community definition
+      const communityEvents = await nostr.query([{
+        kinds: [parseInt(kind)],
+        authors: [pubkey],
+        '#d': [identifier],
+        limit: 1,
+      }], {
+        signal: AbortSignal.timeout(5000)
+      });
+
+      const communityEvent = communityEvents[0];
+      if (!communityEvent) {
+        throw new Error(`Community definition not found for ${communityId}`);
+      }
+
+      // Parse community metadata
+      const name = communityEvent.tags.find(([name]) => name === 'name')?.[1] || identifier;
+      const description = communityEvent.tags.find(([name]) => name === 'description')?.[1];
+      const image = communityEvent.tags.find(([name]) => name === 'image')?.[1];
+      const banner = communityEvent.tags.find(([name]) => name === 'banner')?.[1];
+
+      const moderators = communityEvent.tags
+        .filter(([name, , , role]) => name === 'p' && role === 'moderator')
+        .map(([, pubkey]) => pubkey);
+
+      const relays = communityEvent.tags
+        .filter(([name]) => name === 'relay')
+        .map(([, url]) => url);
+
+      // Create minimal community data with 'pending' status
+      const prospectiveCommunity: CommunityData = {
+        id: identifier,
+        fullAddressableId: communityId,
+        pubkey: communityEvent.pubkey,
+        info: {
+          name,
+          description,
+          image,
+          banner,
+          moderators,
+          relays,
+        },
+        definitionEvent: communityEvent,
+        channels: new Map(), // No channels yet
+        approvedMembers: null,
+        pendingMembers: null,
+        declinedMembers: null,
+        bannedMembers: null,
+        membershipStatus: 'pending',
+        lastActivity: communityEvent.created_at,
+      };
+
+      // Add to communities state and restart subscriptions
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        newCommunities.set(identifier, prospectiveCommunity);
+        // Update ref synchronously to ensure subscription sees the new community
+        communitiesRef.current = newCommunities;
+        logger.log(`Communities: Added prospective community ${identifier} (${name})`);
+        return newCommunities;
+      });
+
+      // Restart subscriptions to include this new community
+      // Note: startCommunityManagementSubscription uses communitiesRef which we just updated synchronously
+      startCommunityManagementSubscription();
+      logger.log(`Communities: Restarted subscriptions to include prospective community ${identifier}`);
+
+    } catch (error) {
+      logger.error(`Communities: Failed to add prospective community ${communityId}:`, error);
+      throw error;
+    }
+  }, [user, nostr, startCommunityManagementSubscription]);
+
   // Cleanup subscriptions when component unmounts or user changes
   useEffect(() => {
     return () => {
@@ -1412,11 +5596,25 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
         nip17SubscriptionRef.current.close();
         logger.log('DMS: DataManager: Cleaned up NIP-17 subscription');
       }
+      if (communityMessagesSubscriptionRef.current) {
+        communityMessagesSubscriptionRef.current.close();
+        logger.log('Communities: DataManager: Cleaned up community messages subscription');
+      }
+      if (communityManagementSubscriptionRef.current) {
+        communityManagementSubscriptionRef.current.close();
+        logger.log('Communities: DataManager: Cleaned up community management subscription');
+      }
 
       // Clear debounced write timeout
       if (debouncedWriteRef.current) {
         clearTimeout(debouncedWriteRef.current);
         logger.log('DMS: DataManager: Cleaned up debounced write timeout');
+      }
+
+      // Clear debounced communities write timeout
+      if (debouncedCommunitiesWriteRef.current) {
+        clearTimeout(debouncedCommunitiesWriteRef.current);
+        logger.log('Communities: DataManager: Cleaned up debounced communities write timeout');
       }
 
       // Reset subscription status
@@ -1588,6 +5786,21 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [messages, shouldSaveImmediately, writeAllMessagesToStore, triggerDebouncedWrite]);
 
+  // Watch communities state and handle cache writes (like messages pattern)
+  useEffect(() => {
+    if (communities.size === 0) return; // Don't save empty state
+
+    if (shouldSaveCommunitiesImmediately) {
+      // Clear the flag and save immediately
+      setShouldSaveCommunitiesImmediately(false);
+      logger.log('Communities: Triggering immediate save after network loading');
+      writeCommunitiesToCache();
+    } else {
+      // Normal debounced save for real-time updates
+      triggerDebouncedCommunitiesWrite();
+    }
+  }, [communities, shouldSaveCommunitiesImmediately, writeCommunitiesToCache, triggerDebouncedCommunitiesWrite]);
+
 
 
   // Debug method to reset all message data and cache for current user
@@ -1598,6 +5811,18 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
 
     try {
+      // Close messaging subscriptions
+      if (nip4SubscriptionRef.current) {
+        nip4SubscriptionRef.current.close();
+        nip4SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Closed NIP-4 subscription');
+      }
+      if (nip17SubscriptionRef.current) {
+        nip17SubscriptionRef.current.close();
+        nip17SubscriptionRef.current = null;
+        logger.log('DMS: DataManager: Closed NIP-17 subscription');
+      }
+
       const { clearMessagesFromDB } = await import('@/lib/messageStore');
       await clearMessagesFromDB(userPubkey);
 
@@ -1663,7 +5888,256 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     }
   }, [userPubkey, addMessageToState, sendNIP4Message, sendNIP17Message]);
 
-  const contextValue: DataManagerContextType = {
+  // Load older messages for a channel - simplified approach matching useMessages.ts
+  const loadOlderMessages = useCallback(async (communityId: string, channelId: string) => {
+    const community = communities.get(communityId);
+    if (!community) return;
+
+    const channel = community.channels.get(channelId);
+    if (!channel || !channel.hasMoreMessages || channel.isLoadingOlderMessages || !channel.oldestMessageTimestamp) {
+      return;
+    }
+
+    // Set loading state
+    setCommunities(prev => {
+      const newCommunities = new Map(prev);
+      const updatedCommunity = { ...newCommunities.get(communityId)! };
+      const updatedChannels = new Map(updatedCommunity.channels);
+      const updatedChannel = { ...updatedChannels.get(channelId)! };
+      updatedChannel.isLoadingOlderMessages = true;
+      updatedChannels.set(channelId, updatedChannel);
+      updatedCommunity.channels = updatedChannels;
+      newCommunities.set(communityId, updatedCommunity);
+      return newCommunities;
+    });
+
+    try {
+      // Build community reference and query for older messages
+      const communityRef = `34550:${community.pubkey}:${community.id}`;
+
+      // Special handling for general channel - use simple "general" tag
+      const channelTag = channelId === 'general' ? 'general' : `${communityRef}:${channelId}`;
+
+      const olderMessages = await nostr.query([{
+        kinds: [9411],
+        '#a': [communityRef],
+        '#t': [channelTag],
+        until: channel.oldestMessageTimestamp - 1, // -1 to avoid getting the same message again
+        limit: MESSAGES_PER_PAGE,
+      }], { signal: AbortSignal.timeout(8000) });
+
+      // Load reactions for the older messages
+      let olderReactions: NostrEvent[] = [];
+      if (olderMessages.length > 0) {
+        const olderMessageIds = olderMessages.map(msg => msg.id);
+        olderReactions = await nostr.query([{
+          kinds: [7, 9735], // Reaction events and Zap receipts
+          '#e': olderMessageIds, // Reactions/zaps to older messages
+          // No limit - get all reactions/zaps to older messages
+        }], { signal: AbortSignal.timeout(8000) });
+      }
+
+      // Update channel with new messages
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(communityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(channelId)! };
+
+        // Sort new messages and merge with existing
+        const sortedNewMessages = olderMessages.sort((a, b) => a.created_at - b.created_at);
+        const allMessages = [...sortedNewMessages, ...updatedChannel.messages];
+
+        // Add reactions for older messages
+        const updatedReactions = new Map(updatedChannel.reactions);
+        olderReactions.forEach(reaction => {
+          const eTags = reaction.tags.filter(([name]) => name === 'e');
+          eTags.forEach(([, messageId]) => {
+            if (!updatedReactions.has(messageId)) {
+              updatedReactions.set(messageId, []);
+            }
+            updatedReactions.get(messageId)!.push(reaction);
+          });
+        });
+
+        // Sort reactions by timestamp for each message
+        updatedReactions.forEach(reactions => {
+          reactions.sort((a, b) => a.created_at - b.created_at);
+        });
+
+        updatedChannel.messages = allMessages;
+        updatedChannel.reactions = updatedReactions;
+        updatedChannel.oldestMessageTimestamp = allMessages.length > 0 ? allMessages[0].created_at : undefined;
+        updatedChannel.hasMoreMessages = olderMessages.length >= MESSAGES_PER_PAGE; // More if we got a full page
+        updatedChannel.reachedStartOfConversation = olderMessages.length < MESSAGES_PER_PAGE; // Reached start if less than full page
+        updatedChannel.isLoadingOlderMessages = false;
+
+        updatedChannels.set(channelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        newCommunities.set(communityId, updatedCommunity);
+        return newCommunities;
+      });
+    } catch (error) {
+      console.error('Failed to load older messages:', error);
+      // Reset loading state on error
+      setCommunities(prev => {
+        const newCommunities = new Map(prev);
+        const updatedCommunity = { ...newCommunities.get(communityId)! };
+        const updatedChannels = new Map(updatedCommunity.channels);
+        const updatedChannel = { ...updatedChannels.get(channelId)! };
+        updatedChannel.isLoadingOlderMessages = false;
+        updatedChannels.set(channelId, updatedChannel);
+        updatedCommunity.channels = updatedChannels;
+        newCommunities.set(communityId, updatedCommunity);
+        return newCommunities;
+      });
+    }
+  }, [communities, nostr]);
+
+  // Reset communities data and cache
+  const resetCommunitiesDataAndCache = useCallback(async () => {
+    if (!userPubkey) {
+      logger.error('Communities: No user pubkey available for resetting cache');
+      return;
+    }
+
+    try {
+      logger.log('Communities: Resetting communities data and cache...');
+
+      // Close community subscriptions
+      if (communityMessagesSubscriptionRef.current) {
+        communityMessagesSubscriptionRef.current.close();
+        communityMessagesSubscriptionRef.current = null;
+        logger.log('Communities: Closed messages subscription');
+      }
+      if (communityManagementSubscriptionRef.current) {
+        communityManagementSubscriptionRef.current.close();
+        communityManagementSubscriptionRef.current = null;
+        logger.log('Communities: Closed management subscription');
+      }
+
+      // Clear in-memory state
+      setCommunities(new Map());
+      setCommunitiesLoading(false);
+      setCommunitiesLoadingPhase(LOADING_PHASES.IDLE);
+      setCommunitiesLoadTime(null);
+      setCommunitiesLoadBreakdown(null);
+      setHasCommunitiesInitialLoadCompleted(false);
+      setCommunitiesLastSync(null);
+
+      // Clear this user's store from IndexedDB (matching messages pattern)
+      const { openDB } = await import('idb');
+      const storeName = `communities-${userPubkey}`;
+
+      // Open database with flexible version handling
+      const db = await openDB('nostr-communities').catch(() => null);
+      
+      if (!db) {
+        // Database doesn't exist yet, nothing to clear
+        logger.log('Communities: Database does not exist, nothing to clear');
+        return;
+      }
+
+      if (db.objectStoreNames.contains(storeName)) {
+        // Clear the entire store for this user
+        const tx = db.transaction(storeName, 'readwrite');
+        const store = tx.objectStore(storeName);
+        await store.clear();
+        await tx.done;
+        logger.log(`Communities: Cleared store ${storeName} from IndexedDB`);
+      } else {
+        logger.log(`Communities: Store ${storeName} does not exist, nothing to clear`);
+      }
+
+      await db.close();
+      logger.log('Communities: User-specific cache cleared successfully');
+    } catch (error) {
+      logger.error('Communities: Error resetting data and cache:', error);
+      throw error;
+    }
+  }, [userPubkey]);
+
+  // Hook to get pinned messages for a specific channel
+  const useDataManagerPinnedMessages = useCallback((communityId: string | null, channelId: string | null): NostrEvent[] => {
+    if (!communityId || !channelId) {
+      return [];
+    }
+
+    const simpleCommunityId = (() => {
+      if (communityId.includes(':')) {
+        const parts = communityId.split(':');
+        return parts[2] || parts[parts.length - 1];
+      }
+      return communityId;
+    })();
+
+    const community = communities.get(simpleCommunityId);
+    if (!community) {
+      return [];
+    }
+
+    const channelData = community.channels.get(channelId);
+    if (!channelData) {
+      return [];
+    }
+
+    return channelData.pinnedMessages;
+  }, [communities]);
+
+  // Organize communities functionality into its own domain
+  // Track granular loading states for progressive UI rendering
+  const [isLoadingCommunities, setIsLoadingCommunities] = useState(false);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [hasBasicCommunitiesData, setHasBasicCommunitiesData] = useState(false);
+  const [communitySubscriptions, setCommunitySubscriptions] = useState<CommunitySubscriptionStatus>({
+    messages: false,
+    management: false
+  });
+
+  // Derived state to check if we have basic community data
+  useEffect(() => {
+    setHasBasicCommunitiesData(communities.size > 0);
+  }, [communities.size]);
+
+  // ============================================================================
+  // Hard Refresh Cache Clearing
+  // ============================================================================
+
+  /**
+   * Clear all caches and refetch data from relays.
+   * Used for hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to force fresh data.
+   * 
+   * Simply calls the existing reset functions which handle subscriptions, cache, and state.
+   */
+  const clearCacheAndRefetch = useCallback(async () => {
+    if (!userPubkey) {
+      logger.log('DataManager: No user pubkey available for cache clearing');
+      return;
+    }
+
+    try {
+      logger.log('DataManager: Clearing all caches and refetching...');
+
+      // Use existing reset functions - they handle subscription closing, cache clearing, and state reset
+      await Promise.all([
+        resetMessageDataAndCache(),
+        resetCommunitiesDataAndCache(),
+      ]);
+
+      logger.log('DataManager: Cache cleared successfully, reload will trigger automatically');
+    } catch (error) {
+      logger.error('DataManager: Error clearing cache:', error);
+      throw error;
+    }
+  }, [userPubkey, resetMessageDataAndCache, resetCommunitiesDataAndCache]);
+
+  // ============================================================================
+  // Domain Objects - Created here so clearCacheAndRefetch can be included
+  // ============================================================================
+
+  // Organize messaging functionality into its own domain
+  const messaging: MessagingDomain = {
     messages,
     isLoading,
     loadingPhase,
@@ -1679,7 +6153,84 @@ export function DataManagerProvider({ children }: DataManagerProviderProps) {
     isDebugging: true, // Hardcoded for now
     scanProgress,
     subscriptions,
+    clearCacheAndRefetch,
   };
+
+  const communitiesDomain: CommunitiesDomain = {
+    communities,
+    isLoading: communitiesLoading,
+    loadingPhase: communitiesLoadingPhase,
+    loadTime: communitiesLoadTime,
+    loadBreakdown: communitiesLoadBreakdown,
+    // Expose granular loading states
+    isLoadingCommunities,
+    isLoadingChannels,
+    isLoadingMessages,
+    hasBasicCommunitiesData,
+    subscriptions: communitySubscriptions,
+    getDebugInfo: getCommunitiesDebugInfo,
+    getSortedChannels,
+    getFolders,
+    getChannelsWithoutFolder,
+    addOptimisticMessage: addOptimisticCommunityMessage,
+    addOptimisticChannel,
+    deleteChannelImmediately,
+    deleteCommunityImmediately,
+    loadOlderMessages,
+    resetCommunitiesDataAndCache,
+    useDataManagerPinnedMessages,
+    approveMember,
+    declineMember,
+    banMember,
+    addOptimisticCommunity,
+    refreshCommunities,
+    addProspectiveCommunity,
+    clearCacheAndRefetch,
+  };
+
+  const contextValue: DataManagerContextType = {
+    messaging,
+    communities: communitiesDomain,
+  };
+
+  // ============================================================================
+  // Hard Refresh Detection
+  // ============================================================================
+
+  // Detect hard refresh shortcut (Ctrl+Shift+R / Cmd+Shift+R) to clear cache
+  useEffect(() => {
+    if (!userPubkey) return;
+
+    const handleHardRefresh = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'R' || e.key === 'r')) {
+        try {
+          sessionStorage.setItem('dm-clear-cache-on-load', 'true');
+          logger.log('DataManager: Hard refresh detected, cache will be cleared on next load');
+        } catch (error) {
+          logger.warn('DataManager: SessionStorage unavailable, cache won\'t clear on hard refresh:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleHardRefresh);
+    return () => window.removeEventListener('keydown', handleHardRefresh);
+  }, [userPubkey]);
+
+  // Clear cache after hard refresh
+  useEffect(() => {
+    if (!userPubkey) return;
+
+    try {
+      const shouldClearCache = sessionStorage.getItem('dm-clear-cache-on-load');
+      if (shouldClearCache) {
+        sessionStorage.removeItem('dm-clear-cache-on-load');
+        logger.log('DataManager: Hard refresh detected, clearing cache now');
+        clearCacheAndRefetch();
+      }
+    } catch (error) {
+      logger.warn('DataManager: Could not check sessionStorage for cache clear flag:', error);
+    }
+  }, [userPubkey, clearCacheAndRefetch]);
 
   return (
     <DataManagerContext.Provider value={contextValue}>

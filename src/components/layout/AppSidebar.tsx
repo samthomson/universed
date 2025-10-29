@@ -5,10 +5,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUserCommunities } from "@/hooks/useUserCommunities";
 import { useCommunityOrder } from "@/hooks/useCommunityOrder";
+import { useDataManager } from "@/components/DataManagerProvider";
 import { CommunitySelectionDialog } from "@/components/community/CommunitySelectionDialog";
 import { NotificationCenter } from "@/components/notifications/NotificationCenter";
+import { ConnectionStatus } from "@/components/layout/ConnectionStatus";
 import { useSoundEffect } from "@/hooks/useSoundEffect";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuthor } from "@/hooks/useAuthor";
@@ -17,8 +18,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { UserStatusIndicator } from "@/components/user/UserStatusIndicator";
 import { UserMenu } from "@/components/user/UserMenu";
 import { logger } from "@/lib/logger";
-import { usePreloadCommunity } from "@/hooks/usePreloadCommunity";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { communityIdToNaddr, decodeNaddrFromUrl, naddrToCommunityId } from "@/lib/utils";
 import {
   DndContext,
   closestCenter,
@@ -51,7 +53,6 @@ interface SortableCommunityItemProps {
   isLanding: boolean;
   isAnimating: boolean;
   onSelect: (communityId: string) => void;
-  onMouseDown?: (communityId: string) => void; // Generic mouse down handler
 }
 
 function SortableCommunityItem({
@@ -61,7 +62,6 @@ function SortableCommunityItem({
   isLanding,
   isAnimating,
   onSelect,
-  onMouseDown,
 }: SortableCommunityItemProps) {
   const {
     attributes,
@@ -82,21 +82,16 @@ function SortableCommunityItem({
 
   // Memoized mouse down handler to prevent recreation
   const handleMouseDown = useCallback(() => {
-    // Start preloading immediately on mouse down
-    if (onMouseDown) {
-      onMouseDown(community.id);
-    }
-    
     // Clear existing timeout if any
     if (mouseDownTimeoutRef.current) {
       clearTimeout(mouseDownTimeoutRef.current);
     }
-    
+
     // Set timeout to show grab cursor after 250ms
     mouseDownTimeoutRef.current = setTimeout(() => {
       setIsDraggingAfterDelay(true);
     }, 250);
-  }, [community.id, onMouseDown]);
+  }, []);
 
   // Memoized mouse up/leave handler
   const handleMouseUp = useCallback(() => {
@@ -170,11 +165,11 @@ function SortableCommunityItem({
   }, [community.name, community.id, isDragging, isAnimating, isLaunching, isLanding, onSelect]);
 
   return (
-    <div 
-      ref={setNodeRef} 
-      style={style} 
-      {...attributes} 
-      {...listeners} 
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       className={containerClasses}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -260,9 +255,9 @@ function SortableCommunityItem({
           <div className="space-y-1">
             <p>{community.name}</p>
             <p className="text-xs text-muted-foreground capitalize">
-              {community.membershipStatus === 'approved' ? 'Member' : 
-               community.membershipStatus === 'pending' ? 'Pending approval' : 
-               community.membershipStatus}
+              {community.membershipStatus === 'approved' ? 'Member' :
+                community.membershipStatus === 'pending' ? 'Pending approval' :
+                  community.membershipStatus}
             </p>
             {isDragging && (
               <p className="text-xs text-blue-400">Dragging...</p>
@@ -280,20 +275,38 @@ export function AppSidebar({
   onShowCommunitySelectionDialogChange,
   onSelectCommunity
 }: AppSidebarProps) {
-  const { data: communities, isLoading } = useUserCommunities();
-  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communities);
+  const { communities: dataManagerCommunities } = useDataManager();
+
+  // Convert DataManager communities to UserCommunity format
+  const communitiesList = useMemo(() => {
+    return Array.from(dataManagerCommunities.communities.values()).map(community => ({
+      id: community.fullAddressableId, // Use full addressable ID for compatibility with old hooks
+      name: community.info.name,
+      description: community.info.description || '',
+      image: community.info.image,
+      banner: community.info.banner,
+      creator: community.pubkey,
+      moderators: community.info.moderators,
+      relays: community.info.relays,
+      event: community.definitionEvent,
+      membershipStatus: community.membershipStatus,
+    }));
+  }, [dataManagerCommunities.communities]);
+
+  const { orderedCommunities, reorderCommunities } = useCommunityOrder(communitiesList);
   const { playSound } = useSoundEffect();
   const isMobile = useIsMobile();
   const { user } = useCurrentUser();
   const author = useAuthor(user?.pubkey || '');
   const metadata = author.data?.metadata;
-  const { preloadCommunity } = usePreloadCommunity();
+  const navigate = useNavigate();
 
   // State for sophisticated animation
   const [launchingCommunity, setLaunchingCommunity] = useState<string | null>(null);
   const [landingCommunity, setLandingCommunity] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const animationTimeouts = useRef<Set<NodeJS.Timeout>>(new Set());
+
 
   // Drag and drop sensors with click/drag distinction
   const sensors = useSensors(
@@ -329,13 +342,22 @@ export function AppSidebar({
     logger.log('Drag cancelled');
   }, []);
 
-  // Handle community selection with sophisticated rocket animation
+  // Handle community selection with non-blocking rocket animation
   const handleCommunitySelect = useCallback(async (communityId: string | null) => {
     logger.log('handleCommunitySelect called:', { communityId, selectedCommunity, isAnimating });
 
-    if (!communityId || communityId === selectedCommunity || isAnimating) {
+    if (!communityId || communityId === selectedCommunity) {
       onSelectCommunity(communityId);
       return;
+    }
+
+    // Navigate IMMEDIATELY (no delay) - this is what the user cares about
+    onSelectCommunity(communityId);
+    try {
+      const naddr = communityIdToNaddr(communityId);
+      navigate(`/space/${encodeURIComponent(naddr)}/general`);
+    } catch (error) {
+      logger.error('Failed to navigate to community:', error);
     }
 
     // Clear any existing animation timeouts to prevent race conditions
@@ -344,36 +366,33 @@ export function AppSidebar({
 
     setIsAnimating(true);
 
-    // Phase 1: Launch animation
+    // Phase 1: Launch animation (visual only, runs in parallel with navigation)
     setLaunchingCommunity(communityId);
     logger.log('🚀 Launch animation started for:', communityId);
 
     // Play launch sound immediately at very low volume
     playSound('/sounds/rocket-launching.mp3', 0.01);
 
-    // Phase 2: After launch animation starts, fade out and move to top
+    // Phase 2: Transition to landing animation
     const timeoutId1 = setTimeout(() => {
       setLaunchingCommunity(null);
       setLandingCommunity(communityId);
       logger.log('🛬 Landing animation started for:', communityId);
 
-      // Actually select the community
-      onSelectCommunity(communityId);
-
-      // Phase 3: Clear landing animation after it completes (no landing sound)
+      // Phase 3: Clear landing animation after it completes
       const timeoutId2 = setTimeout(() => {
         // Double-check we're still working with the same community
         setLandingCommunity(prev => prev === communityId ? null : prev);
         setIsAnimating(false);
         animationTimeouts.current.delete(timeoutId2);
-      }, 600); // Landing animation duration
+      }, 300); // Landing animation duration
 
       animationTimeouts.current.add(timeoutId2);
       animationTimeouts.current.delete(timeoutId1);
-    }, 400); // Launch animation duration before fade out
+    }, 200); // Launch animation duration
 
     animationTimeouts.current.add(timeoutId1);
-  }, [selectedCommunity, isAnimating, playSound, onSelectCommunity]);
+  }, [selectedCommunity, isAnimating, playSound, onSelectCommunity, navigate]);
 
   // Reset animation states when component unmounts
   useEffect(() => {
@@ -390,27 +409,33 @@ export function AppSidebar({
 
 
 
-  // Add mouse down handler for community interactions
-  const handleCommunityMouseDown = useCallback((communityId: string) => {
-    preloadCommunity(communityId, selectedCommunity || undefined);
-  }, [preloadCommunity, selectedCommunity]);
+  // Convert selectedCommunity from naddr format to full addressable format for comparison
+  const selectedCommunityForComparison = useMemo(() => {
+    if (!selectedCommunity) return null;
+
+    try {
+      const naddr = decodeNaddrFromUrl(selectedCommunity);
+      return naddrToCommunityId(naddr);
+    } catch {
+      return null;
+    }
+  }, [selectedCommunity]);
 
   // Memoize the community list rendering to avoid unnecessary re-renders
   const communityListContent = useMemo(() => {
-    if (!isLoading && orderedCommunities) {
+    if (!dataManagerCommunities.isLoadingCommunities && orderedCommunities) {
       return orderedCommunities.map((community) => (
         <SortableCommunityItem
           key={community.id}
           community={community}
-          isSelected={selectedCommunity === community.id}
+          isSelected={selectedCommunityForComparison === community.id}
           isLaunching={launchingCommunity === community.id}
           isLanding={landingCommunity === community.id}
           isAnimating={isAnimating}
           onSelect={handleCommunitySelect}
-          onMouseDown={handleCommunityMouseDown}
         />
       ));
-    } else if (isLoading) {
+    } else if (dataManagerCommunities.isLoading) {
       // Skeleton loading for communities
       return Array.from({ length: 3 }).map((_, i) => (
         <Skeleton key={i} className="w-12 h-12 rounded-2xl" />
@@ -423,13 +448,15 @@ export function AppSidebar({
         </div>
       );
     }
-  }, [isLoading, orderedCommunities, selectedCommunity, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect, handleCommunityMouseDown]);
+  }, [dataManagerCommunities.isLoadingCommunities, dataManagerCommunities.isLoading, orderedCommunities, selectedCommunityForComparison, launchingCommunity, landingCommunity, isAnimating, handleCommunitySelect]);
 
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full z-10">
-        {/* Fixed top section - Notifications and Direct Messages */}
+        {/* Fixed top section - Connection Status, Notifications, and Direct Messages */}
         <div className="flex flex-col items-center pt-3 pb-2 space-y-2">
+          <ConnectionStatus />
+
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="relative">
@@ -446,10 +473,9 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className={`w-12 h-12 rounded-2xl hover:rounded-xl hover:bg-accent transition-all duration-200 ${
-                  selectedCommunity === null ? 'bg-accent' : ''
-                }`}
-                onClick={() => onSelectCommunity(null)}
+                className={`w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 ${selectedCommunity === null ? 'bg-accent' : ''
+                  }`}
+                onClick={() => navigate('/dm')}
               >
                 <MessageCircle className="w-6 h-6" />
               </Button>
@@ -491,7 +517,7 @@ export function AppSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200 border-2 border-dashed border-border hover:border-nostr-purple text-nostr-purple"
+                className="w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200 border-2 border-dashed border-border hover:border-nostr-purple text-nostr-purple"
                 onClick={() => onShowCommunitySelectionDialogChange(true)}
               >
                 <Plus className="w-6 h-6" />
@@ -509,7 +535,7 @@ export function AppSidebar({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-12 h-12 rounded-2xl hover:rounded-xl transition-all duration-200"
+                  className="w-12 h-12 rounded-2xl hover:rounded-xl bg-accent hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-200"
                 >
                   <div className="relative">
                     <Avatar className="w-10 h-10">

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from './useNostrPublish';
 import { useCurrentUser } from './useCurrentUser';
+import { useDataManager } from '@/components/DataManagerProvider';
 
 export interface JoinCommunityParams {
   communityId: string;
@@ -9,12 +10,13 @@ export interface JoinCommunityParams {
 
 /**
  * Hook for requesting to join a community.
- * Creates a Kind 4552 join request event.
+ * Creates a Kind 4552 join request event and adds the community to the local state.
  */
 export function useJoinCommunity() {
   const { mutate: createEvent } = useNostrPublish();
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
+  const { communities } = useDataManager();
 
   return useMutation({
     mutationFn: async ({ communityId, message = '' }: JoinCommunityParams) => {
@@ -22,7 +24,8 @@ export function useJoinCommunity() {
         throw new Error('User must be logged in to join a community');
       }
 
-      return new Promise<void>((resolve, reject) => {
+      // Publish join request event
+      await new Promise<void>((resolve, reject) => {
         createEvent(
           {
             kind: 4552,
@@ -35,6 +38,11 @@ export function useJoinCommunity() {
           }
         );
       });
+
+      // Add community to local state as prospective
+      await communities.addProspectiveCommunity(communityId);
+
+      return { communityId };
     },
     onSuccess: () => {
       // Invalidate membership queries to refetch updated status

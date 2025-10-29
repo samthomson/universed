@@ -21,6 +21,7 @@ import { useUnreadNotificationCount } from '@/hooks/useNotifications';
 import { SettingsProvider } from '@/contexts/settings.tsx';
 import { SettingsDialog } from '@/components/user/SettingsDialog';
 import { DataManagerProvider } from '@/components/DataManagerProvider';
+import { RelayChangeHandler } from '@/components/RelayChangeHandler';
 
 import AppRouter from './AppRouter';
 
@@ -79,6 +80,7 @@ function AppContent() {
     <SettingsProvider>
         <MessageSystemProvider>
           <TooltipProvider>
+            <RelayChangeHandler />
             <QueryOptimizer />
             <Toaster />
             <Suspense>
